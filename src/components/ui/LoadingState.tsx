@@ -14,12 +14,12 @@ export function LoadingState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center p-12 space-y-3 text-emerald-800",
+        "flex flex-col items-center justify-center p-12 space-y-3 text-foreground",
         className
       )}
     >
-      <Loader2 className="w-8 h-8 animate-spin text-emerald-600" />
-      <p className="text-sm font-medium">{message}</p>
+      <Loader2 className="w-8 h-8 animate-spin text-primary" />
+      <p className="text-sm font-semibold text-muted-foreground">{message}</p>
     </div>
   );
 }
