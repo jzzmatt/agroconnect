@@ -57,6 +57,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
         avatar_url: clerkUser.imageUrl,
         profile_slug: clerkUser.username || `user-${clerkUser.id.slice(-8)}`,
+        preferred_language: "pt",
+        account_type: "customer",
+        status: "active",
         theme_preference: "light",
         is_active: true,
       })
@@ -67,8 +70,10 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
       effectiveProfile = newProfile as Profile;
       // Default initial role: student
       await (supabase.from("user_roles") as any).insert({
+        profile_id: effectiveProfile.id,
         clerk_user_id: clerkUser.id,
         role: "student",
+        is_primary: true,
       });
     }
   }
@@ -92,6 +97,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     avatar_url: effectiveProfile?.avatar_url || clerkUser.imageUrl,
     bio: effectiveProfile?.bio || null,
     profile_slug: effectiveProfile?.profile_slug || clerkUser.username || clerkUser.id,
+    preferred_language: effectiveProfile?.preferred_language || "pt",
+    account_type: effectiveProfile?.account_type || "customer",
+    status: effectiveProfile?.status || "active",
     theme_preference: effectiveProfile?.theme_preference || "light",
     is_active: effectiveProfile?.is_active ?? true,
     roles,

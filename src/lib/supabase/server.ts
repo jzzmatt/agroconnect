@@ -34,3 +34,21 @@ export async function createServerSupabaseClient() {
 export function createPublicServerSupabaseClient() {
   return createClient<Database>(supabaseUrl, supabaseAnonKey);
 }
+
+/**
+ * Creates an admin / service-role server-side Supabase client.
+ * Strictly used for privileged background operations and never exposed to the client.
+ */
+export function createAdminServerSupabaseClient() {
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  if (!serviceRoleKey) {
+    throw new Error("Missing SUPABASE_SERVICE_ROLE_KEY environment variable.");
+  }
+  return createClient<Database>(supabaseUrl, serviceRoleKey, {
+    auth: {
+      autoRefreshToken: false,
+      persistSession: false,
+    },
+  });
+}
+

@@ -16,9 +16,93 @@ export type UserRoleType =
   | "agronomist"
   | "agricultural_consultant"
   | "business"
+  | "farmer"
   | "admin";
 
+export type AccountType =
+  | "customer"
+  | "provider"
+  | "seller"
+  | "farmer"
+  | "instructor"
+  | "organization"
+  | "admin";
+
+export type UserStatus = "active" | "inactive" | "suspended" | "pending_verification";
+
 export type ThemePreference = "light" | "dark";
+
+export type ProviderType =
+  | "individual"
+  | "company"
+  | "cooperative"
+  | "organization"
+  | "technician"
+  | "veterinarian"
+  | "agronomist"
+  | "instructor"
+  | "supplier";
+
+export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
+
+export type PricingType =
+  | "fixed"
+  | "starting_from"
+  | "hourly"
+  | "daily"
+  | "quotation"
+  | "free";
+
+export type ServiceStatus = "draft" | "active" | "paused" | "archived";
+
+export type ProductCondition = "new" | "used" | "refurbished";
+
+export type ProductStatus = "draft" | "active" | "out_of_stock" | "archived";
+
+export type AgriculturalResourceType =
+  | "agronomist"
+  | "veterinarian"
+  | "agricultural_technician"
+  | "irrigation_specialist"
+  | "farm_equipment"
+  | "machinery_rental"
+  | "seed_supplier"
+  | "fertilizer_supplier"
+  | "soil_testing_lab"
+  | "training_facility"
+  | "agricultural_cooperative";
+
+export type MediaEntityType =
+  | "profile_avatar"
+  | "provider_banner"
+  | "service_image"
+  | "product_image"
+  | "course_thumbnail"
+  | "course_video"
+  | "document";
+
+export type StorageProvider =
+  | "cloudflare_r2"
+  | "cloudflare_stream"
+  | "supabase_storage"
+  | "local"
+  | "external";
+
+export type ReviewStatus = "pending" | "published" | "flagged" | "hidden";
+
+export type ServiceRequestStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "completed";
+
+export type FavoriteEntityType =
+  | "service"
+  | "product"
+  | "provider"
+  | "agricultural_resource"
+  | "course";
 
 export interface Database {
   public: {
@@ -27,14 +111,17 @@ export interface Database {
         Row: {
           id: string;
           clerk_user_id: string;
-          display_name: string | null;
-          first_name: string | null;
-          last_name: string | null;
           email: string | null;
           phone: string | null;
+          first_name: string | null;
+          last_name: string | null;
+          display_name: string | null;
           avatar_url: string | null;
           bio: string | null;
           profile_slug: string | null;
+          preferred_language: string;
+          account_type: AccountType;
+          status: UserStatus;
           theme_preference: ThemePreference;
           is_active: boolean;
           created_at: string;
@@ -43,14 +130,17 @@ export interface Database {
         Insert: {
           id?: string;
           clerk_user_id: string;
-          display_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           email?: string | null;
           phone?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          preferred_language?: string;
+          account_type?: AccountType;
+          status?: UserStatus;
           theme_preference?: ThemePreference;
           is_active?: boolean;
           created_at?: string;
@@ -59,14 +149,17 @@ export interface Database {
         Update: {
           id?: string;
           clerk_user_id?: string;
-          display_name?: string | null;
-          first_name?: string | null;
-          last_name?: string | null;
           email?: string | null;
           phone?: string | null;
+          first_name?: string | null;
+          last_name?: string | null;
+          display_name?: string | null;
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          preferred_language?: string;
+          account_type?: AccountType;
+          status?: UserStatus;
           theme_preference?: ThemePreference;
           is_active?: boolean;
           created_at?: string;
@@ -76,23 +169,895 @@ export interface Database {
       user_roles: {
         Row: {
           id: string;
+          profile_id: string;
           clerk_user_id: string;
           role: UserRoleType;
+          is_primary: boolean;
           created_at: string;
         };
         Insert: {
           id?: string;
+          profile_id: string;
           clerk_user_id: string;
           role: UserRoleType;
+          is_primary?: boolean;
           created_at?: string;
         };
         Update: {
           id?: string;
+          profile_id?: string;
           clerk_user_id?: string;
           role?: UserRoleType;
+          is_primary?: boolean;
           created_at?: string;
         };
       };
+      countries: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          code: string;
+          code3: string;
+          currency_code: string;
+          currency_symbol: string;
+          phone_code: string;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          slug: string;
+          code: string;
+          code3: string;
+          currency_code?: string;
+          currency_symbol?: string;
+          phone_code?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          slug?: string;
+          code?: string;
+          code3?: string;
+          currency_code?: string;
+          currency_symbol?: string;
+          phone_code?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      provinces: {
+        Row: {
+          id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code: string;
+          capital: string | null;
+          agricultural_focus: string[] | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code: string;
+          capital?: string | null;
+          agricultural_focus?: string[] | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          country_id?: string;
+          name?: string;
+          slug?: string;
+          code?: string;
+          capital?: string | null;
+          agricultural_focus?: string[] | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      municipalities: {
+        Row: {
+          id: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          province_id?: string;
+          country_id?: string;
+          name?: string;
+          slug?: string;
+          code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      communes: {
+        Row: {
+          id: string;
+          municipality_id: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          municipality_id: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          municipality_id?: string;
+          province_id?: string;
+          country_id?: string;
+          name?: string;
+          slug?: string;
+          code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      localities: {
+        Row: {
+          id: string;
+          commune_id: string | null;
+          municipality_id: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          address_line: string | null;
+          postal_code: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          commune_id?: string | null;
+          municipality_id: string;
+          province_id: string;
+          country_id: string;
+          name: string;
+          slug: string;
+          address_line?: string | null;
+          postal_code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          commune_id?: string | null;
+          municipality_id?: string;
+          province_id?: string;
+          country_id?: string;
+          name?: string;
+          slug?: string;
+          address_line?: string | null;
+          postal_code?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      profile_locations: {
+        Row: {
+          id: string;
+          profile_id: string;
+          label: string;
+          country_id: string;
+          province_id: string;
+          municipality_id: string | null;
+          commune_id: string | null;
+          locality_id: string | null;
+          address_line: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          is_primary: boolean;
+          service_radius_km: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          label?: string;
+          country_id: string;
+          province_id: string;
+          municipality_id?: string | null;
+          commune_id?: string | null;
+          locality_id?: string | null;
+          address_line?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_primary?: boolean;
+          service_radius_km?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          label?: string;
+          country_id?: string;
+          province_id?: string;
+          municipality_id?: string | null;
+          commune_id?: string | null;
+          locality_id?: string | null;
+          address_line?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          is_primary?: boolean;
+          service_radius_km?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      categories: {
+        Row: {
+          id: string;
+          parent_id: string | null;
+          name: string;
+          slug: string;
+          description: string | null;
+          icon: string | null;
+          category_type: string;
+          pillar: string;
+          is_active: boolean;
+          sort_order: number;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          parent_id?: string | null;
+          name: string;
+          slug: string;
+          description?: string | null;
+          icon?: string | null;
+          category_type?: string;
+          pillar?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          parent_id?: string | null;
+          name?: string;
+          slug?: string;
+          description?: string | null;
+          icon?: string | null;
+          category_type?: string;
+          pillar?: string;
+          is_active?: boolean;
+          sort_order?: number;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      provider_profiles: {
+        Row: {
+          id: string;
+          profile_id: string;
+          provider_type: ProviderType;
+          business_name: string;
+          slug: string;
+          description: string | null;
+          headline: string | null;
+          phone: string | null;
+          email: string | null;
+          website: string | null;
+          tax_id: string | null;
+          verification_status: VerificationStatus;
+          status: string;
+          rating: number | null;
+          reviews_count: number | null;
+          country_id: string | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          service_radius_km: number | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          provider_type?: ProviderType;
+          business_name: string;
+          slug: string;
+          description?: string | null;
+          headline?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          tax_id?: string | null;
+          verification_status?: VerificationStatus;
+          status?: string;
+          rating?: number | null;
+          reviews_count?: number | null;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          provider_type?: ProviderType;
+          business_name?: string;
+          slug?: string;
+          description?: string | null;
+          headline?: string | null;
+          phone?: string | null;
+          email?: string | null;
+          website?: string | null;
+          tax_id?: string | null;
+          verification_status?: VerificationStatus;
+          status?: string;
+          rating?: number | null;
+          reviews_count?: number | null;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      services: {
+        Row: {
+          id: string;
+          provider_id: string;
+          category_id: string | null;
+          title: string;
+          slug: string;
+          short_description: string | null;
+          description: string | null;
+          pricing_type: PricingType;
+          price: number;
+          currency: string;
+          country_id: string | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          service_radius_km: number | null;
+          status: ServiceStatus;
+          is_featured: boolean;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          category_id?: string | null;
+          title: string;
+          slug: string;
+          short_description?: string | null;
+          description?: string | null;
+          pricing_type?: PricingType;
+          price?: number;
+          currency?: string;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          status?: ServiceStatus;
+          is_featured?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          category_id?: string | null;
+          title?: string;
+          slug?: string;
+          short_description?: string | null;
+          description?: string | null;
+          pricing_type?: PricingType;
+          price?: number;
+          currency?: string;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          status?: ServiceStatus;
+          is_featured?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      products: {
+        Row: {
+          id: string;
+          seller_id: string;
+          category_id: string | null;
+          title: string;
+          slug: string;
+          description: string | null;
+          condition: ProductCondition;
+          price: number;
+          currency: string;
+          quantity: number;
+          unit: string;
+          sku: string | null;
+          country_id: string | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          status: ProductStatus;
+          is_featured: boolean;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          seller_id: string;
+          category_id?: string | null;
+          title: string;
+          slug: string;
+          description?: string | null;
+          condition?: ProductCondition;
+          price?: number;
+          currency?: string;
+          quantity?: number;
+          unit?: string;
+          sku?: string | null;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          status?: ProductStatus;
+          is_featured?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          seller_id?: string;
+          category_id?: string | null;
+          title?: string;
+          slug?: string;
+          description?: string | null;
+          condition?: ProductCondition;
+          price?: number;
+          currency?: string;
+          quantity?: number;
+          unit?: string;
+          sku?: string | null;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          status?: ProductStatus;
+          is_featured?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      agricultural_resources: {
+        Row: {
+          id: string;
+          provider_id: string;
+          category_id: string | null;
+          title: string;
+          slug: string;
+          description: string | null;
+          resource_type: AgriculturalResourceType;
+          country_id: string | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          service_radius_km: number | null;
+          status: string;
+          is_verified: boolean;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          provider_id: string;
+          category_id?: string | null;
+          title: string;
+          slug: string;
+          description?: string | null;
+          resource_type: AgriculturalResourceType;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          status?: string;
+          is_verified?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          provider_id?: string;
+          category_id?: string | null;
+          title?: string;
+          slug?: string;
+          description?: string | null;
+          resource_type?: AgriculturalResourceType;
+          country_id?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          service_radius_km?: number | null;
+          status?: string;
+          is_verified?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      media_assets: {
+        Row: {
+          id: string;
+          owner_profile_id: string;
+          entity_type: MediaEntityType;
+          entity_id: string | null;
+          storage_provider: StorageProvider;
+          storage_key: string;
+          url: string;
+          mime_type: string | null;
+          file_size: number | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_profile_id: string;
+          entity_type: MediaEntityType;
+          entity_id?: string | null;
+          storage_provider?: StorageProvider;
+          storage_key: string;
+          url: string;
+          mime_type?: string | null;
+          file_size?: number | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_profile_id?: string;
+          entity_type?: MediaEntityType;
+          entity_id?: string | null;
+          storage_provider?: StorageProvider;
+          storage_key?: string;
+          url?: string;
+          mime_type?: string | null;
+          file_size?: number | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+      };
+      reviews: {
+        Row: {
+          id: string;
+          reviewer_id: string;
+          provider_id: string;
+          service_id: string | null;
+          product_id: string | null;
+          rating: number;
+          title: string | null;
+          comment: string | null;
+          status: ReviewStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          reviewer_id: string;
+          provider_id: string;
+          service_id?: string | null;
+          product_id?: string | null;
+          rating: number;
+          title?: string | null;
+          comment?: string | null;
+          status?: ReviewStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          reviewer_id?: string;
+          provider_id?: string;
+          service_id?: string | null;
+          product_id?: string | null;
+          rating?: number;
+          title?: string | null;
+          comment?: string | null;
+          status?: ReviewStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      service_requests: {
+        Row: {
+          id: string;
+          customer_id: string;
+          provider_id: string;
+          service_id: string | null;
+          status: ServiceRequestStatus;
+          requested_date: string | null;
+          message: string | null;
+          location_notes: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          estimated_price: number | null;
+          currency: string;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          provider_id: string;
+          service_id?: string | null;
+          status?: ServiceRequestStatus;
+          requested_date?: string | null;
+          message?: string | null;
+          location_notes?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          estimated_price?: number | null;
+          currency?: string;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          provider_id?: string;
+          service_id?: string | null;
+          status?: ServiceRequestStatus;
+          requested_date?: string | null;
+          message?: string | null;
+          location_notes?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          estimated_price?: number | null;
+          currency?: string;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      notifications: {
+        Row: {
+          id: string;
+          profile_id: string;
+          type: string;
+          title: string;
+          message: string;
+          data: Json | null;
+          read_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          type: string;
+          title: string;
+          message: string;
+          data?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          type?: string;
+          title?: string;
+          message?: string;
+          data?: Json | null;
+          read_at?: string | null;
+          created_at?: string;
+        };
+      };
+      favorites: {
+        Row: {
+          id: string;
+          profile_id: string;
+          entity_type: FavoriteEntityType;
+          entity_id: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          entity_type: FavoriteEntityType;
+          entity_id: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          entity_type?: FavoriteEntityType;
+          entity_id?: string;
+          created_at?: string;
+        };
+      };
+      audit_logs: {
+        Row: {
+          id: string;
+          actor_profile_id: string | null;
+          action: string;
+          entity_type: string;
+          entity_id: string | null;
+          metadata: Json | null;
+          ip_address: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          actor_profile_id?: string | null;
+          action: string;
+          entity_type: string;
+          entity_id?: string | null;
+          metadata?: Json | null;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          actor_profile_id?: string | null;
+          action?: string;
+          entity_type?: string;
+          entity_id?: string | null;
+          metadata?: Json | null;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+      };
+      // Backward compatibility for Phase 1 flat locations view/table
       locations: {
         Row: {
           id: string;
@@ -148,21 +1113,44 @@ export interface Database {
       [_ in never]: never;
     };
     Functions: {
-      sync_location_point: {
+      handle_updated_at: {
         Args: Record<PropertyKey, never>;
         Returns: unknown;
       };
-      set_updated_at: {
+      sync_geography_point: {
         Args: Record<PropertyKey, never>;
         Returns: unknown;
+      };
+      current_clerk_user_id: {
+        Args: Record<PropertyKey, never>;
+        Returns: string | null;
       };
     };
     Enums: {
       user_role: UserRoleType;
+      account_type: AccountType;
+      theme_preference: ThemePreference;
     };
   };
 }
 
 export type Profile = Database["public"]["Tables"]["profiles"]["Row"];
 export type UserRole = Database["public"]["Tables"]["user_roles"]["Row"];
+export type Country = Database["public"]["Tables"]["countries"]["Row"];
+export type Province = Database["public"]["Tables"]["provinces"]["Row"];
+export type Municipality = Database["public"]["Tables"]["municipalities"]["Row"];
+export type Commune = Database["public"]["Tables"]["communes"]["Row"];
+export type Locality = Database["public"]["Tables"]["localities"]["Row"];
+export type ProfileLocation = Database["public"]["Tables"]["profile_locations"]["Row"];
+export type Category = Database["public"]["Tables"]["categories"]["Row"];
+export type ProviderProfile = Database["public"]["Tables"]["provider_profiles"]["Row"];
+export type Service = Database["public"]["Tables"]["services"]["Row"];
+export type Product = Database["public"]["Tables"]["products"]["Row"];
+export type AgriculturalResource = Database["public"]["Tables"]["agricultural_resources"]["Row"];
+export type MediaAsset = Database["public"]["Tables"]["media_assets"]["Row"];
+export type Review = Database["public"]["Tables"]["reviews"]["Row"];
+export type ServiceRequest = Database["public"]["Tables"]["service_requests"]["Row"];
+export type Notification = Database["public"]["Tables"]["notifications"]["Row"];
+export type Favorite = Database["public"]["Tables"]["favorites"]["Row"];
+export type AuditLog = Database["public"]["Tables"]["audit_logs"]["Row"];
 export type LocationRecord = Database["public"]["Tables"]["locations"]["Row"];
