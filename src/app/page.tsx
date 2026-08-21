@@ -56,6 +56,38 @@ export default function LandingPage() {
                 {dict.landing.heroSubtitle}
               </p>
 
+              {/* CTA Banner Card positioned right below description */}
+              <div className="pt-2 pb-2 max-w-xl mx-auto">
+                <div className="bg-linear-to-r from-emerald-900 to-emerald-950 dark:from-emerald-950 dark:to-emerald-900 rounded-3xl p-6 sm:p-8 text-center text-white relative overflow-hidden shadow-xl border border-border">
+                  <div className="relative z-10 max-w-md mx-auto space-y-4">
+                    <span className="inline-block px-3.5 py-1 rounded-full bg-emerald-800 text-emerald-200 text-xs font-bold uppercase tracking-wider">
+                      Junte-se à Comunidade Agrícola
+                    </span>
+                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
+                      {dict.landing.ctaBannerTitle}
+                    </h2>
+                    <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
+                      {dict.landing.ctaBannerSubtitle}
+                    </p>
+                    <div className="pt-2">
+                      <Link href="/sign-up">
+                        <Button
+                          variant="primary"
+                          size="lg"
+                          className="bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold px-8 h-11 shadow-lg"
+                        >
+                          {dict.landing.ctaBannerButton}
+                        </Button>
+                      </Link>
+                    </div>
+                  </div>
+
+                  {/* Decorative background circle rings */}
+                  <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
+                  <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
+                </div>
+              </div>
+
               {/* Primary & Secondary CTAs */}
               <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
                 <Link href="/agriexpert" className="w-full sm:w-auto">
@@ -498,40 +530,6 @@ export default function LandingPage() {
                 {dict.landing.trustItems.growth.desc}
               </p>
             </div>
-          </div>
-        </section>
-
-        {/* ======================================================== */}
-        {/* 6. CTA BANNER                                            */}
-        {/* ======================================================== */}
-        <section className="py-12 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 mb-12">
-          <div className="bg-linear-to-r from-emerald-900 to-emerald-950 dark:from-emerald-950 dark:to-emerald-900 rounded-3xl p-8 sm:p-12 lg:p-16 text-center text-white relative overflow-hidden shadow-xl border border-border">
-            <div className="relative z-10 max-w-2xl mx-auto space-y-6">
-              <span className="inline-block px-3.5 py-1 rounded-full bg-emerald-800 text-emerald-200 text-xs font-bold uppercase tracking-wider">
-                Junte-se à Comunidade Agrícola
-              </span>
-              <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white">
-                {dict.landing.ctaBannerTitle}
-              </h2>
-              <p className="text-sm sm:text-base text-emerald-100/90 leading-relaxed">
-                {dict.landing.ctaBannerSubtitle}
-              </p>
-              <div className="pt-2">
-                <Link href="/sign-up">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold px-8 h-12 shadow-lg"
-                  >
-                    {dict.landing.ctaBannerButton}
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Decorative background circle rings */}
-            <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
-            <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
           </div>
         </section>
       </main>
