@@ -3,49 +3,40 @@ import {
   createLocationProvider,
   getDefaultLocationProvider,
   LocalAngolaGeocodingProvider,
-  ConfigurableHttpGeocodingProvider,
-  MapLibreOpenFreeMapProvider,
-  OPEN_FREE_MAP_STYLES,
-  getThemeMapStyle,
+  MapQuestGeocodingProvider,
+  MapQuestProvider,
+  getMapQuestTileUrl,
 } from "@/lib/location/providers";
 
-describe("LocationProvider & MapLibre OpenFreeMap Basemap Architecture", () => {
-  it("creates a default LocationProvider containing MapProvider and GeocodingProvider", () => {
+describe("LocationProvider & MapQuest Geospatial Architecture", () => {
+  it("creates a default LocationProvider containing MapQuest MapProvider and GeocodingProvider", () => {
     const provider = getDefaultLocationProvider();
     expect(provider).toBeDefined();
     expect(provider.mapProvider).toBeDefined();
     expect(provider.geocodingProvider).toBeDefined();
-    expect(provider.mapProvider.id).toBe("maplibre-openfreemap");
+    expect(provider.mapProvider.id).toBe("mapquest");
   });
 
-  it("supports all official OpenFreeMap styles including liberty, dark, bright, positron", () => {
-    const mapProvider = new MapLibreOpenFreeMapProvider("liberty");
-    expect(mapProvider.id).toBe("maplibre-openfreemap");
-    expect(OPEN_FREE_MAP_STYLES.liberty).toBe("https://tiles.openfreemap.org/styles/liberty");
-    expect(OPEN_FREE_MAP_STYLES.dark).toBe("https://tiles.openfreemap.org/styles/dark");
-    expect(OPEN_FREE_MAP_STYLES.positron).toBe("https://tiles.openfreemap.org/styles/positron");
-    expect(OPEN_FREE_MAP_STYLES.bright).toBe("https://tiles.openfreemap.org/styles/bright");
+  it("generates correct MapQuest tile URLs for standard map and satellite layers", () => {
+    const mapTile = getMapQuestTileUrl("test_key_123", "map");
+    expect(mapTile).toBe("https://api.mapquest.com/tiles/v3/map/{z}/{x}/{y}.png?key=test_key_123");
+
+    const satTile = getMapQuestTileUrl("test_key_123", "satellite");
+    expect(satTile).toBe("https://api.mapquest.com/tiles/v3/sat/{z}/{x}/{y}.png?key=test_key_123");
+
+    const darkTile = getMapQuestTileUrl("test_key_123", "dark");
+    expect(darkTile).toBe("https://api.mapquest.com/tiles/v3/dark/{z}/{x}/{y}.png?key=test_key_123");
   });
 
-  it("resolves theme-aware style URLs for light and dark modes", () => {
-    expect(getThemeMapStyle("light")).toBe("https://tiles.openfreemap.org/styles/liberty");
-    expect(getThemeMapStyle("dark")).toBe("https://tiles.openfreemap.org/styles/dark");
-  });
+  it("supports layer type switching in MapQuestProvider (map, satellite, dark)", () => {
+    const mapProvider = new MapQuestProvider("test_key", "map");
+    expect(mapProvider.getLayerType()).toBe("map");
 
-  it("supports 2D and 3D camera controls and state tracking", () => {
-    const mapProvider = new MapLibreOpenFreeMapProvider();
-    expect(mapProvider.getViewMode()).toBe("2d");
-    expect(mapProvider.getPitch()).toBe(0);
+    mapProvider.setLayerType("satellite");
+    expect(mapProvider.getLayerType()).toBe("satellite");
 
-    mapProvider.set3DView(60, -20);
-    expect(mapProvider.getPitch()).toBe(60);
-    expect(mapProvider.getBearing()).toBe(-20);
-    expect(mapProvider.getViewMode()).toBe("3d");
-
-    mapProvider.set2DView();
-    expect(mapProvider.getPitch()).toBe(0);
-    expect(mapProvider.getBearing()).toBe(0);
-    expect(mapProvider.getViewMode()).toBe("2d");
+    mapProvider.setLayerType("dark");
+    expect(mapProvider.getLayerType()).toBe("dark");
   });
 
   it("performs forward geocoding with LocalAngolaGeocodingProvider", async () => {
@@ -71,10 +62,8 @@ describe("LocationProvider & MapLibre OpenFreeMap Basemap Architecture", () => {
     expect(result?.provinceName).toBe("Huíla");
   });
 
-  it("falls back gracefully to local provider when ConfigurableHttpGeocodingProvider has no URL", async () => {
-    const geocoder = new ConfigurableHttpGeocodingProvider({
-      endpointUrl: "",
-    });
+  it("falls back gracefully to local provider when MapQuestGeocodingProvider has no API key", async () => {
+    const geocoder = new MapQuestGeocodingProvider("");
 
     const results = await geocoder.forward("Benguela");
     expect(results.length).toBeGreaterThan(0);
@@ -83,11 +72,11 @@ describe("LocationProvider & MapLibre OpenFreeMap Basemap Architecture", () => {
 
   it("allows instantiating a custom LocationProvider with decoupled options", () => {
     const custom = createLocationProvider({
-      mapStyle: "positron",
-      geocodingEndpointUrl: "https://nominatim.openstreetmap.org/search",
+      apiKey: "custom_key_456",
+      initialLayer: "satellite",
     });
 
-    expect(custom.mapProvider.id).toBe("maplibre-openfreemap");
-    expect(custom.geocodingProvider.id).toBe("configurable-http");
+    expect(custom.mapProvider.id).toBe("mapquest");
+    expect(custom.geocodingProvider.id).toBe("mapquest-geocoding");
   });
 });

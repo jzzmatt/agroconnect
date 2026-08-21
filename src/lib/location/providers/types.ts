@@ -1,7 +1,7 @@
-import type { GeoCoordinate, GeographicLocation } from "@/types/domain";
+import type { GeoCoordinate } from "@/types/domain";
 
 /**
- * Common Map Configuration Options
+ * Common Map Configuration Options for MapQuest Map
  */
 export interface MapOptions {
   container: HTMLElement | string;
@@ -9,9 +9,7 @@ export interface MapOptions {
   zoom?: number;
   minZoom?: number;
   maxZoom?: number;
-  pitch?: number;
-  bearing?: number;
-  styleUrl?: string;
+  layerType?: "map" | "satellite" | "hybrid" | "dark" | "light";
   interactive?: boolean;
   onLoad?: () => void;
   onError?: (error: Error) => void;
@@ -33,12 +31,12 @@ export interface MapMarkerDescriptor {
 }
 
 /**
- * Map View Mode (2D flat vs 3D pitched)
+ * Supported Map Layer Modes
  */
-export type MapViewMode = "2d" | "3d";
+export type MapLayerType = "map" | "satellite" | "hybrid" | "dark" | "light";
 
 /**
- * MapProvider Interface: Contract for renderable map engines (e.g. MapLibre GL, OpenFreeMap)
+ * MapProvider Interface: Contract for renderable map engines (MapQuest JS + Leaflet)
  */
 export interface IMapProvider {
   readonly id: string;
@@ -46,17 +44,11 @@ export interface IMapProvider {
   initialize(options: MapOptions): Promise<void> | void;
   setCenter(center: GeoCoordinate, zoom?: number, duration?: number): void;
   getCenter(): GeoCoordinate;
-  setZoom(zoom: number, duration?: number): void;
+  setZoom(zoom: number): void;
   getZoom(): number;
-  setPitch(pitch: number, duration?: number): void;
-  getPitch(): number;
-  setBearing(bearing: number, duration?: number): void;
-  getBearing(): number;
-  set2DView(duration?: number): void;
-  set3DView(pitch?: number, bearing?: number, duration?: number): void;
-  getViewMode(): MapViewMode;
+  setLayerType(layerType: MapLayerType): void;
+  getLayerType(): MapLayerType;
   resize(): void;
-  setStyle(styleUrl: string): void;
   addMarker(marker: MapMarkerDescriptor): void;
   removeMarker(markerId: string): void;
   clearMarkers(): void;
@@ -97,13 +89,25 @@ export interface GeocodingQueryOptions {
 }
 
 /**
- * GeocodingProvider Interface: Contract for forward & reverse address resolution
+ * Direction/Routing result placeholder for future navigation
+ */
+export interface DirectionResult {
+  distanceKm: number;
+  durationMinutes: number;
+  narrativeSteps: string[];
+  bounds?: [GeoCoordinate, GeoCoordinate];
+}
+
+/**
+ * GeocodingProvider Interface: Contract for forward, reverse, and place search address resolution
  */
 export interface IGeocodingProvider {
   readonly id: string;
   readonly name: string;
   forward(query: string, options?: GeocodingQueryOptions): Promise<GeocodingResult[]>;
   reverse(coordinates: GeoCoordinate): Promise<GeocodingResult | null>;
+  searchPlaces(query: string, options?: GeocodingQueryOptions): Promise<GeocodingResult[]>;
+  getDirections?(start: GeoCoordinate, end: GeoCoordinate): Promise<DirectionResult | null>;
 }
 
 /**

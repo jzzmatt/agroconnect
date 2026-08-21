@@ -3,37 +3,33 @@ import type {
   IMapProvider,
   IGeocodingProvider,
 } from "./types";
-import { MapLibreOpenFreeMapProvider } from "./maplibre-openfreemap";
-import { LocalAngolaGeocodingProvider, ConfigurableHttpGeocodingProvider } from "./geocoding";
+import { MapQuestProvider } from "./mapquest-map";
+import { MapQuestGeocodingProvider, LocalAngolaGeocodingProvider } from "./geocoding";
 
 export * from "./types";
-export * from "./maplibre-openfreemap";
+export * from "./mapquest-map";
 export * from "./geocoding";
 
 export interface LocationProviderOptions {
-  mapStyle?: string;
-  geocodingEndpointUrl?: string;
-  geocodingApiKey?: string;
+  apiKey?: string;
+  initialLayer?: "map" | "satellite" | "hybrid" | "dark" | "light";
 }
 
 /**
- * Creates a configured LocationProvider instance decoupling Map rendering (OpenFreeMap + MapLibre)
- * and Geocoding search from the rest of AGROCONNECT.
+ * Creates an authoritative MapQuest LocationProvider instance.
+ * Decouples external mapping (MapQuest) from Supabase PostGIS spatial data models.
  */
 export function createLocationProvider(options?: LocationProviderOptions): ILocationProvider {
-  const mapProvider: IMapProvider = new MapLibreOpenFreeMapProvider(
-    options?.mapStyle || process.env.NEXT_PUBLIC_MAP_STYLE_URL || process.env.NEXT_PUBLIC_MAP_STYLE || "liberty"
+  const apiKey = options?.apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
+
+  const mapProvider: IMapProvider = new MapQuestProvider(
+    apiKey,
+    options?.initialLayer || "map"
   );
 
-  let geocodingProvider: IGeocodingProvider;
-  if (options?.geocodingEndpointUrl || process.env.NEXT_PUBLIC_GEOCODING_URL) {
-    geocodingProvider = new ConfigurableHttpGeocodingProvider({
-      endpointUrl: options?.geocodingEndpointUrl || process.env.NEXT_PUBLIC_GEOCODING_URL || "",
-      apiKey: options?.geocodingApiKey || process.env.NEXT_PUBLIC_GEOCODING_KEY,
-    });
-  } else {
-    geocodingProvider = new LocalAngolaGeocodingProvider();
-  }
+  const geocodingProvider: IGeocodingProvider = apiKey
+    ? new MapQuestGeocodingProvider(apiKey)
+    : new LocalAngolaGeocodingProvider();
 
   return {
     mapProvider,

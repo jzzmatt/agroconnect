@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
-import "maplibre-gl/dist/maplibre-gl.css";
+import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { I18nProvider } from "@/i18n/provider";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";

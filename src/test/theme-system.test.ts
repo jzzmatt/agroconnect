@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { TOKENS } from "@/config/tokens";
-import { getThemeMapStyle, OPEN_FREE_MAP_STYLES } from "@/lib/location/providers/maplibre-openfreemap";
+import { getMapQuestTileUrl } from "@/lib/location/providers/mapquest-map";
 
 describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
   it("1. Defines dedicated semantic tokens for Light Theme", () => {
@@ -18,12 +18,12 @@ describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
     expect(TOKENS.dark.colors.foreground).toBe("#F1F5F3");
   });
 
-  it("3. Configures theme-aware map style urls for Light and Dark modes", () => {
-    const lightStyle = getThemeMapStyle("light");
-    expect(lightStyle).toContain("openfreemap.org/styles/liberty");
+  it("3. Configures theme-aware map layer tile URLs for Light and Dark modes", () => {
+    const lightTile = getMapQuestTileUrl("test_key", "map");
+    expect(lightTile).toContain("api.mapquest.com/tiles/v3/map");
 
-    const darkStyle = getThemeMapStyle("dark");
-    expect(darkStyle).toContain("openfreemap.org/styles/dark");
+    const darkTile = getMapQuestTileUrl("test_key", "dark");
+    expect(darkTile).toContain("api.mapquest.com/tiles/v3/dark");
   });
 
   it("4. Validates database profile type supports theme_preference field", () => {

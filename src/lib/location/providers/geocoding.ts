@@ -2,6 +2,7 @@ import type {
   IGeocodingProvider,
   GeocodingResult,
   GeocodingQueryOptions,
+  DirectionResult,
 } from "./types";
 import type { GeoCoordinate } from "@/types/domain";
 import {
@@ -10,11 +11,11 @@ import {
   ANGOLA_COUNTRY_CODE,
   ANGOLA_COUNTRY_NAME,
 } from "@/config/locations";
-import { calculateDistance } from "../index";
+import { calculateDistance } from "../location-service";
 
 /**
- * Local Angola Dataset Geocoding Provider.
- * Fast, reliable, offline-ready forward and reverse geocoding for Angola's 18 provinces and key municipalities.
+ * Local Angola Administrative Dataset Geocoding Provider.
+ * Fast, offline-capable fallback for Angola's 18 provinces and key municipalities.
  */
 export class LocalAngolaGeocodingProvider implements IGeocodingProvider {
   public readonly id = "local-angola";
@@ -73,7 +74,6 @@ export class LocalAngolaGeocodingProvider implements IGeocodingProvider {
       }
     }
 
-    // Optional proximity sort
     if (options?.proximity) {
       const p = options.proximity;
       results.sort(
@@ -119,50 +119,56 @@ export class LocalAngolaGeocodingProvider implements IGeocodingProvider {
 
     return null;
   }
-}
 
-export interface HttpGeocoderConfig {
-  endpointUrl: string;
-  apiKey?: string;
-  countryCode?: string;
+  public async searchPlaces(
+    query: string,
+    options?: GeocodingQueryOptions
+  ): Promise<GeocodingResult[]> {
+    return this.forward(query, options);
+  }
 }
 
 /**
- * Configurable Remote HTTP Geocoding Provider (e.g. Nominatim / Pelias / Geocodio / Custom Gateway)
- * Falls back gracefully to LocalAngolaGeocodingProvider if the remote request fails or is offline.
+ * Official MapQuest Geocoding, Reverse Geocoding & Place Search Provider
+ * API Documentation: https://developer.mapquest.com/documentation/api/geocoding/
  */
-export class ConfigurableHttpGeocodingProvider implements IGeocodingProvider {
-  public readonly id: string;
-  public readonly name: string;
-  private config: HttpGeocoderConfig;
+export class MapQuestGeocodingProvider implements IGeocodingProvider {
+  public readonly id = "mapquest-geocoding";
+  public readonly name = "MapQuest Geocoding & Search";
+
+  private apiKey: string;
   private fallbackProvider: LocalAngolaGeocodingProvider;
 
-  constructor(
-    config: HttpGeocoderConfig,
-    id = "configurable-http",
-    name = "Serviço Geocoding Remoto"
-  ) {
-    this.id = id;
-    this.name = name;
-    this.config = config;
+  constructor(apiKey?: string) {
+    this.apiKey = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
     this.fallbackProvider = new LocalAngolaGeocodingProvider();
   }
 
+  /**
+   * Forward Geocoding via MapQuest Address API
+   */
   public async forward(
     query: string,
     options?: GeocodingQueryOptions
   ): Promise<GeocodingResult[]> {
-    if (!this.config.endpointUrl) {
+    if (!this.apiKey) {
       return this.fallbackProvider.forward(query, options);
     }
 
+    const cleanQuery = query.trim();
+    if (!cleanQuery) return [];
+
     try {
-      const url = new URL(this.config.endpointUrl);
-      url.searchParams.set("q", query);
-      url.searchParams.set("format", "json");
-      url.searchParams.set("countrycodes", options?.countryCode || this.config.countryCode || "ao");
-      if (options?.limit) url.searchParams.set("limit", String(options.limit));
-      if (this.config.apiKey) url.searchParams.set("key", this.config.apiKey);
+      // Prioritize Angola in address lookup
+      const locationParam = cleanQuery.toLowerCase().includes("angola")
+        ? cleanQuery
+        : `${cleanQuery}, Angola`;
+
+      const url = new URL("https://www.mapquestapi.com/geocoding/v1/address");
+      url.searchParams.set("key", this.apiKey);
+      url.searchParams.set("location", locationParam);
+      url.searchParams.set("maxResults", String(options?.limit || 10));
+      url.searchParams.set("thumbMaps", "false");
 
       const response = await fetch(url.toString(), {
         headers: { Accept: "application/json" },
@@ -173,19 +179,39 @@ export class ConfigurableHttpGeocodingProvider implements IGeocodingProvider {
       }
 
       const data = await response.json();
-      if (Array.isArray(data) && data.length > 0) {
-        return data.map((item: any, idx: number) => ({
-          id: String(item.place_id || item.id || idx),
-          name: item.name || item.display_name?.split(",")[0] || query,
-          formattedAddress: item.display_name || query,
-          countryCode: ANGOLA_COUNTRY_CODE,
-          countryName: ANGOLA_COUNTRY_NAME,
-          coordinates: {
-            latitude: parseFloat(item.lat),
-            longitude: parseFloat(item.lon),
-          },
-          raw: item,
-        }));
+      const locations = data?.results?.[0]?.locations;
+
+      if (Array.isArray(locations) && locations.length > 0) {
+        const results: GeocodingResult[] = locations
+          .filter((loc: any) => loc.latLng && loc.latLng.lat !== 0 && loc.latLng.lng !== 0)
+          .map((loc: any, idx: number) => {
+            const muni = loc.adminArea5 || loc.adminArea4 || "";
+            const province = loc.adminArea3 || "";
+            const country = loc.adminArea1 || ANGOLA_COUNTRY_NAME;
+            const formatted = [loc.street, muni, province, country]
+              .filter(Boolean)
+              .join(", ");
+
+            return {
+              id: `mq-${idx}-${loc.latLng.lat}-${loc.latLng.lng}`,
+              name: muni || province || cleanQuery,
+              formattedAddress: formatted || cleanQuery,
+              countryCode: loc.adminArea1 === "AO" ? "AO" : ANGOLA_COUNTRY_CODE,
+              countryName: country,
+              provinceName: province || null,
+              municipalityName: muni || null,
+              coordinates: {
+                latitude: loc.latLng.lat,
+                longitude: loc.latLng.lng,
+              },
+              confidence: 0.9,
+              raw: loc,
+            };
+          });
+
+        if (results.length > 0) {
+          return results;
+        }
       }
 
       return this.fallbackProvider.forward(query, options);
@@ -194,7 +220,156 @@ export class ConfigurableHttpGeocodingProvider implements IGeocodingProvider {
     }
   }
 
+  /**
+   * Reverse Geocoding via MapQuest Reverse API
+   */
   public async reverse(coordinates: GeoCoordinate): Promise<GeocodingResult | null> {
-    return this.fallbackProvider.reverse(coordinates);
+    if (!this.apiKey) {
+      return this.fallbackProvider.reverse(coordinates);
+    }
+
+    try {
+      const url = new URL("https://www.mapquestapi.com/geocoding/v1/reverse");
+      url.searchParams.set("key", this.apiKey);
+      url.searchParams.set("location", `${coordinates.latitude},${coordinates.longitude}`);
+      url.searchParams.set("thumbMaps", "false");
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        return this.fallbackProvider.reverse(coordinates);
+      }
+
+      const data = await response.json();
+      const loc = data?.results?.[0]?.locations?.[0];
+
+      if (loc) {
+        const muni = loc.adminArea5 || loc.adminArea4 || "";
+        const province = loc.adminArea3 || "";
+        const country = loc.adminArea1 || ANGOLA_COUNTRY_NAME;
+        const formatted = [loc.street, muni, province, country]
+          .filter(Boolean)
+          .join(", ");
+
+        return {
+          id: `mq-rev-${coordinates.latitude}-${coordinates.longitude}`,
+          name: muni || province || "Localização",
+          formattedAddress: formatted || `${coordinates.latitude.toFixed(4)}, ${coordinates.longitude.toFixed(4)}`,
+          countryCode: loc.adminArea1 === "AO" ? "AO" : ANGOLA_COUNTRY_CODE,
+          countryName: country,
+          provinceName: province || null,
+          municipalityName: muni || null,
+          coordinates,
+          confidence: 0.95,
+          raw: loc,
+        };
+      }
+
+      return this.fallbackProvider.reverse(coordinates);
+    } catch {
+      return this.fallbackProvider.reverse(coordinates);
+    }
+  }
+
+  /**
+   * MapQuest Place Search / Prediction API
+   */
+  public async searchPlaces(
+    query: string,
+    options?: GeocodingQueryOptions
+  ): Promise<GeocodingResult[]> {
+    if (!this.apiKey) {
+      return this.fallbackProvider.searchPlaces(query, options);
+    }
+
+    const clean = query.trim();
+    if (!clean) return [];
+
+    try {
+      const url = new URL("https://www.mapquestapi.com/search/v3/prediction");
+      url.searchParams.set("key", this.apiKey);
+      url.searchParams.set("q", clean);
+      url.searchParams.set("collection", "adminArea,poi,address");
+      url.searchParams.set("limit", String(options?.limit || 10));
+      // Prioritize Angola coordinates bounding box
+      url.searchParams.set("bbox", "11.6,-18.1,24.1,-4.3");
+
+      const response = await fetch(url.toString(), {
+        headers: { Accept: "application/json" },
+      });
+
+      if (!response.ok) {
+        return this.forward(query, options);
+      }
+
+      const data = await response.json();
+      const results = data?.results;
+
+      if (Array.isArray(results) && results.length > 0) {
+        return results.map((item: any, idx: number) => ({
+          id: `mq-place-${idx}-${item.displayString}`,
+          name: item.name || item.displayString?.split(",")[0] || clean,
+          formattedAddress: item.displayString || clean,
+          countryCode: ANGOLA_COUNTRY_CODE,
+          countryName: ANGOLA_COUNTRY_NAME,
+          coordinates: {
+            latitude: item.place?.geometry?.coordinates?.[1] || 0,
+            longitude: item.place?.geometry?.coordinates?.[0] || 0,
+          },
+          confidence: 0.9,
+          raw: item,
+        }));
+      }
+
+      return this.forward(query, options);
+    } catch {
+      return this.forward(query, options);
+    }
+  }
+
+  /**
+   * Optional Directions calculation for future navigation foundations
+   */
+  public async getDirections(
+    start: GeoCoordinate,
+    end: GeoCoordinate
+  ): Promise<DirectionResult | null> {
+    if (!this.apiKey) return null;
+
+    try {
+      const url = new URL("https://www.mapquestapi.com/directions/v2/route");
+      url.searchParams.set("key", this.apiKey);
+      url.searchParams.set("from", `${start.latitude},${start.longitude}`);
+      url.searchParams.set("to", `${end.latitude},${end.longitude}`);
+      url.searchParams.set("unit", "k"); // Kilometers
+
+      const response = await fetch(url.toString());
+      if (!response.ok) return null;
+
+      const data = await response.json();
+      const route = data?.route;
+
+      if (route) {
+        const narrativeSteps = (route.legs?.[0]?.maneuvers || []).map(
+          (m: any) => m.narrative
+        );
+
+        return {
+          distanceKm: route.distance || 0,
+          durationMinutes: Math.round((route.time || 0) / 60),
+          narrativeSteps,
+          bounds: [
+            { latitude: route.boundingBox.lr.lat, longitude: route.boundingBox.ul.lng },
+            { latitude: route.boundingBox.ul.lat, longitude: route.boundingBox.lr.lng },
+          ],
+        };
+      }
+
+      return null;
+    } catch {
+      return null;
+    }
   }
 }

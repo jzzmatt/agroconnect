@@ -5,18 +5,16 @@ import {
   MapPin,
   Navigation,
   Compass,
-  Box,
+  Layers,
   RotateCcw,
   Loader2,
   AlertCircle,
+  Globe,
 } from "lucide-react";
 import type { GeoCoordinate } from "@/types/domain";
 import { cn } from "@/lib/utils";
-import {
-  MapLibreOpenFreeMapProvider,
-  getThemeMapStyle,
-} from "@/lib/location/providers/maplibre-openfreemap";
-import type { IMapProvider, MapViewMode } from "@/lib/location/providers/types";
+import { MapQuestProvider } from "@/lib/location/providers/mapquest-map";
+import type { IMapProvider, MapLayerType } from "@/lib/location/providers/types";
 import { useTheme } from "@/lib/theme";
 import { useGeolocation } from "@/lib/location/use-geolocation";
 
@@ -41,7 +39,7 @@ interface LocationMapProps {
   height?: string;
   showControls?: boolean;
   mapProvider?: IMapProvider;
-  initialViewMode?: MapViewMode;
+  initialLayer?: MapLayerType;
 }
 
 const CATEGORY_CONFIG: Record<
@@ -93,9 +91,9 @@ const CATEGORY_CONFIG: Record<
 };
 
 /**
- * Production-ready LocationMap Component with MapLibre GL + OpenFreeMap.
- * Renders live OpenStreetMap/OpenMapTiles basemap (roads, streets, labels, cities, 3D buildings)
- * with 2D/3D camera toggling, GPS centering, marker popups, and theme support.
+ * Production MapQuest Map Component.
+ * Powered by MapQuest platform for standard road/street maps & satellite layers,
+ * with full integration into Supabase PostGIS spatial data and Angola location engine.
  */
 export function LocationMap({
   markers = [],
@@ -107,13 +105,13 @@ export function LocationMap({
   height = "h-[480px]",
   showControls = true,
   mapProvider,
-  initialViewMode = "2d",
+  initialLayer = "map",
 }: LocationMapProps) {
   const { theme } = useTheme();
   const { requestLocation, isLoading: isGpsLoading } = useGeolocation();
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
-  const [viewMode, setViewMode] = useState<MapViewMode>(initialViewMode);
+  const [currentLayer, setCurrentLayer] = useState<MapLayerType>(initialLayer);
   const [activeMarker, setActiveMarker] = useState<MapMarkerItem | null>(
     markers.find((m) => m.id === selectedMarkerId) || null
   );
@@ -143,56 +141,53 @@ export function LocationMap({
     [onSelectMarker]
   );
 
-  // Initialize MapLibre GL instance
-  const initMapInstance = useCallback(() => {
+  // Initialize MapQuest Map
+  const initMap = useCallback(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return;
 
     setMapError(null);
     setMapLoaded(false);
 
-    const styleUrl = getThemeMapStyle(theme);
-    const provider = mapProvider || new MapLibreOpenFreeMapProvider(styleUrl);
+    const provider =
+      mapProvider ||
+      new MapQuestProvider(
+        process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
+        currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
+      );
+
     providerRef.current = provider;
 
     provider.initialize({
       container: mapContainerRef.current,
       center,
       zoom,
-      pitch: viewMode === "3d" ? 60 : 0,
-      bearing: viewMode === "3d" ? -20 : 0,
-      styleUrl,
+      layerType: currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map",
       onLoad: () => {
         setMapLoaded(true);
         setMapError(null);
       },
       onError: (err) => {
-        console.error("[LocationMap] Error event:", err);
-        // Do not block UI with error if map has already loaded tiles
-        setMapLoaded((prev) => {
-          if (!prev) {
-            setMapError("Não foi possível carregar o mapa. Verifique a ligação à internet.");
-          }
-          return prev;
-        });
+        console.error("[MapQuest Map] Error:", err);
+        setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
       },
     });
 
-    // Fallback timer: if style takes more than 1.5s or load event fired silently, reveal map
-    const fallbackTimer = setTimeout(() => {
+    // Fallback timer to confirm load state
+    const timer = setTimeout(() => {
       setMapLoaded(true);
       if (providerRef.current) {
         providerRef.current.resize();
       }
-    }, 1500);
+    }, 1200);
 
-    return () => clearTimeout(fallbackTimer);
-  }, [center, zoom, viewMode, theme, mapProvider]);
+    return () => clearTimeout(timer);
+  }, [center, zoom, currentLayer, theme, mapProvider]);
 
   useEffect(() => {
     if (isInitializedRef.current) return;
     isInitializedRef.current = true;
 
-    const cleanupTimer = initMapInstance();
+    const cleanup = initMap();
 
     let observer: ResizeObserver | null = null;
     if (mapContainerRef.current && typeof ResizeObserver !== "undefined") {
@@ -205,7 +200,7 @@ export function LocationMap({
     }
 
     return () => {
-      if (cleanupTimer) cleanupTimer();
+      if (cleanup) cleanup();
       if (observer) observer.disconnect();
       if (providerRef.current) {
         providerRef.current.destroy();
@@ -213,17 +208,20 @@ export function LocationMap({
       }
       isInitializedRef.current = false;
     };
-  }, [initMapInstance]);
+  }, [initMap]);
 
-  // Sync style URL when theme changes
+  // Sync theme or layer changes
   useEffect(() => {
     if (providerRef.current && mapLoaded) {
-      const newStyle = getThemeMapStyle(theme);
-      providerRef.current.setStyle(newStyle);
+      if (currentLayer === "satellite") {
+        providerRef.current.setLayerType("satellite");
+      } else {
+        providerRef.current.setLayerType(theme === "dark" ? "dark" : "map");
+      }
     }
-  }, [theme, mapLoaded]);
+  }, [theme, currentLayer, mapLoaded]);
 
-  // Sync markers whenever markers list or active category changes
+  // Sync markers
   useEffect(() => {
     if (!providerRef.current) return;
     const provider = providerRef.current;
@@ -246,14 +244,14 @@ export function LocationMap({
         element: el,
         onClick: () => handleMarkerClick(marker),
         popupHtml: `
-          <div style="padding:4px; font-family:sans-serif;">
+          <div style="padding:4px; font-family:sans-serif; min-width:140px;">
             <span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; background:${config.hex}; color:#fff; margin-bottom:4px;">
               ${config.label}
             </span>
-            <div style="font-size:12px; font-weight:bold; color:${theme === "dark" ? "#fff" : "#0F261B"};">
+            <div style="font-size:12px; font-weight:bold; color:${theme === "dark" ? "#111" : "#0F261B"};">
               ${marker.title}
             </div>
-            <div style="font-size:11px; color:${theme === "dark" ? "#A7F3D0" : "#0E6B38"}; margin-top:2px;">
+            <div style="font-size:11px; color:#0E6B38; margin-top:2px;">
               📍 ${marker.municipalityName ? `${marker.municipalityName}, ` : ""}${marker.provinceName}
             </div>
           </div>
@@ -272,15 +270,14 @@ export function LocationMap({
     }
   }, [selectedMarkerId, markers, handleMarkerClick]);
 
-  // Toggle 2D / 3D mode
-  const handleToggleViewMode = () => {
-    if (!providerRef.current) return;
-    if (viewMode === "2d") {
-      providerRef.current.set3DView(60, -20);
-      setViewMode("3d");
-    } else {
-      providerRef.current.set2DView();
-      setViewMode("2d");
+  // Toggle Standard Map vs Satellite View
+  const handleToggleLayer = () => {
+    const nextLayer: MapLayerType = currentLayer === "satellite" ? "map" : "satellite";
+    setCurrentLayer(nextLayer);
+    if (providerRef.current) {
+      providerRef.current.setLayerType(
+        nextLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
+      );
     }
   };
 
@@ -297,8 +294,6 @@ export function LocationMap({
   const handleResetAngola = () => {
     if (providerRef.current) {
       providerRef.current.setCenter({ latitude: -12.5, longitude: 17.5 }, 6, 1000);
-      providerRef.current.set2DView();
-      setViewMode("2d");
       setActiveMarker(null);
     }
   };
@@ -365,31 +360,31 @@ export function LocationMap({
             </button>
           </div>
 
-          {/* Quick Tools (2D/3D Toggle + GPS + Reset) */}
+          {/* Map Layer Switcher & Navigation Tools */}
           <div className="flex items-center gap-1.5 p-1 bg-surface-elevated/95 backdrop-blur-md rounded-2xl shadow-md border border-border pointer-events-auto">
-            {/* 2D / 3D Toggle */}
+            {/* Mapa vs Satélite Toggle */}
             <button
               type="button"
-              onClick={handleToggleViewMode}
+              onClick={handleToggleLayer}
               className={cn(
                 "flex items-center gap-1 px-2.5 py-1 text-xs font-bold rounded-xl transition-colors",
-                viewMode === "3d"
+                currentLayer === "satellite"
                   ? "bg-primary text-primary-foreground shadow-xs"
                   : "text-foreground hover:bg-muted"
               )}
-              title={viewMode === "3d" ? "Mudar para vista 2D" : "Mudar para vista 3D com inclinação"}
+              title={currentLayer === "satellite" ? "Mudar para mapa padrão" : "Ver imagem de satélite"}
             >
-              <Box className="w-3.5 h-3.5" />
-              <span>{viewMode === "3d" ? "3D" : "2D"}</span>
+              <Globe className="w-3.5 h-3.5" />
+              <span>{currentLayer === "satellite" ? "Satélite" : "Mapa"}</span>
             </button>
 
-            {/* GPS Button */}
+            {/* GPS User Location Button */}
             <button
               type="button"
               onClick={handleCenterOnUser}
               disabled={isGpsLoading}
               className="p-1.5 rounded-xl text-primary hover:bg-muted transition-colors disabled:opacity-50"
-              title="Centrar na minha localização GPS"
+              title="Centrar na minha localização GPS (Perto de mim)"
               aria-label="Minha localização"
             >
               {isGpsLoading ? (
@@ -413,38 +408,38 @@ export function LocationMap({
         </div>
       )}
 
-      {/* Main Map Canvas Mount Point */}
+      {/* Main Map Mount Point */}
       <div className="relative flex-1 w-full h-full min-h-[400px]">
-        {/* MapLibre WebGL vector tile container */}
+        {/* Leaflet container */}
         <div
           ref={mapContainerRef}
           className="absolute inset-0 w-full h-full z-0"
           style={{ width: "100%", height: "100%" }}
         />
 
-        {/* Loading State Overlay with Smooth Fade */}
+        {/* Loading Overlay */}
         {!mapLoaded && !mapError && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/60 backdrop-blur-xs text-foreground space-y-2 pointer-events-none transition-opacity duration-300">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
             <p className="text-xs font-bold text-muted-foreground">
-              Carregando mapa OpenFreeMap...
+              Carregando mapa MapQuest...
             </p>
           </div>
         )}
 
-        {/* Error State Overlay */}
+        {/* Error State */}
         {mapError && (
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center p-6 bg-surface/95 backdrop-blur-md text-foreground text-center space-y-3">
             <AlertCircle className="w-8 h-8 text-destructive" />
             <div>
               <h4 className="text-sm font-bold text-foreground">{mapError}</h4>
               <p className="text-xs text-muted-foreground mt-1">
-                Verifique a sua ligação à internet ou tente carregar novamente.
+                Verifique a configuração da chave de API MapQuest ou a ligação à internet.
               </p>
             </div>
             <button
               type="button"
-              onClick={initMapInstance}
+              onClick={initMap}
               className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow-xs hover:bg-primary-hover transition-colors"
             >
               Tentar novamente
@@ -499,9 +494,9 @@ export function LocationMap({
           <span>Angola • PostGIS WGS84 (EPSG:4326)</span>
         </div>
         <div className="flex items-center gap-2">
-          <span>Vista: <strong className="text-foreground uppercase">{viewMode}</strong></span>
+          <span>Camada: <strong className="text-foreground capitalize">{currentLayer}</strong></span>
           <span>•</span>
-          <span>OpenFreeMap • MapLibre GL</span>
+          <span>MapQuest Platform</span>
         </div>
       </div>
     </div>

@@ -69,7 +69,42 @@ Country (Angola - AO)
 
 ---
 
-## 5. Location Service API (`src/lib/location/`)
+## 5. MapQuest External Platform Architecture
+
+AGROCONNECT utilizes **MapQuest** as its external mapping, satellite, geocoding, and routing platform:
+
+```
+                         AGRICONNECT
+                              │
+                     LOCATION ENGINE
+                              │
+            ┌─────────────────┴─────────────────┐
+            │                                   │
+       MAPQUEST PLATFORM                  SUPABASE / POSTGIS
+            │                                   │
+     ┌──────┼───────────┐              ┌────────┼────────┐
+     │      │           │              │        │        │
+    Maps  Search    Geocoding       Services Products Agriculture
+     │      │           │              │        │        │
+     └──────┼───────────┘              Providers Resources
+            │
+       User Location
+       Map Display (Leaflet/MapQuest.js)
+       Satellite & Hybrid Layers
+       Markers & Popups
+```
+
+### MapQuest Services Integrated:
+- **Map Rendering**: High-performance Leaflet-based MapQuest SDK with standard map, satellite, dark, and hybrid layer switching.
+- **Geocoding API**: Forward geocoding prioritizing Angola queries (`location=..., Angola`).
+- **Reverse Geocoding API**: Latitude/longitude resolution to street, municipality, and province.
+- **Place Search & Prediction API**: Autocomplete location queries with Angola bounding-box constraints (`11.6,-18.1,24.1,-4.3`).
+- **Directions API**: Future navigation and route calculation foundation (`getDirections(start, end)`).
+- **3D Note**: Native 3D terrain/extrusions are not implemented as Leaflet/MapQuest does not provide a native 3D engine; clean standard map and high-resolution satellite imagery layers are provided instead.
+
+---
+
+## 6. Location Service API (`src/lib/location/`)
 
 - **`calculateDistance(coord1, coord2)`**: Haversine distance in kilometers.
 - **`isWithinRadius(center, target, radiusKm)`**: Radius check with coordinate validation.
@@ -81,7 +116,7 @@ Country (Angola - AO)
 
 ---
 
-## 6. Location Privacy Principles
+## 7. Location Privacy Principles
 
 1. **Private Coordinates**: Exact home coordinates of private customers are never exposed in public queries.
 2. **Provider & Marketplace Locations**: Coordinates attached to published services, products, and provider profiles are public for discovery.
