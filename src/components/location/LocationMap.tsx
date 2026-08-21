@@ -413,8 +413,8 @@ export function LocationMap({
         {/* Leaflet container */}
         <div
           ref={mapContainerRef}
-          className="absolute inset-0 w-full h-full z-0"
-          style={{ width: "100%", height: "100%" }}
+          className="w-full h-full min-h-[400px]"
+          style={{ width: "100%", height: "100%", minHeight: "400px" }}
         />
 
         {/* Loading Overlay */}

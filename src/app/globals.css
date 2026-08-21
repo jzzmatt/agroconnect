@@ -126,3 +126,30 @@ body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   transition: background-color 0.2s ease, color 0.2s ease;
 }
+
+/* Ensure Leaflet tiles render explicitly with proper dimensions and visibility */
+.leaflet-container .leaflet-tile-pane img.leaflet-tile,
+.leaflet-container img.leaflet-tile,
+.leaflet-tile {
+  max-width: none !important;
+  max-height: none !important;
+  width: 256px !important;
+  height: 256px !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+  display: block !important;
+  mix-blend-mode: normal !important;
+}
+
+.leaflet-tile-pane {
+  z-index: 200 !important;
+  display: block !important;
+  visibility: visible !important;
+  opacity: 1 !important;
+}
+
+.leaflet-container {
+  background-color: #e5e7eb !important;
+}
+
+
