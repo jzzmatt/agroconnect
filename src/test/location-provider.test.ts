@@ -5,7 +5,7 @@ import {
   LocalAngolaGeocodingProvider,
   MapQuestGeocodingProvider,
   MapQuestProvider,
-  getMapQuestTileUrl,
+  getMapTileUrl,
 } from "@/lib/location/providers";
 
 describe("LocationProvider & MapQuest Geospatial Architecture", () => {
@@ -17,15 +17,15 @@ describe("LocationProvider & MapQuest Geospatial Architecture", () => {
     expect(provider.mapProvider.id).toBe("mapquest");
   });
 
-  it("generates correct MapQuest tile URLs for standard map and satellite layers", () => {
-    const mapTile = getMapQuestTileUrl("test_key_123", "map");
-    expect(mapTile).toBe("https://api.mapquest.com/tiles/v3/map/{z}/{x}/{y}.png?key=test_key_123");
+  it("generates correct tile URLs for standard map, dark and satellite layers", () => {
+    const mapTile = getMapTileUrl("test_key_123", "map");
+    expect(mapTile.url).toContain("tile.openstreetmap.org");
 
-    const satTile = getMapQuestTileUrl("test_key_123", "satellite");
-    expect(satTile).toBe("https://api.mapquest.com/tiles/v3/sat/{z}/{x}/{y}.png?key=test_key_123");
+    const satTile = getMapTileUrl("test_key_123", "satellite");
+    expect(satTile.url).toContain("arcgisonline.com");
 
-    const darkTile = getMapQuestTileUrl("test_key_123", "dark");
-    expect(darkTile).toBe("https://api.mapquest.com/tiles/v3/dark/{z}/{x}/{y}.png?key=test_key_123");
+    const darkTile = getMapTileUrl("test_key_123", "dark");
+    expect(darkTile.url).toContain("cartocdn.com");
   });
 
   it("supports layer type switching in MapQuestProvider (map, satellite, dark)", () => {

@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { TOKENS } from "@/config/tokens";
-import { getMapQuestTileUrl } from "@/lib/location/providers/mapquest-map";
+import { getMapTileUrl } from "@/lib/location/providers/mapquest-map";
 
 describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
   it("1. Defines dedicated semantic tokens for Light Theme", () => {
@@ -19,11 +19,11 @@ describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
   });
 
   it("3. Configures theme-aware map layer tile URLs for Light and Dark modes", () => {
-    const lightTile = getMapQuestTileUrl("test_key", "map");
-    expect(lightTile).toContain("api.mapquest.com/tiles/v3/map");
+    const lightTile = getMapTileUrl("test_key", "map");
+    expect(lightTile.url).toContain("tile.openstreetmap.org");
 
-    const darkTile = getMapQuestTileUrl("test_key", "dark");
-    expect(darkTile).toContain("api.mapquest.com/tiles/v3/dark");
+    const darkTile = getMapTileUrl("test_key", "dark");
+    expect(darkTile.url).toContain("cartocdn.com");
   });
 
   it("4. Validates database profile type supports theme_preference field", () => {

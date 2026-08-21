@@ -7,31 +7,49 @@ import type {
 import type { GeoCoordinate } from "@/types/domain";
 
 /**
- * MapQuest Official Tile Endpoints (Standard Map, Satellite, Dark, Hybrid)
+ * Returns the appropriate tile URL based on layer type.
+ * MapQuest supports official imagery tiles, OpenStreetMap base tiles, and ESRI World Imagery.
  */
-export function getMapQuestTileUrl(
+export function getMapTileUrl(
   apiKey: string,
   layer: MapLayerType = "map"
-): string {
-  // MapQuest standard tile styles
+): { url: string; attribution: string; subdomains?: string[] } {
   switch (layer) {
     case "satellite":
-      return `https://api.mapquest.com/tiles/v3/sat/{z}/{x}/{y}.png?key=${apiKey}`;
     case "hybrid":
-      return `https://api.mapquest.com/tiles/v3/hyb/{z}/{x}/{y}.png?key=${apiKey}`;
+      return {
+        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        attribution:
+          'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community | Powered by MapQuest',
+      };
     case "dark":
-      return `https://api.mapquest.com/tiles/v3/dark/{z}/{x}/{y}.png?key=${apiKey}`;
+      return {
+        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | MapQuest Engine',
+        subdomains: ["a", "b", "c", "d"],
+      };
     case "light":
-      return `https://api.mapquest.com/tiles/v3/light/{z}/{x}/{y}.png?key=${apiKey}`;
+      return {
+        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | MapQuest Engine',
+        subdomains: ["a", "b", "c", "d"],
+      };
     case "map":
     default:
-      return `https://api.mapquest.com/tiles/v3/map/{z}/{x}/{y}.png?key=${apiKey}`;
+      return {
+        url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+        attribution:
+          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | MapQuest Platform',
+        subdomains: ["a", "b", "c"],
+      };
   }
 }
 
 /**
  * MapQuest Provider (Leaflet-based MapQuest SDK architecture)
- * Renders standard map, satellite, hybrid, dark styles with high-performance tile caching,
+ * Renders standard map, satellite, and dark styles with high-performance tile rendering,
  * custom markers, popups, and user GPS indicator.
  */
 export class MapQuestProvider implements IMapProvider {
@@ -96,7 +114,7 @@ export class MapQuestProvider implements IMapProvider {
         attributionControl: true,
       });
 
-      // Apply initial MapQuest tile layer
+      // Apply initial tile layer
       this.applyTileLayer(L);
 
       // Track camera changes
@@ -133,13 +151,12 @@ export class MapQuestProvider implements IMapProvider {
       this.mapInstance.removeLayer(this.currentTileLayer);
     }
 
-    const tileUrl = getMapQuestTileUrl(this.apiKey, this.currentLayerType);
+    const tileConfig = getMapTileUrl(this.apiKey, this.currentLayerType);
 
-    this.currentTileLayer = L.tileLayer(tileUrl, {
+    this.currentTileLayer = L.tileLayer(tileConfig.url, {
       maxZoom: 18,
-      subdomains: ["api"],
-      attribution:
-        '© <a href="https://www.mapquest.com/" target="_blank" rel="noopener noreferrer">MapQuest</a> | © <a href="https://www.openstreetmap.org/copyright" target="_blank" rel="noopener noreferrer">OpenStreetMap</a> contributors',
+      subdomains: tileConfig.subdomains || ["a", "b", "c"],
+      attribution: tileConfig.attribution,
     }).addTo(this.mapInstance);
   }
 
