@@ -23,7 +23,7 @@ describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
     expect(lightStyle).toContain("openfreemap.org/styles/liberty");
 
     const darkStyle = getThemeMapStyle("dark");
-    expect(darkStyle).toContain("openfreemap.org/styles/positron");
+    expect(darkStyle).toContain("openfreemap.org/styles/dark");
   });
 
   it("4. Validates database profile type supports theme_preference field", () => {

@@ -6,9 +6,10 @@ import {
   ConfigurableHttpGeocodingProvider,
   MapLibreOpenFreeMapProvider,
   OPEN_FREE_MAP_STYLES,
+  getThemeMapStyle,
 } from "@/lib/location/providers";
 
-describe("LocationProvider & Geocoding Abstraction Architecture", () => {
+describe("LocationProvider & MapLibre OpenFreeMap Basemap Architecture", () => {
   it("creates a default LocationProvider containing MapProvider and GeocodingProvider", () => {
     const provider = getDefaultLocationProvider();
     expect(provider).toBeDefined();
@@ -17,12 +18,34 @@ describe("LocationProvider & Geocoding Abstraction Architecture", () => {
     expect(provider.mapProvider.id).toBe("maplibre-openfreemap");
   });
 
-  it("supports OpenFreeMap styles in MapLibre provider", () => {
+  it("supports all official OpenFreeMap styles including liberty, dark, bright, positron", () => {
     const mapProvider = new MapLibreOpenFreeMapProvider("liberty");
     expect(mapProvider.id).toBe("maplibre-openfreemap");
     expect(OPEN_FREE_MAP_STYLES.liberty).toBe("https://tiles.openfreemap.org/styles/liberty");
+    expect(OPEN_FREE_MAP_STYLES.dark).toBe("https://tiles.openfreemap.org/styles/dark");
     expect(OPEN_FREE_MAP_STYLES.positron).toBe("https://tiles.openfreemap.org/styles/positron");
     expect(OPEN_FREE_MAP_STYLES.bright).toBe("https://tiles.openfreemap.org/styles/bright");
+  });
+
+  it("resolves theme-aware style URLs for light and dark modes", () => {
+    expect(getThemeMapStyle("light")).toBe("https://tiles.openfreemap.org/styles/liberty");
+    expect(getThemeMapStyle("dark")).toBe("https://tiles.openfreemap.org/styles/dark");
+  });
+
+  it("supports 2D and 3D camera controls and state tracking", () => {
+    const mapProvider = new MapLibreOpenFreeMapProvider();
+    expect(mapProvider.getViewMode()).toBe("2d");
+    expect(mapProvider.getPitch()).toBe(0);
+
+    mapProvider.set3DView(60, -20);
+    expect(mapProvider.getPitch()).toBe(60);
+    expect(mapProvider.getBearing()).toBe(-20);
+    expect(mapProvider.getViewMode()).toBe("3d");
+
+    mapProvider.set2DView();
+    expect(mapProvider.getPitch()).toBe(0);
+    expect(mapProvider.getBearing()).toBe(0);
+    expect(mapProvider.getViewMode()).toBe("2d");
   });
 
   it("performs forward geocoding with LocalAngolaGeocodingProvider", async () => {
@@ -42,7 +65,6 @@ describe("LocationProvider & Geocoding Abstraction Architecture", () => {
 
   it("performs reverse geocoding with LocalAngolaGeocodingProvider", async () => {
     const geocoder = new LocalAngolaGeocodingProvider();
-    // Coordinates near Lubango, Huíla (-14.9167, 13.55)
     const result = await geocoder.reverse({ latitude: -14.9167, longitude: 13.55 });
     expect(result).not.toBeNull();
     expect(result?.municipalityName).toBe("Lubango");

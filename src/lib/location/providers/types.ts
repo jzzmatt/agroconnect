@@ -9,8 +9,12 @@ export interface MapOptions {
   zoom?: number;
   minZoom?: number;
   maxZoom?: number;
+  pitch?: number;
+  bearing?: number;
   styleUrl?: string;
   interactive?: boolean;
+  onLoad?: () => void;
+  onError?: (error: Error) => void;
 }
 
 /**
@@ -24,24 +28,41 @@ export interface MapMarkerDescriptor {
   color?: string;
   element?: HTMLElement;
   popupHtml?: string;
+  isUserLocation?: boolean;
   onClick?: () => void;
 }
 
 /**
- * MapProvider Interface: Contract for renderable map engines (e.g. MapLibre GL, OpenFreeMap, Leaflet, Mapbox)
+ * Map View Mode (2D flat vs 3D pitched)
+ */
+export type MapViewMode = "2d" | "3d";
+
+/**
+ * MapProvider Interface: Contract for renderable map engines (e.g. MapLibre GL, OpenFreeMap)
  */
 export interface IMapProvider {
   readonly id: string;
   readonly name: string;
   initialize(options: MapOptions): Promise<void> | void;
-  setCenter(center: GeoCoordinate, zoom?: number): void;
+  setCenter(center: GeoCoordinate, zoom?: number, duration?: number): void;
   getCenter(): GeoCoordinate;
-  setZoom(zoom: number): void;
+  setZoom(zoom: number, duration?: number): void;
   getZoom(): number;
+  setPitch(pitch: number, duration?: number): void;
+  getPitch(): number;
+  setBearing(bearing: number, duration?: number): void;
+  getBearing(): number;
+  set2DView(duration?: number): void;
+  set3DView(pitch?: number, bearing?: number, duration?: number): void;
+  getViewMode(): MapViewMode;
+  resize(): void;
+  setStyle(styleUrl: string): void;
   addMarker(marker: MapMarkerDescriptor): void;
   removeMarker(markerId: string): void;
   clearMarkers(): void;
   fitBounds(bounds: [GeoCoordinate, GeoCoordinate], padding?: number): void;
+  addUserLocationMarker(coordinates: GeoCoordinate): void;
+  removeUserLocationMarker(): void;
   destroy(): void;
 }
 
