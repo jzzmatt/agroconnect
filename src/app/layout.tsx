@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import "./globals.css";
+import { I18nProvider } from "@/i18n/provider";
 
 export const metadata: Metadata = {
   title: "AGROCONNECT — Ecossistema Digital para Agricultura",
@@ -15,7 +16,7 @@ export default function RootLayout({
   return (
     <html lang="pt">
       <body className="min-h-screen antialiased bg-background text-foreground">
-        {children}
+        <I18nProvider initialLocale="pt">{children}</I18nProvider>
       </body>
     </html>
   );
