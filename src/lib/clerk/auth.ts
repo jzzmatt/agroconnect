@@ -57,6 +57,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
         avatar_url: clerkUser.imageUrl,
         profile_slug: clerkUser.username || `user-${clerkUser.id.slice(-8)}`,
+        theme_preference: "light",
         is_active: true,
       })
       .select("*")
@@ -91,6 +92,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     avatar_url: effectiveProfile?.avatar_url || clerkUser.imageUrl,
     bio: effectiveProfile?.bio || null,
     profile_slug: effectiveProfile?.profile_slug || clerkUser.username || clerkUser.id,
+    theme_preference: effectiveProfile?.theme_preference || "light",
     is_active: effectiveProfile?.is_active ?? true,
     roles,
     created_at: effectiveProfile?.created_at || new Date().toISOString(),

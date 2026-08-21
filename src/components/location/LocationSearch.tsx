@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { Search, MapPin, Navigation, Loader2, X } from "lucide-react";
+import { Search, MapPin, Loader2, X } from "lucide-react";
 import { getDefaultLocationProvider, type GeocodingResult } from "@/lib/location";
 import { cn } from "@/lib/utils";
 
@@ -13,8 +13,8 @@ export interface LocationSearchProps {
 }
 
 /**
- * Provider-agnostic LocationSearch Component.
- * Uses configurable GeocodingProvider (Local Angola dataset / Remote HTTP Geocoding)
+ * Provider-agnostic LocationSearch Component with full theme support.
+ * Uses configurable GeocodingProvider (Local Angola dataset / Remote HTTP Geocoding).
  */
 export function LocationSearch({
   onSelectLocation,
@@ -52,7 +52,6 @@ export function LocationSearch({
     return () => clearTimeout(timer);
   }, [query]);
 
-  // Click outside to close dropdown
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target as Node)) {
@@ -72,7 +71,7 @@ export function LocationSearch({
   return (
     <div ref={dropdownRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-700 pointer-events-none" />
+        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
         <input
           type="text"
           value={query}
@@ -80,10 +79,10 @@ export function LocationSearch({
           onFocus={() => results.length > 0 && setIsOpen(true)}
           placeholder={placeholder}
           autoFocus={autoFocus}
-          className="w-full pl-10 pr-9 py-2.5 bg-white rounded-xl border border-emerald-200 text-sm text-emerald-950 placeholder:text-emerald-700/50 focus:outline-none focus:ring-2 focus:ring-emerald-600 focus:border-transparent transition-all shadow-xs font-medium"
+          className="w-full pl-10 pr-9 py-2.5 bg-input rounded-xl border border-input-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all shadow-2xs font-medium"
         />
         {isLoading ? (
-          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-emerald-600 animate-spin" />
+          <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
         ) : query ? (
           <button
             type="button"
@@ -92,7 +91,7 @@ export function LocationSearch({
               setResults([]);
               setIsOpen(false);
             }}
-            className="absolute right-3 top-1/2 -translate-y-1/2 text-emerald-600/70 hover:text-emerald-900 p-0.5"
+            className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
             aria-label="Limpar pesquisa"
           >
             <X className="w-4 h-4" />
@@ -101,22 +100,22 @@ export function LocationSearch({
       </div>
 
       {isOpen && results.length > 0 && (
-        <div className="absolute top-full left-0 right-0 mt-1.5 bg-white rounded-xl border border-emerald-100 shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-emerald-50 animate-in fade-in slide-in-from-top-1">
+        <div className="absolute top-full left-0 right-0 mt-1.5 bg-surface-elevated rounded-2xl border border-border shadow-xl z-50 max-h-60 overflow-y-auto divide-y divide-border-subtle animate-in fade-in slide-in-from-top-1">
           {results.map((res) => (
             <button
               key={res.id}
               type="button"
               onClick={() => handleSelect(res)}
-              className="w-full px-4 py-2.5 text-left text-xs hover:bg-emerald-50/80 transition-colors flex items-center justify-between group"
+              className="w-full px-4 py-2.5 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
             >
-              <div className="flex items-center gap-2">
-                <MapPin className="w-3.5 h-3.5 text-emerald-600 shrink-0 group-hover:scale-110 transition-transform" />
+              <div className="flex items-center gap-2.5">
+                <MapPin className="w-3.5 h-3.5 text-primary shrink-0 group-hover:scale-110 transition-transform" />
                 <div>
-                  <span className="font-bold text-emerald-950 block">{res.name}</span>
+                  <span className="font-bold text-foreground block">{res.name}</span>
                   <span className="text-[11px] text-muted-foreground">{res.formattedAddress}</span>
                 </div>
               </div>
-              <span className="text-[10px] uppercase font-bold text-emerald-700 bg-emerald-100/70 px-2 py-0.5 rounded">
+              <span className="text-[10px] uppercase font-bold text-secondary-foreground bg-secondary px-2 py-0.5 rounded-md">
                 {res.provinceName || res.countryCode}
               </span>
             </button>

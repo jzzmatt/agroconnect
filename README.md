@@ -5,7 +5,8 @@
 [![React](https://img.shields.io/badge/React-19.2.8-blue.svg?logo=react)](https://react.dev/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-Strict-blue.svg?logo=typescript)](https://www.typescriptlang.org/)
 [![Tailwind CSS](https://img.shields.io/badge/Tailwind-CSS_v4-38bdf8.svg?logo=tailwindcss)](https://tailwindcss.com/)
-[![Vitest](https://img.shields.io/badge/Tests-31%20Passed-green.svg?logo=vitest)](https://vitest.dev/)
+[![Vitest](https://img.shields.io/badge/Tests-41%20Passed-green.svg?logo=vitest)](https://vitest.dev/)
+[![Themes](https://img.shields.io/badge/Themes-Light%20%7C%20Dark-emerald.svg)](https://agroconnect.ao)
 
 ---
 
@@ -115,6 +116,7 @@ For comprehensive technical architecture and implementation specifications, see 
 - [Authentication & Clerk-Supabase Native Integration](./docs/authentication.md)
 - [Database Schema & PostGIS](./docs/database.md)
 - [Internationalization (i18n)](./docs/localization.md)
+- [Theme System (Light / Dark)](./docs/theme-system.md)
 - [AgriLocalização Engine](./docs/agrilocalizacao.md)
 - [Developer Guide](./docs/development.md)
 

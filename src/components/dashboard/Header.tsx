@@ -4,6 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { Menu, Bell, User, Search, MapPin } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { UserProfileButton } from "@/features/auth/components";
 
 interface DashboardHeaderProps {
@@ -43,13 +44,15 @@ export function DashboardHeader({
         </div>
 
         <Link href="/agrilocalizacao" className="hidden sm:block">
-          <Button variant="outline" size="sm" className="h-8 text-xs font-bold border-emerald-200">
+          <Button variant="outline" size="sm" className="h-8 text-xs font-bold border-border">
             Explorar Mapa
           </Button>
         </Link>
 
+        <ThemeSwitcher />
+
         {/* User profile dropdown / Clerk UserButton */}
-        <div className="flex items-center gap-2 pl-2 border-l border-emerald-100">
+        <div className="flex items-center gap-2 pl-2 border-l border-border">
           <UserProfileButton />
         </div>
       </div>

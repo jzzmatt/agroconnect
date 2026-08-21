@@ -36,6 +36,7 @@ describe("Database Types & Multi-role Architecture", () => {
       avatar_url: "https://example.com/avatar.jpg",
       bio: "Médico Veterinário especialista em bovinos e caprinos no Huambo.",
       profile_slug: "dr-joao-silva",
+      theme_preference: "light",
       is_active: true,
       roles: ["veterinarian", "instructor", "expert"],
       created_at: new Date().toISOString(),

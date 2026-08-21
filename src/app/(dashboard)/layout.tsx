@@ -16,7 +16,7 @@ export default function DashboardLayout({
   const activeRoles: UserRoleType[] = ["veterinarian", "instructor", "student"];
 
   return (
-    <div className="min-h-screen bg-slate-50/60 flex">
+    <div className="min-h-screen bg-background text-foreground flex transition-colors">
       {/* Role-Adaptive Sidebar */}
       <DashboardSidebar
         userRoles={activeRoles}

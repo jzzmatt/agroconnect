@@ -2,7 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button, Input, SectionHeader } from "@/components/ui";
+import { Button, Input } from "@/components/ui";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
 import { ArrowLeft, Save, Check } from "lucide-react";
 
@@ -29,21 +29,21 @@ export default function EditProfilePage() {
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
-        <Link href="/profile" className="flex items-center gap-1 text-xs font-bold text-emerald-800 hover:text-emerald-950">
+        <Link href="/profile" className="flex items-center gap-1 text-xs font-bold text-muted-foreground hover:text-foreground">
           <ArrowLeft className="w-4 h-4" />
           <span>Voltar ao Perfil</span>
         </Link>
-        <span className="text-xs font-semibold text-emerald-700">Edição de Perfil</span>
+        <span className="text-xs font-semibold text-primary">Edição de Perfil</span>
       </div>
 
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-emerald-900/10 shadow-xs">
-        <h2 className="text-xl font-bold text-emerald-950 mb-6">
+      <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs">
+        <h2 className="text-xl font-bold text-foreground mb-6">
           Atualizar Dados do Perfil
         </h2>
 
         <form onSubmit={handleSave} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-emerald-950 mb-1">
+            <label className="block text-xs font-semibold text-foreground mb-1">
               Nome de Apresentação
             </label>
             <Input
@@ -54,7 +54,7 @@ export default function EditProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-emerald-950 mb-1">
+            <label className="block text-xs font-semibold text-foreground mb-1">
               Telefone (Angola)
             </label>
             <Input
@@ -66,7 +66,7 @@ export default function EditProfilePage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="block text-xs font-semibold text-emerald-950 mb-1">
+              <label className="block text-xs font-semibold text-foreground mb-1">
                 Província
               </label>
               <select
@@ -75,7 +75,7 @@ export default function EditProfilePage() {
                   setProvince(e.target.value);
                   setMunicipality("");
                 }}
-                className="w-full text-xs bg-emerald-50/50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-950 font-medium"
+                className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2 text-foreground font-medium focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 {ANGOLA_PROVINCES.map((p) => (
                   <option key={p.code} value={p.name}>
@@ -86,13 +86,13 @@ export default function EditProfilePage() {
             </div>
 
             <div>
-              <label className="block text-xs font-semibold text-emerald-950 mb-1">
+              <label className="block text-xs font-semibold text-foreground mb-1">
                 Município
               </label>
               <select
                 value={municipality}
                 onChange={(e) => setMunicipality(e.target.value)}
-                className="w-full text-xs bg-emerald-50/50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-950 font-medium"
+                className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2 text-foreground font-medium focus:outline-none focus:ring-2 focus:ring-ring"
               >
                 <option value="">Selecione o Município</option>
                 {availableMunicipalities.map((m) => (
@@ -105,20 +105,20 @@ export default function EditProfilePage() {
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-emerald-950 mb-1">
+            <label className="block text-xs font-semibold text-foreground mb-1">
               Biografia e Especialidades
             </label>
             <textarea
               rows={4}
               value={bio}
               onChange={(e) => setBio(e.target.value)}
-              className="w-full rounded-xl border border-emerald-200 p-3 text-xs text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-600"
+              className="w-full rounded-2xl border border-input-border bg-input p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring shadow-2xs"
             />
           </div>
 
           <div className="pt-4 flex items-center justify-between">
             {saved ? (
-              <span className="text-xs font-bold text-emerald-700 flex items-center gap-1">
+              <span className="text-xs font-bold text-emerald-600 flex items-center gap-1">
                 <Check className="w-4 h-4 text-emerald-600" />
                 Alterações guardadas com sucesso!
               </span>

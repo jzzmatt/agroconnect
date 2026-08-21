@@ -1,4 +1,4 @@
-import type { UserRoleType } from "./database";
+import type { UserRoleType, ThemePreference } from "./database";
 
 export interface UserProfileWithRoles {
   id: string;
@@ -11,6 +11,7 @@ export interface UserProfileWithRoles {
   avatar_url: string | null;
   bio: string | null;
   profile_slug: string | null;
+  theme_preference: ThemePreference;
   is_active: boolean;
   roles: UserRoleType[];
   created_at: string;

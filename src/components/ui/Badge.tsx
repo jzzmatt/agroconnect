@@ -8,25 +8,25 @@ const badgeVariants = cva(
     variants: {
       variant: {
         default:
-          "border-transparent bg-emerald-700 text-white shadow-xs",
+          "border-transparent bg-primary text-primary-foreground shadow-2xs",
         secondary:
-          "border-transparent bg-emerald-100 text-emerald-800",
+          "border-border-subtle bg-secondary text-secondary-foreground",
         outline:
-          "border-emerald-300 text-emerald-800 bg-emerald-50/50",
+          "border-border text-foreground bg-surface",
         destructive:
-          "border-transparent bg-red-100 text-red-800 border-red-200",
+          "border-red-300 dark:border-red-900 bg-red-100 dark:bg-red-950/60 text-red-800 dark:text-red-200",
         success:
-          "border-transparent bg-emerald-100 text-emerald-800",
+          "border-emerald-300 dark:border-emerald-900 bg-emerald-100 dark:bg-emerald-950/60 text-emerald-800 dark:text-emerald-200",
         warning:
-          "border-transparent bg-amber-100 text-amber-800",
+          "border-amber-300 dark:border-amber-900 bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-200",
         pillarExpert:
-          "border-emerald-200 bg-emerald-50 text-emerald-800 font-bold",
+          "border-emerald-300 dark:border-emerald-800 bg-emerald-100/80 dark:bg-emerald-950/70 text-emerald-900 dark:text-emerald-200 font-bold",
         pillarAcademy:
-          "border-blue-200 bg-blue-50 text-blue-800 font-bold",
+          "border-blue-300 dark:border-blue-800 bg-blue-100/80 dark:bg-blue-950/70 text-blue-900 dark:text-blue-200 font-bold",
         pillarShopping:
-          "border-amber-200 bg-amber-50 text-amber-800 font-bold",
+          "border-amber-300 dark:border-amber-800 bg-amber-100/80 dark:bg-amber-950/70 text-amber-900 dark:text-amber-200 font-bold",
         pillarLocation:
-          "border-teal-200 bg-teal-50 text-teal-800 font-bold",
+          "border-teal-300 dark:border-teal-800 bg-teal-100/80 dark:bg-teal-950/70 text-teal-900 dark:text-teal-200 font-bold",
       },
     },
     defaultVariants: {

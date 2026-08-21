@@ -27,15 +27,15 @@ export function SectionHeader({
   return (
     <div className={cn("flex flex-col max-w-3xl mb-8 space-y-2", alignClass, className)}>
       {badgeText && (
-        <span className="inline-flex items-center px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200/50 uppercase tracking-wider">
+        <span className="inline-flex items-center px-3.5 py-1 rounded-full text-xs font-bold bg-secondary text-secondary-foreground border border-border-subtle uppercase tracking-wider shadow-2xs">
           {badgeText}
         </span>
       )}
-      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight text-emerald-950">
+      <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black tracking-tight text-foreground">
         {title}
       </h2>
       {subtitle && (
-        <p className="text-base sm:text-lg text-emerald-800/80 leading-relaxed max-w-2xl">
+        <p className="text-base sm:text-lg text-muted-foreground leading-relaxed max-w-2xl">
           {subtitle}
         </p>
       )}

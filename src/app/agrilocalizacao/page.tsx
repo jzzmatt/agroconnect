@@ -24,7 +24,7 @@ export default function AgriLocalizacaoPage() {
     : MOCK_MAP_MARKERS;
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10 sm:py-16 w-full space-y-8">
@@ -72,8 +72,8 @@ export default function AgriLocalizacaoPage() {
 
         {/* Provinces Coverage Grid */}
         <div className="pt-8 space-y-4">
-          <h3 className="text-lg font-bold text-emerald-950 flex items-center gap-2">
-            <Compass className="w-5 h-5 text-emerald-700" />
+          <h3 className="text-lg font-bold text-foreground flex items-center gap-2">
+            <Compass className="w-5 h-5 text-primary" />
             <span>Cobertura das 18 Províncias de Angola</span>
           </h3>
 
@@ -85,19 +85,19 @@ export default function AgriLocalizacaoPage() {
                   key={p.code}
                   type="button"
                   onClick={() => setSelectedProvince(isSelected ? "" : p.name)}
-                  className={`p-3 rounded-xl border text-left transition-all ${
+                  className={`p-3 rounded-2xl border text-left transition-all ${
                     isSelected
-                      ? "bg-emerald-800 text-white border-emerald-900 shadow-md scale-102"
-                      : "bg-emerald-50/50 hover:bg-emerald-100/60 border-emerald-100 text-emerald-950"
+                      ? "bg-primary text-primary-foreground border-primary shadow-md scale-102"
+                      : "bg-surface border-border hover:bg-muted text-foreground"
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold">{p.name}</span>
-                    <span className={`text-[10px] uppercase font-semibold ${isSelected ? "text-emerald-200" : "text-emerald-600"}`}>
+                    <span className={`text-[10px] uppercase font-semibold ${isSelected ? "text-primary-foreground/80" : "text-primary"}`}>
                       {p.code}
                     </span>
                   </div>
-                  <span className={`text-[11px] block mt-1 truncate ${isSelected ? "text-emerald-100" : "text-muted-foreground"}`}>
+                  <span className={`text-[11px] block mt-1 truncate ${isSelected ? "text-primary-foreground/80" : "text-muted-foreground"}`}>
                     Cap: {p.capital}
                   </span>
                 </button>
@@ -108,7 +108,7 @@ export default function AgriLocalizacaoPage() {
       </main>
 
       <Footer />
-      <MobileBottomNav />
+      <MobileBottomNav variant="marketing" />
     </div>
   );
 }

@@ -7,15 +7,32 @@ import type { GeoCoordinate } from "@/types/domain";
 
 /**
  * OpenFreeMap standard style endpoints.
- * Styles: 'liberty' (clean, modern), 'positron' (light minimal), 'bright' (high contrast)
+ * Styles: 'liberty' (clean, modern), 'positron' (light minimal), 'bright' (high contrast), 'dark' (dark theme)
  */
 export const OPEN_FREE_MAP_STYLES = {
   liberty: "https://tiles.openfreemap.org/styles/liberty",
   positron: "https://tiles.openfreemap.org/styles/positron",
   bright: "https://tiles.openfreemap.org/styles/bright",
+  dark: "https://tiles.openfreemap.org/styles/positron", // Clean minimal base for dark mode
 } as const;
 
 export type OpenFreeMapStyleName = keyof typeof OPEN_FREE_MAP_STYLES;
+
+/**
+ * Returns appropriate map style URL based on theme ('light' | 'dark')
+ */
+export function getThemeMapStyle(theme: "light" | "dark" = "light"): string {
+  if (theme === "dark") {
+    return (
+      process.env.NEXT_PUBLIC_MAP_DARK_STYLE_URL ||
+      OPEN_FREE_MAP_STYLES.positron
+    );
+  }
+  return (
+    process.env.NEXT_PUBLIC_MAP_STYLE_URL ||
+    OPEN_FREE_MAP_STYLES.liberty
+  );
+}
 
 /**
  * MapLibre + OpenFreeMap implementation of IMapProvider.
@@ -38,6 +55,13 @@ export class MapLibreOpenFreeMapProvider implements IMapProvider {
         : style;
     this.currentCenter = { latitude: -12.5, longitude: 17.5 }; // Default Angola center
     this.currentZoom = 6;
+  }
+
+  public setStyle(newStyleUrl: string): void {
+    this.styleUrl = newStyleUrl;
+    if (this.mapInstance) {
+      this.mapInstance.setStyle(newStyleUrl);
+    }
   }
 
   public async initialize(options: MapOptions): Promise<void> {

@@ -4,9 +4,9 @@ import React from "react";
 import Link from "next/link";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
-import { SectionHeader, Button, Badge } from "@/components/ui";
+import { SectionHeader, Button } from "@/components/ui";
 import { useI18n } from "@/i18n/provider";
-import { CheckCircle2, ShieldCheck, Zap } from "lucide-react";
+import { CheckCircle2, Zap } from "lucide-react";
 
 export default function PricingPage() {
   const { dict } = useI18n();
@@ -59,7 +59,7 @@ export default function PricingPage() {
   ];
 
   return (
-    <div className="min-h-screen flex flex-col bg-white">
+    <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 w-full">
@@ -76,13 +76,13 @@ export default function PricingPage() {
               key={plan.name}
               className={`rounded-3xl p-8 border flex flex-col justify-between relative transition-all duration-300 ${
                 plan.popular
-                  ? "border-emerald-700 bg-linear-to-b from-emerald-50/70 to-white shadow-xl scale-103"
-                  : "border-emerald-900/10 bg-white shadow-xs hover:shadow-md"
+                  ? "border-primary bg-linear-to-b from-secondary/80 to-surface-card shadow-xl scale-103"
+                  : "border-border bg-surface-card shadow-xs hover:shadow-md"
               }`}
             >
               {plan.popular && (
                 <div className="absolute -top-3.5 left-1/2 -translate-x-1/2">
-                  <span className="bg-emerald-700 text-white text-xs font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
+                  <span className="bg-primary text-primary-foreground text-xs font-black uppercase tracking-wider px-3.5 py-1 rounded-full shadow-sm flex items-center gap-1">
                     <Zap className="w-3 h-3 fill-white" />
                     Mais Recomendado
                   </span>
@@ -90,13 +90,13 @@ export default function PricingPage() {
               )}
 
               <div>
-                <h3 className="text-xl font-bold text-emerald-950">{plan.name}</h3>
+                <h3 className="text-xl font-bold text-foreground">{plan.name}</h3>
                 <p className="text-xs text-muted-foreground mt-1 min-h-[32px]">
                   {plan.description}
                 </p>
 
                 <div className="mt-6 mb-6 flex items-baseline gap-1">
-                  <span className="text-3xl sm:text-4xl font-black text-emerald-950">
+                  <span className="text-3xl sm:text-4xl font-black text-foreground">
                     {plan.price}
                   </span>
                   <span className="text-xs text-muted-foreground font-semibold">
@@ -104,14 +104,14 @@ export default function PricingPage() {
                   </span>
                 </div>
 
-                <div className="border-t border-emerald-100 pt-6 space-y-3">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-emerald-800 block">
+                <div className="border-t border-border pt-6 space-y-3">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-primary block">
                     O que inclui:
                   </span>
-                  <ul className="space-y-2.5 text-xs text-emerald-950">
+                  <ul className="space-y-2.5 text-xs text-foreground font-medium">
                     {plan.features.map((feature, idx) => (
                       <li key={idx} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+                        <CheckCircle2 className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                         <span>{feature}</span>
                       </li>
                     ))}
@@ -135,7 +135,7 @@ export default function PricingPage() {
       </main>
 
       <Footer />
-      <MobileBottomNav />
+      <MobileBottomNav variant="marketing" />
     </div>
   );
 }

@@ -1,54 +1,126 @@
 /**
  * AGROCONNECT Design Tokens
  * Source of Truth: AGROCONNECT — Product Design System & MVP (Figma)
+ * Supports both LIGHT and DARK themes.
  */
 export const TOKENS = {
-  colors: {
-    // Primary Brand Greens
-    agroDarkGreen: "#063A1D",  // Deep Forest Green
-    agroGreen: "#0E6B38",      // Primary Brand Green
-    agroLightGreen: "#E8F5EE", // Soft Green Tint / Card Background
-    agroAccentGreen: "#1B9C52",// Vibrant Accent Green
-    agroEmerald: "#059669",
+  light: {
+    colors: {
+      background: "#FFFFFF",
+      foreground: "#0F261B",
+      surface: "#F8FAF9",
+      surfaceElevated: "#FFFFFF",
+      surfaceMuted: "#F1F5F3",
+      surfaceCard: "#FFFFFF",
+      cardForeground: "#0F261B",
 
-    // Supporting Solution Pillar Colors
-    expert: {
+      // Brand Greens
       primary: "#0E6B38",
-      light: "#E8F5EE",
-      border: "#C3D6CB",
-    },
-    academy: {
-      primary: "#1D4ED8",
-      light: "#EFF6FF",
-      border: "#BFDBFE",
-    },
-    shopping: {
-      primary: "#D97706",
-      light: "#FFFBEB",
-      border: "#FDE68A",
-    },
-    localizacao: {
-      primary: "#0D9488",
-      light: "#F0FDFA",
-      border: "#99F6E4",
-    },
+      primaryForeground: "#FFFFFF",
+      primaryHover: "#063A1D",
+      secondary: "#E8F5EE",
+      secondaryForeground: "#063A1D",
 
-    // Neutrals & Surfaces
-    background: "#FFFFFF",
-    surface: "#F8FAF9",
-    surfaceCard: "#FFFFFF",
-    surfaceSubtle: "#F1F5F3",
-    textPrimary: "#0F261B",
-    textSecondary: "#4A6355",
-    mutedText: "#728A7D",
-    border: "#E2EBE5",
-    borderStrong: "#C3D6CB",
+      // Muted & Borders
+      muted: "#F1F5F3",
+      mutedForeground: "#4A6355",
+      border: "#E2EBE5",
+      borderSubtle: "#EEF4F0",
+      borderStrong: "#C3D6CB",
+      ring: "#0E6B38",
 
-    // Semantic Status
-    success: "#10B981",
-    warning: "#F59E0B",
-    error: "#EF4444",
-    info: "#3B82F6",
+      // Sidebar
+      sidebar: "#FFFFFF",
+      sidebarForeground: "#0F261B",
+      sidebarBorder: "#E2EBE5",
+      sidebarActive: "#0E6B38",
+      sidebarActiveForeground: "#FFFFFF",
+
+      // Input
+      input: "#FFFFFF",
+      inputBorder: "#E2EBE5",
+      inputForeground: "#0F261B",
+
+      // Semantic Status
+      success: "#10B981",
+      successForeground: "#FFFFFF",
+      warning: "#F59E0B",
+      warningForeground: "#FFFFFF",
+      error: "#EF4444",
+      errorForeground: "#FFFFFF",
+      info: "#3B82F6",
+      infoForeground: "#FFFFFF",
+
+      // Pillar Themes
+      expert: { primary: "#0E6B38", light: "#E8F5EE", border: "#C3D6CB", text: "#0E6B38" },
+      academy: { primary: "#1D4ED8", light: "#EFF6FF", border: "#BFDBFE", text: "#1E40AF" },
+      shopping: { primary: "#D97706", light: "#FFFBEB", border: "#FDE68A", text: "#B45309" },
+      localizacao: { primary: "#0D9488", light: "#F0FDFA", border: "#99F6E4", text: "#0F766E" },
+    },
+    shadows: {
+      subtle: "0 1px 2px 0 rgba(14, 107, 56, 0.05)",
+      card: "0 4px 6px -1px rgba(14, 107, 56, 0.08), 0 2px 4px -2px rgba(14, 107, 56, 0.05)",
+      elevated: "0 10px 15px -3px rgba(14, 107, 56, 0.1), 0 4px 6px -4px rgba(14, 107, 56, 0.05)",
+    },
+  },
+  dark: {
+    colors: {
+      background: "#08160E",       // Dedicated Figma dark forest background (not pure black)
+      foreground: "#F1F5F3",       // Off-white readable text
+      surface: "#0D2217",          // Elevated deep green surface
+      surfaceElevated: "#122C1F",  // Distinct card background
+      surfaceMuted: "#163626",
+      surfaceCard: "#122C1F",
+      cardForeground: "#F1F5F3",
+
+      // Brand Greens (Vibrant in Dark Mode)
+      primary: "#1B9C52",
+      primaryForeground: "#FFFFFF",
+      primaryHover: "#22C55E",
+      secondary: "#163626",
+      secondaryForeground: "#86EFAC",
+
+      // Muted & Borders
+      muted: "#163626",
+      mutedForeground: "#94A89E",
+      border: "#1E4431",
+      borderSubtle: "#163626",
+      borderStrong: "#2E6147",
+      ring: "#1B9C52",
+
+      // Sidebar
+      sidebar: "#0D2217",
+      sidebarForeground: "#F1F5F3",
+      sidebarBorder: "#1E4431",
+      sidebarActive: "#1B9C52",
+      sidebarActiveForeground: "#FFFFFF",
+
+      // Input
+      input: "#0D2217",
+      inputBorder: "#1E4431",
+      inputForeground: "#F1F5F3",
+
+      // Semantic Status
+      success: "#10B981",
+      successForeground: "#FFFFFF",
+      warning: "#F59E0B",
+      warningForeground: "#FFFFFF",
+      error: "#EF4444",
+      errorForeground: "#FFFFFF",
+      info: "#3B82F6",
+      infoForeground: "#FFFFFF",
+
+      // Pillar Themes in Dark Mode
+      expert: { primary: "#1B9C52", light: "#163626", border: "#2E6147", text: "#86EFAC" },
+      academy: { primary: "#3B82F6", light: "#1E293B", border: "#334155", text: "#93C5FD" },
+      shopping: { primary: "#F59E0B", light: "#2D2006", border: "#523B0F", text: "#FCD34D" },
+      localizacao: { primary: "#14B8A6", light: "#132E2B", border: "#1F4E4A", text: "#5EEAD4" },
+    },
+    shadows: {
+      subtle: "0 1px 2px 0 rgba(0, 0, 0, 0.3)",
+      card: "0 4px 6px -1px rgba(0, 0, 0, 0.4), 0 2px 4px -2px rgba(0, 0, 0, 0.2)",
+      elevated: "0 10px 15px -3px rgba(0, 0, 0, 0.5), 0 4px 6px -4px rgba(0, 0, 0, 0.3)",
+    },
   },
   typography: {
     fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
@@ -78,11 +150,6 @@ export const TOKENS = {
     "2xl": "3rem",  // 48px
     "3xl": "4rem",  // 64px
   },
-  shadows: {
-    subtle: "0 1px 2px 0 rgba(14, 107, 56, 0.05)",
-    card: "0 4px 6px -1px rgba(14, 107, 56, 0.08), 0 2px 4px -2px rgba(14, 107, 56, 0.05)",
-    elevated: "0 10px 15px -3px rgba(14, 107, 56, 0.1), 0 4px 6px -4px rgba(14, 107, 56, 0.05)",
-  },
   breakpoints: {
     mobile: "390px",
     tablet: "768px",
@@ -90,3 +157,6 @@ export const TOKENS = {
     desktopWide: "1440px",
   },
 } as const;
+
+// Backward-compatibility export mapping to light theme values
+export const DEFAULT_TOKENS = TOKENS.light;

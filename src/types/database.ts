@@ -18,6 +18,8 @@ export type UserRoleType =
   | "business"
   | "admin";
 
+export type ThemePreference = "light" | "dark";
+
 export interface Database {
   public: {
     Tables: {
@@ -33,6 +35,7 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           profile_slug: string | null;
+          theme_preference: ThemePreference;
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -48,6 +51,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          theme_preference?: ThemePreference;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;
@@ -63,6 +67,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          theme_preference?: ThemePreference;
           is_active?: boolean;
           created_at?: string;
           updated_at?: string;

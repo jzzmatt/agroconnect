@@ -1,11 +1,12 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { MapPin, Navigation, Compass, Layers, Sparkles } from "lucide-react";
+import { MapPin, Compass, Layers } from "lucide-react";
 import type { GeoCoordinate } from "@/types/domain";
 import { cn } from "@/lib/utils";
-import { MapLibreOpenFreeMapProvider } from "@/lib/location/providers/maplibre-openfreemap";
+import { MapLibreOpenFreeMapProvider, getThemeMapStyle } from "@/lib/location/providers/maplibre-openfreemap";
 import type { IMapProvider } from "@/lib/location/providers/types";
+import { useTheme } from "@/lib/theme";
 
 export interface MapMarkerItem {
   id: string;
@@ -32,18 +33,17 @@ interface LocationMapProps {
 }
 
 const CATEGORY_COLORS: Record<MapMarkerItem["category"], { bg: string; text: string; badge: string; label: string; hex: string }> = {
-  expert: { bg: "bg-emerald-600", text: "text-emerald-700", badge: "bg-emerald-100 text-emerald-800", label: "AgriExpert", hex: "#059669" },
-  academy: { bg: "bg-blue-600", text: "text-blue-700", badge: "bg-blue-100 text-blue-800", label: "AgriAcademy", hex: "#2563EB" },
-  shopping: { bg: "bg-amber-600", text: "text-amber-700", badge: "bg-amber-100 text-amber-800", label: "AgriShopping", hex: "#D97706" },
-  business: { bg: "bg-purple-600", text: "text-purple-700", badge: "bg-purple-100 text-purple-800", label: "Empresa", hex: "#9333EA" },
-  service: { bg: "bg-teal-600", text: "text-teal-700", badge: "bg-teal-100 text-teal-800", label: "Serviço", hex: "#0D9488" },
-  farm: { bg: "bg-lime-600", text: "text-lime-700", badge: "bg-lime-100 text-lime-800", label: "Fazenda", hex: "#65A30D" },
+  expert: { bg: "bg-emerald-600", text: "text-emerald-700 dark:text-emerald-300", badge: "bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border-emerald-300 dark:border-emerald-800", label: "AgriExpert", hex: "#0E6B38" },
+  academy: { bg: "bg-blue-600", text: "text-blue-700 dark:text-blue-300", badge: "bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 border-blue-300 dark:border-blue-800", label: "AgriAcademy", hex: "#1D4ED8" },
+  shopping: { bg: "bg-amber-600", text: "text-amber-700 dark:text-amber-300", badge: "bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 border-amber-300 dark:border-amber-800", label: "AgriShopping", hex: "#D97706" },
+  business: { bg: "bg-purple-600", text: "text-purple-700 dark:text-purple-300", badge: "bg-purple-100 dark:bg-purple-950 text-purple-800 dark:text-purple-300 border-purple-300 dark:border-purple-800", label: "Empresa", hex: "#9333EA" },
+  service: { bg: "bg-teal-600", text: "text-teal-700 dark:text-teal-300", badge: "bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 border-teal-300 dark:border-teal-800", label: "Serviço", hex: "#0D9488" },
+  farm: { bg: "bg-lime-600", text: "text-lime-700 dark:text-lime-300", badge: "bg-lime-100 dark:bg-lime-950 text-lime-800 dark:text-lime-300 border-lime-300 dark:border-lime-800", label: "Fazenda", hex: "#65A30D" },
 };
 
 /**
  * Provider-agnostic LocationMap Component.
- * Supports vector tile rendering via MapLibre GL + OpenFreeMap, with graceful automatic
- * fallback to an interactive styled geospatial canvas for offline / mock testing environments.
+ * Supports theme-aware vector tile rendering (Light / Dark styles) with MapLibre GL + OpenFreeMap.
  */
 export function LocationMap({
   markers = [],
@@ -57,6 +57,7 @@ export function LocationMap({
   mapProvider,
   useVectorTiles = true,
 }: LocationMapProps) {
+  const { theme } = useTheme();
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [activeMarker, setActiveMarker] = useState<MapMarkerItem | null>(
     markers.find((m) => m.id === selectedMarkerId) || null
@@ -81,7 +82,8 @@ export function LocationMap({
     }
 
     let isMounted = true;
-    const provider = mapProvider || new MapLibreOpenFreeMapProvider("liberty");
+    const styleUrl = getThemeMapStyle(theme);
+    const provider = mapProvider || new MapLibreOpenFreeMapProvider(styleUrl);
     providerRef.current = provider;
 
     async function initMap() {
@@ -91,13 +93,13 @@ export function LocationMap({
             container: mapContainerRef.current,
             center,
             zoom,
+            styleUrl,
           });
           if (isMounted) {
             setVectorMapReady(true);
           }
         }
       } catch {
-        // Fall back gracefully to interactive stylized geospatial canvas
         if (isMounted) setVectorMapReady(false);
       }
     }
@@ -108,7 +110,7 @@ export function LocationMap({
       isMounted = false;
       provider.destroy();
     };
-  }, [useVectorTiles, mapProvider]);
+  }, [useVectorTiles, mapProvider, theme]);
 
   // Sync markers onto vector map when ready
   useEffect(() => {
@@ -125,10 +127,10 @@ export function LocationMap({
         title: marker.title,
         color: config.hex,
         onClick: () => handleMarkerClick(marker),
-        popupHtml: `<div class="p-1"><strong style="color:#063A1D;font-size:12px;">${marker.title}</strong><p style="color:#4A6355;font-size:10px;margin:2px 0 0 0;">${marker.provinceName}</p></div>`,
+        popupHtml: `<div class="p-1"><strong style="color:${theme === "dark" ? "#F1F5F3" : "#063A1D"};font-size:12px;">${marker.title}</strong><p style="color:${theme === "dark" ? "#94A89E" : "#4A6355"};font-size:10px;margin:2px 0 0 0;">${marker.provinceName}</p></div>`,
       });
     });
-  }, [vectorMapReady, filteredMarkers]);
+  }, [vectorMapReady, filteredMarkers, theme]);
 
   // Sync center changes
   useEffect(() => {
@@ -140,7 +142,7 @@ export function LocationMap({
   return (
     <div
       className={cn(
-        "relative w-full rounded-2xl overflow-hidden border border-emerald-900/10 bg-emerald-950/5 shadow-inner flex flex-col",
+        "relative w-full rounded-3xl overflow-hidden border border-border bg-surface shadow-inner flex flex-col",
         height,
         className
       )}
@@ -148,14 +150,14 @@ export function LocationMap({
       {/* Map Header / Category Filters Bar */}
       {showControls && (
         <div className="absolute top-4 left-4 right-4 z-20 flex flex-wrap items-center justify-between gap-2 pointer-events-none">
-          <div className="flex flex-wrap gap-1.5 p-1.5 bg-white/90 backdrop-blur-md rounded-xl shadow-md border border-emerald-100 pointer-events-auto">
+          <div className="flex flex-wrap gap-1.5 p-1.5 bg-surface-elevated/95 backdrop-blur-md rounded-2xl shadow-md border border-border pointer-events-auto">
             <button
               onClick={() => setActiveCategory("all")}
               className={cn(
-                "px-3 py-1 text-xs font-semibold rounded-lg transition-colors",
+                "px-3 py-1 text-xs font-semibold rounded-xl transition-colors",
                 activeCategory === "all"
-                  ? "bg-emerald-800 text-white shadow-sm"
-                  : "text-emerald-900 hover:bg-emerald-50"
+                  ? "bg-primary text-primary-foreground shadow-xs"
+                  : "text-foreground hover:bg-muted"
               )}
             >
               Todos ({markers.length})
@@ -163,10 +165,10 @@ export function LocationMap({
             <button
               onClick={() => setActiveCategory("expert")}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-lg transition-colors flex items-center gap-1",
+                "px-2.5 py-1 text-xs font-medium rounded-xl transition-colors flex items-center gap-1",
                 activeCategory === "expert"
-                  ? "bg-emerald-600 text-white"
-                  : "text-emerald-800 hover:bg-emerald-50"
+                  ? "bg-emerald-700 text-white"
+                  : "text-foreground hover:bg-muted"
               )}
             >
               <span className="w-2 h-2 rounded-full bg-emerald-500"></span>
@@ -175,10 +177,10 @@ export function LocationMap({
             <button
               onClick={() => setActiveCategory("academy")}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-lg transition-colors flex items-center gap-1",
+                "px-2.5 py-1 text-xs font-medium rounded-xl transition-colors flex items-center gap-1",
                 activeCategory === "academy"
                   ? "bg-blue-600 text-white"
-                  : "text-blue-800 hover:bg-blue-50"
+                  : "text-foreground hover:bg-muted"
               )}
             >
               <span className="w-2 h-2 rounded-full bg-blue-500"></span>
@@ -187,10 +189,10 @@ export function LocationMap({
             <button
               onClick={() => setActiveCategory("shopping")}
               className={cn(
-                "px-2.5 py-1 text-xs font-medium rounded-lg transition-colors flex items-center gap-1",
+                "px-2.5 py-1 text-xs font-medium rounded-xl transition-colors flex items-center gap-1",
                 activeCategory === "shopping"
                   ? "bg-amber-600 text-white"
-                  : "text-amber-800 hover:bg-amber-50"
+                  : "text-foreground hover:bg-muted"
               )}
             >
               <span className="w-2 h-2 rounded-full bg-amber-500"></span>
@@ -198,15 +200,15 @@ export function LocationMap({
             </button>
           </div>
 
-          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-white/90 backdrop-blur-md rounded-xl shadow-md border border-emerald-100 pointer-events-auto text-xs font-medium text-emerald-950">
-            <Compass className="w-4 h-4 text-emerald-700 animate-spin-slow" />
-            <span>OpenFreeMap • MapLibre GL (Angola)</span>
+          <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 bg-surface-elevated/95 backdrop-blur-md rounded-2xl shadow-md border border-border pointer-events-auto text-xs font-bold text-foreground">
+            <Compass className="w-4 h-4 text-primary animate-spin-slow" />
+            <span>OpenFreeMap • MapLibre (Angola)</span>
           </div>
         </div>
       )}
 
       {/* Map Container View */}
-      <div className="relative flex-1 w-full h-full bg-[radial-gradient(#0E6B38_1px,transparent_1px)] [background-size:24px_24px] bg-emerald-50/60 flex items-center justify-center select-none overflow-hidden">
+      <div className="relative flex-1 w-full h-full bg-[radial-gradient(var(--color-primary)_1px,transparent_1px)] [background-size:24px_24px] bg-surface flex items-center justify-center select-none overflow-hidden">
         {/* MapLibre WebGL vector tile container mount point */}
         <div
           ref={mapContainerRef}
@@ -220,11 +222,11 @@ export function LocationMap({
         {!vectorMapReady && (
           <>
             <div className="absolute inset-0 flex items-center justify-center opacity-10 pointer-events-none">
-              <Layers className="w-96 h-96 text-emerald-900" />
+              <Layers className="w-96 h-96 text-primary" />
             </div>
 
-            <div className="absolute bottom-4 left-4 text-xs font-medium text-emerald-800/60 flex items-center gap-1">
-              <MapPin className="w-3.5 h-3.5" />
+            <div className="absolute bottom-4 left-4 text-xs font-medium text-muted-foreground flex items-center gap-1">
+              <MapPin className="w-3.5 h-3.5 text-primary" />
               <span>Foco: Lat {center.latitude.toFixed(2)}, Lon {center.longitude.toFixed(2)}</span>
             </div>
 
@@ -249,14 +251,14 @@ export function LocationMap({
                   >
                     <div
                       className={cn(
-                        "w-8 h-8 rounded-full shadow-lg flex items-center justify-center text-white font-bold ring-2 ring-white transition-shadow",
+                        "w-8 h-8 rounded-full shadow-lg flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-900 transition-shadow",
                         config.bg,
                         isSelected ? "ring-4 ring-emerald-400 shadow-xl" : "shadow-md"
                       )}
                     >
                       <MapPin className="w-4 h-4" />
                     </div>
-                    <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-emerald-950 text-white text-[10px] font-medium px-2 py-0.5 rounded shadow transition-opacity">
+                    <div className="opacity-0 group-hover:opacity-100 pointer-events-none absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap bg-foreground text-background text-[10px] font-bold px-2 py-0.5 rounded shadow transition-opacity">
                       {marker.title}
                     </div>
                   </div>
@@ -268,22 +270,22 @@ export function LocationMap({
 
         {/* Selected Marker Details Flyout Card */}
         {activeMarker && (
-          <div className="absolute bottom-4 right-4 max-w-xs sm:max-w-sm w-full bg-white/95 backdrop-blur-md rounded-xl p-4 shadow-xl border border-emerald-100 z-30 animate-in fade-in slide-in-from-bottom-2">
+          <div className="absolute bottom-4 right-4 max-w-xs sm:max-w-sm w-full bg-surface-elevated/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-border z-30 animate-in fade-in slide-in-from-bottom-2">
             <div className="flex items-start justify-between gap-2">
               <div>
                 <span
                   className={cn(
-                    "inline-block px-2 py-0.5 text-[10px] font-bold rounded-md mb-1",
+                    "inline-block px-2 py-0.5 text-[10px] font-bold rounded-md mb-1 border",
                     CATEGORY_COLORS[activeMarker.category]?.badge
                   )}
                 >
                   {CATEGORY_COLORS[activeMarker.category]?.label}
                 </span>
-                <h4 className="text-sm font-bold text-emerald-950 leading-tight">
+                <h4 className="text-sm font-bold text-foreground leading-tight">
                   {activeMarker.title}
                 </h4>
-                <p className="text-xs text-emerald-700 flex items-center gap-1 mt-1 font-medium">
-                  <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                <p className="text-xs text-primary flex items-center gap-1 mt-1 font-medium">
+                  <MapPin className="w-3.5 h-3.5" />
                   {activeMarker.municipalityName
                     ? `${activeMarker.municipalityName}, ${activeMarker.provinceName}`
                     : activeMarker.provinceName}
@@ -291,7 +293,7 @@ export function LocationMap({
               </div>
               <button
                 onClick={() => setActiveMarker(null)}
-                className="text-emerald-500 hover:text-emerald-900 text-xs font-bold p-1"
+                className="text-muted-foreground hover:text-foreground text-xs font-bold p-1"
                 aria-label="Fechar"
               >
                 ✕

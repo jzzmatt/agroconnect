@@ -2,7 +2,7 @@
 
 import React from "react";
 import Link from "next/link";
-import { User, MapPin, Mail, Phone, ShieldCheck, Edit, Calendar } from "lucide-react";
+import { MapPin, Mail, Phone, ShieldCheck, Edit } from "lucide-react";
 import { Button, Badge, Avatar } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 
@@ -22,7 +22,7 @@ export default function ProfilePage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Profile Header Card */}
-      <div className="bg-white rounded-3xl p-6 sm:p-8 border border-emerald-900/10 shadow-xs relative overflow-hidden">
+      <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           <Avatar
             fallbackText={mockUser.displayName}
@@ -32,12 +32,12 @@ export default function ProfilePage() {
 
           <div className="space-y-1.5 flex-1">
             <div className="flex flex-wrap items-center gap-2">
-              <h1 className="text-2xl font-black text-emerald-950">
+              <h1 className="text-2xl font-black text-foreground">
                 {mockUser.displayName}
               </h1>
-              <ShieldCheck className="w-5 h-5 text-emerald-600 fill-emerald-100" />
+              <ShieldCheck className="w-5 h-5 text-emerald-500 fill-emerald-100 dark:fill-emerald-950" />
             </div>
-            <p className="text-sm font-semibold text-emerald-700">{mockUser.title}</p>
+            <p className="text-sm font-semibold text-primary">{mockUser.title}</p>
             <div className="flex items-center gap-2 pt-1">
               <LocationBadge
                 provinceName={mockUser.province}
@@ -49,7 +49,7 @@ export default function ProfilePage() {
           </div>
 
           <Link href="/profile/edit">
-            <Button variant="outline" size="sm" className="gap-1.5 border-emerald-300 font-bold">
+            <Button variant="outline" size="sm" className="gap-1.5 font-bold">
               <Edit className="w-3.5 h-3.5" />
               <span>Editar Perfil</span>
             </Button>
@@ -61,17 +61,17 @@ export default function ProfilePage() {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Left Column: Bio and Active Roles */}
         <div className="md:col-span-2 space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-emerald-950 uppercase tracking-wider">
+          <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
               Biografia Profissional
             </h3>
-            <p className="text-sm text-emerald-800/90 leading-relaxed">
+            <p className="text-sm text-foreground/90 leading-relaxed">
               {mockUser.bio}
             </p>
           </div>
 
-          <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-3">
-            <h3 className="text-sm font-bold text-emerald-950 uppercase tracking-wider">
+          <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs space-y-3">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
               Funções Ativas no Ecossistema
             </h3>
             <div className="flex flex-wrap gap-2 pt-1">
@@ -86,22 +86,22 @@ export default function ProfilePage() {
 
         {/* Right Column: Contact & Location details */}
         <div className="space-y-6">
-          <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold text-emerald-950 uppercase tracking-wider">
+          <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs space-y-4">
+            <h3 className="text-sm font-bold text-foreground uppercase tracking-wider">
               Contactos & Localização
             </h3>
 
             <div className="space-y-3 text-xs">
-              <div className="flex items-center gap-2.5 text-emerald-900">
-                <Mail className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex items-center gap-2.5 text-foreground">
+                <Mail className="w-4 h-4 text-primary shrink-0" />
                 <span className="truncate">{mockUser.email}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-emerald-900">
-                <Phone className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex items-center gap-2.5 text-foreground">
+                <Phone className="w-4 h-4 text-primary shrink-0" />
                 <span>{mockUser.phone}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-emerald-900">
-                <MapPin className="w-4 h-4 text-emerald-600 shrink-0" />
+              <div className="flex items-center gap-2.5 text-foreground">
+                <MapPin className="w-4 h-4 text-primary shrink-0" />
                 <span>{mockUser.municipality}, {mockUser.province} • Angola</span>
               </div>
             </div>

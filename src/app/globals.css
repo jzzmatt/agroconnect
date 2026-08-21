@@ -2,70 +2,128 @@
 @import "maplibre-gl/dist/maplibre-gl.css";
 
 @theme {
-  --color-background: #ffffff;
-  --color-foreground: #0F261B;
-  --color-primary: #0E6B38;
-  --color-primary-foreground: #ffffff;
-  --color-secondary: #E8F5EE;
-  --color-secondary-foreground: #063A1D;
-  --color-muted: #F1F5F3;
-  --color-muted-foreground: #728A7D;
-  --color-accent: #1B9C52;
-  --color-accent-foreground: #ffffff;
-  --color-destructive: #EF4444;
-  --color-destructive-foreground: #ffffff;
-  --color-border: #E2EBE5;
-  --color-input: #E2EBE5;
-  --color-ring: #0E6B38;
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+
+  --color-surface: var(--surface);
+  --color-surface-elevated: var(--surface-elevated);
+  --color-surface-muted: var(--surface-muted);
+  --color-surface-card: var(--surface-card);
+
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-primary-hover: var(--primary-hover);
+
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+
+  --color-border: var(--border);
+  --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
+  --color-input: var(--input);
+  --color-input-border: var(--input-border);
+  --color-ring: var(--ring);
+
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+  --color-sidebar-active: var(--sidebar-active);
+  --color-sidebar-active-foreground: var(--sidebar-active-foreground);
 }
 
 :root {
-  --background: 0 0% 100%;
-  --foreground: 140 30% 12%;
-  --card: 0 0% 100%;
-  --card-foreground: 140 30% 12%;
-  --popover: 0 0% 100%;
-  --popover-foreground: 140 30% 12%;
-  --primary: 142 76% 24%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 140 35% 94%;
-  --secondary-foreground: 142 76% 20%;
-  --muted: 140 15% 95%;
-  --muted-foreground: 140 10% 40%;
-  --accent: 142 60% 92%;
-  --accent-foreground: 142 76% 20%;
-  --destructive: 0 84% 60%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 140 20% 90%;
-  --input: 140 20% 90%;
-  --ring: 142 76% 24%;
+  --background: #FFFFFF;
+  --foreground: #0F261B;
+
+  --surface: #F8FAF9;
+  --surface-elevated: #FFFFFF;
+  --surface-muted: #F1F5F3;
+  --surface-card: #FFFFFF;
+
+  --primary: #0E6B38;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #063A1D;
+
+  --secondary: #E8F5EE;
+  --secondary-foreground: #063A1D;
+
+  --muted: #F1F5F3;
+  --muted-foreground: #4A6355;
+
+  --accent: #1B9C52;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #E2EBE5;
+  --border-subtle: #EEF4F0;
+  --border-strong: #C3D6CB;
+  --input: #FFFFFF;
+  --input-border: #E2EBE5;
+  --ring: #0E6B38;
+
+  --sidebar: #FFFFFF;
+  --sidebar-foreground: #0F261B;
+  --sidebar-border: #E2EBE5;
+  --sidebar-active: #0E6B38;
+  --sidebar-active-foreground: #FFFFFF;
+
   --radius: 0.75rem;
 }
 
-.dark {
-  --background: 140 30% 6%;
-  --foreground: 0 0% 98%;
-  --card: 140 25% 9%;
-  --card-foreground: 0 0% 98%;
-  --popover: 140 25% 9%;
-  --popover-foreground: 0 0% 98%;
-  --primary: 142 70% 35%;
-  --primary-foreground: 0 0% 100%;
-  --secondary: 140 20% 16%;
-  --secondary-foreground: 0 0% 98%;
-  --muted: 140 20% 16%;
-  --muted-foreground: 140 10% 65%;
-  --accent: 140 20% 18%;
-  --accent-foreground: 0 0% 98%;
-  --destructive: 0 62.8% 30.6%;
-  --destructive-foreground: 0 0% 98%;
-  --border: 140 20% 18%;
-  --input: 140 20% 18%;
-  --ring: 142 70% 35%;
+.dark,
+[data-theme="dark"] {
+  --background: #08160E;
+  --foreground: #F1F5F3;
+
+  --surface: #0D2217;
+  --surface-elevated: #122C1F;
+  --surface-muted: #163626;
+  --surface-card: #122C1F;
+
+  --primary: #1B9C52;
+  --primary-foreground: #FFFFFF;
+  --primary-hover: #22C55E;
+
+  --secondary: #163626;
+  --secondary-foreground: #86EFAC;
+
+  --muted: #163626;
+  --muted-foreground: #94A89E;
+
+  --accent: #1B9C52;
+  --accent-foreground: #FFFFFF;
+
+  --destructive: #EF4444;
+  --destructive-foreground: #FFFFFF;
+
+  --border: #1E4431;
+  --border-subtle: #163626;
+  --border-strong: #2E6147;
+  --input: #0D2217;
+  --input-border: #1E4431;
+  --ring: #1B9C52;
+
+  --sidebar: #0D2217;
+  --sidebar-foreground: #F1F5F3;
+  --sidebar-border: #1E4431;
+  --sidebar-active: #1B9C52;
+  --sidebar-active-foreground: #FFFFFF;
 }
 
 body {
-  background-color: #ffffff;
-  color: #0F261B;
+  background-color: var(--background);
+  color: var(--foreground);
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  transition: background-color 0.2s ease, color 0.2s ease;
 }

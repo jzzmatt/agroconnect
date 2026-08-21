@@ -12,4 +12,6 @@ export * from "./ExpertCard";
 export * from "./CourseCard";
 export * from "./ProductCard";
 export * from "./CheckListItem";
+export * from "./ThemeSwitcher";
+
 

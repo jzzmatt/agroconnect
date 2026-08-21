@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { Search, MapPin, Navigation, Compass } from "lucide-react";
+import { MapPin, Navigation } from "lucide-react";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
 import { getUserLocation } from "@/lib/location";
 import { cn } from "@/lib/utils";
@@ -52,17 +52,17 @@ export function LocationSelector({
   };
 
   return (
-    <div className={cn("p-4 bg-white rounded-xl border border-emerald-100 shadow-sm space-y-3", className)}>
+    <div className={cn("p-4 bg-surface-card rounded-2xl border border-border shadow-xs space-y-3", className)}>
       <div className="flex items-center justify-between">
-        <label className="text-xs font-bold uppercase tracking-wider text-emerald-950 flex items-center gap-1.5">
-          <MapPin className="w-4 h-4 text-emerald-600" />
+        <label className="text-xs font-bold uppercase tracking-wider text-foreground flex items-center gap-1.5">
+          <MapPin className="w-4 h-4 text-primary" />
           Filtro AgriLocalização (Angola)
         </label>
         <button
           type="button"
           onClick={handleUseLocation}
           disabled={isLocating}
-          className="text-xs font-semibold text-emerald-700 hover:text-emerald-900 flex items-center gap-1 transition-colors disabled:opacity-50"
+          className="text-xs font-semibold text-primary hover:text-primary-hover flex items-center gap-1 transition-colors disabled:opacity-50"
         >
           <Navigation className={cn("w-3.5 h-3.5", isLocating && "animate-spin")} />
           <span>{isLocating ? "A localizar..." : "Usar GPS"}</span>
@@ -72,7 +72,7 @@ export function LocationSelector({
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
         {/* Province Select */}
         <div>
-          <label className="block text-xs font-medium text-emerald-900 mb-1">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">
             Província
           </label>
           <select
@@ -81,7 +81,7 @@ export function LocationSelector({
               if (onProvinceChange) onProvinceChange(e.target.value);
               if (onMunicipalityChange) onMunicipalityChange("");
             }}
-            className="w-full text-xs bg-emerald-50/50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            className="w-full text-xs bg-surface border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-medium"
           >
             <option value="">Todas as 18 Províncias</option>
             {ANGOLA_PROVINCES.map((p) => (
@@ -94,13 +94,13 @@ export function LocationSelector({
 
         {/* Municipality Select */}
         <div>
-          <label className="block text-xs font-medium text-emerald-900 mb-1">
+          <label className="block text-xs font-medium text-muted-foreground mb-1">
             Município
           </label>
           <select
             value={selectedMunicipality}
             onChange={(e) => onMunicipalityChange && onMunicipalityChange(e.target.value)}
-            className="w-full text-xs bg-emerald-50/50 border border-emerald-200 rounded-lg px-3 py-2 text-emerald-950 focus:outline-none focus:ring-2 focus:ring-emerald-500 font-medium"
+            className="w-full text-xs bg-surface border border-border rounded-xl px-3 py-2 text-foreground focus:outline-none focus:ring-2 focus:ring-ring font-medium"
           >
             <option value="">Todos os Municípios</option>
             {availableMunicipalities.map((m) => (
@@ -115,10 +115,10 @@ export function LocationSelector({
         {showRadius && (
           <div>
             <div className="flex justify-between items-center mb-1">
-              <label className="text-xs font-medium text-emerald-900">
+              <label className="text-xs font-medium text-muted-foreground">
                 Raio de Busca
               </label>
-              <span className="text-xs font-bold text-emerald-700">{selectedRadius} km</span>
+              <span className="text-xs font-bold text-primary">{selectedRadius} km</span>
             </div>
             <input
               type="range"
@@ -127,7 +127,7 @@ export function LocationSelector({
               step="5"
               value={selectedRadius}
               onChange={(e) => onRadiusChange && onRadiusChange(Number(e.target.value))}
-              className="w-full accent-emerald-600 cursor-pointer h-1.5 bg-emerald-100 rounded-lg"
+              className="w-full accent-primary cursor-pointer h-1.5 bg-muted rounded-lg"
             />
           </div>
         )}
@@ -152,12 +152,12 @@ export function LocationBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 font-medium rounded-md bg-emerald-50 text-emerald-800 border border-emerald-200/60",
+        "inline-flex items-center gap-1 font-medium rounded-md bg-secondary text-secondary-foreground border border-border-subtle",
         size === "sm" ? "px-2 py-0.5 text-[11px]" : "px-2.5 py-1 text-xs",
         className
       )}
     >
-      <MapPin className={cn("text-emerald-600", size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5")} />
+      <MapPin className={cn("text-primary", size === "sm" ? "w-3 h-3" : "w-3.5 h-3.5")} />
       <span>
         {municipalityName ? `${municipalityName}, ${provinceName}` : provinceName}
       </span>
