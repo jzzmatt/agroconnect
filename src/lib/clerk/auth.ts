@@ -4,7 +4,7 @@ import type { UserProfileWithRoles } from "@/types/domain";
 import type { UserRoleType, Profile } from "@/types/database";
 
 /**
- * Get current authenticated user's ID from Clerk
+ * Get current authenticated user's ID from Clerk session
  */
 export async function getCurrentUserId(): Promise<string | null> {
   const { userId } = await auth();
@@ -17,13 +17,38 @@ export async function getCurrentUserId(): Promise<string | null> {
 export async function requireAuth(): Promise<string> {
   const { userId } = await auth();
   if (!userId) {
-    throw new Error("Unauthorized: User is not authenticated");
+    throw new Error("Não autorizado: É necessário iniciar sessão.");
   }
   return userId;
 }
 
 /**
- * Fetch or automatically initialize current user's profile and roles from Supabase
+ * Ensures user has a specific role/capability; throws friendly error if not
+ */
+export async function requireRole(allowedRoles: UserRoleType[]): Promise<UserProfileWithRoles> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("Não autorizado: Perfil de utilizador não encontrado.");
+  }
+
+  const hasRole = profile.roles.some((r) => allowedRoles.includes(r));
+  if (!hasRole && profile.account_type !== "admin") {
+    throw new Error("Acesso negado: Não possui a função necessária para aceder a este recurso.");
+  }
+
+  return profile;
+}
+
+/**
+ * Helper alias requested in spec: getCurrentProfile()
+ */
+export async function getCurrentProfile(): Promise<UserProfileWithRoles | null> {
+  return getCurrentUserProfile();
+}
+
+/**
+ * Fetch or automatically bootstrap current user's profile and roles from Supabase
+ * Gracefully handles the bootstrap situation (Clerk user exists, Supabase profile not yet synced).
  */
 export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | null> {
   const clerkUser = await currentUser();
@@ -38,7 +63,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     .eq("clerk_user_id", clerkUser.id)
     .single();
 
-  // If profile doesn't exist yet, create initial default profile
+  // If profile doesn't exist yet, gracefully bootstrap profile
   let effectiveProfile = profile as Profile | null;
   if (!effectiveProfile) {
     const primaryEmail = clerkUser.emailAddresses[0]?.emailAddress || null;
@@ -46,6 +71,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
       clerkUser.fullName ||
       (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim() : null) ||
       primaryEmail;
+
+    const profileSlug = clerkUser.username || `user-${clerkUser.id.slice(-8)}`;
 
     const { data: newProfile, error } = await (supabase.from("profiles") as any)
       .insert({
@@ -56,7 +83,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         email: primaryEmail,
         phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
         avatar_url: clerkUser.imageUrl,
-        profile_slug: clerkUser.username || `user-${clerkUser.id.slice(-8)}`,
+        profile_slug: profileSlug,
         preferred_language: "pt",
         account_type: "customer",
         status: "active",
@@ -84,7 +111,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     .select("role")
     .eq("clerk_user_id", clerkUser.id);
 
-  const roles: UserRoleType[] = (rolesData as Array<{ role: UserRoleType }> | null)?.map((r) => r.role) || ["student"];
+  const roles: UserRoleType[] =
+    (rolesData as Array<{ role: UserRoleType }> | null)?.map((r) => r.role) || ["student"];
 
   return {
     id: effectiveProfile?.id || clerkUser.id,
