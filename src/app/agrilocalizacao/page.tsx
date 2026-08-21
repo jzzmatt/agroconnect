@@ -4,7 +4,7 @@ import React, { useState } from "react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { SectionHeader, SearchBar, Badge } from "@/components/ui";
-import { LocationMap, LocationSelector, type MapMarkerItem } from "@/components/location";
+import { LocationMap, LocationSelector, LocationSearch, type MapMarkerItem } from "@/components/location";
 import { useI18n } from "@/i18n/provider";
 import { MOCK_MAP_MARKERS } from "@/config/mock-data";
 import { ANGOLA_PROVINCES } from "@/config/locations";
@@ -39,15 +39,28 @@ export default function AgriLocalizacaoPage() {
           </p>
         </div>
 
-        {/* Location selector toolbar */}
-        <LocationSelector
-          selectedProvince={selectedProvince}
-          selectedMunicipality={selectedMunicipality}
-          selectedRadius={selectedRadius}
-          onProvinceChange={setSelectedProvince}
-          onMunicipalityChange={setSelectedMunicipality}
-          onRadiusChange={setSelectedRadius}
-        />
+        {/* Location search & selector toolbar */}
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-1">
+            <LocationSearch
+              onSelectLocation={(res) => {
+                if (res.provinceName) setSelectedProvince(res.provinceName);
+                if (res.municipalityName) setSelectedMunicipality(res.municipalityName);
+              }}
+            />
+          </div>
+          <div className="lg:col-span-2">
+            <LocationSelector
+              selectedProvince={selectedProvince}
+              selectedMunicipality={selectedMunicipality}
+              selectedRadius={selectedRadius}
+              onProvinceChange={setSelectedProvince}
+              onMunicipalityChange={setSelectedMunicipality}
+              onRadiusChange={setSelectedRadius}
+              className="p-3"
+            />
+          </div>
+        </div>
 
         {/* Map canvas */}
         <LocationMap

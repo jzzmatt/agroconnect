@@ -53,9 +53,31 @@ The platform seeds and supports all **18 Official Provinces of Angola** (`src/co
 
 ---
 
-## 4. Provider-Agnostic Map Abstraction
+## 4. Provider-Agnostic Map & Geocoding Abstraction
 
-The map layer (`src/components/location/LocationMap.tsx`) provides a flexible visual abstraction:
-- Renders interactive marker pins with category filtering (**AgriExpert**, **AgriAcademy**, **AgriShopping**).
-- Displays detailed popup flyouts for clicked markers.
-- Ready to swap in Leaflet, OpenStreetMap tiles, or Mapbox in Phase 2 without modifying parent views.
+AGROCONNECT strictly decouples map rendering and geocoding from vendor implementations via the `LocationProvider` architecture:
+
+```
+LocationProvider
+├── MapProvider
+│   └── OpenFreeMap + MapLibre GL (`MapLibreOpenFreeMapProvider`)
+│
+└── GeocodingProvider
+    ├── Local Angola Dataset (`LocalAngolaGeocodingProvider`)
+    └── Configurable Remote HTTP Geocoder (`ConfigurableHttpGeocodingProvider`)
+```
+
+### 4.1 MapProvider Contract (`IMapProvider`)
+- Implemented with **MapLibre GL + OpenFreeMap** (`src/lib/location/providers/maplibre-openfreemap.ts`).
+- Supports zero-API-key vector tile rendering using OpenFreeMap styles (`liberty`, `positron`, `bright`).
+- Manages high-performance WebGL canvas, interactive marker pins, popups, and smooth camera transitions.
+
+### 4.2 GeocodingProvider Contract (`IGeocodingProvider`)
+- `LocalAngolaGeocodingProvider`: Instant, offline-capable forward and reverse geocoding across Angola's 18 provinces and agricultural hubs.
+- `ConfigurableHttpGeocodingProvider`: Configurable remote HTTP geocoding endpoint (e.g. Pelias, Nominatim, custom microservice) with automatic fallback to the local Angola geographic database.
+
+### 4.3 UI Components
+- `LocationMap` (`src/components/location/LocationMap.tsx`): MapLibre vector map with marker clustering, category filters, and fallback canvas.
+- `LocationSearch` (`src/components/location/LocationSearch.tsx`): Autocomplete geocoding search component.
+- `LocationSelector` (`src/components/location/LocationSelector.tsx`): Province, municipality, and radius filter.
+
