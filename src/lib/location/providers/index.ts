@@ -22,7 +22,7 @@ export interface LocationProviderOptions {
  */
 export function createLocationProvider(options?: LocationProviderOptions): ILocationProvider {
   const mapProvider: IMapProvider = new MapLibreOpenFreeMapProvider(
-    options?.mapStyle || process.env.NEXT_PUBLIC_MAP_STYLE || "liberty"
+    options?.mapStyle || process.env.NEXT_PUBLIC_MAP_STYLE_URL || process.env.NEXT_PUBLIC_MAP_STYLE || "liberty"
   );
 
   let geocodingProvider: IGeocodingProvider;
