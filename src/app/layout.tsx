@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { I18nProvider } from "@/i18n/provider";
 
@@ -14,10 +15,12 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="pt">
-      <body className="min-h-screen antialiased bg-background text-foreground">
-        <I18nProvider initialLocale="pt">{children}</I18nProvider>
-      </body>
-    </html>
+    <ClerkProvider>
+      <html lang="pt">
+        <body className="min-h-screen antialiased bg-background text-foreground">
+          <I18nProvider initialLocale="pt">{children}</I18nProvider>
+        </body>
+      </html>
+    </ClerkProvider>
   );
 }
