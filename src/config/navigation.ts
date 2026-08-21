@@ -1,19 +1,16 @@
 import {
   LayoutDashboard,
+  User,
   Users,
   GraduationCap,
   ShoppingBag,
   MapPin,
   Calendar,
   BookOpen,
-  Video,
+  DollarSign,
   Award,
-  Package,
+  Star,
   ClipboardList,
-  Boxes,
-  Building2,
-  Settings,
-  User,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -33,75 +30,43 @@ export interface NavSection {
   items: NavItem[];
 }
 
+/**
+ * Dashboard Sidebar Structure matching Figma specification:
+ * - Dashboard
+ * - Meu Perfil
+ * - AgriExpert
+ *   - Meus Serviços
+ *   - Agendamentos
+ *   - Avaliações
+ *   - Ganhos
+ * - AgriAcademy
+ *   - Meus Cursos
+ *   - Estudantes
+ */
 export const DASHBOARD_NAVIGATION: NavSection[] = [
   {
-    title: "Geral",
+    title: "Principal",
     pillar: "general",
     items: [
       {
-        title: "Painel Principal",
+        title: "Dashboard",
         href: "/dashboard",
         icon: LayoutDashboard,
       },
       {
-        title: "AgriLocalização",
-        href: "/agrilocalizacao",
-        icon: MapPin,
-        badge: "Mapa",
+        title: "Meu Perfil",
+        href: "/profile",
+        icon: User,
       },
     ],
   },
   {
-    title: "AgriAcademy (Aluno)",
-    pillar: "agriAcademy",
-    roles: ["student"],
-    items: [
-      {
-        title: "Meus Cursos",
-        href: "/dashboard/academy/my-courses",
-        icon: BookOpen,
-      },
-      {
-        title: "Certificados",
-        href: "/dashboard/academy/certificates",
-        icon: Award,
-      },
-    ],
-  },
-  {
-    title: "AgriAcademy (Instrutor)",
-    pillar: "agriAcademy",
-    roles: ["instructor"],
-    items: [
-      {
-        title: "Gestão de Cursos",
-        href: "/dashboard/academy/manage-courses",
-        icon: GraduationCap,
-      },
-      {
-        title: "Biblioteca de Vídeos",
-        href: "/dashboard/academy/videos",
-        icon: Video,
-      },
-      {
-        title: "Meus Alunos",
-        href: "/dashboard/academy/students",
-        icon: Users,
-      },
-    ],
-  },
-  {
-    title: "AgriExpert (Especialista)",
+    title: "AgriExpert",
     pillar: "agriExpert",
     roles: ["expert", "veterinarian", "agronomist", "agricultural_consultant"],
     items: [
       {
-        title: "Perfil Profissional",
-        href: "/dashboard/expert/profile",
-        icon: Users,
-      },
-      {
-        title: "Serviços & Consultorias",
+        title: "Meus Serviços",
         href: "/dashboard/expert/services",
         icon: ClipboardList,
       },
@@ -110,55 +75,49 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         href: "/dashboard/expert/appointments",
         icon: Calendar,
       },
+      {
+        title: "Avaliações",
+        href: "/dashboard/expert/reviews",
+        icon: Star,
+      },
+      {
+        title: "Ganhos",
+        href: "/dashboard/expert/earnings",
+        icon: DollarSign,
+      },
     ],
   },
   {
-    title: "AgriShopping (Vendedor)",
-    pillar: "agriShopping",
-    roles: ["seller"],
+    title: "AgriAcademy",
+    pillar: "agriAcademy",
+    roles: ["instructor", "student"],
     items: [
       {
-        title: "Meus Produtos",
-        href: "/dashboard/shopping/products",
-        icon: Package,
+        title: "Meus Cursos",
+        href: "/dashboard/academy/my-courses",
+        icon: BookOpen,
       },
       {
-        title: "Pedidos Recebidos",
-        href: "/dashboard/shopping/orders",
+        title: "Estudantes",
+        href: "/dashboard/academy/students",
+        icon: Users,
+      },
+    ],
+  },
+  {
+    title: "AgriShopping & Recursos",
+    pillar: "agriShopping",
+    items: [
+      {
+        title: "AgriShopping",
+        href: "/agrishopping",
         icon: ShoppingBag,
       },
       {
-        title: "Inventário",
-        href: "/dashboard/shopping/inventory",
-        icon: Boxes,
-      },
-    ],
-  },
-  {
-    title: "Empresa Agrícola",
-    pillar: "general",
-    roles: ["business"],
-    items: [
-      {
-        title: "Gestão da Empresa",
-        href: "/dashboard/business",
-        icon: Building2,
-      },
-    ],
-  },
-  {
-    title: "Conta",
-    pillar: "general",
-    items: [
-      {
-        title: "Meu Perfil",
-        href: "/profile",
-        icon: User,
-      },
-      {
-        title: "Definições",
-        href: "/settings",
-        icon: Settings,
+        title: "AgriLocalização",
+        href: "/agrilocalizacao",
+        icon: MapPin,
+        badge: "Mapa",
       },
     ],
   },

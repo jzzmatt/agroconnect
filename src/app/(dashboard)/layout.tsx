@@ -35,7 +35,7 @@ export default function DashboardLayout({
           {children}
         </main>
 
-        <MobileBottomNav />
+        <MobileBottomNav variant="dashboard" />
       </div>
     </div>
   );

@@ -3,217 +3,236 @@
 import React from "react";
 import Link from "next/link";
 import {
-  Users,
-  GraduationCap,
-  ShoppingBag,
-  MapPin,
-  Calendar,
+  DollarSign,
   BookOpen,
-  TrendingUp,
-  Award,
+  Calendar,
+  ShoppingBag,
+  Users,
+  Clock,
+  MapPin,
+  CheckCircle2,
   ArrowRight,
-  ShieldCheck,
-  PlusCircle,
-  Package,
+  TrendingUp,
+  Star,
+  ChevronRight,
 } from "lucide-react";
 import { MetricCard, SectionHeader, Button, Badge } from "@/components/ui";
-import { LocationBadge } from "@/components/location";
-import { useI18n } from "@/i18n/provider";
 
 export default function DashboardPage() {
-  const { dict } = useI18n();
+  // Figma Reference KPI Metrics
+  const kpiCards = [
+    {
+      title: "Ganhos Totais",
+      value: "2.450.000 Kz",
+      description: "em relação ao mês anterior",
+      trend: { value: "12.5% este mês", isPositive: true },
+      icon: DollarSign,
+    },
+    {
+      title: "Venda de Cursos",
+      value: "1.250.000 Kz",
+      description: "AgriAcademy",
+      trend: { value: "18.3% este mês", isPositive: true },
+      icon: BookOpen,
+    },
+    {
+      title: "Consultas Activas",
+      value: "32 Agendadas",
+      description: "AgriExpert",
+      trend: { value: "4.7% este mês", isPositive: true },
+      icon: Calendar,
+    },
+    {
+      title: "Produtos Vendidos",
+      value: "56 Items",
+      description: "AgriShopping",
+      trend: { value: "8.2% este mês", isPositive: true },
+      icon: ShoppingBag,
+    },
+    {
+      title: "Total Estudantes",
+      value: "124 Alunos",
+      description: "Inscritos nos seus cursos",
+      trend: { value: "15.4% este mês", isPositive: true },
+      icon: Users,
+    },
+  ];
+
+  // Figma Reference Recent Activity
+  const recentActivities = [
+    {
+      id: "act-1",
+      title: "Inscrição no curso: Suinicultura Profissional",
+      time: "Há 25 minutos",
+      type: "academy",
+      icon: BookOpen,
+    },
+    {
+      id: "act-2",
+      title: "Nova consulta agendada: Visita à Fazenda – Benguela",
+      time: "Há 2 horas",
+      type: "expert",
+      icon: Calendar,
+    },
+    {
+      id: "act-3",
+      title: "Encomenda de produto: Sistema de Rega Automático",
+      time: "Há 4 horas",
+      type: "shopping",
+      icon: ShoppingBag,
+    },
+    {
+      id: "act-4",
+      title: 'Classificação recebida: "Excelente esclarecimento!"',
+      time: "Ontem às 16:40",
+      type: "review",
+      icon: Star,
+    },
+  ];
+
+  // Figma Reference Upcoming Appointments
+  const upcomingAppointments = [
+    {
+      id: "apt-1",
+      date: "Amanhã, 09:00",
+      title: "Visita Técnica • Fazenda Huambo",
+      location: "Caála, Huambo",
+      status: "CONFIRMADO",
+    },
+    {
+      id: "apt-2",
+      date: "15 de Maio, 14:00",
+      title: "Vídeo Consulta • Produção de Milho",
+      location: "Online",
+      status: "CONFIRMADO",
+    },
+    {
+      id: "apt-3",
+      date: "18 de Maio, 10:00",
+      title: "Análise de Solo • Malanje",
+      location: "Cacuso, Malanje",
+      status: "CONFIRMADO",
+    },
+  ];
 
   return (
     <div className="space-y-8">
-      {/* Welcome & Overview Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 rounded-3xl border border-emerald-900/10 shadow-xs">
+      {/* Welcome Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-6 sm:p-8 rounded-3xl border border-emerald-900/10 shadow-xs">
         <div>
           <span className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-            Painel de Controlo • Angola
+            Painel de Controlo • AGROCONNECT
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-emerald-950 mt-1">
-            {dict.dashboard.welcome}
+            Olá, Dr. João Silva 👋
           </h1>
           <p className="text-sm text-emerald-800/80 mt-1">
-            Gerencie os seus serviços no AgriExpert, cursos no AgriAcademy e produtos no AgriShopping.
+            Aqui está o resumo da sua atividade profissional no ecossistema agrícola de Angola.
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2.5">
           <Link href="/agrilocalizacao">
-            <Button variant="primary" className="bg-emerald-700 hover:bg-emerald-800 gap-1.5 font-bold shadow-xs">
-              <MapPin className="w-4 h-4" />
-              <span>Ver Mapa</span>
+            <Button variant="outline" className="border-emerald-200 text-xs font-bold gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+              <span>AgriLocalização</span>
+            </Button>
+          </Link>
+          <Link href="/dashboard/expert/services">
+            <Button variant="primary" className="bg-emerald-700 hover:bg-emerald-800 text-xs font-bold">
+              Novo Serviço
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* Metric Cards Overview */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <MetricCard
-          title="Consultorias Agendadas"
-          value="6"
-          description="2 agendadas para esta semana"
-          icon={Calendar}
-          trend={{ value: "12%", isPositive: true }}
-        />
-        <MetricCard
-          title="Cursos em Andamento"
-          value="3"
-          description="85% de conclusão média"
-          icon={BookOpen}
-          trend={{ value: "4%", isPositive: true }}
-        />
-        <MetricCard
-          title="Produtos no Mercado"
-          value="14"
-          description="AgriShopping Huambo / Luanda"
-          icon={ShoppingBag}
-        />
-        <MetricCard
-          title="Classificação Geral"
-          value="4.9 / 5.0"
-          description="Baseado em 48 avaliações"
-          icon={Award}
-          trend={{ value: "5.0", isPositive: true }}
-        />
+      {/* KPI / Stat Cards (Figma Grid & Responsive Layout) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+        {kpiCards.map((kpi, idx) => (
+          <MetricCard
+            key={idx}
+            title={kpi.title}
+            value={kpi.value}
+            description={kpi.description}
+            trend={kpi.trend}
+            icon={kpi.icon}
+          />
+        ))}
       </div>
 
-      {/* Role-Specific Active Panels */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* AgriExpert Management Section */}
-        <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 flex items-center justify-center">
-                <Users className="w-4 h-4" />
+      {/* Split Activity & Appointments Grid */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
+        {/* Próximos Agendamentos (Figma Left Column) */}
+        <div className="lg:col-span-7 bg-white rounded-3xl p-6 sm:p-7 border border-emerald-900/10 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-base text-emerald-950">AgriExpert • Especialista</h3>
+              <h3 className="font-bold text-base text-emerald-950">Próximos Agendamentos</h3>
             </div>
-            <Badge variant="pillarExpert">Ativo</Badge>
+            <Link href="/dashboard/expert/appointments" className="text-xs font-bold text-emerald-700 hover:text-emerald-900">
+              Ver todos
+            </Link>
           </div>
 
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Área de gestão de consultas veterinárias, sanidade animal e assistência agronómica.
-          </p>
+          <div className="space-y-3">
+            {upcomingAppointments.map((apt) => (
+              <div
+                key={apt.id}
+                className="p-4 rounded-2xl bg-emerald-50/50 border border-emerald-100 hover:border-emerald-200 transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-emerald-700" />
+                    <span className="text-xs font-bold text-emerald-950">{apt.date}</span>
+                  </div>
+                  <h4 className="text-sm font-bold text-emerald-900">{apt.title}</h4>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1">
+                    <MapPin className="w-3 h-3 text-emerald-600" />
+                    <span>{apt.location}</span>
+                  </p>
+                </div>
 
-          <div className="space-y-2 pt-2 text-xs">
-            <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-emerald-950 block">Fazenda Esperança (Caála)</span>
-                <span className="text-[11px] text-emerald-700">Consulta de Sanidade Bovina</span>
+                {/* Mobile & Desktop Confirmado Badge */}
+                <div className="self-start sm:self-center">
+                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase bg-emerald-100 text-emerald-800 border border-emerald-200 shadow-2xs">
+                    <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                    <span>{apt.status}</span>
+                  </span>
+                </div>
               </div>
-              <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded">
-                Amanhã, 10:00
-              </span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-emerald-50/60 border border-emerald-100 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-emerald-950 block">Cooperativa Agro-Sul</span>
-                <span className="text-[11px] text-emerald-700">Análise de Solo e Nutrição</span>
-              </div>
-              <span className="text-[10px] font-bold bg-emerald-200/80 text-emerald-900 px-2 py-0.5 rounded">
-                Quinta, 14:30
-              </span>
-            </div>
+            ))}
           </div>
-
-          <Link href="/agriexpert" className="block pt-2">
-            <Button variant="outline" size="sm" className="w-full justify-between text-xs font-bold border-emerald-200">
-              <span>Gerir Consultorias</span>
-              <ArrowRight className="w-3.5 h-3.5 text-emerald-700" />
-            </Button>
-          </Link>
         </div>
 
-        {/* AgriAcademy Management Section */}
-        <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 text-blue-800 flex items-center justify-center">
-                <GraduationCap className="w-4 h-4" />
+        {/* Atividade Recente (Figma Right Column) */}
+        <div className="lg:col-span-5 bg-white rounded-3xl p-6 sm:p-7 border border-emerald-900/10 shadow-xs space-y-5">
+          <div className="flex items-center justify-between border-b border-emerald-100 pb-4">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center">
+                <TrendingUp className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-base text-emerald-950">AgriAcademy • Aluno / Instrutor</h3>
-            </div>
-            <Badge variant="pillarAcademy">Ativo</Badge>
-          </div>
-
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Progresso nos cursos matriculados e estatísticas de formações publicadas.
-          </p>
-
-          <div className="space-y-2.5 pt-2">
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="font-semibold text-emerald-950">Maneio Intensivo de Bovinos</span>
-                <span className="font-bold text-emerald-700">75%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-emerald-600 h-full w-3/4 rounded-full" />
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <div className="flex justify-between text-xs">
-                <span className="font-semibold text-emerald-950">Horticultura Comercial</span>
-                <span className="font-bold text-emerald-700">40%</span>
-              </div>
-              <div className="w-full bg-slate-100 h-2 rounded-full overflow-hidden">
-                <div className="bg-blue-600 h-full w-2/5 rounded-full" />
-              </div>
+              <h3 className="font-bold text-base text-emerald-950">Atividade Recente</h3>
             </div>
           </div>
 
-          <Link href="/agriacademy" className="block pt-2">
-            <Button variant="outline" size="sm" className="w-full justify-between text-xs font-bold border-blue-200 text-blue-900 hover:bg-blue-50">
-              <span>Continuar Aprendizagem</span>
-              <ArrowRight className="w-3.5 h-3.5 text-blue-700" />
-            </Button>
-          </Link>
-        </div>
-
-        {/* AgriShopping Management Section */}
-        <div className="bg-white rounded-3xl p-6 border border-emerald-900/10 shadow-xs space-y-4">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-amber-100 text-amber-800 flex items-center justify-center">
-                <ShoppingBag className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-base text-emerald-950">AgriShopping • Vendedor</h3>
-            </div>
-            <Badge variant="pillarShopping">Ativo</Badge>
+          <div className="space-y-3.5">
+            {recentActivities.map((act) => {
+              const Icon = act.icon;
+              return (
+                <div key={act.id} className="flex items-start gap-3 text-xs">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-50 border border-emerald-100 text-emerald-700 flex items-center justify-center shrink-0 mt-0.5">
+                    <Icon className="w-4 h-4" />
+                  </div>
+                  <div className="flex-1 space-y-0.5">
+                    <p className="font-semibold text-emerald-950 leading-snug">{act.title}</p>
+                    <span className="text-[11px] text-muted-foreground block">{act.time}</span>
+                  </div>
+                </div>
+              );
+            })}
           </div>
-
-          <p className="text-xs text-muted-foreground leading-relaxed">
-            Gestão rápida de produtos agrícolas listados, inventário e encomendas.
-          </p>
-
-          <div className="space-y-2 pt-2 text-xs">
-            <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-emerald-950 block">Sementes de Milho ZM-521</span>
-                <span className="text-[11px] text-amber-800 font-medium">80 sacos em stock</span>
-              </div>
-              <span className="text-xs font-bold text-emerald-950">28.500 Kz</span>
-            </div>
-
-            <div className="p-3 rounded-xl bg-amber-50/50 border border-amber-100 flex items-center justify-between">
-              <div>
-                <span className="font-bold text-emerald-950 block">Bomba de Irrigação 3HP</span>
-                <span className="text-[11px] text-amber-800 font-medium">12 unidades</span>
-              </div>
-              <span className="text-xs font-bold text-emerald-950">480.000 Kz</span>
-            </div>
-          </div>
-
-          <Link href="/agrishopping" className="block pt-2">
-            <Button variant="outline" size="sm" className="w-full justify-between text-xs font-bold border-amber-200 text-amber-900 hover:bg-amber-50">
-              <span>Ver Catálogo</span>
-              <ArrowRight className="w-3.5 h-3.5 text-amber-700" />
-            </Button>
-          </Link>
         </div>
       </div>
     </div>
