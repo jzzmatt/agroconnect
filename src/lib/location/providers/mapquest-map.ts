@@ -7,42 +7,45 @@ import type {
 import type { GeoCoordinate } from "@/types/domain";
 
 /**
- * Returns the appropriate tile URL based on layer type.
- * MapQuest supports official imagery tiles, OpenStreetMap base tiles, and ESRI World Imagery.
+ * Returns the official MapQuest raster tile configuration based on layer type.
+ * MapQuest.js / MapQuest platform provides raster tiles under tiles.mapquest.com
+ * with Vivid (standard map), Satellite (satellite imagery), Night (dark), and Grayscale (light).
  */
 export function getMapTileUrl(
-  apiKey: string,
+  _apiKey?: string,
   layer: MapLayerType = "map"
-): { url: string; attribution: string; subdomains?: string[] } {
+): { url: string; attribution: string; subdomains: string[] } {
+  const attribution =
+    '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+  const subdomains = ["a", "b", "c", "d"];
+
   switch (layer) {
     case "satellite":
     case "hybrid":
       return {
-        url: "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
+        url: "https://{s}.tiles.mapquest.com/render/latest/satellite/{z}/{x}/{y}/256/png",
         attribution:
-          'Tiles &copy; Esri &mdash; Source: Esri, i-cubed, USDA, USGS, AEX, GeoEye, Getmapping, Aerogrid, IGN, IGP, UPR-EGP, and the GIS User Community | Powered by MapQuest',
+          '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; DigitalGlobe &copy; USDA &copy; USGS',
+        subdomains,
       };
     case "dark":
       return {
-        url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | MapQuest Engine',
-        subdomains: ["a", "b", "c", "d"],
+        url: "https://{s}.tiles.mapquest.com/render/latest/night/{z}/{x}/{y}/256/png",
+        attribution,
+        subdomains,
       };
     case "light":
       return {
-        url: "https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png",
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a> | MapQuest Engine',
-        subdomains: ["a", "b", "c", "d"],
+        url: "https://{s}.tiles.mapquest.com/render/latest/grayscale/{z}/{x}/{y}/256/png",
+        attribution,
+        subdomains,
       };
     case "map":
     default:
       return {
-        url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-        attribution:
-          '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors | MapQuest Platform',
-        subdomains: ["a", "b", "c"],
+        url: "https://{s}.tiles.mapquest.com/render/latest/vivid/{z}/{x}/{y}/256/png",
+        attribution,
+        subdomains,
       };
   }
 }
@@ -155,9 +158,17 @@ export class MapQuestProvider implements IMapProvider {
 
     this.currentTileLayer = L.tileLayer(tileConfig.url, {
       maxZoom: 18,
-      subdomains: tileConfig.subdomains || ["a", "b", "c"],
+      subdomains: tileConfig.subdomains || ["a", "b", "c", "d"],
       attribution: tileConfig.attribution,
     }).addTo(this.mapInstance);
+
+    // Attach tile error listener for developer diagnostics without exposing credentials
+    this.currentTileLayer.on("tileerror", (errorEvent: any) => {
+      console.warn(
+        `[MapQuest Tile Error] Failed to load tile for layer "${this.currentLayerType}":`,
+        errorEvent.coords
+      );
+    });
   }
 
   public setLayerType(layerType: MapLayerType): void {

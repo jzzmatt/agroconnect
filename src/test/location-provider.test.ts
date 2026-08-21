@@ -19,13 +19,13 @@ describe("LocationProvider & MapQuest Geospatial Architecture", () => {
 
   it("generates correct tile URLs for standard map, dark and satellite layers", () => {
     const mapTile = getMapTileUrl("test_key_123", "map");
-    expect(mapTile.url).toContain("tile.openstreetmap.org");
+    expect(mapTile.url).toContain("tiles.mapquest.com/render/latest/vivid");
 
     const satTile = getMapTileUrl("test_key_123", "satellite");
-    expect(satTile.url).toContain("arcgisonline.com");
+    expect(satTile.url).toContain("tiles.mapquest.com/render/latest/satellite");
 
     const darkTile = getMapTileUrl("test_key_123", "dark");
-    expect(darkTile.url).toContain("cartocdn.com");
+    expect(darkTile.url).toContain("tiles.mapquest.com/render/latest/night");
   });
 
   it("supports layer type switching in MapQuestProvider (map, satellite, dark)", () => {

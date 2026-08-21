@@ -20,10 +20,10 @@ describe("AGROCONNECT Phase 2B — Dark Mode & Theme System", () => {
 
   it("3. Configures theme-aware map layer tile URLs for Light and Dark modes", () => {
     const lightTile = getMapTileUrl("test_key", "map");
-    expect(lightTile.url).toContain("tile.openstreetmap.org");
+    expect(lightTile.url).toContain("tiles.mapquest.com/render/latest/vivid");
 
     const darkTile = getMapTileUrl("test_key", "dark");
-    expect(darkTile.url).toContain("cartocdn.com");
+    expect(darkTile.url).toContain("tiles.mapquest.com/render/latest/night");
   });
 
   it("4. Validates database profile type supports theme_preference field", () => {
