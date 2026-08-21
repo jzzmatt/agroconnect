@@ -5,12 +5,10 @@ import {
   MapPin,
   Navigation,
   Compass,
-  Layers,
   Box,
   RotateCcw,
   Loader2,
   AlertCircle,
-  Eye,
 } from "lucide-react";
 import type { GeoCoordinate } from "@/types/domain";
 import { cn } from "@/lib/utils";
@@ -124,6 +122,7 @@ export function LocationMap({
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const providerRef = useRef<IMapProvider | null>(null);
+  const isInitializedRef = useRef(false);
 
   const filteredMarkers = markers.filter((m) =>
     activeCategory === "all" ? true : m.category === activeCategory
@@ -168,16 +167,33 @@ export function LocationMap({
       },
       onError: (err) => {
         console.error("[LocationMap] Error event:", err);
-        // If map had not loaded yet, record user-visible error state
-        setMapError("Não foi possível carregar o mapa. Verifique a ligação à internet.");
+        // Do not block UI with error if map has already loaded tiles
+        setMapLoaded((prev) => {
+          if (!prev) {
+            setMapError("Não foi possível carregar o mapa. Verifique a ligação à internet.");
+          }
+          return prev;
+        });
       },
     });
+
+    // Fallback timer: if style takes more than 1.5s or load event fired silently, reveal map
+    const fallbackTimer = setTimeout(() => {
+      setMapLoaded(true);
+      if (providerRef.current) {
+        providerRef.current.resize();
+      }
+    }, 1500);
+
+    return () => clearTimeout(fallbackTimer);
   }, [center, zoom, viewMode, theme, mapProvider]);
 
   useEffect(() => {
-    initMapInstance();
+    if (isInitializedRef.current) return;
+    isInitializedRef.current = true;
 
-    // ResizeObserver ensures MapLibre fits container dimensions when layout changes
+    const cleanupTimer = initMapInstance();
+
     let observer: ResizeObserver | null = null;
     if (mapContainerRef.current && typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(() => {
@@ -189,11 +205,13 @@ export function LocationMap({
     }
 
     return () => {
+      if (cleanupTimer) cleanupTimer();
       if (observer) observer.disconnect();
       if (providerRef.current) {
         providerRef.current.destroy();
         providerRef.current = null;
       }
+      isInitializedRef.current = false;
     };
   }, [initMapInstance]);
 
@@ -214,7 +232,6 @@ export function LocationMap({
     filteredMarkers.forEach((marker) => {
       const config = CATEGORY_CONFIG[marker.category] || CATEGORY_CONFIG.expert;
 
-      // Custom styled HTML marker element
       const el = document.createElement("div");
       el.className =
         "w-8 h-8 rounded-full shadow-xl flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-900 cursor-pointer transition-transform hover:scale-115";
@@ -405,9 +422,9 @@ export function LocationMap({
           style={{ width: "100%", height: "100%" }}
         />
 
-        {/* Loading State Overlay */}
+        {/* Loading State Overlay with Smooth Fade */}
         {!mapLoaded && !mapError && (
-          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/80 backdrop-blur-xs text-foreground space-y-2">
+          <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/60 backdrop-blur-xs text-foreground space-y-2 pointer-events-none transition-opacity duration-300">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
             <p className="text-xs font-bold text-muted-foreground">
               Carregando mapa OpenFreeMap...
