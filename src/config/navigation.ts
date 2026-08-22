@@ -15,6 +15,7 @@ import {
   Package,
   Truck,
   Bell,
+  Building2,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -106,6 +107,11 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         icon: BookOpen,
       },
       {
+        title: "Vídeos & Armazenamento",
+        href: "/dashboard/academy",
+        icon: BookOpen,
+      },
+      {
         title: "Estudantes",
         href: "/dashboard/academy/students",
         icon: Users,
@@ -154,6 +160,11 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         href: "/agrilocalizacao",
         icon: MapPin,
         badge: "Mapa",
+      },
+      {
+        title: "Serviços empresariais",
+        href: "/dashboard/enterprise",
+        icon: Building2,
       },
     ],
   },

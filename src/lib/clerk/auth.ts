@@ -1,5 +1,7 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getAuthoritativeSubscription } from "@/lib/subscription/store";
+import { normalizePlanSlug } from "@/lib/services/pricing-service";
 import type { UserProfileWithRoles } from "@/types/domain";
 import type { UserRoleType, Profile } from "@/types/database";
 
@@ -88,6 +90,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         avatar_url: clerkUser.imageUrl || null,
         profile_slug: profileSlug,
         preferred_language: "pt",
+        market_country_code: "AO",
+        video_storage_used_bytes: 0,
         account_type: "customer",
         professional_title: "none",
         active_profile_type: "personal",
@@ -120,6 +124,10 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   const roles: UserRoleType[] =
     (rolesData as Array<{ role: UserRoleType }> | null)?.map((r) => r.role) || ["student"];
 
+  const memory = getAuthoritativeSubscription(clerkUser.id);
+  const dbPlan = (effectiveProfile as any)?.subscription_plan;
+  const subscriptionPlan = normalizePlanSlug(memory?.plan || dbPlan || "basic");
+
   return {
     id: effectiveProfile?.id || clerkUser.id,
     clerk_user_id: clerkUser.id,
@@ -134,14 +142,17 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     professional_title: (effectiveProfile as any)?.professional_title || "none",
     professional_title_custom: (effectiveProfile as any)?.professional_title_custom || null,
     active_profile_type: (effectiveProfile as any)?.active_profile_type || roles[0] || "personal",
-    subscription_plan: (effectiveProfile as any)?.subscription_plan || "basic",
-    preferred_language: effectiveProfile?.preferred_language || "pt",
+    subscription_plan: subscriptionPlan,
+    preferred_language: memory?.preferredLanguage || effectiveProfile?.preferred_language || "pt",
+    market_country_code: memory?.marketCountryCode || (effectiveProfile as any)?.market_country_code || "AO",
+    video_storage_used_bytes:
+      memory?.videoStorageUsedBytes ?? (effectiveProfile as any)?.video_storage_used_bytes ?? 0,
     account_type: effectiveProfile?.account_type || "customer",
     status: effectiveProfile?.status || "active",
     theme_preference: effectiveProfile?.theme_preference || "light",
     is_active: effectiveProfile?.is_active ?? true,
     roles,
     created_at: effectiveProfile?.created_at || new Date().toISOString(),
-    updated_at: effectiveProfile?.updated_at || new Date().toISOString(),
+    updated_at: memory?.updatedAt || effectiveProfile?.updated_at || new Date().toISOString(),
   };
 }

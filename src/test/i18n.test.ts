@@ -36,8 +36,13 @@ describe("Internationalization (i18n) Engine", () => {
   });
 
   it("falls back to default locale dictionary when given invalid locale", () => {
-    // @ts-expect-error testing invalid locale fallback
-    const dict = getDictionary("fr");
+    const dict = getDictionary("xx");
     expect(dict.navigation.dashboard).toBe("Painel");
+  });
+
+  it("provides French dictionary", () => {
+    const dict = getDictionary("fr");
+    expect(dict.navigation.dashboard).toBe("Tableau de bord");
+    expect(dict.glossary.order).toBe("Commande");
   });
 });

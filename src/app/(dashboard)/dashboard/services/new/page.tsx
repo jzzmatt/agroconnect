@@ -17,30 +17,13 @@ import { Button } from "@/components/ui/Button";
 import { LocationSelector } from "@/components/location";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { createServiceAction } from "@/lib/services/marketplace-actions";
-import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { Lock, ArrowRight } from "lucide-react";
 import type { PricingType, ServiceLocationType } from "@/types/database";
 
 export default function NewServicePage() {
   const router = useRouter();
-
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
-      if (profileOverride) {
-        try {
-          const parsed = JSON.parse(profileOverride);
-          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, []);
-
-  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const { entitlements } = useAuthoritativePlan();
   const isBasic = !entitlements.can_manage_services;
 
   const [title, setTitle] = useState("");

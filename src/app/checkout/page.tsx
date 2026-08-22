@@ -20,11 +20,15 @@ import { Button } from "@/components/ui/Button";
 import { OrderSummary } from "@/components/commerce/OrderSummary";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { getCartAction, checkoutOrderAction } from "@/lib/services/commerce-actions";
+import { PaymentService } from "@/lib/payments";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ShoppingCart } from "@/types/domain";
 import type { OrderFulfillmentMethod, PaymentMethod } from "@/types/database";
 
 export default function CheckoutPage() {
   const router = useRouter();
+  const { marketCountry } = useAuthoritativePlan();
+  const paymentOptions = PaymentService.getConfiguredMethods(marketCountry.code);
 
   const [cart, setCart] = useState<ShoppingCart | null>(null);
   const [fulfillmentMethod, setFulfillmentMethod] = useState<OrderFulfillmentMethod>("delivery");
@@ -268,24 +272,30 @@ export default function CheckoutPage() {
               </div>
 
               <div className="space-y-2 pt-2">
-                <label className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-surface hover:bg-muted transition-colors cursor-pointer">
-                  <input
-                    type="radio"
-                    name="paymentMethod"
-                    value="mock_sandbox"
-                    checked={paymentMethod === "mock_sandbox"}
-                    onChange={() => setPaymentMethod("mock_sandbox")}
-                    className="text-primary focus:ring-primary"
-                  />
-                  <div>
-                    <span className="font-bold text-xs text-foreground block">
-                      Pagamento Simulado de Teste (Confirmação Imediata)
-                    </span>
-                    <span className="text-[11px] text-muted-foreground block">
-                      Valida todo o pipeline de compra, criação de pedido e dedução de stock.
-                    </span>
-                  </div>
-                </label>
+                {paymentOptions.map((method) => (
+                  <label
+                    key={method.id}
+                    className="flex items-center gap-3 p-3.5 rounded-2xl border border-border bg-surface hover:bg-muted transition-colors cursor-pointer"
+                  >
+                    <input
+                      type="radio"
+                      name="paymentMethod"
+                      value={method.id}
+                      checked={paymentMethod === method.id}
+                      onChange={() => setPaymentMethod(method.id as PaymentMethod)}
+                      className="text-primary focus:ring-primary"
+                    />
+                    <div>
+                      <span className="font-bold text-xs text-foreground block">
+                        {method.label.pt}
+                        {!method.live && method.id === "multicaixa_online" ? " — integração em preparação" : ""}
+                      </span>
+                      <span className="text-[11px] text-muted-foreground block">
+                        {method.notes?.pt || `${marketCountry.currencyCode} • ${marketCountry.name.pt}`}
+                      </span>
+                    </div>
+                  </label>
+                ))}
               </div>
             </div>
           </div>

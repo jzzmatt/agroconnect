@@ -79,7 +79,6 @@ export default function EditProfilePage() {
           if (parsed.province) setProvince(parsed.province);
           if (parsed.municipality) setMunicipality(parsed.municipality);
           if (parsed.selectedProfileTypes) setSelectedProfileTypes(parsed.selectedProfileTypes);
-          if (parsed.subscriptionPlan !== undefined) setSubscriptionPlan(parsed.subscriptionPlan);
         } catch {
           // ignore
         }
@@ -130,7 +129,6 @@ export default function EditProfilePage() {
             province,
             municipality,
             selectedProfileTypes,
-            subscriptionPlan: subscriptionPlan || "basic",
           })
         );
       }

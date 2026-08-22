@@ -8,6 +8,8 @@ import type {
   WebhookValidationResult,
 } from "./types";
 import { SandboxPaymentAdapter } from "./sandbox-adapter";
+import { MulticaixaOnlineAdapter } from "./multicaixa-online-adapter";
+import { getMarketCountry } from "@/config/markets";
 
 /**
  * Payment Service orchestrator
@@ -18,10 +20,27 @@ export class PaymentService {
 
   public static getProvider(): IPaymentProvider {
     if (!this.providerInstance) {
-      // Default fallback is the safe development SandboxPaymentAdapter
       this.providerInstance = new SandboxPaymentAdapter();
     }
     return this.providerInstance;
+  }
+
+  public static getConfiguredMethods(countryCode?: string | null) {
+    const market = getMarketCountry(countryCode);
+    const methods = [...market.paymentMethods];
+    if (process.env.NODE_ENV !== "production") {
+      methods.push({
+        id: "mock_sandbox",
+        label: {
+          pt: "Pagamento de teste (ambiente de desenvolvimento)",
+          en: "Test payment (development environment)",
+          fr: "Paiement de test (environnement de développement)",
+        },
+        configured: true,
+        live: false,
+      });
+    }
+    return methods;
   }
 
   public static setProvider(provider: IPaymentProvider): void {
@@ -29,7 +48,9 @@ export class PaymentService {
   }
 
   public static async createPayment(params: CreatePaymentIntentParams): Promise<PaymentIntentResult> {
-    const provider = this.getProvider();
+    const provider = params.paymentMethod === "multicaixa_online"
+      ? new MulticaixaOnlineAdapter()
+      : this.getProvider();
     return provider.createPaymentIntent(params);
   }
 

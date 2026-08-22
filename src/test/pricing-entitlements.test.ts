@@ -21,8 +21,8 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(SUBSCRIPTION_PLANS.business.productLimit).toBeNull(); // Unlimited
     expect(SUBSCRIPTION_PLANS.business.highlightBadge).toBe("MAIS ESCOLHIDO PARA VENDEDORES");
 
-    expect(SUBSCRIPTION_PLANS.enterprise.priceMonthlyAoa).toBe(60000);
-    expect(SUBSCRIPTION_PLANS.enterprise.priceFormatted).toBe("60.000 Kz");
+    expect(SUBSCRIPTION_PLANS.enterprise.priceMonthlyAoa).toBe(80000);
+    expect(SUBSCRIPTION_PLANS.enterprise.priceFormatted).toBe("80.000 Kz");
     expect(SUBSCRIPTION_PLANS.enterprise.productLimit).toBeNull(); // Unlimited
   });
 
@@ -42,7 +42,7 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(proEntitlements.product_limit).toBe(10);
   });
 
-  it("4. Business (30.000 Kz/mês) and Enterprise (60.000 Kz/mês) allow unlimited products", () => {
+  it("4. Business (30.000 Kz/mês) and Enterprise (80.000 Kz/mês) allow unlimited products", () => {
     const bizEntitlements = getUserEntitlements({ subscriptionPlan: "business" });
     expect(bizEntitlements.can_create_products).toBe(true);
     expect(bizEntitlements.product_limit).toBeNull(); // Unlimited

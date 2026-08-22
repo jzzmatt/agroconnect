@@ -13,30 +13,15 @@ import {
 import { Button } from "@/components/ui/Button";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { createProductAction } from "@/lib/services/shopping-actions";
-import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { uploadProductImageAction } from "@/lib/services/product-media-actions";
+import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { Lock, Sparkles, ArrowRight } from "lucide-react";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export default function NewProductPage() {
   const router = useRouter();
-
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
-
-  React.useEffect(() => {
-    if (typeof window !== "undefined") {
-      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
-      if (profileOverride) {
-        try {
-          const parsed = JSON.parse(profileOverride);
-          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, []);
-
-  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const { entitlements } = useAuthoritativePlan();
   const isBasic = !entitlements.can_create_products;
 
   const [title, setTitle] = useState("");
@@ -52,6 +37,7 @@ export default function NewProductPage() {
   const [selectedProvince, setSelectedProvince] = useState("Benguela");
   const [selectedMunicipality, setSelectedMunicipality] = useState("Lobito");
   const [sellingRadiusKm, setSellingRadiusKm] = useState<number>(70);
+  const [pendingImages, setPendingImages] = useState<Array<{ id: string; url: string; alt_text: string; is_primary: boolean; file: File }>>([]);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -115,7 +101,7 @@ export default function NewProductPage() {
     setError(null);
 
     try {
-      await createProductAction({
+      const created = await createProductAction({
         title,
         description,
         condition,
@@ -128,6 +114,18 @@ export default function NewProductPage() {
         sellingRadiusKm,
         status: "published",
       });
+
+      for (const img of pendingImages) {
+        await uploadProductImageAction({
+          productId: created.id,
+          productTitle: title,
+          mimeType: img.file.type,
+          fileName: img.file.name,
+          fileSize: img.file.size,
+          dataUrl: img.url,
+          isPrimary: img.is_primary,
+        });
+      }
 
       setSuccess(true);
       setTimeout(() => {
@@ -377,6 +375,28 @@ export default function NewProductPage() {
                 />
               </div>
             </div>
+          </div>
+
+          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs">
+            <ProductImageUploader
+              images={pendingImages}
+              onAdd={(file, dataUrl) => {
+                setPendingImages((prev) => [
+                  ...prev,
+                  {
+                    id: `local-${prev.length + 1}`,
+                    url: dataUrl,
+                    alt_text: `${title || "Produto"} — AgriConnect`,
+                    is_primary: prev.length === 0,
+                    file,
+                  },
+                ]);
+              }}
+              onRemove={(id) => setPendingImages((prev) => prev.filter((i) => i.id !== id))}
+              onSetPrimary={(id) =>
+                setPendingImages((prev) => prev.map((i) => ({ ...i, is_primary: i.id === id })))
+              }
+            />
           </div>
 
           {/* Action buttons */}

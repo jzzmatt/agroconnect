@@ -220,6 +220,7 @@ export function calculateEntitlements(params: {
   subscriptionPlan?: SubscriptionPlan | string | null;
   roles?: UserRoleType[];
   accountType?: string;
+  activeProductCount?: number;
 }): UserEntitlements {
   return getUserEntitlements(params);
 }

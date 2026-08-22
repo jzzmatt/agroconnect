@@ -19,8 +19,8 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { INITIAL_PRODUCTS } from "@/lib/services/shopping-service";
 import { updateProductAction } from "@/lib/services/shopping-actions";
-import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { UpgradePlanModal } from "@/components/ui";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProductListItem } from "@/types/domain";
 
 export default function MyProductsDashboardPage() {
@@ -28,24 +28,9 @@ export default function MyProductsDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
+  const { entitlements } = useAuthoritativePlan();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
-      if (profileOverride) {
-        try {
-          const parsed = JSON.parse(profileOverride);
-          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, []);
-
-  const entitlements = getUserEntitlements({ subscriptionPlan });
   const isBasic = !entitlements.can_sell_products;
 
   if (isBasic) {

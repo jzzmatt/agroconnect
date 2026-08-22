@@ -5,6 +5,8 @@ import { DashboardSidebar, DashboardHeader } from "@/components/dashboard";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useUser } from "@clerk/nextjs";
 
 export default function DashboardLayout({
@@ -13,21 +15,19 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user } = useUser();
+  const { plan, marketCountry } = useAuthoritativePlan();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<ProfileType>("personal");
   const [availableProfiles, setAvailableProfiles] = useState<ProfileType[]>([
     "student",
   ]);
   const [displayName, setDisplayName] = useState("Utilizador");
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
 
   useEffect(() => {
-    // 1. Fetch server-side profile state
     getProfileDetailsAction().then((serverProfile) => {
       if (serverProfile) {
         if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
         if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
-        if (serverProfile.subscription_plan) setSubscriptionPlan(serverProfile.subscription_plan);
         if (serverProfile.roles && serverProfile.roles.length > 0) {
           setAvailableProfiles(serverProfile.roles as ProfileType[]);
         }
@@ -41,7 +41,7 @@ export default function DashboardLayout({
       const clerkLast = user?.lastName || "";
       const initialDisplay = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "Utilizador");
 
-      setDisplayName((prev) => prev !== "Utilizador" ? prev : initialDisplay);
+      setDisplayName((prev) => (prev !== "Utilizador" ? prev : initialDisplay));
 
       const saved = localStorage.getItem("agroconnect_active_profile_type");
       if (saved) {
@@ -53,10 +53,9 @@ export default function DashboardLayout({
         try {
           const parsed = JSON.parse(profileOverride);
           if (parsed.displayName) setDisplayName(parsed.displayName);
-          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
           if (parsed.selectedProfileTypes) setAvailableProfiles(parsed.selectedProfileTypes);
         } catch {
-          // ignore
+          // ignore — subscription is never read from localStorage
         }
       }
     }
@@ -76,27 +75,29 @@ export default function DashboardLayout({
 
   return (
     <div className="min-h-screen bg-background text-foreground flex transition-colors">
-      {/* Role-Adaptive & Active Profile Context Sidebar */}
       <DashboardSidebar
         userRoles={activeRoles}
         availableProfiles={availableProfiles}
         activeProfile={activeProfile}
-        subscriptionPlan={subscriptionPlan}
+        subscriptionPlan={plan}
         onSwitchProfile={handleSwitchProfile}
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
       />
 
-      {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0">
         <DashboardHeader
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           userDisplayName={displayName}
-          userProvince="Huambo, Angola"
+          userProvince={`${marketCountry.flag} ${marketCountry.name.pt}`}
           activeProfile={activeProfile}
           availableProfiles={availableProfiles}
           onSwitchProfile={handleSwitchProfile}
         />
+
+        <div className="px-4 sm:px-6 lg:px-8 pt-3 flex justify-end">
+          <LanguageSelector compact />
+        </div>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-12">
           {children}

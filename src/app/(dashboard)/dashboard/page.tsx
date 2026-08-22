@@ -26,10 +26,12 @@ import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function DashboardPage() {
   const { user } = useUser();
+  const { plan, marketCountry, locale } = useAuthoritativePlan();
 
   const [profile, setProfile] = useState({
     displayName: "",
@@ -38,7 +40,7 @@ export default function DashboardPage() {
     professionalTitle: "none" as ProfessionalTitle,
     email: "",
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: "basic" as string, // Default plan is Basic (0 Kz/mês)
+    subscriptionPlan: "basic" as string,
     roles: ["student"] as const,
     activeProductsCount: 0,
   });
@@ -95,7 +97,6 @@ export default function DashboardPage() {
             firstName: parsed.firstName || prev.firstName,
             lastName: parsed.lastName || prev.lastName,
             professionalTitle: parsed.professionalTitle || prev.professionalTitle,
-            subscriptionPlan: parsed.subscriptionPlan || prev.subscriptionPlan,
           }));
         } catch {
           // ignore
@@ -115,14 +116,13 @@ export default function DashboardPage() {
   });
 
   const entitlements = calculateEntitlements({
-    subscriptionPlan: profile.subscriptionPlan,
+    subscriptionPlan: plan,
     roles: [...profile.roles],
+    activeProductCount: profile.activeProductsCount,
   });
 
   const activeProfileConfig = PROFILE_TYPE_CONFIG[profile.activeProfile] || PROFILE_TYPE_CONFIG.personal;
-  const planKey = (profile.subscriptionPlan && profile.subscriptionPlan in SUBSCRIPTION_PLANS)
-    ? (profile.subscriptionPlan as keyof typeof SUBSCRIPTION_PLANS)
-    : "basic";
+  const planKey = plan;
   const currentPlanDef = SUBSCRIPTION_PLANS[planKey];
 
   const isBasic = planKey === "basic";
@@ -211,6 +211,12 @@ export default function DashboardPage() {
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
               <Sparkles className="w-3 h-3 text-amber-600" />
               <span>Plano {currentPlanDef.name} ({currentPlanDef.priceFormatted}/mês)</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-surface text-foreground border border-border">
+              {marketCountry.flag} {marketCountry.name.pt}
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-surface text-foreground border border-border uppercase">
+              {locale}
             </span>
           </div>
 

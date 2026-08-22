@@ -6,6 +6,7 @@ import type {
   ProfessionalTitle,
   ProfileType,
   SubscriptionPlan,
+  PaymentMethod,
 } from "./database";
 
 export interface UserProfileWithRoles {
@@ -25,6 +26,8 @@ export interface UserProfileWithRoles {
   active_profile_type?: ProfileType;
   subscription_plan?: SubscriptionPlan;
   preferred_language: string;
+  market_country_code?: string;
+  video_storage_used_bytes?: number;
   account_type: AccountType;
   status: UserStatus;
   theme_preference: ThemePreference;
@@ -35,29 +38,32 @@ export interface UserProfileWithRoles {
 }
 
 export interface UserEntitlements {
-  // Module-Level Access
+  plan: "basic" | "professional" | "business" | "enterprise";
   can_access_agrishopping: boolean;
   can_access_agriacademy: boolean;
   can_access_agrilocalization: boolean;
   can_access_agriexpert: boolean;
   can_access_business_dashboard: boolean;
 
-  // Granular Actions
   can_sell_products: boolean;
   can_create_products: boolean;
   can_edit_products: boolean;
   can_publish_products: boolean;
   can_manage_inventory: boolean;
+  can_upload_product_images: boolean;
   can_manage_services: boolean;
   can_teach_courses: boolean;
   can_create_courses: boolean;
   can_publish_courses: boolean;
   can_manage_locations: boolean;
+  can_change_market_country: boolean;
+  can_request_custom_payment_gateway: boolean;
 
-  // Limits
-  product_limit: number | null; // null represents unlimited
+  product_limit: number | null;
   max_products: number | null;
   max_services: number | null;
+  video_storage_limit_bytes: number;
+  video_storage_limit_gb: number;
 }
 
 export interface SubscriptionPlanDefinition {
@@ -71,6 +77,7 @@ export interface SubscriptionPlanDefinition {
   highlightBadge?: string;
   isPopular?: boolean;
   productLimit: number | null;
+  videoStorageLimitGb: number;
   features: string[];
   lockedFeatures?: string[];
   ctaText: string;
@@ -468,7 +475,7 @@ export interface PaymentRecordDescriptor {
   order_id: string;
   provider: string;
   provider_payment_id?: string | null;
-  payment_method: "card" | "bank_transfer" | "mobile_money" | "cash_on_delivery" | "mock_sandbox";
+  payment_method: PaymentMethod;
   amount: number;
   currency: string;
   status: "pending" | "processing" | "paid" | "failed" | "cancelled" | "refunded" | "partially_refunded";

@@ -1,0 +1,67 @@
+"use client";
+
+import { useCallback, useEffect, useState } from "react";
+import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
+import { getMarketCountry, DEFAULT_MARKET_COUNTRY, type MarketCountry } from "@/config/markets";
+import type { UserEntitlements } from "@/types/domain";
+import type { SubscriptionPlan } from "@/types/database";
+
+export function useAuthoritativePlan() {
+  const [plan, setPlan] = useState<SubscriptionPlan>("basic");
+  const [marketCountry, setMarketCountry] = useState<MarketCountry>(
+    getMarketCountry(DEFAULT_MARKET_COUNTRY)
+  );
+  const [locale, setLocale] = useState<"pt" | "en" | "fr">("pt");
+  const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(0);
+  const [loading, setLoading] = useState(true);
+
+  const refresh = useCallback(async () => {
+    try {
+      const profile = await getProfileDetailsAction();
+      const nextPlan = normalizePlanSlug(profile?.subscription_plan);
+      setPlan(nextPlan);
+      setMarketCountry(getMarketCountry(profile?.market_country_code || DEFAULT_MARKET_COUNTRY));
+      const lang = profile?.preferred_language;
+      if (lang === "pt" || lang === "en" || lang === "fr") {
+        setLocale(lang);
+      }
+      setVideoStorageUsedBytes(profile?.video_storage_used_bytes || 0);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    if (typeof window === "undefined") return;
+
+    const onChange = () => {
+      refresh();
+    };
+    window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
+    window.addEventListener("focus", onChange);
+    return () => {
+      window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
+      window.removeEventListener("focus", onChange);
+    };
+  }, [refresh]);
+
+  const entitlements: UserEntitlements = getUserEntitlements({ subscriptionPlan: plan });
+
+  return {
+    plan,
+    entitlements,
+    marketCountry,
+    locale,
+    videoStorageUsedBytes,
+    loading,
+    refresh,
+  };
+}
+
+export function notifySubscriptionChanged() {
+  if (typeof window === "undefined") return;
+  window.dispatchEvent(new Event(SUBSCRIPTION_CHANGED_EVENT));
+}

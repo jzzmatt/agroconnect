@@ -115,7 +115,8 @@ export type PaymentMethod =
   | "bank_transfer"
   | "mobile_money"
   | "cash_on_delivery"
-  | "mock_sandbox";
+  | "mock_sandbox"
+  | "multicaixa_online";
 
 export type OrderSellerGroupStatus =
   | "pending"
@@ -180,7 +181,17 @@ export type StorageProvider =
   | "cloudflare_stream"
   | "supabase_storage"
   | "local"
-  | "external";
+  | "external"
+  | "bunny_stream";
+
+export type AcademyVideoStatus =
+  | "pending"
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "deleted"
+  | "video_unavailable";
 
 export type ReviewStatus = "pending" | "published" | "flagged" | "hidden";
 
@@ -219,6 +230,9 @@ export interface Database {
           active_profile_type: ProfileType;
           subscription_plan: SubscriptionPlan;
           preferred_language: string;
+          market_country_code: string;
+          video_storage_used_bytes: number;
+          subscription_updated_at: string | null;
           account_type: AccountType;
           status: UserStatus;
           theme_preference: ThemePreference;
@@ -243,6 +257,9 @@ export interface Database {
           active_profile_type?: ProfileType;
           subscription_plan?: SubscriptionPlan;
           preferred_language?: string;
+          market_country_code?: string;
+          video_storage_used_bytes?: number;
+          subscription_updated_at?: string | null;
           account_type?: AccountType;
           status?: UserStatus;
           theme_preference?: ThemePreference;
@@ -267,6 +284,9 @@ export interface Database {
           active_profile_type?: ProfileType;
           subscription_plan?: SubscriptionPlan;
           preferred_language?: string;
+          market_country_code?: string;
+          video_storage_used_bytes?: number;
+          subscription_updated_at?: string | null;
           account_type?: AccountType;
           status?: UserStatus;
           theme_preference?: ThemePreference;

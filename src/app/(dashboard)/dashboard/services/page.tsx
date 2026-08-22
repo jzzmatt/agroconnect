@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -24,7 +24,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { updateServiceAction } from "@/lib/services/marketplace-actions";
 import { INITIAL_SERVICES } from "@/lib/services/marketplace-service";
-import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function MyServicesDashboardPage() {
@@ -32,23 +32,7 @@ export default function MyServicesDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
-
-  useEffect(() => {
-    if (typeof window !== "undefined") {
-      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
-      if (profileOverride) {
-        try {
-          const parsed = JSON.parse(profileOverride);
-          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
-        } catch {
-          // ignore
-        }
-      }
-    }
-  }, []);
-
-  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const { entitlements } = useAuthoritativePlan();
   const isBasic = !entitlements.can_manage_services;
 
   if (isBasic) {

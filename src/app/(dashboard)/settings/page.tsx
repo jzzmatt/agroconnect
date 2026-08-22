@@ -6,13 +6,17 @@ import { useClerk } from "@clerk/nextjs";
 import { Button, SectionHeader, ThemeSwitcher } from "@/components/ui";
 import { useI18n } from "@/i18n/provider";
 import { useTheme } from "@/lib/theme";
-import { Bell, Globe, Shield, Save, Check, Sun, Moon, LogOut } from "lucide-react";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { updateMarketCountryAction } from "@/lib/auth/profile-actions";
+import { MARKET_COUNTRIES, type MarketCountryCode } from "@/config/markets";
+import { Bell, Globe, Save, Check, Sun, Moon, LogOut, Lock, MapPin } from "lucide-react";
 
 export default function SettingsPage() {
   const router = useRouter();
   const { signOut } = useClerk();
   const { dict, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
+  const { entitlements, marketCountry, refresh } = useAuthoritativePlan();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
@@ -107,7 +111,7 @@ export default function SettingsPage() {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-4 pt-2">
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 pt-2">
             <button
               type="button"
               onClick={() => setLocale("pt")}
@@ -117,9 +121,9 @@ export default function SettingsPage() {
                   : "border-border bg-surface text-foreground hover:bg-muted"
               }`}
             >
-              <span className="block text-sm font-extrabold">🇦🇴 Português (Padrão)</span>
+              <span className="block text-sm font-extrabold">🇦🇴 Português</span>
               <span className="text-[11px] text-muted-foreground font-normal block mt-1">
-                Idioma oficial de Angola
+                Idioma padrão (Angola)
               </span>
             </button>
 
@@ -132,12 +136,83 @@ export default function SettingsPage() {
                   : "border-border bg-surface text-foreground hover:bg-muted"
               }`}
             >
-              <span className="block text-sm font-extrabold">🌐 English</span>
+              <span className="block text-sm font-extrabold">🇬🇧 English</span>
               <span className="text-[11px] text-muted-foreground font-normal block mt-1">
                 International English
               </span>
             </button>
+
+            <button
+              type="button"
+              onClick={() => setLocale("fr")}
+              className={`p-4 rounded-2xl border text-left font-bold text-xs transition-all ${
+                locale === "fr"
+                  ? "border-primary bg-secondary text-foreground ring-2 ring-primary/20 shadow-xs"
+                  : "border-border bg-surface text-foreground hover:bg-muted"
+              }`}
+            >
+              <span className="block text-sm font-extrabold">🇫🇷 Français</span>
+              <span className="text-[11px] text-muted-foreground font-normal block mt-1">
+                Français
+              </span>
+            </button>
           </div>
+        </div>
+
+        {/* Market country — independent from UI language */}
+        <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center">
+              <MapPin className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">País de atuação</h3>
+              <p className="text-xs text-muted-foreground">
+                Define o mercado, a moeda e os métodos de pagamento. Não altera o idioma da aplicação.
+              </p>
+            </div>
+          </div>
+
+          {entitlements.can_change_market_country ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
+              {(Object.keys(MARKET_COUNTRIES) as MarketCountryCode[]).map((code) => {
+                const country = MARKET_COUNTRIES[code];
+                const selected = marketCountry.code === code;
+                return (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={async () => {
+                      await updateMarketCountryAction(code);
+                      await refresh();
+                    }}
+                    className={`p-4 rounded-2xl border text-left transition-all ${
+                      selected
+                        ? "border-primary bg-secondary ring-2 ring-primary/20"
+                        : "border-border bg-surface hover:bg-muted"
+                    }`}
+                  >
+                    <span className="text-sm font-extrabold block">
+                      {country.flag} {country.name.pt}
+                    </span>
+                    <span className="text-[11px] text-muted-foreground">
+                      {country.currencyCode} / {country.currencySymbol}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          ) : (
+            <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800">
+              <p className="text-xs font-bold flex items-center gap-1.5">
+                <Lock className="w-4 h-4" />
+                🔒 Disponível a partir do plano Profissional
+              </p>
+              <p className="text-xs text-muted-foreground mt-1">
+                País atual: Angola 🇦🇴 — atualize o plano para alterar o mercado.
+              </p>
+            </div>
+          )}
         </div>
 
         {/* Notifications Setting */}

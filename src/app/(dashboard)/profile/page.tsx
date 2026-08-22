@@ -7,12 +7,14 @@ import { MapPin, Mail, Phone, ShieldCheck, Edit, Sparkles, Store, GraduationCap,
 import { Button, Badge, Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { PROFILE_TYPE_CONFIG, getUserGreeting } from "@/lib/auth/identity-resolvers";
-import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const { plan } = useAuthoritativePlan();
 
   const [profileData, setProfileData] = useState({
     displayName: "",
@@ -87,7 +89,6 @@ export default function ProfilePage() {
             province: parsed.province || prev.province,
             municipality: parsed.municipality || prev.municipality,
             roles: parsed.selectedProfileTypes || prev.roles,
-            subscriptionPlan: parsed.subscriptionPlan || prev.subscriptionPlan || "basic",
           }));
         } catch {
           // Keep defaults
@@ -108,7 +109,7 @@ export default function ProfilePage() {
 
   const wa = normalizeWhatsAppNumber(profileData.whatsappPhone);
 
-  const planSlug = normalizePlanSlug(profileData.subscriptionPlan) || "basic";
+  const planSlug = plan;
   const planDef = SUBSCRIPTION_PLANS[planSlug];
 
   return (

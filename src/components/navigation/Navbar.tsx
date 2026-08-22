@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
@@ -92,6 +93,7 @@ export function Navbar() {
 
           {/* Desktop Auth / CTA */}
           <div className="hidden lg:flex items-center gap-3">
+            <LanguageSelector compact />
             <ThemeSwitcher />
 
             <Link href="/cart" className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors" title="Carrinho">
@@ -136,6 +138,7 @@ export function Navbar() {
 
           {/* Mobile Menu Button */}
           <div className="flex items-center gap-2 lg:hidden">
+            <LanguageSelector compact />
             <ThemeSwitcher />
 
             <Link href="/cart" className="p-1.5 rounded-lg text-foreground hover:bg-muted relative transition-colors" title="Carrinho">

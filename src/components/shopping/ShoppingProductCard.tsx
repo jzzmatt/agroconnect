@@ -113,7 +113,16 @@ export function ShoppingProductCard({
 
         {/* Product Visual Area */}
         <div className="relative h-36 w-full rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted p-3 flex items-center justify-center overflow-hidden border border-border mb-3 group-hover:border-primary/40 transition-colors">
-          <Package className="w-14 h-14 text-amber-700/50 dark:text-amber-400/50 group-hover:scale-110 transition-transform duration-300" />
+          {product.image_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={product.image_url}
+              alt={`${product.title} — AgriConnect`}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <Package className="w-14 h-14 text-amber-700/50 dark:text-amber-400/50 group-hover:scale-110 transition-transform duration-300" aria-hidden />
+          )}
           <div className="absolute bottom-2 left-2">
             {getAvailabilityBadge(product.availability_status)}
           </div>

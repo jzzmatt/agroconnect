@@ -1,9 +1,13 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import type { ProfessionalTitle, ProfileType } from "@/types/database";
-import type { UserProfileWithRoles } from "@/types/domain";
+import { normalizePlanSlug, getUserEntitlements } from "@/lib/services/pricing-service";
+import { setAuthoritativeSubscription } from "@/lib/subscription/store";
+import { getMarketCountry, isMarketCountryCode, DEFAULT_MARKET_COUNTRY } from "@/config/markets";
+import type { ProfessionalTitle, ProfileType, SubscriptionPlan } from "@/types/database";
+import type { UserEntitlements, UserProfileWithRoles } from "@/types/domain";
 
 export interface UpdateProfileInput {
   displayName?: string;
@@ -15,6 +19,8 @@ export interface UpdateProfileInput {
   professionalTitle?: ProfessionalTitle;
   professionalTitleCustom?: string;
   activeProfileType?: ProfileType;
+  preferredLanguage?: "pt" | "en" | "fr";
+  marketCountryCode?: string;
 }
 
 /**
@@ -49,6 +55,28 @@ export async function updateProfileDetailsAction(
     if (input.activeProfileType !== undefined) {
       updates.active_profile_type = input.activeProfileType;
     }
+    if (input.preferredLanguage !== undefined) {
+      if (!["pt", "en", "fr"].includes(input.preferredLanguage)) {
+        return { success: false, error: "Idioma inválido." };
+      }
+      updates.preferred_language = input.preferredLanguage;
+    }
+    if (input.marketCountryCode !== undefined) {
+      const entitlements = getUserEntitlements({
+        subscriptionPlan: current.subscription_plan,
+        roles: current.roles,
+      });
+      if (!entitlements.can_change_market_country) {
+        return {
+          success: false,
+          error: "A alteração do país de atuação está disponível a partir do plano Profissional.",
+        };
+      }
+      if (!isMarketCountryCode(input.marketCountryCode)) {
+        return { success: false, error: "País de atuação inválido." };
+      }
+      updates.market_country_code = input.marketCountryCode.toUpperCase();
+    }
 
     const { error } = await (supabase.from("profiles") as any)
       .update(updates)
@@ -56,6 +84,14 @@ export async function updateProfileDetailsAction(
 
     if (error) {
       console.warn("[updateProfileDetailsAction] DB error, fallback:", error);
+    }
+
+    if (updates.preferred_language || updates.market_country_code) {
+      setAuthoritativeSubscription(current.clerk_user_id, {
+        plan: normalizePlanSlug(current.subscription_plan),
+        preferredLanguage: updates.preferred_language,
+        marketCountryCode: updates.market_country_code,
+      });
     }
 
     const updatedProfile: UserProfileWithRoles = {
@@ -69,7 +105,13 @@ export async function updateProfileDetailsAction(
       professional_title: updates.professional_title !== undefined ? updates.professional_title : current.professional_title,
       professional_title_custom: updates.professional_title_custom !== undefined ? updates.professional_title_custom : current.professional_title_custom,
       active_profile_type: updates.active_profile_type !== undefined ? updates.active_profile_type : current.active_profile_type,
+      preferred_language: updates.preferred_language !== undefined ? updates.preferred_language : current.preferred_language,
+      market_country_code: updates.market_country_code !== undefined ? updates.market_country_code : current.market_country_code,
     };
+
+    revalidatePath("/dashboard");
+    revalidatePath("/profile");
+    revalidatePath("/settings");
 
     return { success: true, profile: updatedProfile };
   } catch (err: any) {
@@ -112,23 +154,156 @@ export async function getProfileDetailsAction(): Promise<UserProfileWithRoles | 
 }
 
 /**
- * Server Action: Activate or Update Subscription Plan explicitly chosen by user
+ * Server Action: Activate or Update Subscription Plan.
+ * Authoritative backend flow — never trust client-only selectedPlan.
  */
 export async function activateSubscriptionPlanAction(
   plan: "basic" | "professional" | "business" | "enterprise"
-): Promise<{ success: boolean; plan: string }> {
+): Promise<{
+  success: boolean;
+  plan: SubscriptionPlan;
+  entitlements: UserEntitlements;
+  error?: string;
+}> {
+  const normalized = normalizePlanSlug(plan);
+
+  try {
+    const clerkUserId = await requireAuth();
+    const current = await getCurrentUserProfile();
+    if (!current) {
+      return {
+        success: false,
+        plan: "basic",
+        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+        error: "Não autorizado",
+      };
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const { error } = await (supabase.from("profiles") as any)
+      .update({
+        subscription_plan: normalized,
+        subscription_updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("clerk_user_id", current.clerk_user_id);
+
+    if (error) {
+      console.warn("[activateSubscriptionPlanAction] DB update warning:", error.message);
+    }
+
+    setAuthoritativeSubscription(clerkUserId, {
+      plan: normalized,
+      marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
+      preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
+      videoStorageUsedBytes: current.video_storage_used_bytes || 0,
+    });
+
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: normalized,
+      roles: current.roles,
+    });
+
+    revalidatePath("/", "layout");
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/products");
+    revalidatePath("/dashboard/products/new");
+    revalidatePath("/dashboard/services");
+    revalidatePath("/dashboard/academy");
+    revalidatePath("/profile");
+    revalidatePath("/pricing");
+    revalidatePath("/settings");
+
+    return { success: true, plan: normalized, entitlements };
+  } catch (err: any) {
+    return {
+      success: false,
+      plan: "basic",
+      entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+      error: err?.message || "Não foi possível atualizar a subscrição.",
+    };
+  }
+}
+
+/**
+ * Server Action: Update market country (Professional+ only). Does NOT change UI language.
+ */
+export async function updateMarketCountryAction(
+  countryCode: string
+): Promise<{ success: boolean; countryCode?: string; error?: string }> {
   try {
     await requireAuth();
     const current = await getCurrentUserProfile();
-    if (!current) throw new Error("Não autorizado");
+    if (!current) return { success: false, error: "Não autorizado" };
+
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: current.subscription_plan,
+      roles: current.roles,
+    });
+    if (!entitlements.can_change_market_country) {
+      return {
+        success: false,
+        error: "A alteração do país de atuação está disponível a partir do plano Profissional.",
+      };
+    }
+    if (!isMarketCountryCode(countryCode)) {
+      return { success: false, error: "País inválido." };
+    }
+
+    const market = getMarketCountry(countryCode);
+    const supabase = await createServerSupabaseClient();
+    await (supabase.from("profiles") as any)
+      .update({
+        market_country_code: market.code,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("clerk_user_id", current.clerk_user_id);
+
+    setAuthoritativeSubscription(current.clerk_user_id, {
+      plan: normalizePlanSlug(current.subscription_plan),
+      marketCountryCode: market.code,
+      preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
+    });
+
+    revalidatePath("/dashboard");
+    revalidatePath("/profile");
+    revalidatePath("/settings");
+    revalidatePath("/checkout");
+
+    return { success: true, countryCode: market.code };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Erro ao atualizar país de atuação." };
+  }
+}
+
+/**
+ * Server Action: Persist UI language. Does NOT change market country.
+ */
+export async function updatePreferredLanguageAction(
+  locale: "pt" | "en" | "fr"
+): Promise<{ success: boolean; locale?: string; error?: string }> {
+  try {
+    await requireAuth();
+    const current = await getCurrentUserProfile();
+    if (!current) return { success: false, error: "Não autorizado" };
+    if (!["pt", "en", "fr"].includes(locale)) {
+      return { success: false, error: "Idioma inválido." };
+    }
 
     const supabase = await createServerSupabaseClient();
     await (supabase.from("profiles") as any)
-      .update({ subscription_plan: plan, updated_at: new Date().toISOString() })
+      .update({ preferred_language: locale, updated_at: new Date().toISOString() })
       .eq("clerk_user_id", current.clerk_user_id);
 
-    return { success: true, plan };
-  } catch (e) {
-    return { success: true, plan };
+    setAuthoritativeSubscription(current.clerk_user_id, {
+      plan: normalizePlanSlug(current.subscription_plan),
+      preferredLanguage: locale,
+      marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
+    });
+
+    revalidatePath("/", "layout");
+    return { success: true, locale };
+  } catch (err: any) {
+    return { success: false, error: err?.message || "Erro ao guardar idioma." };
   }
 }
