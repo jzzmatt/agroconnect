@@ -1,39 +1,8 @@
--- ==============================================================================
--- AGROCONNECT — Phase 3: Migration 002 - Profiles & Multi-Role User Foundation
--- Idempotent: Phase 1 already created public.profiles / public.user_roles
--- without status, account_type, preferred_language, profile_id, or is_primary.
--- CREATE TABLE IF NOT EXISTS is a no-op on that database; columns are added
--- with ALTER TABLE instead.
--- ==============================================================================
+-- Paste this in the Supabase SQL Editor if 002 failed with:
+--   ERROR: 42703: column "status" does not exist
+-- Phase 1 already created profiles/user_roles. Do not recreate those tables.
+-- After this succeeds, skip re-running the old 002 and continue from 003.
 
--- 1. Ensure profiles table exists (fresh databases only)
-CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  clerk_user_id TEXT UNIQUE NOT NULL,
-  email TEXT,
-  phone TEXT,
-  first_name TEXT,
-  last_name TEXT,
-  display_name TEXT,
-  avatar_url TEXT,
-  bio TEXT,
-  profile_slug TEXT UNIQUE,
-  preferred_language TEXT NOT NULL DEFAULT 'pt',
-  account_type TEXT NOT NULL DEFAULT 'customer' CHECK (
-    account_type IN ('customer', 'provider', 'seller', 'farmer', 'instructor', 'organization', 'admin')
-  ),
-  status TEXT NOT NULL DEFAULT 'active' CHECK (
-    status IN ('active', 'inactive', 'suspended', 'pending_verification')
-  ),
-  theme_preference TEXT NOT NULL DEFAULT 'light' CHECK (
-    theme_preference IN ('light', 'dark')
-  ),
-  is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-  updated_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now())
-);
-
--- 1b. Upgrade a Phase 1 profiles table that already exists
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS preferred_language TEXT NOT NULL DEFAULT 'pt';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS account_type TEXT NOT NULL DEFAULT 'customer';
 ALTER TABLE public.profiles ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'active';
@@ -54,46 +23,16 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_theme_preference_check CHECK
   theme_preference IN ('light', 'dark')
 );
 
--- Indexes on Profiles
-CREATE INDEX IF NOT EXISTS idx_profiles_clerk_user_id ON public.profiles(clerk_user_id);
-CREATE INDEX IF NOT EXISTS idx_profiles_profile_slug ON public.profiles(profile_slug);
 CREATE INDEX IF NOT EXISTS idx_profiles_email ON public.profiles(email);
 CREATE INDEX IF NOT EXISTS idx_profiles_status ON public.profiles(status);
 CREATE INDEX IF NOT EXISTS idx_profiles_account_type ON public.profiles(account_type);
 
--- Trigger for profiles updated_at
 DROP TRIGGER IF EXISTS tr_profiles_handle_updated_at ON public.profiles;
 CREATE TRIGGER tr_profiles_handle_updated_at
 BEFORE UPDATE ON public.profiles
 FOR EACH ROW
 EXECUTE FUNCTION public.handle_updated_at();
 
--- 2. Multi-Role Capability Table: user_roles
-CREATE TABLE IF NOT EXISTS public.user_roles (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE CASCADE,
-  clerk_user_id TEXT NOT NULL REFERENCES public.profiles(clerk_user_id) ON DELETE CASCADE,
-  role TEXT NOT NULL CHECK (
-    role IN (
-      'student',
-      'creator',
-      'seller',
-      'instructor',
-      'expert',
-      'veterinarian',
-      'agronomist',
-      'agricultural_consultant',
-      'business',
-      'farmer',
-      'admin'
-    )
-  ),
-  is_primary BOOLEAN NOT NULL DEFAULT false,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT timezone('utc'::text, now()),
-  CONSTRAINT uq_profile_role UNIQUE(profile_id, role)
-);
-
--- 2b. Upgrade a Phase 1 user_roles table that already exists
 ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS profile_id UUID;
 ALTER TABLE public.user_roles ADD COLUMN IF NOT EXISTS is_primary BOOLEAN NOT NULL DEFAULT false;
 
@@ -105,15 +44,7 @@ WHERE ur.profile_id IS NULL
 
 DO $$
 BEGIN
-  IF EXISTS (
-    SELECT 1
-    FROM information_schema.columns
-    WHERE table_schema = 'public'
-      AND table_name = 'user_roles'
-      AND column_name = 'profile_id'
-  ) AND NOT EXISTS (
-    SELECT 1 FROM public.user_roles WHERE profile_id IS NULL
-  ) THEN
+  IF NOT EXISTS (SELECT 1 FROM public.user_roles WHERE profile_id IS NULL) THEN
     ALTER TABLE public.user_roles ALTER COLUMN profile_id SET NOT NULL;
   END IF;
 END $$;
@@ -162,5 +93,3 @@ BEGIN
 END $$;
 
 CREATE INDEX IF NOT EXISTS idx_user_roles_profile_id ON public.user_roles(profile_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_clerk_user_id ON public.user_roles(clerk_user_id);
-CREATE INDEX IF NOT EXISTS idx_user_roles_role ON public.user_roles(role);
