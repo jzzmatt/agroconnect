@@ -89,15 +89,18 @@ export async function POST(req: NextRequest) {
       const primaryPhone = user.phone_numbers?.[0]?.phone_number || null;
       const firstName = user.first_name || null;
       const lastName = user.last_name || null;
+      const emailLocalPart = primaryEmail?.includes("@") ? primaryEmail.split("@")[0] : null;
       const displayName =
-        firstName && lastName
-          ? `${firstName} ${lastName}`.trim()
-          : firstName || user.username || primaryEmail;
+        user.username ||
+        (firstName && lastName ? `${firstName} ${lastName}`.trim() : null) ||
+        firstName ||
+        emailLocalPart ||
+        "Utilizador";
 
       const profileSlug =
         user.username || `user-${user.id.slice(-8)}`;
 
-      // Idempotent upsert of user profile
+      // Idempotent upsert of user profile (subscription_plan is explicitly NULL for new user until chosen)
       const { data: profile, error: profileError } = await (supabase.from("profiles") as any)
         .upsert(
           {
@@ -109,6 +112,9 @@ export async function POST(req: NextRequest) {
             display_name: displayName,
             avatar_url: user.image_url,
             profile_slug: profileSlug,
+            professional_title: "none",
+            active_profile_type: "personal",
+            subscription_plan: null,
             preferred_language: "pt",
             account_type: "customer",
             status: "active",

@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { MapPin, Mail, Phone, ShieldCheck, Edit, Sparkles, Store, GraduationCap, Briefcase } from "lucide-react";
 import { Button, Badge, Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
@@ -10,27 +11,44 @@ import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function ProfilePage() {
+  const { user } = useUser();
+
   const [profileData, setProfileData] = useState({
-    displayName: "Dr. João Silva",
-    firstName: "João",
-    lastName: "Silva",
-    professionalTitle: "Dr." as ProfessionalTitle,
+    displayName: "",
+    firstName: "",
+    lastName: "",
+    professionalTitle: "none" as ProfessionalTitle,
     professionalTitleCustom: "",
-    title: "Médico Veterinário & Instrutor AgriAcademy",
-    email: "joao.silva@agroconnect.ao",
-    phone: "+244 923 000 000",
-    whatsappPhone: "+244 923 000 000",
-    province: "Huambo",
-    municipality: "Caála",
-    bio: "Médico veterinário com mais de 12 anos de experiência em reprodução bovina, sanidade animal e gestão pecuária no Planalto Central de Angola. Formador certificado na AgriAcademy.",
-    roles: ["veterinarian", "expert", "instructor", "student", "seller"] as ProfileType[],
-    activeProfile: "veterinarian" as ProfileType,
-    subscriptionPlan: "professional",
+    title: "",
+    email: "",
+    phone: "",
+    whatsappPhone: "",
+    province: "",
+    municipality: "",
+    bio: "",
+    roles: ["student"] as ProfileType[],
+    activeProfile: "personal" as ProfileType,
+    subscriptionPlan: null as string | null,
     activeSince: "Agosto 2026",
+    isVerified: false,
   });
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+      const clerkUsername = user?.username || "";
+      const clerkFirst = user?.firstName || "";
+      const clerkLast = user?.lastName || "";
+      const defaultName = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "Utilizador");
+
+      setProfileData((prev) => ({
+        ...prev,
+        displayName: defaultName,
+        firstName: clerkFirst,
+        lastName: clerkLast,
+        email: realEmail,
+      }));
+
       const saved = localStorage.getItem("agroconnect_user_profile_override");
       if (saved) {
         try {
@@ -47,18 +65,21 @@ export default function ProfilePage() {
             province: parsed.province || prev.province,
             municipality: parsed.municipality || prev.municipality,
             roles: parsed.selectedProfileTypes || prev.roles,
+            subscriptionPlan: parsed.subscriptionPlan !== undefined ? parsed.subscriptionPlan : prev.subscriptionPlan,
           }));
         } catch {
           // Keep defaults
         }
       }
     }
-  }, []);
+  }, [user]);
 
   const greeting = getUserGreeting({
     displayName: profileData.displayName,
     firstName: profileData.firstName,
     lastName: profileData.lastName,
+    username: user?.username,
+    email: profileData.email || user?.primaryEmailAddress?.emailAddress,
     professionalTitle: profileData.professionalTitle,
     activeProfile: profileData.activeProfile,
   });
@@ -81,21 +102,38 @@ export default function ProfilePage() {
               <h1 className="text-2xl font-black text-foreground">
                 {greeting.fullNameOrTitle}
               </h1>
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
-                <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
-                ✓ Verificado
-              </span>
+              {profileData.isVerified && (
+                <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
+                  <ShieldCheck className="w-3.5 h-3.5 text-emerald-600" />
+                  ✓ Verificado
+                </span>
+              )}
             </div>
 
-            <p className="text-sm font-semibold text-primary">{profileData.title}</p>
+            {profileData.title ? (
+              <p className="text-sm font-semibold text-primary">{profileData.title}</p>
+            ) : null}
 
             <div className="flex flex-wrap items-center gap-3 pt-1 text-xs text-muted-foreground">
-              <LocationBadge
-                provinceName={profileData.province}
-                municipalityName={profileData.municipality}
-                size="sm"
-              />
-              <span>• Plano: <strong className="text-foreground capitalize">{profileData.subscriptionPlan}</strong></span>
+              {profileData.province ? (
+                <LocationBadge
+                  provinceName={profileData.province}
+                  municipalityName={profileData.municipality || undefined}
+                  size="sm"
+                />
+              ) : (
+                <span className="text-muted-foreground italic">Localização não definida</span>
+              )}
+              <span>
+                • Plano:{" "}
+                {profileData.subscriptionPlan ? (
+                  <strong className="text-foreground capitalize">{profileData.subscriptionPlan}</strong>
+                ) : (
+                  <Link href="/pricing" className="text-amber-600 font-bold hover:underline">
+                    Plano ainda não selecionado (Escolher plano →)
+                  </Link>
+                )}
+              </span>
               <span>• Membro desde {profileData.activeSince}</span>
             </div>
           </div>
@@ -132,7 +170,7 @@ export default function ProfilePage() {
               Biografia Profissional
             </h3>
             <p className="text-sm text-foreground/90 leading-relaxed whitespace-pre-line">
-              {profileData.bio}
+              {profileData.bio || "Adicione uma breve descrição profissional na página de edição."}
             </p>
           </div>
 
@@ -162,28 +200,32 @@ export default function ProfilePage() {
         <div className="space-y-6">
           <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs space-y-4">
             <h3 className="text-xs font-bold text-foreground uppercase tracking-wider">
-              Contactos & Localização
+              CONTACTOS & LOCALIZAÇÃO
             </h3>
 
             <div className="space-y-3 text-xs">
               <div className="flex items-center gap-2.5 text-foreground">
                 <Mail className="w-4 h-4 text-primary shrink-0" />
-                <span className="truncate">{profileData.email}</span>
+                <span className="truncate">{profileData.email || user?.primaryEmailAddress?.emailAddress || "Email não registado"}</span>
               </div>
-              <div className="flex items-center gap-2.5 text-foreground">
-                <Phone className="w-4 h-4 text-primary shrink-0" />
-                <span>{profileData.phone}</span>
-              </div>
+              {profileData.phone ? (
+                <div className="flex items-center gap-2.5 text-foreground">
+                  <Phone className="w-4 h-4 text-primary shrink-0" />
+                  <span>{profileData.phone}</span>
+                </div>
+              ) : null}
               {wa.isValid && (
                 <div className="flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 font-semibold">
                   <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
                   <span>{wa.formatted}</span>
                 </div>
               )}
-              <div className="flex items-center gap-2.5 text-foreground">
-                <MapPin className="w-4 h-4 text-primary shrink-0" />
-                <span>{profileData.municipality}, {profileData.province} • Angola</span>
-              </div>
+              {profileData.province ? (
+                <div className="flex items-center gap-2.5 text-foreground">
+                  <MapPin className="w-4 h-4 text-primary shrink-0" />
+                  <span>{profileData.municipality ? `${profileData.municipality}, ` : ""}{profileData.province} • Angola</span>
+                </div>
+              ) : null}
             </div>
           </div>
         </div>

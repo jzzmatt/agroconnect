@@ -67,10 +67,13 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   let effectiveProfile = profile as Profile | null;
   if (!effectiveProfile) {
     const primaryEmail = clerkUser.emailAddresses[0]?.emailAddress || null;
+    const emailLocalPart = primaryEmail?.includes("@") ? primaryEmail.split("@")[0] : null;
     const displayName =
+      clerkUser.username ||
       clerkUser.fullName ||
       (clerkUser.firstName ? `${clerkUser.firstName} ${clerkUser.lastName || ""}`.trim() : null) ||
-      primaryEmail;
+      emailLocalPart ||
+      "Utilizador";
 
     const profileSlug = clerkUser.username || `user-${clerkUser.id.slice(-8)}`;
 
@@ -78,17 +81,17 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
       .insert({
         clerk_user_id: clerkUser.id,
         display_name: displayName,
-        first_name: clerkUser.firstName,
-        last_name: clerkUser.lastName,
+        first_name: clerkUser.firstName || null,
+        last_name: clerkUser.lastName || null,
         email: primaryEmail,
         phone: clerkUser.phoneNumbers[0]?.phoneNumber || null,
-        avatar_url: clerkUser.imageUrl,
+        avatar_url: clerkUser.imageUrl || null,
         profile_slug: profileSlug,
         preferred_language: "pt",
         account_type: "customer",
         professional_title: "none",
-        active_profile_type: "student",
-        subscription_plan: "free",
+        active_profile_type: "personal",
+        subscription_plan: null, // Null indicates plan selection required
         status: "active",
         theme_preference: "light",
         is_active: true,
@@ -130,8 +133,8 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     profile_slug: effectiveProfile?.profile_slug || clerkUser.username || clerkUser.id,
     professional_title: (effectiveProfile as any)?.professional_title || "none",
     professional_title_custom: (effectiveProfile as any)?.professional_title_custom || null,
-    active_profile_type: (effectiveProfile as any)?.active_profile_type || roles[0] || "student",
-    subscription_plan: (effectiveProfile as any)?.subscription_plan || "free",
+    active_profile_type: (effectiveProfile as any)?.active_profile_type || roles[0] || "personal",
+    subscription_plan: (effectiveProfile as any)?.subscription_plan ?? null,
     preferred_language: effectiveProfile?.preferred_language || "pt",
     account_type: effectiveProfile?.account_type || "customer",
     status: effectiveProfile?.status || "active",

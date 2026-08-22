@@ -71,14 +71,21 @@ describe("AGROCONNECT Phase 8.5 — User Profile, Identity & Active Context", ()
     });
     expect(g3.greeting).toBe("Olá, Prof. Mateus");
 
-    // Example 4: Business / Seller
-    const g4 = getUserGreeting({
-      email: "me@example.com",
-      displayName: "AgroFarm Angola",
-      activeProfile: "seller",
-      professionalTitle: "none",
+    // Example 5: Duplicate title prevention (e.g. displayName = "Dr. João Silva" with professionalTitle = "Dr.")
+    const g5 = getUserGreeting({
+      displayName: "Dr. João Silva",
+      professionalTitle: "Dr.",
     });
-    expect(g4.greeting).toBe("Olá, AgroFarm Angola");
+    expect(g5.fullNameOrTitle).toBe("Dr. João Silva");
+    expect(g5.fullNameOrTitle).not.toContain("Dr. Dr.");
+    expect(g5.greeting).toBe("Olá, Dr. João Silva");
+
+    const g6 = getUserGreeting({
+      displayName: "Prof. Mateus",
+      professionalTitle: "Prof.",
+    });
+    expect(g6.fullNameOrTitle).toBe("Prof. Mateus");
+    expect(g6.fullNameOrTitle).not.toContain("Prof. Prof.");
   });
 
   it("4. Entitlements engine evaluates selling and service capabilities based on subscription plan", () => {

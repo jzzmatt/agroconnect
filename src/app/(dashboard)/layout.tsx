@@ -20,7 +20,7 @@ export default function DashboardLayout({
     "seller",
     "student",
   ]);
-  const [displayName, setDisplayName] = useState("Dr. João Silva");
+  const [displayName, setDisplayName] = useState("Utilizador");
 
   useEffect(() => {
     if (typeof window !== "undefined") {

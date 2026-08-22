@@ -93,16 +93,21 @@ export const SUBSCRIPTION_PLANS: Record<"basic" | "professional" | "business" | 
 };
 
 /**
- * Normalizes plan slugs gracefully (e.g. 'free' -> 'basic', 'premium' -> 'enterprise')
+ * Normalizes plan slugs gracefully (returns null if no plan is selected)
  */
-export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" {
-  if (!plan) return "basic";
-  const normalized = plan.toLowerCase().trim();
+export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" | null {
+  if (!plan) return null;
+  const normalized = plan
+    .toLowerCase()
+    .trim()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, ""); // strip accents (e.g. básico -> basico)
+
   if (normalized === "free" || normalized === "basic" || normalized === "basico") return "basic";
   if (normalized === "professional" || normalized === "profissional" || normalized === "pro") return "professional";
   if (normalized === "business") return "business";
   if (normalized === "enterprise" || normalized === "empresarial" || normalized === "premium") return "enterprise";
-  return "basic";
+  return null;
 }
 
 /**
@@ -114,8 +119,27 @@ export function getUserEntitlements(params: {
   accountType?: string;
 }): UserEntitlements {
   const planSlug = normalizePlanSlug(params.subscriptionPlan);
-  const planDef = SUBSCRIPTION_PLANS[planSlug];
 
+  // If no plan selected, user has ZERO creation entitlements
+  if (!planSlug) {
+    return {
+      can_sell_products: false,
+      can_create_products: false,
+      can_edit_products: false,
+      can_publish_products: false,
+      can_manage_inventory: false,
+      can_manage_services: false,
+      can_teach_courses: false,
+      can_create_courses: false,
+      can_publish_courses: false,
+      can_access_business_dashboard: false,
+      product_limit: 0,
+      max_products: 0,
+      max_services: 0,
+    };
+  }
+
+  const planDef = SUBSCRIPTION_PLANS[planSlug];
   const isBasic = planSlug === "basic";
   const isProfessional = planSlug === "professional";
   const isBusinessOrAbove = planSlug === "business" || planSlug === "enterprise";

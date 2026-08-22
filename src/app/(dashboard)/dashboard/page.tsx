@@ -22,21 +22,24 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MetricCard, Button, UpgradePlanModal, ProductLimitModal } from "@/components/ui";
+import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function DashboardPage() {
+  const { user } = useUser();
+
   const [profile, setProfile] = useState({
-    displayName: "Mateus Silva",
-    firstName: "Mateus",
-    lastName: "Silva",
-    professionalTitle: "Dr." as ProfessionalTitle,
-    email: "mateus@agrokwanza.ao",
-    activeProfile: "veterinarian" as ProfileType,
-    subscriptionPlan: "professional" as const,
-    roles: ["veterinarian", "instructor", "seller", "student"] as const,
-    activeProductsCount: 7,
+    displayName: "",
+    firstName: "",
+    lastName: "",
+    professionalTitle: "none" as ProfessionalTitle,
+    email: "",
+    activeProfile: "personal" as ProfileType,
+    subscriptionPlan: null as string | null,
+    roles: ["student"] as const,
+    activeProductsCount: 0,
   });
 
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
@@ -45,6 +48,20 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (typeof window !== "undefined") {
+      const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+      const clerkUsername = user?.username || "";
+      const clerkFirst = user?.firstName || "";
+      const clerkLast = user?.lastName || "";
+      const initialDisplay = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "Utilizador");
+
+      setProfile((prev) => ({
+        ...prev,
+        displayName: initialDisplay,
+        firstName: clerkFirst,
+        lastName: clerkLast,
+        email: realEmail,
+      }));
+
       const savedActive = localStorage.getItem("agroconnect_active_profile_type");
       if (savedActive) {
         setProfile((prev) => ({ ...prev, activeProfile: savedActive as ProfileType }));
@@ -60,13 +77,14 @@ export default function DashboardPage() {
             firstName: parsed.firstName || prev.firstName,
             lastName: parsed.lastName || prev.lastName,
             professionalTitle: parsed.professionalTitle || prev.professionalTitle,
+            subscriptionPlan: parsed.subscriptionPlan !== undefined ? parsed.subscriptionPlan : prev.subscriptionPlan,
           }));
         } catch {
           // ignore
         }
       }
     }
-  }, []);
+  }, [user]);
 
   const greeting = getUserGreeting({
     displayName: profile.displayName,
@@ -83,7 +101,10 @@ export default function DashboardPage() {
   });
 
   const activeProfileConfig = PROFILE_TYPE_CONFIG[profile.activeProfile] || PROFILE_TYPE_CONFIG.personal;
-  const currentPlanDef = SUBSCRIPTION_PLANS[profile.subscriptionPlan] || SUBSCRIPTION_PLANS.professional;
+  const planKey = (profile.subscriptionPlan && profile.subscriptionPlan in SUBSCRIPTION_PLANS)
+    ? (profile.subscriptionPlan as keyof typeof SUBSCRIPTION_PLANS)
+    : "basic";
+  const currentPlanDef = SUBSCRIPTION_PLANS[planKey];
 
   const isLimitReached =
     entitlements.product_limit !== null &&
@@ -200,10 +221,17 @@ export default function DashboardPage() {
               <span>{activeProfileConfig.icon}</span>
               <span>Perfil ativo: {activeProfileConfig.label}</span>
             </span>
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-              <Sparkles className="w-3 h-3 text-amber-600" />
-              <span>Plano {currentPlanDef.name}</span>
-            </span>
+            {profile.subscriptionPlan ? (
+              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+                <Sparkles className="w-3 h-3 text-amber-600" />
+                <span>Plano {currentPlanDef.name}</span>
+              </span>
+            ) : (
+              <Link href="/pricing" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800 hover:scale-105 transition-transform">
+                <Sparkles className="w-3 h-3 text-rose-600" />
+                <span>Plano ainda não selecionado (Escolher plano →)</span>
+              </Link>
+            )}
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">

@@ -171,7 +171,7 @@ export function getUserGreeting(params: {
   professionalTitleCustom?: string | null;
   activeProfile?: ProfileType | null;
 }): UserGreetingResult {
-  const resolvedName = resolveDisplayName({
+  let resolvedName = resolveDisplayName({
     displayName: params.displayName,
     firstName: params.firstName,
     lastName: params.lastName,
@@ -187,6 +187,17 @@ export function getUserGreeting(params: {
 
   const activeProfileKey = params.activeProfile || "personal";
   const profileConfig = PROFILE_TYPE_CONFIG[activeProfileKey] || PROFILE_TYPE_CONFIG.personal;
+
+  if (effectiveTitle && effectiveTitle !== "none") {
+    const titleClean = effectiveTitle.trim();
+    const titleRegex = new RegExp(`^${titleClean}\\.?\\s*`, "i");
+    if (titleRegex.test(resolvedName)) {
+      resolvedName = resolvedName.replace(titleRegex, "").trim();
+    }
+    if (/^(Dr|Prof|Eng|Tec)\.?\s+/i.test(resolvedName)) {
+      resolvedName = resolvedName.replace(/^(Dr|Prof|Eng|Tec)\.?\s+/i, "").trim();
+    }
+  }
 
   const fullNameOrTitle = effectiveTitle ? `${effectiveTitle} ${resolvedName}` : resolvedName;
 

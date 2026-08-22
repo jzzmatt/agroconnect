@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
+import { useUser } from "@clerk/nextjs";
 import { Button, Input, WhatsAppBrandIcon } from "@/components/ui";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
 import { ArrowLeft, Save, Check, ShieldCheck, User, Sparkles, Lock } from "lucide-react";
@@ -11,28 +12,62 @@ import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pric
 import type { ProfessionalTitle, ProfileType } from "@/types/database";
 
 export default function EditProfilePage() {
-  const [displayName, setDisplayName] = useState("Dr. João Silva");
-  const [firstName, setFirstName] = useState("João");
-  const [lastName, setLastName] = useState("Silva");
-  const [professionalTitle, setProfessionalTitle] = useState<ProfessionalTitle>("Dr.");
+  const { user } = useUser();
+
+  const [displayName, setDisplayName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
+  const [professionalTitle, setProfessionalTitle] = useState<ProfessionalTitle>("none");
   const [professionalTitleCustom, setProfessionalTitleCustom] = useState("");
-  const [phone, setPhone] = useState("+244 923 000 000");
-  const [whatsappPhone, setWhatsappPhone] = useState("+244 923 000 000");
-  const [province, setProvince] = useState("Huambo");
-  const [municipality, setMunicipality] = useState("Caála");
-  const [bio, setBio] = useState(
-    "Médico veterinário com mais de 12 anos de experiência em reprodução bovina, sanidade animal e gestão pecuária no Planalto Central de Angola."
-  );
+  const [phone, setPhone] = useState("");
+  const [whatsappPhone, setWhatsappPhone] = useState("");
+  const [province, setProvince] = useState("");
+  const [municipality, setMunicipality] = useState("");
+  const [bio, setBio] = useState("");
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
 
   // Multiple Profile Types Selection
   const [selectedProfileTypes, setSelectedProfileTypes] = useState<ProfileType[]>([
-    "veterinarian",
-    "instructor",
-    "seller",
+    "student",
   ]);
 
   const [saved, setSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+      const clerkUsername = user?.username || "";
+      const clerkFirst = user?.firstName || "";
+      const clerkLast = user?.lastName || "";
+      const initialDisplay = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "");
+
+      setDisplayName(initialDisplay);
+      setFirstName(clerkFirst);
+      setLastName(clerkLast);
+
+      const savedData = localStorage.getItem("agroconnect_user_profile_override");
+      if (savedData) {
+        try {
+          const parsed = JSON.parse(savedData);
+          if (parsed.displayName) setDisplayName(parsed.displayName);
+          if (parsed.firstName) setFirstName(parsed.firstName);
+          if (parsed.lastName) setLastName(parsed.lastName);
+          if (parsed.professionalTitle) setProfessionalTitle(parsed.professionalTitle);
+          if (parsed.professionalTitleCustom) setProfessionalTitleCustom(parsed.professionalTitleCustom);
+          if (parsed.phone) setPhone(parsed.phone);
+          if (parsed.whatsappPhone) setWhatsappPhone(parsed.whatsappPhone);
+          if (parsed.bio) setBio(parsed.bio);
+          if (parsed.province) setProvince(parsed.province);
+          if (parsed.municipality) setMunicipality(parsed.municipality);
+          if (parsed.selectedProfileTypes) setSelectedProfileTypes(parsed.selectedProfileTypes);
+          if (parsed.subscriptionPlan !== undefined) setSubscriptionPlan(parsed.subscriptionPlan);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, [user]);
 
   const handleToggleProfileType = (type: ProfileType) => {
     setSelectedProfileTypes((prev) => {
@@ -384,20 +419,38 @@ export default function EditProfilePage() {
                 <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
                   Plano Ativo
                 </span>
-                <div className="flex items-center gap-2">
-                  <h4 className="text-base font-black text-foreground">Plano Profissional</h4>
-                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
-                    Ativo
-                  </span>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  15.000 Kz/mês • Limite de até 10 produtos ativos no AgriShopping
-                </p>
+                {subscriptionPlan ? (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-black text-foreground capitalize">
+                        Plano {SUBSCRIPTION_PLANS[subscriptionPlan as keyof typeof SUBSCRIPTION_PLANS]?.name || subscriptionPlan}
+                      </h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300">
+                        Ativo
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      {SUBSCRIPTION_PLANS[subscriptionPlan as keyof typeof SUBSCRIPTION_PLANS]?.priceFormatted}/mês • {SUBSCRIPTION_PLANS[subscriptionPlan as keyof typeof SUBSCRIPTION_PLANS]?.tagline}
+                    </p>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex items-center gap-2">
+                      <h4 className="text-base font-black text-amber-600">Plano ainda não selecionado</h4>
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300">
+                        Pendente
+                      </span>
+                    </div>
+                    <p className="text-xs text-muted-foreground">
+                      Escolha um dos planos para começar a criar e publicar produtos ou cursos.
+                    </p>
+                  </>
+                )}
               </div>
 
               <Link href="/pricing" className="shrink-0">
                 <Button variant="outline" size="sm" className="font-bold text-xs">
-                  <span>Alterar Plano</span>
+                  <span>{subscriptionPlan ? "Alterar Plano" : "Escolher Plano"}</span>
                 </Button>
               </Link>
             </div>

@@ -68,7 +68,10 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(invalid.isValid).toBe(false);
   });
 
-  it("6. Plan slug normalizer handles aliases gracefully", () => {
+  it("6. Plan slug normalizer handles aliases gracefully and returns null when no plan is selected", () => {
+    expect(normalizePlanSlug(null)).toBeNull();
+    expect(normalizePlanSlug(undefined)).toBeNull();
+    expect(normalizePlanSlug("")).toBeNull();
     expect(normalizePlanSlug("free")).toBe("basic");
     expect(normalizePlanSlug("básico")).toBe("basic");
     expect(normalizePlanSlug("pro")).toBe("professional");

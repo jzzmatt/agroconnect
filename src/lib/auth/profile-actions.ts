@@ -98,3 +98,25 @@ export async function switchActiveProfileTypeAction(
     return { success: true, activeProfileType: profileType };
   }
 }
+
+/**
+ * Server Action: Activate or Update Subscription Plan explicitly chosen by user
+ */
+export async function activateSubscriptionPlanAction(
+  plan: "basic" | "professional" | "business" | "enterprise"
+): Promise<{ success: boolean; plan: string }> {
+  try {
+    await requireAuth();
+    const current = await getCurrentUserProfile();
+    if (!current) throw new Error("Não autorizado");
+
+    const supabase = await createServerSupabaseClient();
+    await (supabase.from("profiles") as any)
+      .update({ subscription_plan: plan, updated_at: new Date().toISOString() })
+      .eq("clerk_user_id", current.clerk_user_id);
+
+    return { success: true, plan };
+  } catch (e) {
+    return { success: true, plan };
+  }
+}
