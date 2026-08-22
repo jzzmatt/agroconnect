@@ -1,4 +1,12 @@
-import type { UserRoleType, ThemePreference, AccountType, UserStatus } from "./database";
+import type {
+  UserRoleType,
+  ThemePreference,
+  AccountType,
+  UserStatus,
+  ProfessionalTitle,
+  ProfileType,
+  SubscriptionPlan,
+} from "./database";
 
 export interface UserProfileWithRoles {
   id: string;
@@ -11,6 +19,10 @@ export interface UserProfileWithRoles {
   avatar_url: string | null;
   bio: string | null;
   profile_slug: string | null;
+  professional_title?: ProfessionalTitle;
+  professional_title_custom?: string | null;
+  active_profile_type?: ProfileType;
+  subscription_plan?: SubscriptionPlan;
   preferred_language: string;
   account_type: AccountType;
   status: UserStatus;
@@ -19,6 +31,27 @@ export interface UserProfileWithRoles {
   roles: UserRoleType[];
   created_at: string;
   updated_at: string;
+}
+
+export interface UserEntitlements {
+  can_sell_products: boolean;
+  can_create_products: boolean;
+  can_edit_products: boolean;
+  can_publish_products: boolean;
+  can_manage_inventory: boolean;
+  can_manage_services: boolean;
+  can_teach_courses: boolean;
+  can_access_business_dashboard: boolean;
+  max_products: number;
+  max_services: number;
+}
+
+export interface UserGreetingResult {
+  greeting: string;
+  fullNameOrTitle: string;
+  displayName: string;
+  activeProfileLabel: string;
+  activeProfileIcon: string;
 }
 
 export interface GeoCoordinate {

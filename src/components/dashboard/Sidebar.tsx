@@ -5,11 +5,16 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, X } from "lucide-react";
 import { DASHBOARD_NAVIGATION } from "@/config/navigation";
-import type { UserRoleType } from "@/types/database";
+import type { UserRoleType, ProfileType } from "@/types/database";
+import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import { ProfileSwitcher } from "./ProfileSwitcher";
 import { cn } from "@/lib/utils";
 
 interface DashboardSidebarProps {
   userRoles?: UserRoleType[];
+  availableProfiles?: ProfileType[];
+  activeProfile?: ProfileType;
+  onSwitchProfile?: (profile: ProfileType) => void;
   isOpen?: boolean;
   onClose?: () => void;
   className?: string;
@@ -17,13 +22,16 @@ interface DashboardSidebarProps {
 
 export function DashboardSidebar({
   userRoles = ["student", "expert", "seller"],
+  availableProfiles = ["expert", "instructor", "student", "seller"],
+  activeProfile = "expert",
+  onSwitchProfile,
   isOpen,
   onClose,
   className,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
 
-  // Filter navigation sections based on active user roles
+  // Filter navigation sections based on active user roles & active profile context
   const visibleSections = DASHBOARD_NAVIGATION.filter((section) => {
     if (!section.roles || section.roles.length === 0) return true;
     return section.roles.some((role) => userRoles.includes(role));
@@ -56,6 +64,17 @@ export function DashboardSidebar({
           </button>
         )}
       </div>
+
+      {/* Active Profile Switcher in Sidebar */}
+      {onSwitchProfile && availableProfiles.length > 1 && (
+        <div className="p-3 border-b border-sidebar-border">
+          <ProfileSwitcher
+            availableProfiles={availableProfiles}
+            activeProfile={activeProfile}
+            onSwitch={onSwitchProfile}
+          />
+        </div>
+      )}
 
       {/* Navigation Links (Scrollable) */}
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
@@ -109,20 +128,24 @@ export function DashboardSidebar({
         ))}
       </div>
 
-      {/* User Role Badges Footer */}
+      {/* Areas of Activity in Ecosystem Footer */}
       <div className="p-4 border-t border-sidebar-border bg-surface-muted/50">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-          Funções Ativas
+          ÁREAS DE ATUAÇÃO NO ECOSSISTEMA
         </span>
         <div className="flex flex-wrap gap-1">
-          {userRoles.map((role) => (
-            <span
-              key={role}
-              className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border text-[10px] font-bold text-foreground shadow-2xs capitalize"
-            >
-              {role.replace("_", " ")}
-            </span>
-          ))}
+          {availableProfiles.map((type) => {
+            const config = PROFILE_TYPE_CONFIG[type] || PROFILE_TYPE_CONFIG.personal;
+            return (
+              <span
+                key={type}
+                className="px-2 py-0.5 rounded-md bg-surface-elevated border border-border text-[10px] font-bold text-foreground shadow-2xs flex items-center gap-1"
+              >
+                <span>{config.icon}</span>
+                <span>{config.label}</span>
+              </span>
+            );
+          })}
         </div>
       </div>
     </div>

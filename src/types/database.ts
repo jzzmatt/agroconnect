@@ -17,7 +17,23 @@ export type UserRoleType =
   | "agricultural_consultant"
   | "business"
   | "farmer"
+  | "service_provider"
   | "admin";
+
+export type ProfessionalTitle = "none" | "Dr." | "Prof." | "Eng." | "Tec." | "custom";
+
+export type ProfileType =
+  | "veterinarian"
+  | "expert"
+  | "instructor"
+  | "student"
+  | "seller"
+  | "farmer"
+  | "service_provider"
+  | "business"
+  | "personal";
+
+export type SubscriptionPlan = "free" | "professional" | "business" | "premium";
 
 export type AccountType =
   | "customer"
@@ -169,6 +185,10 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           profile_slug: string | null;
+          professional_title: ProfessionalTitle;
+          professional_title_custom: string | null;
+          active_profile_type: ProfileType;
+          subscription_plan: SubscriptionPlan;
           preferred_language: string;
           account_type: AccountType;
           status: UserStatus;
@@ -188,6 +208,10 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          professional_title?: ProfessionalTitle;
+          professional_title_custom?: string | null;
+          active_profile_type?: ProfileType;
+          subscription_plan?: SubscriptionPlan;
           preferred_language?: string;
           account_type?: AccountType;
           status?: UserStatus;
@@ -207,6 +231,10 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          professional_title?: ProfessionalTitle;
+          professional_title_custom?: string | null;
+          active_profile_type?: ProfileType;
+          subscription_plan?: SubscriptionPlan;
           preferred_language?: string;
           account_type?: AccountType;
           status?: UserStatus;
