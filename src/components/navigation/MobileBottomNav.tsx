@@ -23,7 +23,7 @@ export function MobileBottomNav({ variant = "marketing" }: MobileBottomNavProps)
   // Início, Serviços, Cursos, Produtos, Mais
   const items = [
     { href: variant === "dashboard" ? "/dashboard" : "/", label: "Início", icon: Home },
-    { href: "/agriexpert", label: "Serviços", icon: Users },
+    { href: "/services", label: "Serviços", icon: Users },
     { href: "/agriacademy", label: "Cursos", icon: GraduationCap },
     { href: "/agrishopping", label: "Produtos", icon: ShoppingBag },
     { href: "/agrilocalizacao", label: "Mais", icon: MoreHorizontal },

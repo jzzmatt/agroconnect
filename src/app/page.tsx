@@ -230,9 +230,9 @@ export default function LandingPage() {
               </div>
 
               <div className="mt-6 pt-2">
-                <Link href="/agriexpert" className="w-full block">
+                <Link href="/services" className="w-full block">
                   <Button variant="primary" className="w-full justify-between font-bold">
-                    <span>Ver Especialistas</span>
+                    <span>Explorar Serviços & Especialistas</span>
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>

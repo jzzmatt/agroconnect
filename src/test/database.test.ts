@@ -181,6 +181,8 @@ describe("AGROCONNECT Phase 3 — Supabase Database Architecture & Domain Models
       pricing_type: "hourly",
       price: 25000,
       currency: "AOA",
+      location_type: "service_area",
+      contact_preference: "platform",
       country_id: "c-1",
       province_id: "p-1",
       municipality_id: "m-1",

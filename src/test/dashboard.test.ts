@@ -10,12 +10,12 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     expect(sectionTitles).toContain("AgriShopping & Recursos");
   });
 
-  it("contains all Figma sidebar items: Meus Serviços, Agendamentos, Avaliações, Ganhos, Meus Cursos, Estudantes", () => {
+  it("contains all Figma sidebar items: Meus Serviços, Pedidos de Serviço, Avaliações, Ganhos, Meus Cursos, Estudantes", () => {
     const expertSection = DASHBOARD_NAVIGATION.find((s) => s.title === "AgriExpert");
     expect(expertSection).toBeDefined();
     const expertItems = expertSection?.items.map((i) => i.title);
     expect(expertItems).toContain("Meus Serviços");
-    expect(expertItems).toContain("Agendamentos");
+    expect(expertItems).toContain("Pedidos de Serviço");
     expect(expertItems).toContain("Avaliações");
     expect(expertItems).toContain("Ganhos");
 

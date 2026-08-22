@@ -67,12 +67,12 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
     items: [
       {
         title: "Meus Serviços",
-        href: "/dashboard/expert/services",
+        href: "/dashboard/services",
         icon: ClipboardList,
       },
       {
-        title: "Agendamentos",
-        href: "/dashboard/expert/appointments",
+        title: "Pedidos de Serviço",
+        href: "/dashboard/requests",
         icon: Calendar,
       },
       {

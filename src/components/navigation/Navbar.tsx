@@ -26,6 +26,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
+    { href: "/services", label: "Serviços", icon: Users, badge: "Marketplace" },
     { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users, badge: "Especialistas" },
     { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: "Cursos" },
     { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: "Produtos" },

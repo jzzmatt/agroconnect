@@ -53,7 +53,9 @@ export type PricingType =
   | "quotation"
   | "free";
 
-export type ServiceStatus = "draft" | "active" | "paused" | "archived";
+export type ServiceStatus = "draft" | "published" | "active" | "paused" | "archived";
+export type ServiceLocationType = "physical_location" | "service_area" | "remote";
+export type ServiceContactPreference = "platform" | "phone" | "whatsapp" | "email";
 
 export type ProductCondition = "new" | "used" | "refurbished";
 
@@ -628,6 +630,8 @@ export interface Database {
           pricing_type: PricingType;
           price: number;
           currency: string;
+          location_type: ServiceLocationType;
+          contact_preference: ServiceContactPreference | null;
           country_id: string | null;
           province_id: string | null;
           municipality_id: string | null;
@@ -652,6 +656,8 @@ export interface Database {
           pricing_type?: PricingType;
           price?: number;
           currency?: string;
+          location_type?: ServiceLocationType;
+          contact_preference?: ServiceContactPreference | null;
           country_id?: string | null;
           province_id?: string | null;
           municipality_id?: string | null;
@@ -676,6 +682,8 @@ export interface Database {
           pricing_type?: PricingType;
           price?: number;
           currency?: string;
+          location_type?: ServiceLocationType;
+          contact_preference?: ServiceContactPreference | null;
           country_id?: string | null;
           province_id?: string | null;
           municipality_id?: string | null;

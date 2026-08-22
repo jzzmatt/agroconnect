@@ -11,6 +11,10 @@ export function createPublicSupabaseClient() {
   return createClient<Database>(supabaseUrl, supabaseAnonKey);
 }
 
+export function createPublicServerSupabaseClient() {
+  return createClient<Database>(supabaseUrl, supabaseAnonKey);
+}
+
 /**
  * Creates an authenticated Supabase client for browser components using Clerk's session token.
  * Uses Clerk Native Supabase Third-Party Auth integration by passing the Bearer token in the global headers.
