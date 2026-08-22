@@ -187,6 +187,21 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(middleware).toContain('"/api/products(.*)"');
   });
 
+  it("persists an activated plan even when the profile row does not exist yet", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { resolve } = await import("node:path");
+    const src = await readFile(
+      resolve(process.cwd(), "src/lib/subscription/activate-plan.ts"),
+      "utf8"
+    );
+    // An UPDATE matches zero rows for a Clerk user with no profile, which left
+    // the plan in server memory only and made product create read "basic".
+    expect(src).toMatch("getCurrentUserProfile");
+    expect(src).toMatch(".upsert(");
+    expect(src).toMatch('onConflict: "clerk_user_id"');
+    expect(src).toMatch("persisted: persist.ok");
+  });
+
   it("does not surface Chrome extension listener errors as the publish reason", () => {
     expect(
       sanitizePublishError(

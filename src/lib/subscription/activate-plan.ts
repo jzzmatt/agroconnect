@@ -1,4 +1,4 @@
-import { requireAuth } from "@/lib/clerk/auth";
+import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
@@ -103,6 +103,38 @@ async function persistSubscriptionPlan(
       return { ok: true };
     }
 
+    // An UPDATE matches zero rows when the Clerk user has no profile yet
+    // (webhook not delivered in local development). Create it with the plan.
+    if (!updated.error && !updated.data) {
+      const upserted = (await withTimeout(
+        (admin.from("profiles") as any)
+          .upsert(
+            {
+              clerk_user_id: clerkUserId,
+              ...payload,
+              status: "active",
+              account_type: "customer",
+              preferred_language: "pt",
+              is_active: true,
+            },
+            { onConflict: "clerk_user_id" }
+          )
+          .select("subscription_plan")
+          .maybeSingle(),
+        remainingMs(deadline)
+      )) as RowResult;
+      if (
+        !upserted.error &&
+        upserted.data &&
+        normalizePlanSlug(upserted.data.subscription_plan) === plan
+      ) {
+        return { ok: true };
+      }
+      if (upserted.error) {
+        console.warn("[activatePlan] admin upsert:", upserted.error.message);
+      }
+    }
+
     const adminRpc = (await withTimeout(
       (admin as any).rpc("activate_user_subscription_plan", {
         p_clerk_user_id: clerkUserId,
@@ -174,6 +206,7 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
   success: boolean;
   plan: SubscriptionPlan;
   entitlements: UserEntitlements;
+  persisted?: boolean;
   error?: string;
 }> {
   const normalized = normalizePlanSlug(plan);
@@ -190,6 +223,11 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     // durable persist is briefly behind or unreachable.
     cachePlan(clerkUserId, normalized);
 
+    // The plan lives on the profile row. Bootstrap it first, otherwise the
+    // update below matches zero rows and the plan only exists in memory —
+    // which a later request on another server instance cannot read.
+    await getCurrentUserProfile().catch(() => null);
+
     const persist = await persistSubscriptionPlan(clerkUserId, normalized);
     if (!persist.ok && !persist.unavailable) {
       console.warn("[activatePlan] durable persist failed, serving trusted server cache:", persist.error);
@@ -198,6 +236,7 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     return {
       success: true,
       plan: normalized,
+      persisted: persist.ok,
       entitlements: getUserEntitlements({ subscriptionPlan: normalized }),
     };
   } catch (err: unknown) {
