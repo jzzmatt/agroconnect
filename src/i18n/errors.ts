@@ -10,5 +10,8 @@ export function localizeError(dict: Dictionary, code?: string | null, fallback?:
       return dict.errors[short as keyof Dictionary["errors"]];
     }
   }
-  return fallback || dict.errors.PRODUCT_PUBLISH_FAILED;
+  if (fallback && fallback.trim()) {
+    return fallback;
+  }
+  return dict.errors.PRODUCT_PUBLISH_FAILED;
 }

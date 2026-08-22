@@ -19,11 +19,18 @@ export async function POST(request: Request) {
       fileSize: Number(body?.fileSize || 0),
       durationSeconds: Number(body?.durationSeconds || 0),
     });
-    return NextResponse.json(result, { status: result.success ? 200 : 400 });
+    return NextResponse.json(result, {
+      status: result.success ? 200 : result.code === "AUTH_REQUIRED" ? 401 : 400,
+    });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "";
     return NextResponse.json(
-      { success: false, error: message || "BUNNY_UPLOAD_FAILED" },
+      {
+        success: false,
+        code: "BUNNY_UPLOAD_FAILED",
+        error: message || "BUNNY_UPLOAD_FAILED",
+        message: message || "BUNNY_UPLOAD_FAILED",
+      },
       { status: /autorizado|unauthor/i.test(message) ? 401 : 500 }
     );
   }

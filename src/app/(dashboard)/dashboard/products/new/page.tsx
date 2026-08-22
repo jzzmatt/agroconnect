@@ -244,54 +244,62 @@ export default function NewProductPage() {
         });
         const payload = await uploaded.json().catch(() => null);
         if (!uploaded.ok || !payload?.success) {
-          throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), {
-            code: payload?.error || "MEDIA_UPLOAD_FAILED",
+          const errCode = payload?.error || payload?.code || PRODUCT_ERROR_CODES.PRODUCT_IMAGE_FAILED;
+          throw Object.assign(new Error(payload?.message || errCode), {
+            code: errCode,
+            message: payload?.message,
           });
         }
       }
 
-      if (pendingVideo) {
-        const videoRes = await fetch("/api/products/video/create", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "same-origin",
-          cache: "no-store",
-          redirect: "manual",
-          body: JSON.stringify({
-            productId: result.product.id,
-            title,
-            filename: pendingVideo.file.name,
-            mimeType: pendingVideo.file.type,
-            fileSize: pendingVideo.file.size,
-            durationSeconds: pendingVideo.duration,
-          }),
-        });
-        const videoResult = await videoRes.json().catch(() => null);
-        if (!videoRes.ok || !videoResult?.success) {
-          throw Object.assign(new Error(videoResult?.code || "MEDIA_UPLOAD_FAILED"), {
-            code: videoResult?.code || videoResult?.error || "MEDIA_UPLOAD_FAILED",
+        if (pendingVideo) {
+          const videoRes = await fetch("/api/products/video/create", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            cache: "no-store",
+            redirect: "manual",
+            body: JSON.stringify({
+              productId: result.product.id,
+              title,
+              filename: pendingVideo.file.name,
+              mimeType: pendingVideo.file.type,
+              fileSize: pendingVideo.file.size,
+              durationSeconds: pendingVideo.duration,
+            }),
           });
+          const videoResult = await videoRes.json().catch(() => null);
+          if (!videoRes.ok || !videoResult?.success) {
+            const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED;
+            throw Object.assign(new Error(videoResult?.message || errCode), {
+              code: errCode,
+              message: videoResult?.message,
+            });
+          }
+          const upload = videoResult.upload;
+          if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
+            throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED), {
+              code: upload?.code || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED,
+              message: upload?.error,
+            });
+          }
+          try {
+            await uploadToBunnyTus({
+              file: pendingVideo.file,
+              uploadUrl: upload.uploadUrl,
+              libraryId: upload.bunnyLibraryId,
+              videoId: upload.bunnyVideoId,
+              signature: upload.authorizationSignature,
+              expire: upload.authorizationExpire,
+            });
+            videoProcessing = true;
+          } catch (tusErr: any) {
+            throw Object.assign(new Error(tusErr?.message || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED), {
+              code: PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED,
+              message: tusErr?.message,
+            });
+          }
         }
-        const upload = videoResult.upload;
-        if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
-          throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), {
-            code: upload?.code || "BUNNY_NOT_CONFIGURED",
-          });
-        }
-        try {
-          await uploadToBunnyTus({
-            file: pendingVideo.file,
-            uploadUrl: upload.uploadUrl,
-            libraryId: upload.bunnyLibraryId,
-            videoId: upload.bunnyVideoId,
-            signature: upload.authorizationSignature,
-            expire: upload.authorizationExpire,
-          });
-          videoProcessing = true;
-        } catch {
-          throw Object.assign(new Error("BUNNY_UPLOAD_FAILED"), { code: "BUNNY_UPLOAD_FAILED" });
-        }
-      }
 
       setPublishState("success");
       setSuccessMessage(
@@ -305,7 +313,9 @@ export default function NewProductPage() {
         ? PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_TIMEOUT
         : sanitizePublishError(raw, PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED);
       setPublishState("error");
-      setError(localizeError(dict, code, err?.message));
+      const friendly = localizeError(dict, code, err?.message);
+      setError(friendly);
+      console.warn("[product publish error]", { code, raw, message: err?.message, friendly });
     } finally {
       setPublishState((current) => (current === "success" ? "success" : current === "error" ? "error" : "idle"));
     }

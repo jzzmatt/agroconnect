@@ -15,11 +15,11 @@ export async function POST(request: Request) {
     await requireAuth();
     const profile = await getCurrentUserProfile();
     if (!profile || !isUuid(profile.id)) {
-      return NextResponse.json({ success: false, error: "AUTH_REQUIRED" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, { status: 401 });
     }
     const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
     if (!entitlements.can_upload_product_images) {
-      return NextResponse.json({ success: false, error: "FEATURE_NOT_AVAILABLE" }, { status: 403 });
+      return NextResponse.json({ success: false, error: "FEATURE_NOT_AVAILABLE", code: "FEATURE_NOT_AVAILABLE" }, { status: 403 });
     }
 
     const form = await request.formData();
@@ -29,7 +29,7 @@ export async function POST(request: Request) {
     const altText = String(form.get("altText") || "Produto agrícola — AgriConnect");
 
     if (!isUuid(productId) || !(file instanceof File)) {
-      return NextResponse.json({ success: false, error: "MEDIA_UPLOAD_FAILED" }, { status: 400 });
+      return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED" }, { status: 400 });
     }
 
     const mimeType = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       fileName: file.name,
     });
     if (!validation.ok) {
-      return NextResponse.json({ success: false, error: "MEDIA_UPLOAD_FAILED", message: validation.error }, { status: 400 });
+      return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED", message: validation.error }, { status: 400 });
     }
 
     const imageId = crypto.randomUUID();
@@ -64,7 +64,7 @@ export async function POST(request: Request) {
 
     if (!publicUrl) {
       if (bytes.length > 350_000) {
-        return NextResponse.json({ success: false, error: "MEDIA_UPLOAD_FAILED" }, { status: 500 });
+        return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED" }, { status: 500 });
       }
       publicUrl = `data:${mimeType};base64,${bytes.toString("base64")}`;
     }
@@ -84,7 +84,7 @@ export async function POST(request: Request) {
     });
     if (error) {
       console.warn("[product image] insert:", error.message);
-      return NextResponse.json({ success: false, error: "MEDIA_UPLOAD_FAILED", message: error.message }, { status: 500 });
+      return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED", message: error.message }, { status: 500 });
     }
 
     if (isPrimary) {
@@ -98,10 +98,10 @@ export async function POST(request: Request) {
       image: { id: imageId, product_id: productId, url: publicUrl, is_primary: isPrimary },
     });
   } catch (error: unknown) {
-    const message = error instanceof Error ? error.message : "MEDIA_UPLOAD_FAILED";
+    const message = error instanceof Error ? error.message : "PRODUCT_IMAGE_FAILED";
     if (/autorizado|unauthor|sign in/i.test(message)) {
-      return NextResponse.json({ success: false, error: "AUTH_REQUIRED" }, { status: 401 });
+      return NextResponse.json({ success: false, error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, { status: 401 });
     }
-    return NextResponse.json({ success: false, error: "MEDIA_UPLOAD_FAILED", message }, { status: 500 });
+    return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED", message }, { status: 500 });
   }
 }

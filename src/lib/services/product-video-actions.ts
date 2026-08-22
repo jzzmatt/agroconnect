@@ -103,6 +103,7 @@ export async function createProductVideoUploadAction(params: {
 
     return { success: true, requestId, video: created.video, upload: created.upload };
   } catch (err: any) {
+    const code = err?.code || PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID;
     logProductOperation({
       requestId,
       operation: "product_video_upload",
@@ -112,7 +113,7 @@ export async function createProductVideoUploadAction(params: {
     });
     return {
       success: false,
-      code: err?.code || PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID,
+      code,
       message: err?.message,
       requestId,
     };
