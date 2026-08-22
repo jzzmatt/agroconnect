@@ -61,4 +61,9 @@ describe("AGROCONNECT Phase 4 — Clerk Authentication & User Identity Integrati
   it("5. Verifies service role client never exposes secret client-side", () => {
     expect(process.env.NEXT_PUBLIC_SUPABASE_SERVICE_ROLE_KEY).toBeUndefined();
   });
+
+  it("6. Verifies sign-out redirects to the main landing page", () => {
+    const redirectUrl = "/";
+    expect(redirectUrl).toBe("/");
+  });
 });

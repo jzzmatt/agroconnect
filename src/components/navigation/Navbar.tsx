@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useUser, useClerk } from "@clerk/nextjs";
 import {
   Sprout,
   Users,
@@ -13,6 +14,7 @@ import {
   X,
   ChevronRight,
   User,
+  LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
@@ -23,6 +25,18 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { dict } = useI18n();
+  const { isSignedIn, user } = useUser();
+  const { signOut } = useClerk();
+
+  const handleSignOut = async () => {
+    setMobileMenuOpen(false);
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("agroconnect_active_profile_type");
+      localStorage.removeItem("agroconnect_user_profile_override");
+      sessionStorage.removeItem("agroconnect_prompted_profile_selector");
+    }
+    await signOut({ redirectUrl: "/" });
+  };
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
@@ -84,18 +98,40 @@ export function Navbar() {
               <ShoppingBag className="w-5 h-5 text-primary" />
             </Link>
 
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm" className="gap-1.5 font-bold">
-                <User className="w-3.5 h-3.5 text-primary" />
-                <span>{dict.navigation.dashboard}</span>
-              </Button>
-            </Link>
+            {isSignedIn ? (
+              <>
+                <Link href="/dashboard">
+                  <Button variant="outline" size="sm" className="gap-1.5 font-bold">
+                    <User className="w-3.5 h-3.5 text-primary" />
+                    <span>{dict.navigation.dashboard}</span>
+                  </Button>
+                </Link>
 
-            <Link href="/sign-up">
-              <Button variant="primary" size="sm" className="font-bold">
-                {dict.navigation.signUp}
-              </Button>
-            </Link>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={handleSignOut}
+                  className="gap-1.5 font-bold text-destructive hover:bg-destructive/10"
+                >
+                  <LogOut className="w-3.5 h-3.5" />
+                  <span>{dict.navigation.signOut}</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in">
+                  <Button variant="outline" size="sm" className="font-bold">
+                    {dict.navigation.signIn}
+                  </Button>
+                </Link>
+
+                <Link href="/sign-up">
+                  <Button variant="primary" size="sm" className="font-bold">
+                    {dict.navigation.signUp}
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -152,16 +188,36 @@ export function Navbar() {
           </div>
 
           <div className="pt-4 border-t border-border flex flex-col gap-2">
-            <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="outline" className="w-full justify-center">
-                {dict.navigation.signIn}
-              </Button>
-            </Link>
-            <Link href="/sign-up" onClick={() => setMobileMenuOpen(false)}>
-              <Button variant="primary" className="w-full justify-center">
-                {dict.navigation.signUp}
-              </Button>
-            </Link>
+            {isSignedIn ? (
+              <>
+                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" className="w-full justify-center font-bold">
+                    {dict.navigation.dashboard}
+                  </Button>
+                </Link>
+                <Button
+                  variant="outline"
+                  onClick={handleSignOut}
+                  className="w-full justify-center text-destructive font-bold"
+                >
+                  <LogOut className="w-4 h-4 mr-1.5" />
+                  <span>{dict.navigation.signOut}</span>
+                </Button>
+              </>
+            ) : (
+              <>
+                <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="outline" className="w-full justify-center">
+                    {dict.navigation.signIn}
+                  </Button>
+                </Link>
+                <Link href="/sign-up" onClick={() => setMobileMenuOpen(false)}>
+                  <Button variant="primary" className="w-full justify-center">
+                    {dict.navigation.signUp}
+                  </Button>
+                </Link>
+              </>
+            )}
           </div>
         </div>
       )}

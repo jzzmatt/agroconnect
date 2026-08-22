@@ -1,17 +1,30 @@
 "use client";
 
 import React, { useState } from "react";
+import { useRouter } from "next/navigation";
+import { useClerk } from "@clerk/nextjs";
 import { Button, SectionHeader, ThemeSwitcher } from "@/components/ui";
 import { useI18n } from "@/i18n/provider";
 import { useTheme } from "@/lib/theme";
-import { Bell, Globe, Shield, Save, Check, Sun, Moon } from "lucide-react";
+import { Bell, Globe, Shield, Save, Check, Sun, Moon, LogOut } from "lucide-react";
 
 export default function SettingsPage() {
+  const router = useRouter();
+  const { signOut } = useClerk();
   const { dict, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
+
+  const handleSignOut = async () => {
+    if (typeof window !== "undefined") {
+      localStorage.removeItem("agroconnect_active_profile_type");
+      localStorage.removeItem("agroconnect_user_profile_override");
+      sessionStorage.removeItem("agroconnect_prompted_profile_selector");
+    }
+    await signOut({ redirectUrl: "/" });
+  };
 
   const handleSave = () => {
     setSaved(true);
@@ -165,6 +178,33 @@ export default function SettingsPage() {
                 className="w-4 h-4 accent-emerald-600 rounded cursor-pointer"
               />
             </label>
+          </div>
+        </div>
+
+        {/* Session & Sign Out */}
+        <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs space-y-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-destructive/10 text-destructive flex items-center justify-center">
+              <LogOut className="w-5 h-5" />
+            </div>
+            <div>
+              <h3 className="text-base font-bold text-foreground">Sessão da Conta</h3>
+              <p className="text-xs text-muted-foreground">
+                Termine a sessão atual com segurança no seu dispositivo.
+              </p>
+            </div>
+          </div>
+
+          <div className="pt-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleSignOut}
+              className="font-bold text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
+            >
+              <LogOut className="w-3.5 h-3.5 mr-1.5" />
+              <span>Terminar Sessão</span>
+            </Button>
           </div>
         </div>
 
