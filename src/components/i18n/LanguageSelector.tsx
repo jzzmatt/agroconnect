@@ -6,19 +6,23 @@ import { supportedLocales, localeNames, type Locale } from "@/i18n/config";
 import { cn } from "@/lib/utils";
 
 export function LanguageSelector({ compact = false, className }: { compact?: boolean; className?: string }) {
-  const { locale, setLocale } = useI18n();
+  const { locale, setLocale, dict } = useI18n();
 
   return (
     <div
       role="group"
-      aria-label="Idioma da aplicação"
+      aria-label={dict.profile.language}
       className={cn("inline-flex items-center rounded-xl border border-border bg-surface p-0.5", className)}
     >
       {supportedLocales.map((code) => (
         <button
           key={code}
           type="button"
-          onClick={() => setLocale(code as Locale)}
+          onClick={(event) => {
+            event.preventDefault();
+            event.stopPropagation();
+            setLocale(code as Locale);
+          }}
           aria-pressed={locale === code}
           title={localeNames[code]}
           className={cn(

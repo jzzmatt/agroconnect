@@ -45,4 +45,17 @@ describe("Internationalization (i18n) Engine", () => {
     expect(dict.navigation.dashboard).toBe("Tableau de bord");
     expect(dict.glossary.order).toBe("Commande");
   });
+
+  it("switches visible marketing copy between locales", () => {
+    const pt = getDictionary("pt");
+    const en = getDictionary("en");
+    const fr = getDictionary("fr");
+
+    expect(pt.landing.ctaPrimary).toBe("Começar agora");
+    expect(en.landing.ctaPrimary).toBe("Get started");
+    expect(fr.landing.ctaPrimary).toBe("Commencer maintenant");
+    expect(pt.pricing.plans.professional.name).toBe("Profissional");
+    expect(en.pricing.plans.professional.name).toBe("Professional");
+    expect(fr.pricing.plans.professional.name).toBe("Professionnel");
+  });
 });

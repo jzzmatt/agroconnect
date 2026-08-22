@@ -10,12 +10,35 @@ import { Check, Lock, HelpCircle, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { activateSubscriptionPlanAction } from "@/lib/auth/profile-actions";
 import { notifySubscriptionChanged, useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
-import { LanguageSelector } from "@/components/i18n/LanguageSelector";
+import { setOptimisticPlan } from "@/lib/subscription/optimistic";
+import { useI18n } from "@/i18n/provider";
+import {
+  formatProductLimitLabel,
+  formatVideoStorageLabel,
+  getLocalizedPlanCopy,
+} from "@/i18n/plan-copy";
 import type { SubscriptionPlan } from "@/types/database";
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("timeout")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
 
 export default function PricingPage() {
   const router = useRouter();
-  const { isSignedIn } = useUser();
+  const { dict } = useI18n();
+  const { isSignedIn, isLoaded } = useUser();
   const { plan: currentPlan } = useAuthoritativePlan();
   const [activating, setActivating] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -28,41 +51,47 @@ export default function PricingPage() {
   ];
 
   const handleSelectPlan = async (planId: SubscriptionPlan) => {
+    if (!isLoaded) return;
     if (!isSignedIn) {
-      router.push("/sign-up");
+      router.push(`/sign-up?plan=${planId}`);
       return;
     }
 
     setActivating(planId);
     setError(null);
+    setOptimisticPlan(planId);
+    notifySubscriptionChanged();
+
     try {
-      const result = await activateSubscriptionPlanAction(planId);
+      const result = await withTimeout(activateSubscriptionPlanAction(planId), 10000);
       if (!result.success) {
-        setError(result.error || "Não foi possível atualizar o plano.");
+        const message = result.error || dict.pricing.activateError;
+        if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) {
+          router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
+          return;
+        }
+        setError(message);
+        router.push("/dashboard");
         return;
       }
       notifySubscriptionChanged();
-      router.refresh();
       router.push("/dashboard");
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível atualizar o plano.");
+    } catch {
+      router.push("/dashboard");
     } finally {
       setActivating(null);
     }
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
+    <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors overflow-x-hidden">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 w-full space-y-12">
-        <div className="flex justify-end">
-          <LanguageSelector compact />
-        </div>
         <SectionHeader
-          badgeText="Planos e Assinaturas • Angola"
-          title="Preços Transparentes em Kwanzas (AOA)"
-          subtitle="Escolha o plano adequado às necessidades da sua exploração agrícola, consultoria ou empresa de insumos."
+          badgeText={dict.pricing.badge}
+          title={dict.pricing.title}
+          subtitle={dict.pricing.subtitle}
           align="center"
         />
 
@@ -74,59 +103,50 @@ export default function PricingPage() {
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
           {plans.map((plan) => {
+            const copy = getLocalizedPlanCopy(dict, plan.id);
             const isCurrent = currentPlan === plan.id;
             return (
               <div
                 key={plan.id}
-                className={`rounded-3xl p-6 sm:p-7 border flex flex-col justify-between relative transition-all duration-300 ${
+                className={`w-full max-w-sm mx-auto md:max-w-none rounded-3xl p-6 sm:p-7 border flex flex-col justify-between relative transition-all duration-300 ${
                   plan.isPopular
-                    ? "border-amber-500 bg-gradient-to-b from-amber-500/10 via-surface-card to-surface-card shadow-xl ring-2 ring-amber-500/30 scale-102"
+                    ? "border-amber-500 bg-gradient-to-b from-amber-500/10 via-surface-card to-surface-card shadow-xl ring-2 ring-amber-500/30 md:scale-102"
                     : "border-border bg-surface-card shadow-xs hover:shadow-md"
                 }`}
               >
-                {plan.highlightBadge && (
+                {(copy.highlightBadge || plan.highlightBadge) && (
                   <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shadow-md whitespace-nowrap">
-                    {plan.highlightBadge}
+                    {copy.highlightBadge || plan.highlightBadge}
                   </div>
                 )}
 
-                <div className="space-y-4">
+                <div className="space-y-4 text-center md:text-left">
                   <div>
-                    <h3 className="text-xl font-black text-foreground">{plan.name}</h3>
+                    <h3 className="text-xl font-black text-foreground">{copy.name}</h3>
                     <p className="text-xs text-muted-foreground mt-1 leading-relaxed min-h-[36px]">
-                      {plan.tagline}
+                      {copy.tagline}
                     </p>
                   </div>
 
                   <div className="py-3 border-y border-border">
-                    <div className="flex items-baseline gap-1">
+                    <div className="flex items-baseline justify-center md:justify-start gap-1">
                       <span className="text-3xl sm:text-4xl font-black text-foreground">{plan.priceFormatted}</span>
                       <span className="text-xs text-muted-foreground font-semibold">/{plan.period}</span>
                     </div>
-                    {plan.productLimit !== null ? (
-                      <span className="text-xs font-bold text-primary block mt-1.5">
-                        {plan.productLimit === 0 ? "Apenas exploração e compras" : `Até ${plan.productLimit} produtos ativos`}
-                      </span>
-                    ) : (
-                      <span className="text-xs font-bold text-amber-600 block mt-1.5">
-                        Produtos sem limite definido
-                      </span>
-                    )}
+                    <span className="text-xs font-bold text-primary block mt-1.5">
+                      {formatProductLimitLabel(dict, plan.productLimit)}
+                    </span>
                     <span className="text-xs font-semibold text-muted-foreground block mt-1">
-                      {plan.videoStorageLimitGb === 0
-                        ? "Sem armazenamento de vídeo AgriAcademy"
-                        : plan.videoStorageLimitGb >= 1024
-                          ? "1 TB de vídeo AgriAcademy"
-                          : `${plan.videoStorageLimitGb} GB de vídeo AgriAcademy`}
+                      {formatVideoStorageLabel(dict, plan.videoStorageLimitGb)}
                     </span>
                   </div>
 
                   <div className="space-y-2.5 text-xs">
                     <span className="text-[10px] font-black uppercase tracking-wider text-muted-foreground block">
-                      Recursos do Plano
+                      {dict.pricing.includedFeatures}
                     </span>
-                    <ul className="space-y-2.5">
-                      {plan.features.map((feature, i) => (
+                    <ul className="space-y-2.5 text-left">
+                      {copy.features.map((feature, i) => (
                         <li key={i} className="flex items-start gap-2.5 text-foreground/90">
                           <Check className="w-4 h-4 text-primary shrink-0 mt-0.5" />
                           <span className="text-xs leading-snug">{feature}</span>
@@ -134,10 +154,10 @@ export default function PricingPage() {
                       ))}
                     </ul>
 
-                    {plan.lockedFeatures && (
+                    {copy.lockedFeatures.length > 0 && (
                       <div className="pt-2 border-t border-border/60">
-                        <ul className="space-y-2 opacity-60">
-                          {plan.lockedFeatures.map((locked, i) => (
+                        <ul className="space-y-2 opacity-60 text-left">
+                          {copy.lockedFeatures.map((locked, i) => (
                             <li key={i} className="flex items-start gap-2.5 text-muted-foreground">
                               <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
                               <span className="text-xs leading-snug line-through">{locked}</span>
@@ -153,7 +173,7 @@ export default function PricingPage() {
                   <Button
                     variant={plan.isPopular ? "primary" : "outline"}
                     size="sm"
-                    disabled={activating !== null || isCurrent}
+                    disabled={activating !== null || isCurrent || !isLoaded}
                     onClick={() => handleSelectPlan(plan.id)}
                     className={`w-full font-bold text-xs h-11 ${
                       plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
@@ -162,12 +182,12 @@ export default function PricingPage() {
                     {activating === plan.id ? (
                       <>
                         <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>A ativar...</span>
+                        <span>{dict.pricing.activating}</span>
                       </>
                     ) : isCurrent ? (
-                      <span>Plano atual</span>
+                      <span>{dict.pricing.currentPlan}</span>
                     ) : (
-                      <span>{plan.ctaText}</span>
+                      <span>{copy.cta}</span>
                     )}
                   </Button>
                 </div>
@@ -176,17 +196,14 @@ export default function PricingPage() {
           })}
         </div>
 
-        <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 max-w-4xl mx-auto space-y-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-bold">
+        <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 max-w-4xl mx-auto space-y-4 text-center md:text-left">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-bold shrink-0">
               <HelpCircle className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h4 className="font-bold text-sm text-foreground">Dúvidas sobre os limites?</h4>
-              <p className="text-xs text-muted-foreground">
-                O plano <strong>Profissional</strong> permite até 10 produtos ativos e 100 GB de vídeo AgriAcademy.
-                O plano <strong>Business</strong> oferece produtos ilimitados e 300 GB. O plano <strong>Empresarial</strong> inclui 1 TB e o serviço de configuração personalizada de gateway de pagamento.
-              </p>
+              <h4 className="font-bold text-sm text-foreground">{dict.pricing.faqTitle}</h4>
+              <p className="text-xs text-muted-foreground">{dict.pricing.faqBody}</p>
             </div>
           </div>
         </div>

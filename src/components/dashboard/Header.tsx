@@ -7,6 +7,8 @@ import { useClerk } from "@clerk/nextjs";
 import { Menu, Bell, User, Search, MapPin, ChevronDown, UserCircle, Settings, LogOut, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
+import { LanguageSelector } from "@/components/i18n/LanguageSelector";
+import { useI18n } from "@/i18n/provider";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import type { ProfileType } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
@@ -32,6 +34,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const router = useRouter();
   const { signOut } = useClerk();
+  const { dict } = useI18n();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const activeConfig = PROFILE_TYPE_CONFIG[activeProfile] || PROFILE_TYPE_CONFIG.personal;
 
@@ -57,7 +60,9 @@ export function DashboardHeader({
           <Menu className="w-5 h-5" />
         </button>
         <div className="min-w-0">
-          <h1 className="text-base sm:text-lg font-bold text-foreground truncate">{title}</h1>
+          <h1 className="text-base sm:text-lg font-bold text-foreground truncate">
+            {title === "Painel" ? dict.navigation.dashboard : title}
+          </h1>
         </div>
       </div>
 
@@ -99,9 +104,10 @@ export function DashboardHeader({
                 onClick={() => setAccountMenuOpen(false)}
               />
               <div className="absolute right-0 mt-2 w-56 bg-surface-elevated rounded-2xl border border-border shadow-xl p-1.5 space-y-1 z-50 animate-in fade-in zoom-in-95 duration-150">
-                <div className="px-3 py-2 border-b border-border">
+                <div className="px-3 py-2 border-b border-border space-y-2">
+                  <LanguageSelector compact className="w-full justify-center" />
                   <span className="text-[10px] font-bold text-muted-foreground uppercase block">
-                    Sessão Iniciada
+                    {dict.profile.preferences}
                   </span>
                   <span className="text-xs font-black text-foreground truncate block">
                     {userDisplayName}
@@ -118,7 +124,7 @@ export function DashboardHeader({
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                 >
                   <UserCircle className="w-4 h-4 text-primary" />
-                  <span>Meu Perfil</span>
+                  <span>{dict.navigation.profile}</span>
                 </Link>
 
                 <Link
@@ -136,7 +142,7 @@ export function DashboardHeader({
                   className="flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-foreground hover:bg-muted transition-colors"
                 >
                   <Settings className="w-4 h-4 text-primary" />
-                  <span>Definições da Conta</span>
+                  <span>{dict.navigation.settings}</span>
                 </Link>
 
                 <div className="pt-1 border-t border-border">
@@ -146,7 +152,7 @@ export function DashboardHeader({
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-4 h-4 text-destructive" />
-                    <span>Terminar Sessão</span>
+                    <span>{dict.navigation.signOut}</span>
                   </button>
                 </div>
               </div>

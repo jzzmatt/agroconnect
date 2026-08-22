@@ -59,8 +59,9 @@ export function I18nProvider({
   const setLocale = useCallback((next: Locale) => {
     setLocaleState(next);
     persistLocale(next);
-    updatePreferredLanguageAction(next).catch(() => {
-      // Unauthenticated users persist via cookie/localStorage only.
+    // Persist for signed-in users in the background. Never block or remount the UI.
+    void updatePreferredLanguageAction(next).catch(() => {
+      // Guests and offline sessions keep the locale in cookie/localStorage only.
     });
   }, []);
 

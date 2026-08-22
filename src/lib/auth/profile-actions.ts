@@ -169,50 +169,55 @@ export async function activateSubscriptionPlanAction(
 
   try {
     const clerkUserId = await requireAuth();
-    const current = await getCurrentUserProfile();
-    if (!current) {
-      return {
-        success: false,
-        plan: "basic",
-        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-        error: "Não autorizado",
-      };
-    }
-
-    const supabase = await createServerSupabaseClient();
-    const { error } = await (supabase.from("profiles") as any)
-      .update({
-        subscription_plan: normalized,
-        subscription_updated_at: new Date().toISOString(),
-        updated_at: new Date().toISOString(),
-      })
-      .eq("clerk_user_id", current.clerk_user_id);
-
-    if (error) {
-      console.warn("[activateSubscriptionPlanAction] DB update warning:", error.message);
-    }
 
     setAuthoritativeSubscription(clerkUserId, {
       plan: normalized,
-      marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
-      preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
-      videoStorageUsedBytes: current.video_storage_used_bytes || 0,
     });
 
-    const entitlements = getUserEntitlements({
-      subscriptionPlan: normalized,
-      roles: current.roles,
-    });
+    const entitlements = getUserEntitlements({ subscriptionPlan: normalized });
 
-    revalidatePath("/", "layout");
-    revalidatePath("/dashboard");
-    revalidatePath("/dashboard/products");
-    revalidatePath("/dashboard/products/new");
-    revalidatePath("/dashboard/services");
-    revalidatePath("/dashboard/academy");
-    revalidatePath("/profile");
-    revalidatePath("/pricing");
-    revalidatePath("/settings");
+    const persist = (async () => {
+      const current = await getCurrentUserProfile();
+      if (!current) return;
+      const supabase = await createServerSupabaseClient();
+      const { error } = await (supabase.from("profiles") as any)
+        .update({
+          subscription_plan: normalized,
+          subscription_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("clerk_user_id", current.clerk_user_id);
+
+      if (error) {
+        console.warn("[activateSubscriptionPlanAction] DB update warning:", error.message);
+      }
+
+      setAuthoritativeSubscription(clerkUserId, {
+        plan: normalized,
+        marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
+        preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
+        videoStorageUsedBytes: current.video_storage_used_bytes || 0,
+      });
+    })();
+
+    await Promise.race([
+      persist.catch((persistError: any) => {
+        console.warn(
+          "[activateSubscriptionPlanAction] persistence warning:",
+          persistError?.message || persistError
+        );
+      }),
+      new Promise((resolve) => setTimeout(resolve, 5000)),
+    ]);
+
+    try {
+      revalidatePath("/dashboard");
+      revalidatePath("/pricing");
+      revalidatePath("/profile");
+      revalidatePath("/settings");
+    } catch {
+      // Cache invalidation must never block a successful plan change.
+    }
 
     return { success: true, plan: normalized, entitlements };
   } catch (err: any) {
@@ -301,7 +306,6 @@ export async function updatePreferredLanguageAction(
       marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
     });
 
-    revalidatePath("/", "layout");
     return { success: true, locale };
   } catch (err: any) {
     return { success: false, error: err?.message || "Erro ao guardar idioma." };

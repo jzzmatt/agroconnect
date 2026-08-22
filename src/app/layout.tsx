@@ -22,7 +22,7 @@ export default function RootLayout({
         <head>
           <ThemeScript />
         </head>
-        <body className="min-h-screen antialiased bg-background text-foreground transition-colors duration-200">
+        <body className="min-h-screen antialiased bg-background text-foreground transition-colors duration-200 overflow-x-hidden">
           <ThemeProvider defaultTheme="light">
             <I18nProvider initialLocale="pt">{children}</I18nProvider>
           </ThemeProvider>

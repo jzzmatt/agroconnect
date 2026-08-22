@@ -4,9 +4,26 @@ import { useCallback, useEffect, useState } from "react";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
+import { clearOptimisticPlan, getOptimisticPlan } from "@/lib/subscription/optimistic";
 import { getMarketCountry, DEFAULT_MARKET_COUNTRY, type MarketCountry } from "@/config/markets";
 import type { UserEntitlements } from "@/types/domain";
 import type { SubscriptionPlan } from "@/types/database";
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+  return new Promise((resolve) => {
+    const timer = setTimeout(() => resolve(null), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      () => {
+        clearTimeout(timer);
+        resolve(null);
+      }
+    );
+  });
+}
 
 export function useAuthoritativePlan() {
   const [plan, setPlan] = useState<SubscriptionPlan>("basic");
@@ -18,16 +35,32 @@ export function useAuthoritativePlan() {
   const [loading, setLoading] = useState(true);
 
   const refresh = useCallback(async () => {
+    const optimistic = getOptimisticPlan();
+    if (optimistic) {
+      setPlan(optimistic);
+    }
+
     try {
-      const profile = await getProfileDetailsAction();
-      const nextPlan = normalizePlanSlug(profile?.subscription_plan);
-      setPlan(nextPlan);
-      setMarketCountry(getMarketCountry(profile?.market_country_code || DEFAULT_MARKET_COUNTRY));
-      const lang = profile?.preferred_language;
-      if (lang === "pt" || lang === "en" || lang === "fr") {
-        setLocale(lang);
+      const profile = await withTimeout(getProfileDetailsAction(), 8000);
+      if (profile) {
+        const nextPlan = normalizePlanSlug(profile.subscription_plan);
+        if (optimistic && nextPlan !== optimistic) {
+          setPlan(optimistic);
+        } else {
+          setPlan(nextPlan);
+          if (optimistic && nextPlan === optimistic) {
+            clearOptimisticPlan();
+          }
+        }
+        setMarketCountry(getMarketCountry(profile.market_country_code || DEFAULT_MARKET_COUNTRY));
+        const lang = profile.preferred_language;
+        if (lang === "pt" || lang === "en" || lang === "fr") {
+          setLocale(lang);
+        }
+        setVideoStorageUsedBytes(profile.video_storage_used_bytes || 0);
+      } else if (optimistic) {
+        setPlan(optimistic);
       }
-      setVideoStorageUsedBytes(profile?.video_storage_used_bytes || 0);
     } finally {
       setLoading(false);
     }

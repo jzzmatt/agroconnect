@@ -104,9 +104,9 @@ export default function SettingsPage() {
               <Globe className="w-5 h-5 text-primary" />
             </div>
             <div>
-              <h3 className="text-base font-bold text-foreground">Idioma Padrão (i18n)</h3>
+              <h3 className="text-base font-bold text-foreground">{dict.profile.language}</h3>
               <p className="text-xs text-muted-foreground">
-                Selecione o idioma de apresentação da plataforma.
+                {dict.profile.preferences}
               </p>
             </div>
           </div>

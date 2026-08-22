@@ -6,7 +6,6 @@ import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
-import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useUser } from "@clerk/nextjs";
 
 export default function DashboardLayout({
@@ -74,7 +73,7 @@ export default function DashboardLayout({
   ];
 
   return (
-    <div className="min-h-screen bg-background text-foreground flex transition-colors">
+    <div className="min-h-screen bg-background text-foreground flex transition-colors overflow-x-hidden">
       <DashboardSidebar
         userRoles={activeRoles}
         availableProfiles={availableProfiles}
@@ -94,10 +93,6 @@ export default function DashboardLayout({
           availableProfiles={availableProfiles}
           onSwitchProfile={handleSwitchProfile}
         />
-
-        <div className="px-4 sm:px-6 lg:px-8 pt-3 flex justify-end">
-          <LanguageSelector compact />
-        </div>
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-12">
           {children}

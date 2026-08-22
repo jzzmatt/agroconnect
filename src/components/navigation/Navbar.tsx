@@ -26,7 +26,7 @@ export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { dict } = useI18n();
-  const { isSignedIn, user } = useUser();
+  const { isSignedIn } = useUser();
   const { signOut } = useClerk();
 
   const handleSignOut = async () => {
@@ -35,16 +35,17 @@ export function Navbar() {
       localStorage.removeItem("agroconnect_active_profile_type");
       localStorage.removeItem("agroconnect_user_profile_override");
       sessionStorage.removeItem("agroconnect_prompted_profile_selector");
+      sessionStorage.removeItem("agroconnect_optimistic_plan");
     }
     await signOut({ redirectUrl: "/" });
   };
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
-    { href: "/services", label: "Serviços", icon: Users, badge: "Marketplace" },
-    { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users, badge: "Especialistas" },
-    { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: "Cursos" },
-    { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: "Produtos" },
+    { href: "/services", label: dict.navigation.services, icon: Users, badge: dict.navigation.servicesBadge },
+    { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users, badge: dict.navigation.expertsBadge },
+    { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: dict.navigation.coursesBadge },
+    { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: dict.navigation.productsBadge },
     { href: "/agrilocalizacao", label: dict.navigation.agriLocalizacao, icon: MapPin },
     { href: "/about", label: dict.navigation.aboutUs },
     { href: "/pricing", label: dict.navigation.pricing },
@@ -53,23 +54,21 @@ export function Navbar() {
   return (
     <header className="sticky top-0 z-50 w-full bg-surface-elevated/90 backdrop-blur-md border-b border-border transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-18">
-          {/* Brand Logo */}
-          <Link href="/" className="flex items-center gap-2.5 group">
-            <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-md group-hover:bg-primary-hover transition-colors">
-              <Sprout className="w-6 h-6 text-emerald-200" />
+        <div className="flex items-center justify-between gap-3 h-16 sm:h-18 min-w-0">
+          <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group min-w-0 flex-1 lg:flex-none">
+            <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-md group-hover:bg-primary-hover transition-colors shrink-0">
+              <Sprout className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-200" />
             </div>
-            <div className="flex flex-col">
-              <span className="text-xl font-black tracking-tight text-foreground font-sans">
-                AGROCONNECT
+            <div className="flex flex-col min-w-0">
+              <span className="text-base sm:text-xl font-black tracking-tight text-foreground font-sans truncate">
+                {dict.common.brandName}
               </span>
-              <span className="text-[10px] font-bold text-primary tracking-wider uppercase">
-                Angola • Ecossistema Digital
+              <span className="hidden sm:block text-[10px] font-bold text-primary tracking-wider uppercase truncate">
+                {dict.navigation.brandSubtitle}
               </span>
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
@@ -91,12 +90,11 @@ export function Navbar() {
             })}
           </nav>
 
-          {/* Desktop Auth / CTA */}
           <div className="hidden lg:flex items-center gap-3">
             <LanguageSelector compact />
             <ThemeSwitcher />
 
-            <Link href="/cart" className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors" title="Carrinho">
+            <Link href="/cart" className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors" title={dict.navigation.cart}>
               <ShoppingBag className="w-5 h-5 text-primary" />
             </Link>
 
@@ -136,25 +134,21 @@ export function Navbar() {
             )}
           </div>
 
-          {/* Mobile Menu Button */}
-          <div className="flex items-center gap-2 lg:hidden">
-            <LanguageSelector compact />
-            <ThemeSwitcher />
-
-            <Link href="/cart" className="p-1.5 rounded-lg text-foreground hover:bg-muted relative transition-colors" title="Carrinho">
-              <ShoppingBag className="w-4 h-4 text-primary" />
-            </Link>
-
-            <Link href="/dashboard">
-              <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-bold">
-                {dict.navigation.dashboard}
-              </Button>
+          <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden shrink-0">
+            <Link
+              href="/cart"
+              className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors"
+              title={dict.navigation.cart}
+              aria-label={dict.navigation.cart}
+            >
+              <ShoppingBag className="w-5 h-5 text-primary" />
             </Link>
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
               className="p-2 rounded-xl text-foreground hover:bg-muted focus:outline-none"
-              aria-label="Abrir Menu"
+              aria-label={dict.navigation.openMenu}
+              aria-expanded={mobileMenuOpen}
             >
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -162,9 +156,13 @@ export function Navbar() {
         </div>
       </div>
 
-      {/* Mobile Drawer Navigation */}
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-border bg-surface-elevated px-4 pt-2 pb-6 space-y-2 animate-in slide-in-from-top-2">
+        <div className="lg:hidden border-b border-border bg-surface-elevated px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2">
+          <div className="flex flex-col items-center gap-3 pb-3 border-b border-border">
+            <LanguageSelector compact className="w-full justify-center" />
+            <ThemeSwitcher />
+          </div>
+
           <div className="flex flex-col space-y-1">
             {navLinks.map((link) => {
               const isActive = pathname === link.href;
@@ -180,17 +178,17 @@ export function Navbar() {
                       : "text-foreground hover:bg-muted"
                   )}
                 >
-                  <div className="flex items-center gap-2.5">
-                    {link.icon && <link.icon className="w-4 h-4 text-primary" />}
-                    <span>{link.label}</span>
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    {link.icon && <link.icon className="w-4 h-4 text-primary shrink-0" />}
+                    <span className="truncate">{link.label}</span>
                   </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground" />
+                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
                 </Link>
               );
             })}
           </div>
 
-          <div className="pt-4 border-t border-border flex flex-col gap-2">
+          <div className="pt-3 border-t border-border flex flex-col gap-2">
             {isSignedIn ? (
               <>
                 <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
