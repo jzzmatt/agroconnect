@@ -30,10 +30,34 @@ function trimEnv(value?: string | null): string {
   return String(value || "").trim();
 }
 
+/**
+ * Bunny library IDs are numeric. The library API key is a UUID-like token.
+ * If those two env values are reversed, Stream returns 400 on create.
+ */
+export function normalizeBunnyCredentials(apiKey: string, libraryId: string) {
+  const key = trimEnv(apiKey);
+  const library = trimEnv(libraryId);
+  const keyIsNumeric = /^\d+$/.test(key);
+  const libraryLooksLikeKey = /[A-Za-z]/.test(library) && library.includes("-");
+  if (keyIsNumeric && libraryLooksLikeKey) {
+    return { apiKey: library, libraryId: key, swapped: true as const };
+  }
+  return { apiKey: key, libraryId: library, swapped: false as const };
+}
+
 export function getBunnyConfig() {
+  const normalized = normalizeBunnyCredentials(
+    process.env.BUNNY_STREAM_API_KEY || "",
+    process.env.BUNNY_STREAM_LIBRARY_ID || ""
+  );
+  if (normalized.swapped) {
+    console.warn(
+      "[bunny] BUNNY_STREAM_API_KEY and BUNNY_STREAM_LIBRARY_ID were reversed; using the numeric value as Library ID."
+    );
+  }
   return {
-    apiKey: trimEnv(process.env.BUNNY_STREAM_API_KEY),
-    libraryId: trimEnv(process.env.BUNNY_STREAM_LIBRARY_ID),
+    apiKey: normalized.apiKey,
+    libraryId: normalized.libraryId,
     cdnHostname: trimEnv(process.env.BUNNY_STREAM_CDN_HOSTNAME).replace(/^https?:\/\//, ""),
     webhookSecret: trimEnv(process.env.BUNNY_STREAM_WEBHOOK_SECRET),
   };

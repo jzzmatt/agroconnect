@@ -175,6 +175,17 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
       )
     );
   });
+
+  it("corrects reversed Bunny library ID and API key", async () => {
+    const { normalizeBunnyCredentials } = await import("@/lib/video/bunny");
+    const swapped = normalizeBunnyCredentials("123456", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    expect(swapped.swapped).toBe(true);
+    expect(swapped.libraryId).toBe("123456");
+    expect(swapped.apiKey).toBe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
+    const ok = normalizeBunnyCredentials("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "123456");
+    expect(ok.swapped).toBe(false);
+    expect(ok.libraryId).toBe("123456");
+  });
 });
 
 describe("Optimistic plan is never the source of truth", () => {
