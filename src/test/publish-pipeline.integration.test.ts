@@ -73,6 +73,39 @@ async function rest(path: string, init: RequestInit = {}) {
   return { status: response.status, body: text ? JSON.parse(text) : null };
 }
 
+describe.skipIf(!configured)("product video status reconciliation", () => {
+  it("moves a stuck video row to the state Bunny reports", async () => {
+    const pending = await rest(
+      "/product_videos?status=in.(pending,uploading,processing)&select=id,product_id,status,bunny_video_id"
+    );
+    const rows = (pending.body || []) as Array<{
+      product_id: string;
+      status: string;
+      bunny_video_id: string | null;
+    }>;
+
+    if (rows.length === 0) {
+      console.warn("[integration] no pending video rows to reconcile");
+      return;
+    }
+
+    const { reconcileProductVideoStatus } = await import("@/lib/products/video-status");
+    for (const row of rows) {
+      const before = row.status;
+      const result = await reconcileProductVideoStatus(row.product_id);
+      expect(result).not.toBeNull();
+      console.warn(
+        `[integration] product ${row.product_id}: ${before} -> ${result?.status}`
+      );
+
+      const after = await rest(
+        `/product_videos?product_id=eq.${row.product_id}&select=status`
+      );
+      expect(after.body[0].status).toBe(result?.status);
+    }
+  }, 60000);
+});
+
 describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
   const created: { productId?: string; profileId?: string } = {};
 

@@ -239,6 +239,7 @@ export interface ProductListItem {
   image_url?: string | null;
   has_video?: boolean;
   video_status?: string | null;
+  video_playback_url?: string | null;
   product_type?: "standard" | "animal" | "land";
   metadata?: Record<string, unknown> | null;
   created_at: string;

@@ -171,6 +171,42 @@ export async function createBunnyVideo(params: {
   };
 }
 
+/**
+ * Reads the current encoding state straight from Bunny.
+ *
+ * The webhook cannot reach a local dev server, and a missed delivery in any
+ * environment would leave a row stuck at "uploading" forever, so playback must
+ * not depend on it.
+ */
+export async function fetchBunnyVideoStatus(
+  bunnyVideoId: string
+): Promise<{ status: BunnyVideoStatus; thumbnailUrl: string | null } | null> {
+  const config = getBunnyConfig();
+  if (!config.apiKey || !config.libraryId || !bunnyVideoId) return null;
+
+  try {
+    const response = await fetch(
+      `${BUNNY_STREAM_API}/library/${config.libraryId}/videos/${bunnyVideoId}`,
+      { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
+    );
+    if (!response.ok) return null;
+
+    const video = (await response.json()) as { status?: number; thumbnailFileName?: string };
+    const status = mapBunnyStatus(Number(video.status));
+    const thumbnailUrl =
+      video.thumbnailFileName && config.cdnHostname
+        ? `https://${config.cdnHostname}/${bunnyVideoId}/${video.thumbnailFileName}`
+        : null;
+    return { status, thumbnailUrl };
+  } catch (error) {
+    console.warn(
+      "[bunny] status lookup failed:",
+      error instanceof Error ? error.message : error
+    );
+    return null;
+  }
+}
+
 export async function deleteBunnyVideo(bunnyVideoId: string): Promise<boolean> {
   const config = getBunnyConfig();
   if (!config.apiKey || !config.libraryId || !bunnyVideoId) return false;

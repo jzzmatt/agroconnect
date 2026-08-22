@@ -24,6 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LocationMap } from "@/components/location";
 import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
+import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
 import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
 import type { ProductListItem } from "@/types/domain";
 
@@ -136,9 +137,18 @@ export default function ProductDetailPage() {
           {/* Left Column: Product Visual + Description + Map */}
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 shadow-xs space-y-5">
-              {/* Product Banner/Image placeholder */}
+              {/* Product photo, falling back to an icon when none was uploaded */}
               <div className="h-64 sm:h-80 w-full rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted border border-border flex items-center justify-center relative overflow-hidden">
-                <Package className="w-24 h-24 text-amber-700/40 dark:text-amber-400/40" />
+                {product.image_url ? (
+                  <img
+                    src={product.image_url}
+                    alt={product.title}
+                    className="absolute inset-0 w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                ) : (
+                  <Package className="w-24 h-24 text-amber-700/40 dark:text-amber-400/40" />
+                )}
                 <div className="absolute top-4 left-4 flex gap-2">
                   <Badge variant="pillarShopping">
                     {product.category_name || "AgriShopping"}
@@ -151,6 +161,22 @@ export default function ProductDetailPage() {
                   )}
                 </div>
               </div>
+
+              {product.has_video && (
+                <div className="space-y-2">
+                  <h3 className="text-base font-bold text-foreground">Vídeo do produto</h3>
+                  <BunnyPlayer
+                    playbackUrl={product.video_playback_url}
+                    title={product.title}
+                    ready={product.video_status === "ready"}
+                  />
+                  {product.video_status !== "ready" && (
+                    <p className="text-[11px] text-muted-foreground">
+                      O vídeo está a ser processado e ficará disponível em breve.
+                    </p>
+                  )}
+                </div>
+              )}
 
               <div>
                 <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight leading-tight">

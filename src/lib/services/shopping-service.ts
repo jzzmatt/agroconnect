@@ -1,4 +1,5 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
+import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { ProductListItem, SellerPublicProfile, ProductRequestItem } from "@/types/domain";
 import type { ProductCondition, ProductStatus, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
@@ -310,6 +311,63 @@ export const INITIAL_SELLERS: SellerPublicProfile[] = [
   },
 ];
 
+/** Video states worth advertising on a card; a failed or deleted upload is not. */
+const VISIBLE_VIDEO_STATUSES = new Set(["uploading", "processing", "ready"]);
+
+/**
+ * Fills in `image_url`, `has_video`, `video_status`, and `video_playback_url`.
+ *
+ * The marketplace search RPC returns no media columns, so the photo and video
+ * are looked up separately and merged. Two flat queries are used rather than a
+ * PostgREST embed so this keeps working regardless of the RPC's shape.
+ *
+ * Reads with the service role when available: RLS only exposes videos once
+ * they are `ready`, which would otherwise hide a still-processing upload from
+ * the seller who just made it. The player itself still requires `ready`.
+ */
+async function attachProductMedia<T extends { id: string }>(
+  fallbackClient: ReturnType<typeof createPublicServerSupabaseClient>,
+  products: T[]
+): Promise<T[]> {
+  const ids = products.map((product) => product.id).filter(Boolean);
+  if (ids.length === 0) return products;
+
+  const supabase = tryCreateAdminSupabaseClient() || fallbackClient;
+
+  const [imageResult, videoResult] = await Promise.all([
+    (supabase.from("products") as any).select("id,primary_image_url").in("id", ids),
+    (supabase.from("product_videos") as any)
+      .select("product_id,status,playback_url")
+      .in("product_id", ids),
+  ]);
+
+  const imageByProduct = new Map<string, string | null>();
+  for (const row of (imageResult?.data as Array<any> | null) || []) {
+    imageByProduct.set(row.id, row.primary_image_url ?? null);
+  }
+
+  const videoByProduct = new Map<string, { status: string; playbackUrl: string | null }>();
+  for (const row of (videoResult?.data as Array<any> | null) || []) {
+    if (VISIBLE_VIDEO_STATUSES.has(row.status)) {
+      videoByProduct.set(row.product_id, {
+        status: row.status,
+        playbackUrl: row.playback_url ?? null,
+      });
+    }
+  }
+
+  return products.map((product) => {
+    const video = videoByProduct.get(product.id);
+    return {
+      ...product,
+      image_url: (product as any).image_url ?? imageByProduct.get(product.id) ?? null,
+      has_video: Boolean(video),
+      video_status: video?.status ?? null,
+      video_playback_url: video?.playbackUrl ?? null,
+    };
+  });
+}
+
 export class ShoppingService {
   /**
    * Search published products with filters, keyword search, location and radius calculation
@@ -339,8 +397,7 @@ export class ShoppingService {
 
         if (!error && data && Array.isArray(data) && data.length > 0) {
           const total = data[0]?.total_count ? Number(data[0].total_count) : data.length;
-          return {
-            products: data.map((item: any) => ({
+          const mapped = data.map((item: any) => ({
               id: item.id,
               seller_id: item.seller_id,
               seller_name: item.seller_name,
@@ -371,7 +428,10 @@ export class ShoppingService {
               status: item.status,
               is_featured: item.is_featured,
               created_at: item.created_at,
-            })),
+            }));
+
+          return {
+            products: await attachProductMedia(supabase, mapped),
             total,
           };
         }
@@ -509,8 +569,17 @@ export class ShoppingService {
 
         if (!error && data) {
           const item: any = data;
+          // Single product view: cheap enough to confirm the encoding state with
+          // Bunny so a stuck "uploading" row starts playing without a webhook.
+          const { reconcileProductVideoStatus } = await import("@/lib/products/video-status");
+          await reconcileProductVideoStatus(item.id).catch(() => null);
+          const [withMedia] = await attachProductMedia(supabase, [{ id: item.id }]);
           return {
             id: item.id,
+            image_url: (withMedia as any)?.image_url ?? null,
+            has_video: Boolean((withMedia as any)?.has_video),
+            video_status: (withMedia as any)?.video_status ?? null,
+            video_playback_url: (withMedia as any)?.video_playback_url ?? null,
             seller_id: item.seller_id,
             seller_name: item.provider_profiles?.business_name || "Vendedor",
             seller_slug: item.provider_profiles?.slug || "",
@@ -595,7 +664,7 @@ export class ShoppingService {
 
         const { data, error } = await query;
         if (!error && data && data.length > 0) {
-          return data.map((item: any) => ({
+          const mapped = data.map((item: any) => ({
             id: item.id,
             seller_id: item.seller_id,
             seller_name: item.provider_profiles?.business_name || "Vendedor",
@@ -627,6 +696,8 @@ export class ShoppingService {
             is_featured: item.is_featured,
             created_at: item.created_at,
           }));
+
+          return attachProductMedia(supabase, mapped);
         }
       } catch (err) {
         console.warn("[ShoppingService.getSellerProducts] Fallback:", err);

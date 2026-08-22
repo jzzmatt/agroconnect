@@ -5,38 +5,9 @@ import type { Database } from "@/types/database";
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || "https://placeholder-agroconnect.supabase.co";
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.placeholder";
 
-/**
- * The clients above fall back to a placeholder host so imports never crash.
- * Any write must check this first, otherwise the request is sent to a domain
- * that does not resolve and surfaces as an opaque "fetch failed".
- */
-export function isSupabaseConfigured(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-  return (
-    url.startsWith("http") &&
-    !url.includes("placeholder") &&
-    Boolean(key) &&
-    !key.includes("placeholder")
-  );
-}
-
-/** Names of the environment variables missing for database access. */
-export function missingSupabaseEnvVars(): string[] {
-  const missing: string[] = [];
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "";
-  if (!url.startsWith("http") || url.includes("placeholder")) {
-    missing.push("NEXT_PUBLIC_SUPABASE_URL");
-  }
-  if (!key || key.includes("placeholder")) {
-    missing.push("NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY");
-  }
-  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
-    missing.push("SUPABASE_SERVICE_ROLE_KEY");
-  }
-  return missing;
-}
+// Defined in @/lib/supabase/admin so modules shared with Client Components can
+// use them without dragging Clerk's server-only auth() into a browser bundle.
+export { isSupabaseConfigured, missingSupabaseEnvVars } from "@/lib/supabase/admin";
 
 /**
  * Creates a server-side Supabase client with the current Clerk authenticated user's session token.
