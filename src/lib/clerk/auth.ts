@@ -1,5 +1,8 @@
 import { auth, currentUser } from "@clerk/nextjs/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  tryCreateAdminServerSupabaseClient,
+} from "@/lib/supabase/server";
 import { getAuthoritativeSubscription } from "@/lib/subscription/store";
 import { normalizePlanSlug } from "@/lib/services/pricing-service";
 import type { UserProfileWithRoles } from "@/types/domain";
@@ -56,14 +59,15 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
-  const supabase = await createServerSupabaseClient();
+  const writer =
+    tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 
   // 1. Fetch profile
-  const { data: profile } = await supabase
+  const { data: profile } = await writer
     .from("profiles")
     .select("*")
     .eq("clerk_user_id", clerkUser.id)
-    .single();
+    .maybeSingle();
 
   // If profile doesn't exist yet, gracefully bootstrap profile
   let effectiveProfile = profile as Profile | null;
@@ -79,7 +83,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
 
     const profileSlug = clerkUser.username || `user-${clerkUser.id.slice(-8)}`;
 
-    const { data: newProfile, error } = await (supabase.from("profiles") as any)
+    const { data: newProfile, error } = await (writer.from("profiles") as any)
       .insert({
         clerk_user_id: clerkUser.id,
         display_name: displayName,
@@ -106,7 +110,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     if (!error && newProfile) {
       effectiveProfile = newProfile as Profile;
       // Default initial role: student
-      await (supabase.from("user_roles") as any).insert({
+      await (writer.from("user_roles") as any).insert({
         profile_id: effectiveProfile.id,
         clerk_user_id: clerkUser.id,
         role: "student",
@@ -116,7 +120,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   }
 
   // 2. Fetch roles
-  const { data: rolesData } = await supabase
+  const { data: rolesData } = await writer
     .from("user_roles")
     .select("role")
     .eq("clerk_user_id", clerkUser.id);

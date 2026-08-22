@@ -15,6 +15,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/public(.*)",
   // JSON plan activation — handler enforces Clerk auth so fetch is not redirected.
   "/api/subscription(.*)",
+  // JSON product create — handler enforces Clerk auth so fetch is not redirected.
+  "/api/products(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

@@ -9,10 +9,29 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJ
  * Creates a server-side Supabase client with the current Clerk authenticated user's session token.
  * Passes the Clerk JWT natively so Supabase RLS evaluates `(auth.jwt()->>'sub')`.
  */
-export async function createServerSupabaseClient() {
+async function clerkTokenWithBudget() {
   const { getToken } = await auth();
-  const token =
-    (await getToken({ template: "supabase" }).catch(() => null)) || (await getToken());
+  const withBudget = async (factory: () => Promise<string | null>) => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    try {
+      return await Promise.race([
+        factory(),
+        new Promise<null>((resolve) => {
+          timer = setTimeout(() => resolve(null), 2500);
+        }),
+      ]);
+    } finally {
+      if (timer) clearTimeout(timer);
+    }
+  };
+  return (
+    (await withBudget(() => getToken({ template: "supabase" }).catch(() => null))) ||
+    (await withBudget(() => getToken().catch(() => null)))
+  );
+}
+
+export async function createServerSupabaseClient() {
+  const token = await clerkTokenWithBudget();
 
   return createClient<Database>(
     supabaseUrl,

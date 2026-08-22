@@ -22,6 +22,7 @@ import {
 import { PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { SIGN_OUT_REDIRECT } from "@/lib/auth/clear-client-state";
 import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
+import { sanitizePublishError } from "@/lib/products/publish-errors";
 import { getDictionary } from "@/i18n";
 import { localizeError } from "@/i18n/errors";
 import {
@@ -173,6 +174,28 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
         String(process.env.BUNNY_STREAM_API_KEY || "").trim() &&
           String(process.env.BUNNY_STREAM_LIBRARY_ID || "").trim()
       )
+    );
+  });
+
+  it("publishes products through a JSON API instead of a raced server action", async () => {
+    const { readFileSync } = await import("node:fs");
+    const page = readFileSync("src/app/(dashboard)/dashboard/products/new/page.tsx", "utf8");
+    const middleware = readFileSync("src/middleware.ts", "utf8");
+    expect(page).toContain('fetch("/api/products/create"');
+    expect(page).not.toContain("createProductAction(");
+    expect(page).not.toContain("Promise.race");
+    expect(middleware).toContain('"/api/products(.*)"');
+  });
+
+  it("does not surface Chrome extension listener errors as the publish reason", () => {
+    expect(
+      sanitizePublishError(
+        "A listener indicated an asynchronous response by returning true",
+        "PRODUCT_PUBLISH_FAILED"
+      )
+    ).toBe("PRODUCT_PUBLISH_FAILED");
+    expect(sanitizePublishError("FEATURE_NOT_AVAILABLE", "PRODUCT_PUBLISH_FAILED")).toBe(
+      "FEATURE_NOT_AVAILABLE"
     );
   });
 

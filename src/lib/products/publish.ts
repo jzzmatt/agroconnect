@@ -23,13 +23,21 @@ export async function syncSubscriptionPlanRow(clerkUserId: string, plan: Subscri
       updated_at: new Date().toISOString(),
     })
     .eq("clerk_user_id", clerkUserId);
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await (client as any).rpc("activate_user_subscription_plan", {
-      p_clerk_user_id: clerkUserId,
-      p_plan: plan,
-    });
+    await Promise.race([
+      (client as any).rpc("activate_user_subscription_plan", {
+        p_clerk_user_id: clerkUserId,
+        p_plan: plan,
+      }),
+      new Promise((_, reject) => {
+        timer = setTimeout(() => reject(new Error("PLAN_SYNC_TIMEOUT")), 8000);
+      }),
+    ]);
   } catch {
-    // RPC may be missing until migrations are applied.
+    // RPC may be missing or slow; memory-first plan still applies.
+  } finally {
+    if (timer) clearTimeout(timer);
   }
 }
 

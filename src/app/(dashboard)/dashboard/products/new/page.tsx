@@ -21,14 +21,15 @@ import {
   type ListingType,
   type ProductCategorySlug,
 } from "@/config/product-catalog";
-import { createProductAction, getMyProductStatsAction } from "@/lib/services/shopping-actions";
+import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
 import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
 import { compressImageFile } from "@/lib/products/compress-image";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
-import { createRequestId } from "@/lib/products/errors";
+import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
+import { sanitizePublishError } from "@/lib/products/publish-errors";
 import { uploadToBunnyTus } from "@/lib/products/bunny-upload";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
@@ -173,137 +174,139 @@ export default function NewProductPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const PUBLISH_TIMEOUT_MS = pendingVideo ? 90_000 : 45_000;
-    let timeoutId: ReturnType<typeof setTimeout> | undefined;
-    const timeout = new Promise<never>((_, reject) => {
-      timeoutId = setTimeout(() => reject(new Error("PRODUCT_PUBLISH_TIMEOUT")), PUBLISH_TIMEOUT_MS);
-    });
-
     try {
-      await Promise.race([
-        (async () => {
-          setPublishState("publishing");
-          const result = await createProductAction({
-            title,
-            description,
-            condition,
-            price,
-            unit: productType === "animal" ? animalUnit : unit,
-            quantity,
-            sku: sku || undefined,
-            availabilityStatus,
-            locationType,
-            sellingRadiusKm,
-            status: "published",
-            categorySlug: category,
-            productType,
-            provinceName: selectedProvince,
-            municipalityName: selectedMunicipality,
-            idempotencyKey,
-            metadata: {
-              animal:
-                productType === "animal"
-                  ? { species, breed, sex, age, weight, quantity, unit: animalUnit, notes: animalNotes, listing_type: "sale" }
-                  : undefined,
-              land:
-                productType === "land"
-                  ? { listing_type: listingType, property_type: propertyType, area_value: areaValue, area_unit: areaUnit, lease_period: listingType === "lease" ? leasePeriod : undefined }
-                  : undefined,
-            },
-          });
+      setPublishState("publishing");
+      const createController = new AbortController();
+      const createTimer = setTimeout(() => createController.abort(), 20_000);
+      const created = await fetch("/api/products/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "manual",
+        signal: createController.signal,
+        body: JSON.stringify({
+          title,
+          description,
+          condition,
+          price,
+          unit: productType === "animal" ? animalUnit : unit,
+          quantity,
+          sku: sku || undefined,
+          availabilityStatus,
+          locationType,
+          sellingRadiusKm,
+          status: "published",
+          categorySlug: category,
+          productType,
+          provinceName: selectedProvince,
+          municipalityName: selectedMunicipality,
+          idempotencyKey,
+          metadata: {
+            animal:
+              productType === "animal"
+                ? { species, breed, sex, age, weight, quantity, unit: animalUnit, notes: animalNotes, listing_type: "sale" }
+                : undefined,
+            land:
+              productType === "land"
+                ? { listing_type: listingType, property_type: propertyType, area_value: areaValue, area_unit: areaUnit, lease_period: listingType === "lease" ? leasePeriod : undefined }
+                : undefined,
+          },
+        }),
+      }).finally(() => clearTimeout(createTimer));
 
-          if (!result.success || !result.product) {
-            throw Object.assign(new Error(result.code || "PRODUCT_PUBLISH_FAILED"), { code: result.code, message: result.message });
-          }
-
-          let videoProcessing = false;
-          if (pendingImages.length || pendingVideo) {
-            setPublishState("uploading_media");
-          }
-
-          for (const img of pendingImages) {
-            const compressed = await compressImageFile(img.file);
-            const form = new FormData();
-            form.append("productId", result.product.id);
-            form.append("file", compressed.file, compressed.fileName);
-            form.append("isPrimary", img.is_primary ? "true" : "false");
-            form.append("altText", title);
-            const uploaded = await fetch("/api/products/images", {
-              method: "POST",
-              body: form,
-              credentials: "same-origin",
-              redirect: "manual",
-            });
-            const payload = await uploaded.json().catch(() => null);
-            if (!uploaded.ok || !payload?.success) {
-              throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), {
-                code: payload?.error || "MEDIA_UPLOAD_FAILED",
-              });
-            }
-          }
-
-          if (pendingVideo) {
-            const videoRes = await fetch("/api/products/video/create", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              credentials: "same-origin",
-              cache: "no-store",
-              redirect: "manual",
-              body: JSON.stringify({
-                productId: result.product.id,
-                title,
-                filename: pendingVideo.file.name,
-                mimeType: pendingVideo.file.type,
-                fileSize: pendingVideo.file.size,
-                durationSeconds: pendingVideo.duration,
-              }),
-            });
-            const videoResult = await videoRes.json().catch(() => null);
-            if (!videoRes.ok || !videoResult?.success) {
-              throw Object.assign(new Error(videoResult?.code || "MEDIA_UPLOAD_FAILED"), {
-                code: videoResult?.code || videoResult?.error || "MEDIA_UPLOAD_FAILED",
-              });
-            }
-            const upload = videoResult.upload;
-            if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
-              throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), {
-                code: upload?.code || "BUNNY_NOT_CONFIGURED",
-              });
-            }
-            try {
-              await uploadToBunnyTus({
-                file: pendingVideo.file,
-                uploadUrl: upload.uploadUrl,
-                libraryId: upload.bunnyLibraryId,
-                videoId: upload.bunnyVideoId,
-                signature: upload.authorizationSignature,
-                expire: upload.authorizationExpire,
-              });
-              videoProcessing = true;
-            } catch {
-              throw Object.assign(new Error("BUNNY_UPLOAD_FAILED"), { code: "BUNNY_UPLOAD_FAILED" });
-            }
-          }
-
-          setPublishState("success");
-          setSuccessMessage(
-            videoProcessing ? dict.products.publishedVideoProcessing : dict.products.publishedOk
-          );
-          void refresh();
-          setTimeout(() => router.push("/dashboard/products"), 1200);
-        })(),
-        timeout,
-      ]);
-    } catch (err: any) {
-      const code = err?.code || err?.message;
-      setPublishState("error");
-      if (code === "PRODUCT_PUBLISH_TIMEOUT") {
-        setError(dict.errors.PRODUCT_PUBLISH_TIMEOUT);
-      } else {
-        setError(localizeError(dict, code, err?.message));
+      if (created.type === "opaqueredirect" || [301, 302, 303, 307, 308].includes(created.status)) {
+        throw Object.assign(new Error(PRODUCT_ERROR_CODES.AUTH_REQUIRED), { code: PRODUCT_ERROR_CODES.AUTH_REQUIRED });
       }
+      const result = await created.json().catch(() => null);
+      if (!created.ok || !result?.success || !result.product) {
+        const code = sanitizePublishError(result?.code || result?.message, PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED);
+        throw Object.assign(new Error(result?.message || code), { code, message: result?.message });
+      }
+
+      let videoProcessing = false;
+      if (pendingImages.length || pendingVideo) {
+        setPublishState("uploading_media");
+      }
+
+      for (const img of pendingImages) {
+        const compressed = await compressImageFile(img.file);
+        const form = new FormData();
+        form.append("productId", result.product.id);
+        form.append("file", compressed.file, compressed.fileName);
+        form.append("isPrimary", img.is_primary ? "true" : "false");
+        form.append("altText", title);
+        const uploaded = await fetch("/api/products/images", {
+          method: "POST",
+          body: form,
+          credentials: "same-origin",
+          redirect: "manual",
+        });
+        const payload = await uploaded.json().catch(() => null);
+        if (!uploaded.ok || !payload?.success) {
+          throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), {
+            code: payload?.error || "MEDIA_UPLOAD_FAILED",
+          });
+        }
+      }
+
+      if (pendingVideo) {
+        const videoRes = await fetch("/api/products/video/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "manual",
+          body: JSON.stringify({
+            productId: result.product.id,
+            title,
+            filename: pendingVideo.file.name,
+            mimeType: pendingVideo.file.type,
+            fileSize: pendingVideo.file.size,
+            durationSeconds: pendingVideo.duration,
+          }),
+        });
+        const videoResult = await videoRes.json().catch(() => null);
+        if (!videoRes.ok || !videoResult?.success) {
+          throw Object.assign(new Error(videoResult?.code || "MEDIA_UPLOAD_FAILED"), {
+            code: videoResult?.code || videoResult?.error || "MEDIA_UPLOAD_FAILED",
+          });
+        }
+        const upload = videoResult.upload;
+        if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
+          throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), {
+            code: upload?.code || "BUNNY_NOT_CONFIGURED",
+          });
+        }
+        try {
+          await uploadToBunnyTus({
+            file: pendingVideo.file,
+            uploadUrl: upload.uploadUrl,
+            libraryId: upload.bunnyLibraryId,
+            videoId: upload.bunnyVideoId,
+            signature: upload.authorizationSignature,
+            expire: upload.authorizationExpire,
+          });
+          videoProcessing = true;
+        } catch {
+          throw Object.assign(new Error("BUNNY_UPLOAD_FAILED"), { code: "BUNNY_UPLOAD_FAILED" });
+        }
+      }
+
+      setPublishState("success");
+      setSuccessMessage(
+        videoProcessing ? dict.products.publishedVideoProcessing : dict.products.publishedOk
+      );
+      void refresh();
+      setTimeout(() => router.push("/dashboard/products"), 1200);
+    } catch (err: any) {
+      const raw = err?.code || err?.message;
+      const code = err?.name === "AbortError" || /aborted|timeout/i.test(String(raw || ""))
+        ? PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_TIMEOUT
+        : sanitizePublishError(raw, PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED);
+      setPublishState("error");
+      setError(localizeError(dict, code, err?.message));
     } finally {
-      if (timeoutId) clearTimeout(timeoutId);
       setPublishState((current) => (current === "success" ? "success" : current === "error" ? "error" : "idle"));
     }
   };
