@@ -68,10 +68,10 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(invalid.isValid).toBe(false);
   });
 
-  it("6. Plan slug normalizer handles aliases gracefully and returns null when no plan is selected", () => {
-    expect(normalizePlanSlug(null)).toBeNull();
-    expect(normalizePlanSlug(undefined)).toBeNull();
-    expect(normalizePlanSlug("")).toBeNull();
+  it("6. Plan slug normalizer handles aliases gracefully and defaults safely to basic on null/undefined", () => {
+    expect(normalizePlanSlug(null)).toBe("basic");
+    expect(normalizePlanSlug(undefined)).toBe("basic");
+    expect(normalizePlanSlug("")).toBe("basic");
     expect(normalizePlanSlug("free")).toBe("basic");
     expect(normalizePlanSlug("básico")).toBe("basic");
     expect(normalizePlanSlug("pro")).toBe("professional");
@@ -81,9 +81,34 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(normalizePlanSlug("empresarial")).toBe("enterprise");
   });
 
-  it("7. Validates backend product creation rejection when basic plan attempts to create products", async () => {
-    // Basic plan entitlement validation
-    const entitlements = getUserEntitlements({ subscriptionPlan: "basic" });
-    expect(entitlements.can_create_products).toBe(false);
+  it("7. Validates that Basic plan has all 4 ecosystem creation modules locked", () => {
+    const basicEntitlements = getUserEntitlements({ subscriptionPlan: "basic" });
+    expect(basicEntitlements.can_access_agrishopping).toBe(false);
+    expect(basicEntitlements.can_access_agriacademy).toBe(false);
+    expect(basicEntitlements.can_access_agrilocalization).toBe(false);
+    expect(basicEntitlements.can_access_agriexpert).toBe(false);
+    expect(basicEntitlements.can_create_products).toBe(false);
+    expect(basicEntitlements.can_create_courses).toBe(false);
+    expect(basicEntitlements.can_manage_services).toBe(false);
+    expect(basicEntitlements.can_manage_locations).toBe(false);
+  });
+
+  it("8. Validates that Professional plan unlocks ecosystem creation modules", () => {
+    const proEntitlements = getUserEntitlements({ subscriptionPlan: "professional" });
+    expect(proEntitlements.can_access_agrishopping).toBe(true);
+    expect(proEntitlements.can_access_agriacademy).toBe(true);
+    expect(proEntitlements.can_access_agrilocalization).toBe(true);
+    expect(proEntitlements.can_access_agriexpert).toBe(true);
+    expect(proEntitlements.can_create_products).toBe(true);
+    expect(proEntitlements.can_create_courses).toBe(true);
+    expect(proEntitlements.product_limit).toBe(10);
+  });
+
+  it("9. Fails closed when subscriptionPlan is null/invalid, applying Basic restrictions", () => {
+    const nullEntitlements = getUserEntitlements({ subscriptionPlan: null });
+    expect(nullEntitlements.can_create_products).toBe(false);
+    expect(nullEntitlements.can_create_courses).toBe(false);
+    expect(nullEntitlements.can_access_agrishopping).toBe(false);
+    expect(nullEntitlements.product_limit).toBe(0);
   });
 });

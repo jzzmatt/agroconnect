@@ -35,6 +35,14 @@ export interface UserProfileWithRoles {
 }
 
 export interface UserEntitlements {
+  // Module-Level Access
+  can_access_agrishopping: boolean;
+  can_access_agriacademy: boolean;
+  can_access_agrilocalization: boolean;
+  can_access_agriexpert: boolean;
+  can_access_business_dashboard: boolean;
+
+  // Granular Actions
   can_sell_products: boolean;
   can_create_products: boolean;
   can_edit_products: boolean;
@@ -44,7 +52,9 @@ export interface UserEntitlements {
   can_teach_courses: boolean;
   can_create_courses: boolean;
   can_publish_courses: boolean;
-  can_access_business_dashboard: boolean;
+  can_manage_locations: boolean;
+
+  // Limits
   product_limit: number | null; // null represents unlimited
   max_products: number | null;
   max_services: number | null;

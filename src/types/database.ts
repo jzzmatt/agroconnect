@@ -33,7 +33,7 @@ export type ProfileType =
   | "business"
   | "personal";
 
-export type SubscriptionPlan = "basic" | "professional" | "business" | "enterprise" | "free" | "premium" | null;
+export type SubscriptionPlan = "basic" | "professional" | "business" | "enterprise";
 
 export type AccountType =
   | "customer"

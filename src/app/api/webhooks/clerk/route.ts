@@ -100,7 +100,7 @@ export async function POST(req: NextRequest) {
       const profileSlug =
         user.username || `user-${user.id.slice(-8)}`;
 
-      // Idempotent upsert of user profile (subscription_plan is explicitly NULL for new user until chosen)
+      // Idempotent upsert of user profile (subscription_plan is explicitly 'basic' for all new users)
       const { data: profile, error: profileError } = await (supabase.from("profiles") as any)
         .upsert(
           {
@@ -114,7 +114,7 @@ export async function POST(req: NextRequest) {
             profile_slug: profileSlug,
             professional_title: "none",
             active_profile_type: "personal",
-            subscription_plan: null,
+            subscription_plan: "basic",
             preferred_language: "pt",
             account_type: "customer",
             status: "active",

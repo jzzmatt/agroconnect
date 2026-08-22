@@ -93,10 +93,10 @@ export const SUBSCRIPTION_PLANS: Record<"basic" | "professional" | "business" | 
 };
 
 /**
- * Normalizes plan slugs gracefully (returns null if no plan is selected)
+ * Normalizes plan slugs gracefully (defaults safely to 'basic' on null/undefined)
  */
-export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" | null {
-  if (!plan) return null;
+export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" {
+  if (!plan) return "basic";
   const normalized = plan
     .toLowerCase()
     .trim()
@@ -107,11 +107,12 @@ export function normalizePlanSlug(plan?: string | null): "basic" | "professional
   if (normalized === "professional" || normalized === "profissional" || normalized === "pro") return "professional";
   if (normalized === "business") return "business";
   if (normalized === "enterprise" || normalized === "empresarial" || normalized === "premium") return "enterprise";
-  return null;
+  return "basic";
 }
 
 /**
- * Computes user entitlements strictly based on subscription plan
+ * Computes user entitlements strictly based on subscription plan.
+ * FAILS CLOSED: missing or invalid plan defaults safely to 'basic' restricted entitlements.
  */
 export function getUserEntitlements(params: {
   subscriptionPlan?: SubscriptionPlan | string | null;
@@ -119,32 +120,21 @@ export function getUserEntitlements(params: {
   accountType?: string;
 }): UserEntitlements {
   const planSlug = normalizePlanSlug(params.subscriptionPlan);
-
-  // If no plan selected, user has ZERO creation entitlements
-  if (!planSlug) {
-    return {
-      can_sell_products: false,
-      can_create_products: false,
-      can_edit_products: false,
-      can_publish_products: false,
-      can_manage_inventory: false,
-      can_manage_services: false,
-      can_teach_courses: false,
-      can_create_courses: false,
-      can_publish_courses: false,
-      can_access_business_dashboard: false,
-      product_limit: 0,
-      max_products: 0,
-      max_services: 0,
-    };
-  }
-
   const planDef = SUBSCRIPTION_PLANS[planSlug];
+
   const isBasic = planSlug === "basic";
   const isProfessional = planSlug === "professional";
   const isBusinessOrAbove = planSlug === "business" || planSlug === "enterprise";
 
   return {
+    // Module-Level Access (Basic is strictly false/locked)
+    can_access_agrishopping: !isBasic,
+    can_access_agriacademy: !isBasic,
+    can_access_agrilocalization: !isBasic,
+    can_access_agriexpert: !isBasic,
+    can_access_business_dashboard: isBusinessOrAbove,
+
+    // Actions
     can_sell_products: !isBasic,
     can_create_products: !isBasic,
     can_edit_products: !isBasic,
@@ -154,7 +144,9 @@ export function getUserEntitlements(params: {
     can_teach_courses: !isBasic,
     can_create_courses: !isBasic,
     can_publish_courses: !isBasic,
-    can_access_business_dashboard: isBusinessOrAbove,
+    can_manage_locations: !isBasic,
+
+    // Limits
     product_limit: planDef.productLimit,
     max_products: planDef.productLimit,
     max_services: isBasic ? 0 : isProfessional ? 20 : null,

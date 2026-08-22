@@ -37,7 +37,7 @@ export default function DashboardPage() {
     professionalTitle: "none" as ProfessionalTitle,
     email: "",
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: null as string | null,
+    subscriptionPlan: "basic" as string, // Default plan is Basic (0 Kz/mês)
     roles: ["student"] as const,
     activeProductsCount: 0,
   });
@@ -45,6 +45,7 @@ export default function DashboardPage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
+  const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -77,7 +78,7 @@ export default function DashboardPage() {
             firstName: parsed.firstName || prev.firstName,
             lastName: parsed.lastName || prev.lastName,
             professionalTitle: parsed.professionalTitle || prev.professionalTitle,
-            subscriptionPlan: parsed.subscriptionPlan !== undefined ? parsed.subscriptionPlan : prev.subscriptionPlan,
+            subscriptionPlan: parsed.subscriptionPlan || prev.subscriptionPlan,
           }));
         } catch {
           // ignore
@@ -90,7 +91,8 @@ export default function DashboardPage() {
     displayName: profile.displayName,
     firstName: profile.firstName,
     lastName: profile.lastName,
-    email: profile.email,
+    username: user?.username,
+    email: profile.email || user?.primaryEmailAddress?.emailAddress,
     professionalTitle: profile.professionalTitle,
     activeProfile: profile.activeProfile,
   });
@@ -106,15 +108,22 @@ export default function DashboardPage() {
     : "basic";
   const currentPlanDef = SUBSCRIPTION_PLANS[planKey];
 
+  const isBasic = planKey === "basic";
+
   const isLimitReached =
     entitlements.product_limit !== null &&
     profile.activeProductsCount >= entitlements.product_limit;
 
+  const triggerLockedModule = (title: string, plan: "professional" | "business" = "professional") => {
+    setModalFeatureTitle(title);
+    setModalRequiredPlan(plan);
+    setUpgradeModalOpen(true);
+  };
+
   const handleAddProductClick = (e: React.MouseEvent) => {
     if (!entitlements.can_create_products) {
       e.preventDefault();
-      setModalFeatureTitle("Criar Produtos no AgriShopping");
-      setUpgradeModalOpen(true);
+      triggerLockedModule("Criar Produtos no AgriShopping", "professional");
       return;
     }
     if (isLimitReached) {
@@ -126,8 +135,7 @@ export default function DashboardPage() {
   const handleCreateCourseClick = (e: React.MouseEvent) => {
     if (!entitlements.can_create_courses) {
       e.preventDefault();
-      setModalFeatureTitle("Criar e Publicar Cursos no AgriAcademy");
-      setUpgradeModalOpen(true);
+      triggerLockedModule("Criar e Publicar Cursos no AgriAcademy", "professional");
     }
   };
 
@@ -135,82 +143,44 @@ export default function DashboardPage() {
   const kpiCards = [
     {
       title: "Ganhos Totais",
-      value: "2.450.000 Kz",
-      description: "em relação ao mês anterior",
-      trend: { value: "12.5% este mês", isPositive: true },
+      value: isBasic ? "0 Kz" : "2.450.000 Kz",
+      description: isBasic ? "Disponível a partir do plano Profissional" : "em relação ao mês anterior",
+      trend: isBasic ? undefined : { value: "12.5% este mês", isPositive: true },
       icon: DollarSign,
     },
     {
       title: "Venda de Cursos",
-      value: "1.250.000 Kz",
+      value: isBasic ? "0 Kz" : "1.250.000 Kz",
       description: "AgriAcademy",
-      trend: { value: "18.3% este mês", isPositive: true },
+      trend: isBasic ? undefined : { value: "18.3% este mês", isPositive: true },
       icon: BookOpen,
     },
     {
       title: "Consultas Activas",
-      value: "32 Agendadas",
+      value: isBasic ? "0 Agendadas" : "32 Agendadas",
       description: "AgriExpert",
-      trend: { value: "4.7% este mês", isPositive: true },
+      trend: isBasic ? undefined : { value: "4.7% este mês", isPositive: true },
       icon: Calendar,
     },
     {
       title: "Produtos Vendidos",
-      value: "56 Items",
+      value: isBasic ? "0 Items" : "56 Items",
       description: "AgriShopping",
-      trend: { value: "8.2% este mês", isPositive: true },
+      trend: isBasic ? undefined : { value: "8.2% este mês", isPositive: true },
       icon: ShoppingBag,
     },
     {
       title: "Total Estudantes",
-      value: "124 Alunos",
+      value: isBasic ? "0 Alunos" : "124 Alunos",
       description: "Inscritos nos seus cursos",
-      trend: { value: "15.4% este mês", isPositive: true },
+      trend: isBasic ? undefined : { value: "15.4% este mês", isPositive: true },
       icon: Users,
-    },
-  ];
-
-  const recentActivities = [
-    {
-      id: "act-1",
-      title: "Inscrição no curso: Suinicultura Profissional",
-      time: "Há 25 minutos",
-      icon: BookOpen,
-    },
-    {
-      id: "act-2",
-      title: "Nova consulta agendada: Visita à Fazenda – Benguela",
-      time: "Há 2 horas",
-      icon: Calendar,
-    },
-    {
-      id: "act-3",
-      title: "Encomenda de produto: Sistema de Rega Automático",
-      time: "Há 4 horas",
-      icon: ShoppingBag,
-    },
-  ];
-
-  const upcomingAppointments = [
-    {
-      id: "apt-1",
-      date: "Amanhã, 09:00",
-      title: "Visita Técnica • Fazenda Huambo",
-      location: "Caála, Huambo",
-      status: "CONFIRMADO",
-    },
-    {
-      id: "apt-2",
-      date: "15 de Maio, 14:00",
-      title: "Vídeo Consulta • Produção de Milho",
-      location: "Online",
-      status: "CONFIRMADO",
     },
   ];
 
   return (
     <div className="space-y-8">
-      {/* 1. Refactored Dashboard Hero with Plan Badge & Dynamic Greeting */}
+      {/* 1. Dashboard Hero with Plan Badge & Dynamic Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-card p-6 sm:p-8 rounded-3xl border border-border shadow-xs">
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
@@ -221,30 +191,32 @@ export default function DashboardPage() {
               <span>{activeProfileConfig.icon}</span>
               <span>Perfil ativo: {activeProfileConfig.label}</span>
             </span>
-            {profile.subscriptionPlan ? (
-              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
-                <Sparkles className="w-3 h-3 text-amber-600" />
-                <span>Plano {currentPlanDef.name}</span>
-              </span>
-            ) : (
-              <Link href="/pricing" className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-50 dark:bg-rose-950 text-rose-800 dark:text-rose-200 border border-rose-200 dark:border-rose-800 hover:scale-105 transition-transform">
-                <Sparkles className="w-3 h-3 text-rose-600" />
-                <span>Plano ainda não selecionado (Escolher plano →)</span>
-              </Link>
-            )}
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              <span>Plano {currentPlanDef.name} ({currentPlanDef.priceFormatted}/mês)</span>
+            </span>
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
             {greeting.greeting} 👋
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            Bem-vindo ao seu espaço no ecossistema agrícola de Angola.
+            {isBasic
+              ? "Plano Básico ativo (Acesso a visualização do ecossistema e gestão do perfil pessoal)."
+              : "Bem-vindo ao seu espaço profissional no ecossistema agrícola de Angola."}
           </p>
         </div>
 
         {/* Dynamic Context Actions */}
         <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          {profile.activeProfile === "seller" ? (
+          {isBasic ? (
+            <Link href="/pricing">
+              <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-5 shadow-md">
+                <Sparkles className="w-4 h-4" />
+                <span>Melhorar Plano</span>
+              </Button>
+            </Link>
+          ) : profile.activeProfile === "seller" ? (
             <Link
               href={isLimitReached ? "#" : "/dashboard/products/new"}
               onClick={handleAddProductClick}
@@ -279,17 +251,17 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          <Link href="/pricing">
+          <Link href="/agrilocalizacao">
             <Button variant="outline" size="sm" className="text-xs font-bold gap-1.5 h-10">
-              <Sparkles className="w-3.5 h-3.5 text-primary" />
-              <span>Melhorar Plano</span>
+              <MapPin className="w-3.5 h-3.5 text-primary" />
+              <span>AgriLocalização</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* 2. Capability-Driven AgriShopping Seller Card with Real Limits Counter */}
-      {entitlements.can_sell_products && (
+      {/* 2. Capability-Driven AgriShopping Seller Card OR Locked Card for Basic */}
+      {entitlements.can_sell_products ? (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 rounded-3xl border border-amber-200 dark:border-amber-900/60 p-6 sm:p-7 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="flex items-start gap-4">
@@ -343,7 +315,7 @@ export default function DashboardPage() {
                     isLimitReached ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : "bg-amber-600 hover:bg-amber-700 text-white"
                   }`}
                 >
-                  {isLimitReached ? <Lock className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+                  {isLimitReached ? <Lock className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
                   <span>{isLimitReached ? "🔒 Limite atingido" : "Adicionar Produto"}</span>
                 </Button>
               </Link>
@@ -355,9 +327,129 @@ export default function DashboardPage() {
             </div>
           </div>
         </div>
+      ) : null}
+
+      {/* 3. Locked Modules Section for Basic Plan Users */}
+      {isBasic && (
+        <div className="space-y-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h3 className="text-base font-black text-foreground flex items-center gap-2">
+                <Lock className="w-4 h-4 text-amber-600" />
+                <span>Módulos do Ecossistema (Disponíveis em Planos Superiores)</span>
+              </h3>
+              <p className="text-xs text-muted-foreground">
+                No plano Básico tem acesso a navegação e compras. Para criar produtos, serviços e cursos, atualize o seu plano.
+              </p>
+            </div>
+            <Link href="/pricing">
+              <Button variant="outline" size="sm" className="text-xs font-bold">
+                Ver Todos os Planos
+              </Button>
+            </Link>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+            {/* Locked AgriShopping */}
+            <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs relative flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold">
+                  🛒
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-amber-600" />
+                  <h4 className="font-bold text-sm text-foreground">AgriShopping</h4>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Venda sementes, adubos e equipamentos agrícolas a produtores em Angola.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => triggerLockedModule("Venda de Produtos no AgriShopping", "professional")}
+                className="w-full text-xs font-bold border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200"
+              >
+                <span>🔒 Desbloquear Vendas</span>
+              </Button>
+            </div>
+
+            {/* Locked AgriAcademy */}
+            <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs relative flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold">
+                  🎓
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-blue-600" />
+                  <h4 className="font-bold text-sm text-foreground">AgriAcademy</h4>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Crie e publique cursos técnicos, masterclasses e formações práticas.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => triggerLockedModule("Criação de Cursos no AgriAcademy", "professional")}
+                className="w-full text-xs font-bold border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-200"
+              >
+                <span>🔒 Desbloquear Ensino</span>
+              </Button>
+            </div>
+
+            {/* Locked AgriExpert */}
+            <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs relative flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold">
+                  🩺
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  <h4 className="font-bold text-sm text-foreground">AgriExpert</h4>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Ofereça consultoria agronómica, medicina veterinária e assistência técnica.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => triggerLockedModule("Gestão Profissional no AgriExpert", "professional")}
+                className="w-full text-xs font-bold border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
+              >
+                <span>🔒 Desbloquear Serviços</span>
+              </Button>
+            </div>
+
+            {/* Locked AgriLocalização */}
+            <div className="bg-surface-card rounded-3xl p-6 border border-border shadow-xs relative flex flex-col justify-between space-y-4">
+              <div className="space-y-2">
+                <div className="w-10 h-10 rounded-2xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold">
+                  📍
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <Lock className="w-3.5 h-3.5 text-teal-600" />
+                  <h4 className="font-bold text-sm text-foreground">AgriLocalização</h4>
+                </div>
+                <p className="text-xs text-muted-foreground leading-relaxed">
+                  Destaque a localização da sua fazenda ou loja nas 18 províncias.
+                </p>
+              </div>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => triggerLockedModule("Destaque no AgriLocalização", "professional")}
+                className="w-full text-xs font-bold border-teal-300 dark:border-teal-800 text-teal-900 dark:text-teal-200"
+              >
+                <span>🔒 Desbloquear Destaque</span>
+              </Button>
+            </div>
+          </div>
+        </div>
       )}
 
-      {/* 3. KPI / Stat Cards */}
+      {/* 4. KPI / Stat Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
         {kpiCards.map((kpi, idx) => (
           <MetricCard
@@ -371,7 +463,7 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 4. Split Activity & Appointments Grid */}
+      {/* 5. Split Activity & Appointments Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
         <div className="lg:col-span-7 bg-surface-card rounded-3xl p-6 sm:p-7 border border-border shadow-xs space-y-5">
           <div className="flex items-center justify-between border-b border-border pb-4">
@@ -387,31 +479,23 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3">
-            {upcomingAppointments.map((apt) => (
-              <div
-                key={apt.id}
-                className="p-4 rounded-2xl bg-surface border border-border hover:border-border-strong transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-3"
-              >
-                <div className="space-y-1">
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">{apt.date}</span>
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground">{apt.title}</h4>
-                  <p className="text-xs text-muted-foreground flex items-center gap-1">
-                    <MapPin className="w-3 h-3 text-primary" />
-                    <span>{apt.location}</span>
-                  </p>
-                </div>
-
-                <div className="self-start sm:self-center">
-                  <span className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-[10px] font-black tracking-wider uppercase bg-secondary text-secondary-foreground border border-border-subtle shadow-2xs">
-                    <CheckCircle2 className="w-3 h-3 text-primary" />
-                    <span>{apt.status}</span>
-                  </span>
-                </div>
+            {isBasic ? (
+              <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
+                <p className="text-xs text-muted-foreground">Nenhum agendamento ativo.</p>
               </div>
-            ))}
+            ) : (
+              <div className="p-4 rounded-2xl bg-surface border border-border space-y-1">
+                <div className="flex items-center gap-2">
+                  <Clock className="w-3.5 h-3.5 text-primary" />
+                  <span className="text-xs font-bold text-foreground">Amanhã, 09:00</span>
+                </div>
+                <h4 className="text-sm font-bold text-foreground">Visita Técnica • Fazenda Huambo</h4>
+                <p className="text-xs text-muted-foreground flex items-center gap-1">
+                  <MapPin className="w-3 h-3 text-primary" />
+                  <span>Caála, Huambo</span>
+                </p>
+              </div>
+            )}
           </div>
         </div>
 
@@ -426,20 +510,15 @@ export default function DashboardPage() {
           </div>
 
           <div className="space-y-3.5">
-            {recentActivities.map((act) => {
-              const Icon = act.icon;
-              return (
-                <div key={act.id} className="flex items-start gap-3 text-xs">
-                  <div className="w-8 h-8 rounded-xl bg-surface border border-border text-primary flex items-center justify-center shrink-0 mt-0.5">
-                    <Icon className="w-4 h-4" />
-                  </div>
-                  <div className="flex-1 space-y-0.5">
-                    <p className="font-semibold text-foreground leading-snug">{act.title}</p>
-                    <span className="text-[11px] text-muted-foreground block">{act.time}</span>
-                  </div>
-                </div>
-              );
-            })}
+            <div className="flex items-start gap-3 text-xs">
+              <div className="w-8 h-8 rounded-xl bg-surface border border-border text-primary flex items-center justify-center shrink-0 mt-0.5">
+                <Package className="w-4 h-4" />
+              </div>
+              <div className="flex-1 space-y-0.5">
+                <p className="font-semibold text-foreground leading-snug">Conta criada com sucesso no plano {currentPlanDef.name}</p>
+                <span className="text-[11px] text-muted-foreground block">Hoje</span>
+              </div>
+            </div>
           </div>
         </div>
       </div>
@@ -449,7 +528,7 @@ export default function DashboardPage() {
         isOpen={upgradeModalOpen}
         onClose={() => setUpgradeModalOpen(false)}
         featureTitle={modalFeatureTitle}
-        requiredPlan="professional"
+        requiredPlan={modalRequiredPlan}
         currentPlanName={currentPlanDef.name}
       />
 

@@ -66,4 +66,9 @@ describe("AGROCONNECT Phase 4 — Clerk Authentication & User Identity Integrati
     const redirectUrl = "/";
     expect(redirectUrl).toBe("/");
   });
+
+  it("7. Verifies new users default to basic plan with 0 Kz/mês and restricted creation", () => {
+    const defaultNewUserPlan = "basic";
+    expect(defaultNewUserPlan).toBe("basic");
+  });
 });

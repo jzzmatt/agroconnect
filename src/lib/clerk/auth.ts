@@ -91,7 +91,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         account_type: "customer",
         professional_title: "none",
         active_profile_type: "personal",
-        subscription_plan: null, // Null indicates plan selection required
+        subscription_plan: "basic", // Default plan for all new users: Basic (0 Kz/mês)
         status: "active",
         theme_preference: "light",
         is_active: true,
@@ -134,7 +134,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     professional_title: (effectiveProfile as any)?.professional_title || "none",
     professional_title_custom: (effectiveProfile as any)?.professional_title_custom || null,
     active_profile_type: (effectiveProfile as any)?.active_profile_type || roles[0] || "personal",
-    subscription_plan: (effectiveProfile as any)?.subscription_plan ?? null,
+    subscription_plan: (effectiveProfile as any)?.subscription_plan || "basic",
     preferred_language: effectiveProfile?.preferred_language || "pt",
     account_type: effectiveProfile?.account_type || "customer",
     status: effectiveProfile?.status || "active",

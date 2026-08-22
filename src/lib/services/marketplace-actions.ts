@@ -121,13 +121,31 @@ export async function getOrCreateCurrentProviderProfileAction(
   return created as ProviderPublicProfile;
 }
 
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+
 /**
- * Server Action: Create service
+ * Server Action: Create service with strict Plan Entitlements
  */
 export async function createServiceAction(
   input: CreateServiceInput
 ): Promise<ServiceListItem> {
   await requireAuth();
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) {
+    throw new Error("Não autorizado: Sessão não encontrada.");
+  }
+
+  // Enforce Plan Entitlements for Service Creation (Basic users cannot create services)
+  const entitlements = getUserEntitlements({
+    subscriptionPlan: userProfile.subscription_plan,
+    roles: userProfile.roles,
+    accountType: userProfile.account_type,
+  });
+
+  if (!entitlements.can_manage_services) {
+    throw new Error("SERVICE_CREATION_LOCKED: O seu plano Básico não permite criar serviços. Atualize para o plano Profissional ou Business.");
+  }
+
   const provider = await getOrCreateCurrentProviderProfileAction();
   const supabase = await createServerSupabaseClient();
 
