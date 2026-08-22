@@ -238,6 +238,33 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(constraintAttempts).toBe(1);
   });
 
+  it("retries when supabase-js returns the connection failure instead of throwing", async () => {
+    const { withSupabaseRetry } = await import("@/lib/supabase/retry");
+
+    // supabase-js swallows the exception and reports it on `error`.
+    let attempts = 0;
+    const recovered = await withSupabaseRetry("probe", async () => {
+      attempts += 1;
+      if (attempts < 2) {
+        return {
+          data: null as { id: string } | null,
+          error: { message: "TypeError: fetch failed" } as { message: string } | null,
+        };
+      }
+      return { data: { id: "ok" }, error: null };
+    });
+    expect(attempts).toBe(2);
+    expect(recovered.data?.id).toBe("ok");
+
+    let constraintAttempts = 0;
+    const rejected = await withSupabaseRetry("probe", async () => {
+      constraintAttempts += 1;
+      return { data: null, error: { message: "duplicate key value" } };
+    });
+    expect(constraintAttempts).toBe(1);
+    expect(rejected.error.message).toMatch(/duplicate key/);
+  });
+
   it("does not surface Chrome extension listener errors as the publish reason", () => {
     expect(
       sanitizePublishError(

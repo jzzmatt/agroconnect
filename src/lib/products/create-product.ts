@@ -13,7 +13,11 @@ import {
   syncSubscriptionPlanRow,
 } from "@/lib/products/publish";
 import { isUuid } from "@/lib/products/ids";
-import { describeSupabaseError, isTransientSupabaseError } from "@/lib/supabase/retry";
+import {
+  describeSupabaseError,
+  describeSupabaseReachability,
+  isTransientSupabaseError,
+} from "@/lib/supabase/retry";
 import {
   PRODUCT_ERROR_CODES,
   createRequestId,
@@ -230,7 +234,14 @@ export async function createPublishedProduct(
     // A dropped connection to Supabase is not a validation or plan problem;
     // telling the user it is a network fault is what they can act on.
     if (isTransientSupabaseError(err)) {
-      return { success: false, code: PRODUCT_ERROR_CODES.NETWORK_FAILED, message, requestId };
+      const reachability = await describeSupabaseReachability();
+      console.error("[product] supabase unreachable:", { message, reachability, requestId });
+      return {
+        success: false,
+        code: PRODUCT_ERROR_CODES.NETWORK_FAILED,
+        message: `${message} (Supabase: ${reachability})`,
+        requestId,
+      };
     }
     return {
       success: false,

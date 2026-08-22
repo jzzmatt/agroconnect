@@ -47,6 +47,17 @@ function delay(ms: number) {
 }
 
 /**
+ * supabase-js catches a connection failure and hands it back as
+ * `{ error: { message: "TypeError: fetch failed" } }` rather than throwing,
+ * so a returned error has to be inspected as well as a thrown one.
+ */
+function resultCarriesTransientError(result: unknown): boolean {
+  if (!result || typeof result !== "object") return false;
+  const error = (result as { error?: unknown }).error;
+  return Boolean(error) && isTransientSupabaseError(error);
+}
+
+/**
  * Retries a Supabase call while the failure looks like a dropped connection.
  * `run` must build a fresh query each attempt, because a Supabase query
  * builder can only be awaited once.
@@ -59,7 +70,16 @@ export async function withSupabaseRetry<T = any>(
   let lastError: unknown;
   for (let attempt = 1; attempt <= attempts; attempt += 1) {
     try {
-      return await run();
+      const result = await run();
+      if (attempt < attempts && resultCarriesTransientError(result)) {
+        console.warn(
+          `[supabase retry] ${label} attempt ${attempt}/${attempts}:`,
+          describeSupabaseError((result as { error?: unknown }).error)
+        );
+        await delay(250 * attempt);
+        continue;
+      }
+      return result;
     } catch (error) {
       lastError = error;
       if (!isTransientSupabaseError(error) || attempt === attempts) break;
@@ -71,4 +91,30 @@ export async function withSupabaseRetry<T = any>(
     }
   }
   throw lastError;
+}
+
+/**
+ * supabase-js discards undici's `cause`, so "fetch failed" arrives with no
+ * reason. Probe the REST endpoint directly to recover the real cause
+ * (ENOTFOUND, ECONNRESET, certificate failure) for the error message.
+ */
+export async function describeSupabaseReachability(): Promise<string> {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  if (!url) return "NEXT_PUBLIC_SUPABASE_URL is not set";
+
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), 5000);
+  try {
+    const response = await fetch(`${url.replace(/\/$/, "")}/rest/v1/`, {
+      method: "HEAD",
+      headers: { apikey: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "" },
+      signal: controller.signal,
+      cache: "no-store",
+    });
+    return `reachable (HTTP ${response.status})`;
+  } catch (error) {
+    return describeSupabaseError(error) || "unreachable";
+  } finally {
+    clearTimeout(timer);
+  }
 }
