@@ -57,9 +57,17 @@ export type ServiceStatus = "draft" | "published" | "active" | "paused" | "archi
 export type ServiceLocationType = "physical_location" | "service_area" | "remote";
 export type ServiceContactPreference = "platform" | "phone" | "whatsapp" | "email";
 
-export type ProductCondition = "new" | "used" | "refurbished";
+export type ProductCondition = "new" | "used" | "refurbished" | "not_applicable";
+export type ProductStatus = "draft" | "published" | "active" | "paused" | "out_of_stock" | "archived" | "rejected";
+export type ProductAvailabilityStatus = "in_stock" | "out_of_stock" | "limited" | "pre_order" | "on_request";
+export type ProductLocationType = "physical_location" | "service_area" | "remote";
 
-export type ProductStatus = "draft" | "active" | "out_of_stock" | "archived";
+export type ProductRequestStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "completed";
 
 export type AgriculturalResourceType =
   | "agronomist"
@@ -712,6 +720,9 @@ export interface Database {
           quantity: number;
           unit: string;
           sku: string | null;
+          availability_status: ProductAvailabilityStatus;
+          location_type: ProductLocationType;
+          selling_radius_km: number | null;
           country_id: string | null;
           province_id: string | null;
           municipality_id: string | null;
@@ -737,6 +748,9 @@ export interface Database {
           quantity?: number;
           unit?: string;
           sku?: string | null;
+          availability_status?: ProductAvailabilityStatus;
+          location_type?: ProductLocationType;
+          selling_radius_km?: number | null;
           country_id?: string | null;
           province_id?: string | null;
           municipality_id?: string | null;
@@ -762,6 +776,9 @@ export interface Database {
           quantity?: number;
           unit?: string;
           sku?: string | null;
+          availability_status?: ProductAvailabilityStatus;
+          location_type?: ProductLocationType;
+          selling_radius_km?: number | null;
           country_id?: string | null;
           province_id?: string | null;
           municipality_id?: string | null;
@@ -770,6 +787,56 @@ export interface Database {
           location?: unknown | null;
           status?: ProductStatus;
           is_featured?: boolean;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      product_requests: {
+        Row: {
+          id: string;
+          customer_id: string;
+          seller_id: string;
+          product_id: string | null;
+          quantity: number;
+          unit: string;
+          status: ProductRequestStatus;
+          message: string | null;
+          delivery_location_notes: string | null;
+          offered_price: number | null;
+          currency: string;
+          metadata: Json | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          seller_id: string;
+          product_id?: string | null;
+          quantity?: number;
+          unit?: string;
+          status?: ProductRequestStatus;
+          message?: string | null;
+          delivery_location_notes?: string | null;
+          offered_price?: number | null;
+          currency?: string;
+          metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          seller_id?: string;
+          product_id?: string | null;
+          quantity?: number;
+          unit?: string;
+          status?: ProductRequestStatus;
+          message?: string | null;
+          delivery_location_notes?: string | null;
+          offered_price?: number | null;
+          currency?: string;
           metadata?: Json | null;
           created_at?: string;
           updated_at?: string;

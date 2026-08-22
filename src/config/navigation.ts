@@ -11,6 +11,7 @@ import {
   Award,
   Star,
   ClipboardList,
+  Store,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -105,13 +106,24 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
     ],
   },
   {
-    title: "AgriShopping & Recursos",
+    title: "AgriShopping & Vendas",
     pillar: "agriShopping",
+    roles: ["seller", "farmer", "business", "expert"],
     items: [
       {
-        title: "AgriShopping",
-        href: "/agrishopping",
+        title: "Meus Produtos",
+        href: "/dashboard/products",
         icon: ShoppingBag,
+      },
+      {
+        title: "Pedidos de Produtos",
+        href: "/dashboard/product-requests",
+        icon: Calendar,
+      },
+      {
+        title: "Explorar Loja",
+        href: "/agrishopping",
+        icon: Store,
       },
       {
         title: "AgriLocalização",

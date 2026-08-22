@@ -7,7 +7,7 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     expect(sectionTitles).toContain("Principal");
     expect(sectionTitles).toContain("AgriExpert");
     expect(sectionTitles).toContain("AgriAcademy");
-    expect(sectionTitles).toContain("AgriShopping & Recursos");
+    expect(sectionTitles).toContain("AgriShopping & Vendas");
   });
 
   it("contains all Figma sidebar items: Meus Serviços, Pedidos de Serviço, Avaliações, Ganhos, Meus Cursos, Estudantes", () => {

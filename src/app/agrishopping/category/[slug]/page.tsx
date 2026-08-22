@@ -1,6 +1,15 @@
 "use client";
 
-import React, { useState, useEffect, useCallback, useTransition } from "react";
+import React, { useState, useEffect } from "react";
+import { useParams } from "next/navigation";
+import Link from "next/link";
+import {
+  Package,
+  ChevronLeft,
+  SlidersHorizontal,
+  Map as MapIcon,
+  List,
+} from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { SectionHeader, EmptyState } from "@/components/ui";
@@ -10,18 +19,26 @@ import { ShoppingService, INITIAL_PRODUCTS } from "@/lib/services/shopping-servi
 import { toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
 import type { ProductListItem } from "@/types/domain";
 import type { ProductAvailabilityStatus } from "@/types/database";
-import { Package, SlidersHorizontal, Map as MapIcon, List } from "lucide-react";
-import { useGeolocation } from "@/lib/location/use-geolocation";
 
-export default function AgriShoppingPage() {
-  const [products, setProducts] = useState<ProductListItem[]>(INITIAL_PRODUCTS);
-  const [totalCount, setTotalCount] = useState<number>(INITIAL_PRODUCTS.length);
+const CATEGORY_NAMES: Record<string, string> = {
+  "sementes-e-fertilizantes": "Sementes & Fertilizantes",
+  "maquinas-e-irrigacao": "Máquinas & Irrigação",
+  "produtos-agricolas": "Produtos Agrícolas & Colheitas",
+  "alimentacao-animal": "Alimentação & Saúde Animal",
+};
+
+export default function ProductCategoryPage() {
+  const params = useParams();
+  const slug = params?.slug as string;
+
+  const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [totalCount, setTotalCount] = useState<number>(0);
   const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
 
-  // Filters state
+  // Filter state
   const [searchQuery, setSearchQuery] = useState("");
-  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedCategory, setSelectedCategory] = useState(slug || "");
   const [selectedProvince, setSelectedProvince] = useState("");
   const [selectedMunicipality, setSelectedMunicipality] = useState("");
   const [selectedRadius, setSelectedRadius] = useState<number>(50);
@@ -31,44 +48,35 @@ export default function AgriShoppingPage() {
   const [sortBy, setSortBy] = useState("relevance");
   const [viewMode, setViewMode] = useState<"split" | "list" | "map">("split");
 
-  const [isPending, startTransition] = useTransition();
-  const { coordinates: userCoords } = useGeolocation();
+  useEffect(() => {
+    if (slug) setSelectedCategory(slug);
+  }, [slug]);
 
-  const loadProducts = useCallback(async () => {
-    const res = await ShoppingService.searchProducts({
+  useEffect(() => {
+    ShoppingService.searchProducts({
       query: searchQuery,
-      categorySlug: selectedCategory || undefined,
+      categorySlug: selectedCategory || slug || undefined,
       provinceName: selectedProvince || undefined,
       municipalityName: selectedMunicipality || undefined,
       availabilityStatus: (selectedAvailability as ProductAvailabilityStatus) || undefined,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      latitude: userCoords?.latitude,
-      longitude: userCoords?.longitude,
-      radiusKm: selectedRadius,
       sortBy: sortBy as any,
+    }).then((res) => {
+      setProducts(res.products);
+      setTotalCount(res.total);
     });
-
-    setProducts(res.products);
-    setTotalCount(res.total);
   }, [
     searchQuery,
     selectedCategory,
+    slug,
     selectedProvince,
     selectedMunicipality,
     selectedAvailability,
     minPrice,
     maxPrice,
-    selectedRadius,
     sortBy,
-    userCoords,
   ]);
-
-  useEffect(() => {
-    startTransition(() => {
-      loadProducts();
-    });
-  }, [loadProducts]);
 
   const handleToggleFavorite = async (productId: string) => {
     try {
@@ -89,17 +97,6 @@ export default function AgriShoppingPage() {
     }
   };
 
-  const handleClearFilters = () => {
-    setSearchQuery("");
-    setSelectedCategory("");
-    setSelectedProvince("");
-    setSelectedMunicipality("");
-    setSelectedAvailability("");
-    setMinPrice("");
-    setMaxPrice("");
-    setSortBy("relevance");
-  };
-
   const mapMarkers: MapMarkerItem[] = products
     .filter((p) => p.latitude && p.longitude)
     .map((p) => ({
@@ -113,56 +110,64 @@ export default function AgriShoppingPage() {
       description: `${p.price} ${p.currency} / ${p.unit}`,
     }));
 
+  const categoryTitle = CATEGORY_NAMES[slug] || "Categoria AgriShopping";
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-6">
-        {/* Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
-          <div>
-            <SectionHeader
-              badgeText="AgriShopping • Marketplace"
-              title="Produtos, Insumos & Equipamentos Agrícolas"
-              subtitle="Encontre sementes certificadas, adubos, bombas de irrigação solar e produtos locais nas 18 províncias de Angola."
-            />
-          </div>
+        <div>
+          <Link
+            href="/agrishopping"
+            className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3 transition-colors"
+          >
+            <ChevronLeft className="w-4 h-4" />
+            <span>Voltar ao AgriShopping</span>
+          </Link>
 
-          {/* View mode toggle */}
-          <div className="flex items-center gap-1 bg-surface-card p-1 rounded-2xl border border-border shrink-0 self-start md:self-auto">
-            <button
-              onClick={() => setViewMode("split")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                viewMode === "split"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-foreground hover:bg-muted"
-              }`}
-            >
-              <SlidersHorizontal className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Dividido</span>
-            </button>
-            <button
-              onClick={() => setViewMode("list")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                viewMode === "list"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-foreground hover:bg-muted"
-              }`}
-            >
-              <List className="w-3.5 h-3.5" />
-              <span>Lista</span>
-            </button>
-            <button
-              onClick={() => setViewMode("map")}
-              className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
-                viewMode === "map"
-                  ? "bg-primary text-primary-foreground shadow-xs"
-                  : "text-foreground hover:bg-muted"
-              }`}
-            >
-              <MapIcon className="w-3.5 h-3.5" />
-              <span>Mapa</span>
-            </button>
+          <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
+            <SectionHeader
+              badgeText="AgriShopping • Categoria"
+              title={categoryTitle}
+              subtitle={`Explore todos os produtos disponíveis na categoria ${categoryTitle} em Angola.`}
+            />
+
+            <div className="flex items-center gap-1 bg-surface-card p-1 rounded-2xl border border-border shrink-0 self-start md:self-auto">
+              <button
+                onClick={() => setViewMode("split")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "split"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <SlidersHorizontal className="w-3.5 h-3.5" />
+                <span className="hidden sm:inline">Dividido</span>
+              </button>
+              <button
+                onClick={() => setViewMode("list")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "list"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <List className="w-3.5 h-3.5" />
+                <span>Lista</span>
+              </button>
+              <button
+                onClick={() => setViewMode("map")}
+                className={`px-3 py-1.5 rounded-xl text-xs font-bold transition-colors flex items-center gap-1.5 cursor-pointer ${
+                  viewMode === "map"
+                    ? "bg-primary text-primary-foreground shadow-xs"
+                    : "text-foreground hover:bg-muted"
+                }`}
+              >
+                <MapIcon className="w-3.5 h-3.5" />
+                <span>Mapa</span>
+              </button>
+            </div>
           </div>
         </div>
 
@@ -186,13 +191,19 @@ export default function AgriShoppingPage() {
           onMaxPriceChange={setMaxPrice}
           sortBy={sortBy}
           onSortByChange={setSortBy}
-          onClearFilters={handleClearFilters}
+          onClearFilters={() => {
+            setSearchQuery("");
+            setSelectedProvince("");
+            setSelectedMunicipality("");
+            setSelectedAvailability("");
+            setMinPrice("");
+            setMaxPrice("");
+          }}
           totalResults={totalCount}
         />
 
         {/* Content Area */}
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-          {/* Products Grid */}
           {(viewMode === "split" || viewMode === "list") && (
             <div
               className={`space-y-4 ${
@@ -221,16 +232,18 @@ export default function AgriShoppingPage() {
               ) : (
                 <EmptyState
                   icon={Package}
-                  title="Nenhum produto encontrado"
-                  description="Tente alterar os termos de pesquisa, categoria ou raio de entrega."
+                  title="Nenhum produto nesta categoria"
+                  description="Experimente ajustar os filtros ou procurar noutra província."
                   actionLabel="Limpar Filtros"
-                  onAction={handleClearFilters}
+                  onAction={() => {
+                    setSearchQuery("");
+                    setSelectedProvince("");
+                  }}
                 />
               )}
             </div>
           )}
 
-          {/* Interactive MapQuest Map */}
           {(viewMode === "split" || viewMode === "map") && (
             <div
               className={`sticky top-20 ${
