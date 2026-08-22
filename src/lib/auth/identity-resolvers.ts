@@ -199,36 +199,18 @@ export function getUserGreeting(params: {
   };
 }
 
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+
 /**
  * 4. Subscription & Entitlements Engine
  * Evaluates capabilities based on subscription plan & profile capabilities
  */
 export function calculateEntitlements(params: {
-  subscriptionPlan?: SubscriptionPlan | null;
+  subscriptionPlan?: SubscriptionPlan | string | null;
   roles?: UserRoleType[];
   accountType?: string;
 }): UserEntitlements {
-  const plan = params.subscriptionPlan || "free";
-  const roles = params.roles || [];
-  const isPremiumOrBusiness = plan === "business" || plan === "premium";
-  const isProfessional = plan === "professional" || isPremiumOrBusiness;
-
-  const hasSellerRole = roles.includes("seller") || roles.includes("farmer") || roles.includes("business") || params.accountType === "seller";
-  const hasServiceRole = roles.includes("veterinarian") || roles.includes("agronomist") || roles.includes("expert") || roles.includes("agricultural_consultant") || roles.includes("service_provider") || params.accountType === "provider";
-  const hasInstructorRole = roles.includes("instructor") || roles.includes("creator") || params.accountType === "instructor";
-
-  return {
-    can_sell_products: hasSellerRole || isProfessional,
-    can_create_products: hasSellerRole || isProfessional,
-    can_edit_products: hasSellerRole || isProfessional,
-    can_publish_products: hasSellerRole || isProfessional,
-    can_manage_inventory: hasSellerRole || isProfessional,
-    can_manage_services: hasServiceRole || isProfessional,
-    can_teach_courses: hasInstructorRole || isProfessional,
-    can_access_business_dashboard: isPremiumOrBusiness || roles.includes("business"),
-    max_products: isPremiumOrBusiness ? 500 : isProfessional ? 50 : 5,
-    max_services: isPremiumOrBusiness ? 100 : isProfessional ? 20 : 3,
-  };
+  return getUserEntitlements(params);
 }
 
 /**

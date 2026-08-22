@@ -18,9 +18,12 @@ import {
   Store,
   ArrowRight,
   ShieldCheck,
+  Lock,
+  Sparkles,
 } from "lucide-react";
-import { MetricCard, Button } from "@/components/ui";
+import { MetricCard, Button, UpgradePlanModal, ProductLimitModal } from "@/components/ui";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function DashboardPage() {
@@ -33,7 +36,12 @@ export default function DashboardPage() {
     activeProfile: "veterinarian" as ProfileType,
     subscriptionPlan: "professional" as const,
     roles: ["veterinarian", "instructor", "seller", "student"] as const,
+    activeProductsCount: 7,
   });
+
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+  const [limitModalOpen, setLimitModalOpen] = useState(false);
+  const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -75,6 +83,32 @@ export default function DashboardPage() {
   });
 
   const activeProfileConfig = PROFILE_TYPE_CONFIG[profile.activeProfile] || PROFILE_TYPE_CONFIG.personal;
+  const currentPlanDef = SUBSCRIPTION_PLANS[profile.subscriptionPlan] || SUBSCRIPTION_PLANS.professional;
+
+  const isLimitReached =
+    entitlements.product_limit !== null &&
+    profile.activeProductsCount >= entitlements.product_limit;
+
+  const handleAddProductClick = (e: React.MouseEvent) => {
+    if (!entitlements.can_create_products) {
+      e.preventDefault();
+      setModalFeatureTitle("Criar Produtos no AgriShopping");
+      setUpgradeModalOpen(true);
+      return;
+    }
+    if (isLimitReached) {
+      e.preventDefault();
+      setLimitModalOpen(true);
+    }
+  };
+
+  const handleCreateCourseClick = (e: React.MouseEvent) => {
+    if (!entitlements.can_create_courses) {
+      e.preventDefault();
+      setModalFeatureTitle("Criar e Publicar Cursos no AgriAcademy");
+      setUpgradeModalOpen(true);
+    }
+  };
 
   // KPIs
   const kpiCards = [
@@ -155,9 +189,9 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* 1. Refactored Dashboard Hero */}
+      {/* 1. Refactored Dashboard Hero with Plan Badge & Dynamic Greeting */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-card p-6 sm:p-8 rounded-3xl border border-border shadow-xs">
-        <div className="space-y-1">
+        <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">
               Painel de Controlo • AGROCONNECT
@@ -165,6 +199,10 @@ export default function DashboardPage() {
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-secondary text-secondary-foreground border border-border">
               <span>{activeProfileConfig.icon}</span>
               <span>Perfil ativo: {activeProfileConfig.label}</span>
+            </span>
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
+              <Sparkles className="w-3 h-3 text-amber-600" />
+              <span>Plano {currentPlanDef.name}</span>
             </span>
           </div>
 
@@ -179,17 +217,29 @@ export default function DashboardPage() {
         {/* Dynamic Context Actions */}
         <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
           {profile.activeProfile === "seller" ? (
-            <Link href="/dashboard/products/new">
-              <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
-                <Plus className="w-4 h-4" />
-                <span>Adicionar Produto</span>
+            <Link
+              href={isLimitReached ? "#" : "/dashboard/products/new"}
+              onClick={handleAddProductClick}
+            >
+              <Button
+                variant="primary"
+                size="sm"
+                className={`gap-1.5 font-bold text-xs h-10 px-4 ${
+                  isLimitReached ? "bg-amber-600 hover:bg-amber-700 text-white" : ""
+                }`}
+              >
+                {isLimitReached ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
+                <span>{isLimitReached ? "🔒 Limite atingido (10/10)" : "Adicionar Produto"}</span>
               </Button>
             </Link>
           ) : profile.activeProfile === "instructor" ? (
-            <Link href="/dashboard/academy/my-courses">
+            <Link
+              href={entitlements.can_create_courses ? "/dashboard/academy/my-courses" : "#"}
+              onClick={handleCreateCourseClick}
+            >
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
-                <BookOpen className="w-4 h-4" />
-                <span>Gerir Cursos</span>
+                {!entitlements.can_create_courses ? <Lock className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
+                <span>{!entitlements.can_create_courses ? "🔒 Criar Curso" : "Gerir Cursos"}</span>
               </Button>
             </Link>
           ) : (
@@ -201,16 +251,16 @@ export default function DashboardPage() {
             </Link>
           )}
 
-          <Link href="/agrilocalizacao">
+          <Link href="/pricing">
             <Button variant="outline" size="sm" className="text-xs font-bold gap-1.5 h-10">
-              <MapPin className="w-3.5 h-3.5 text-primary" />
-              <span>AgriLocalização</span>
+              <Sparkles className="w-3.5 h-3.5 text-primary" />
+              <span>Melhorar Plano</span>
             </Button>
           </Link>
         </div>
       </div>
 
-      {/* 2. Capability-Driven AgriShopping Seller Card */}
+      {/* 2. Capability-Driven AgriShopping Seller Card with Real Limits Counter */}
       {entitlements.can_sell_products && (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 rounded-3xl border border-amber-200 dark:border-amber-900/60 p-6 sm:p-7 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
@@ -219,19 +269,30 @@ export default function DashboardPage() {
                 <Store className="w-7 h-7" />
               </div>
               <div className="space-y-1">
-                <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
                     Capacidade Comercial Ativa
                   </span>
                   <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
                     Vendedor AgriShopping
                   </span>
+                  {entitlements.product_limit !== null ? (
+                    <span className="text-xs font-black text-foreground bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
+                      Produtos: {profile.activeProductsCount} / {entitlements.product_limit}
+                    </span>
+                  ) : (
+                    <span className="text-xs font-black text-amber-600 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
+                      Produtos: Sem limite (Business)
+                    </span>
+                  )}
                 </div>
                 <h3 className="text-lg font-black text-amber-950 dark:text-amber-100">
                   AgriShopping • Gestão de Vendas & Insumos
                 </h3>
                 <p className="text-xs text-amber-900/80 dark:text-amber-200/80 max-w-xl">
-                  Venda os seus produtos agrícolas, sementes e máquinas diretamente a agricultores e explorações pecuárias em Angola.
+                  {entitlements.product_limit !== null
+                    ? `Plano Profissional: utilize até ${entitlements.product_limit} produtos ativos. Atualize para Business para catálogo ilimitado.`
+                    : "Plano Business ativo: venda e gira o seu catálogo completo sem limites de produtos."}
                 </p>
               </div>
             </div>
@@ -240,13 +301,22 @@ export default function DashboardPage() {
               <Link href="/dashboard/products">
                 <Button variant="outline" size="sm" className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100">
                   <Package className="w-3.5 h-3.5 mr-1" />
-                  <span>Meus Produtos</span>
+                  <span>Meus Produtos ({profile.activeProductsCount})</span>
                 </Button>
               </Link>
-              <Link href="/dashboard/products/new">
-                <Button variant="primary" size="sm" className="text-xs font-bold bg-amber-600 hover:bg-amber-700 text-white">
-                  <Plus className="w-3.5 h-3.5 mr-1" />
-                  <span>Adicionar Produto</span>
+              <Link
+                href={isLimitReached ? "#" : "/dashboard/products/new"}
+                onClick={handleAddProductClick}
+              >
+                <Button
+                  variant="primary"
+                  size="sm"
+                  className={`text-xs font-bold ${
+                    isLimitReached ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : "bg-amber-600 hover:bg-amber-700 text-white"
+                  }`}
+                >
+                  {isLimitReached ? <Lock className="w-3.5 h-3.5 mr-1" /> : <Plus className="w-3.5 h-3.5 mr-1" />}
+                  <span>{isLimitReached ? "🔒 Limite atingido" : "Adicionar Produto"}</span>
                 </Button>
               </Link>
               <Link href="/dashboard/orders">
@@ -345,6 +415,23 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Upgrade Modal */}
+      <UpgradePlanModal
+        isOpen={upgradeModalOpen}
+        onClose={() => setUpgradeModalOpen(false)}
+        featureTitle={modalFeatureTitle}
+        requiredPlan="professional"
+        currentPlanName={currentPlanDef.name}
+      />
+
+      {/* Product Limit Modal */}
+      <ProductLimitModal
+        isOpen={limitModalOpen}
+        onClose={() => setLimitModalOpen(false)}
+        currentCount={profile.activeProductsCount}
+        limit={entitlements.product_limit || 10}
+      />
     </div>
   );
 }

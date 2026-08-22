@@ -16,6 +16,7 @@ export interface UserProfileWithRoles {
   last_name: string | null;
   email: string | null;
   phone: string | null;
+  whatsapp_phone?: string | null;
   avatar_url: string | null;
   bio: string | null;
   profile_slug: string | null;
@@ -41,9 +42,28 @@ export interface UserEntitlements {
   can_manage_inventory: boolean;
   can_manage_services: boolean;
   can_teach_courses: boolean;
+  can_create_courses: boolean;
+  can_publish_courses: boolean;
   can_access_business_dashboard: boolean;
-  max_products: number;
-  max_services: number;
+  product_limit: number | null; // null represents unlimited
+  max_products: number | null;
+  max_services: number | null;
+}
+
+export interface SubscriptionPlanDefinition {
+  id: SubscriptionPlan;
+  slug: "basic" | "professional" | "business" | "enterprise";
+  name: string;
+  priceMonthlyAoa: number;
+  priceFormatted: string;
+  period: string;
+  tagline: string;
+  highlightBadge?: string;
+  isPopular?: boolean;
+  productLimit: number | null;
+  features: string[];
+  lockedFeatures?: string[];
+  ctaText: string;
 }
 
 export interface UserGreetingResult {

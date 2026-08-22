@@ -10,6 +10,7 @@ export interface UpdateProfileInput {
   firstName?: string;
   lastName?: string;
   phone?: string;
+  whatsappPhone?: string;
   bio?: string;
   professionalTitle?: ProfessionalTitle;
   professionalTitleCustom?: string;
@@ -39,6 +40,7 @@ export async function updateProfileDetailsAction(
     if (input.firstName !== undefined) updates.first_name = input.firstName.trim() || null;
     if (input.lastName !== undefined) updates.last_name = input.lastName.trim() || null;
     if (input.phone !== undefined) updates.phone = input.phone.trim() || null;
+    if (input.whatsappPhone !== undefined) updates.whatsapp_phone = input.whatsappPhone.trim() || null;
     if (input.bio !== undefined) updates.bio = input.bio.trim() || null;
     if (input.professionalTitle !== undefined) updates.professional_title = input.professionalTitle;
     if (input.professionalTitleCustom !== undefined) {
@@ -62,6 +64,7 @@ export async function updateProfileDetailsAction(
       first_name: updates.first_name !== undefined ? updates.first_name : current.first_name,
       last_name: updates.last_name !== undefined ? updates.last_name : current.last_name,
       phone: updates.phone !== undefined ? updates.phone : current.phone,
+      whatsapp_phone: updates.whatsapp_phone !== undefined ? updates.whatsapp_phone : current.whatsapp_phone,
       bio: updates.bio !== undefined ? updates.bio : current.bio,
       professional_title: updates.professional_title !== undefined ? updates.professional_title : current.professional_title,
       professional_title_custom: updates.professional_title_custom !== undefined ? updates.professional_title_custom : current.professional_title_custom,

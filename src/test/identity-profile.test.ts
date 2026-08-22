@@ -81,31 +81,34 @@ describe("AGROCONNECT Phase 8.5 — User Profile, Identity & Active Context", ()
     expect(g4.greeting).toBe("Olá, AgroFarm Angola");
   });
 
-  it("4. Entitlements engine evaluates selling and service capabilities correctly", () => {
-    // Free student without roles
-    const freeUser = calculateEntitlements({
-      subscriptionPlan: "free",
-      roles: ["student"],
+  it("4. Entitlements engine evaluates selling and service capabilities based on subscription plan", () => {
+    // Basic plan user (cannot create products or courses)
+    const basicUser = calculateEntitlements({
+      subscriptionPlan: "basic",
+      roles: ["seller", "veterinarian"],
     });
-    expect(freeUser.can_sell_products).toBe(false);
-    expect(freeUser.can_create_products).toBe(false);
+    expect(basicUser.can_create_products).toBe(false);
+    expect(basicUser.can_publish_products).toBe(false);
+    expect(basicUser.can_create_courses).toBe(false);
 
-    // Seller role user
-    const sellerUser = calculateEntitlements({
-      subscriptionPlan: "free",
-      roles: ["seller"],
-    });
-    expect(sellerUser.can_sell_products).toBe(true);
-    expect(sellerUser.can_create_products).toBe(true);
-
-    // Professional subscription user has unlocked capabilities
+    // Professional subscription user has unlocked capabilities with 10-product limit
     const proUser = calculateEntitlements({
       subscriptionPlan: "professional",
       roles: ["student"],
     });
-    expect(proUser.can_sell_products).toBe(true);
-    expect(proUser.can_manage_services).toBe(true);
+    expect(proUser.can_create_products).toBe(true);
+    expect(proUser.can_publish_products).toBe(true);
+    expect(proUser.can_create_courses).toBe(true);
     expect(proUser.can_teach_courses).toBe(true);
+    expect(proUser.product_limit).toBe(10);
+
+    // Business subscription user has unlimited products
+    const bizUser = calculateEntitlements({
+      subscriptionPlan: "business",
+      roles: ["seller"],
+    });
+    expect(bizUser.can_create_products).toBe(true);
+    expect(bizUser.product_limit).toBeNull(); // Unlimited
   });
 
   it("5. Discovers available profile types for multi-role users", () => {

@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { DashboardSidebar, DashboardHeader, ActiveProfileSelectorModal } from "@/components/dashboard";
+import { DashboardSidebar, DashboardHeader } from "@/components/dashboard";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction } from "@/lib/auth/profile-actions";
@@ -20,7 +20,6 @@ export default function DashboardLayout({
     "seller",
     "student",
   ]);
-  const [isSelectorModalOpen, setIsSelectorModalOpen] = useState(false);
   const [displayName, setDisplayName] = useState("Dr. João Silva");
 
   useEffect(() => {
@@ -28,13 +27,6 @@ export default function DashboardLayout({
       const saved = localStorage.getItem("agroconnect_active_profile_type");
       if (saved) {
         setActiveProfile(saved as ProfileType);
-      } else if (availableProfiles.length > 1) {
-        // First login with multiple profiles prompt
-        const prompted = sessionStorage.getItem("agroconnect_prompted_profile_selector");
-        if (!prompted) {
-          setIsSelectorModalOpen(true);
-          sessionStorage.setItem("agroconnect_prompted_profile_selector", "true");
-        }
       }
 
       const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
@@ -94,18 +86,6 @@ export default function DashboardLayout({
 
         <MobileBottomNav variant="dashboard" />
       </div>
-
-      {/* Active Profile Selection Modal */}
-      <ActiveProfileSelectorModal
-        isOpen={isSelectorModalOpen}
-        onClose={() => setIsSelectorModalOpen(false)}
-        availableProfiles={availableProfiles}
-        activeProfile={activeProfile}
-        onSelect={(p) => {
-          handleSwitchProfile(p);
-          setIsSelectorModalOpen(false);
-        }}
-      />
     </div>
   );
 }

@@ -39,14 +39,40 @@ export async function getSellerProductsAction(
   return ShoppingService.getSellerProducts(sellerId, onlyPublished);
 }
 
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+
 /**
- * Server Action: Create product
+ * Server Action: Create product with strict Plan Entitlements & Product Limit Enforcement
  */
 export async function createProductAction(
   input: CreateProductInput
 ): Promise<ProductListItem> {
   await requireAuth();
+  const currentUser = await getCurrentUserProfile();
+  if (!currentUser) {
+    throw new Error("Não autorizado: Sessão não encontrada.");
+  }
+
+  // 1. Resolve Plan Entitlements
+  const entitlements = getUserEntitlements({
+    subscriptionPlan: currentUser.subscription_plan,
+    roles: currentUser.roles,
+    accountType: currentUser.account_type,
+  });
+
+  if (!entitlements.can_create_products) {
+    throw new Error("PRODUCT_CREATION_LOCKED: O seu plano Básico não permite criar produtos. Atualize para o plano Profissional ou Business.");
+  }
+
   const seller = await getOrCreateCurrentProviderProfileAction();
+  const currentSellerProducts = await ShoppingService.getSellerProducts(seller.id);
+  const activeCount = currentSellerProducts.filter((p) => p.status !== "archived").length;
+
+  // 2. Check 10-Product limit for Professional plan
+  if (entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
+    throw new Error(`PRODUCT_LIMIT_REACHED: Atingiu o limite de ${entitlements.product_limit} produtos ativos do plano Profissional. Atualize para o plano Business.`);
+  }
+
   const supabase = await createServerSupabaseClient();
 
   if (!input.title || input.title.trim().length < 3) {

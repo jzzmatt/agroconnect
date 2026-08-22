@@ -13,5 +13,8 @@ export * from "./CourseCard";
 export * from "./ProductCard";
 export * from "./CheckListItem";
 export * from "./ThemeSwitcher";
+export * from "./WhatsAppBrandIcon";
+export * from "./UpgradePlanModal";
+export * from "./ProductLimitModal";
 
 

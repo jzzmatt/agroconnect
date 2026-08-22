@@ -2,11 +2,13 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { Button, Input } from "@/components/ui";
+import { Button, Input, WhatsAppBrandIcon } from "@/components/ui";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
-import { ArrowLeft, Save, Check, ShieldCheck, User } from "lucide-react";
+import { ArrowLeft, Save, Check, ShieldCheck, User, Sparkles, Lock } from "lucide-react";
 import { updateProfileDetailsAction } from "@/lib/auth/profile-actions";
-import type { ProfessionalTitle } from "@/types/database";
+import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
+import type { ProfessionalTitle, ProfileType } from "@/types/database";
 
 export default function EditProfilePage() {
   const [displayName, setDisplayName] = useState("Dr. João Silva");
@@ -15,17 +17,38 @@ export default function EditProfilePage() {
   const [professionalTitle, setProfessionalTitle] = useState<ProfessionalTitle>("Dr.");
   const [professionalTitleCustom, setProfessionalTitleCustom] = useState("");
   const [phone, setPhone] = useState("+244 923 000 000");
+  const [whatsappPhone, setWhatsappPhone] = useState("+244 923 000 000");
   const [province, setProvince] = useState("Huambo");
   const [municipality, setMunicipality] = useState("Caála");
   const [bio, setBio] = useState(
     "Médico veterinário com mais de 12 anos de experiência em reprodução bovina, sanidade animal e gestão pecuária no Planalto Central de Angola."
   );
+
+  // Multiple Profile Types Selection
+  const [selectedProfileTypes, setSelectedProfileTypes] = useState<ProfileType[]>([
+    "veterinarian",
+    "instructor",
+    "seller",
+  ]);
+
   const [saved, setSaved] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+
+  const handleToggleProfileType = (type: ProfileType) => {
+    setSelectedProfileTypes((prev) => {
+      if (prev.includes(type)) {
+        if (prev.length === 1) return prev; // Keep at least one
+        return prev.filter((t) => t !== type);
+      }
+      return [...prev, type];
+    });
+  };
 
   const handleSave = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    const waNormalized = normalizeWhatsAppNumber(whatsappPhone);
 
     try {
       await updateProfileDetailsAction({
@@ -35,10 +58,10 @@ export default function EditProfilePage() {
         professionalTitle,
         professionalTitleCustom: professionalTitle === "custom" ? professionalTitleCustom : undefined,
         phone,
+        whatsappPhone: waNormalized.normalized || whatsappPhone,
         bio,
       });
 
-      // Also persist to localStorage for instant client-side sync across tabs
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "agroconnect_user_profile_override",
@@ -49,9 +72,11 @@ export default function EditProfilePage() {
             professionalTitle,
             professionalTitleCustom,
             phone,
+            whatsappPhone: waNormalized.formatted || whatsappPhone,
             bio,
             province,
             municipality,
+            selectedProfileTypes,
           })
         );
       }
@@ -71,6 +96,16 @@ export default function EditProfilePage() {
     (m) => m.provinceName.toLowerCase() === province.toLowerCase()
   );
 
+  const allProfileTypes: ProfileType[] = [
+    "veterinarian",
+    "expert",
+    "instructor",
+    "student",
+    "seller",
+    "farmer",
+    "service_provider",
+  ];
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <div className="flex items-center justify-between">
@@ -82,164 +117,293 @@ export default function EditProfilePage() {
           <span>Voltar ao Perfil</span>
         </Link>
         <span className="text-xs font-bold text-primary uppercase tracking-wider">
-          Edição de Perfil & Identidade
+          Edição de Perfil & Subscrição
         </span>
       </div>
 
-      <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs">
-        <div className="border-b border-border pb-4 mb-6">
+      <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs space-y-8">
+        <div className="border-b border-border pb-4">
           <h2 className="text-xl font-black text-foreground">
-            Atualizar Dados do Perfil
+            Configuração de Identidade & Perfil
           </h2>
           <p className="text-xs text-muted-foreground mt-1">
-            Personalize como o seu nome, título profissional e informações de contacto são apresentados no ecossistema.
+            Personalize os seus dados, contactos de WhatsApp e áreas de atuação no ecossistema de Angola.
           </p>
         </div>
 
-        <form onSubmit={handleSave} className="space-y-5">
-          {/* 1. Identity & Name Fields */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">
-                Nome
-              </label>
-              <Input
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                placeholder="Ex: João"
-                required
-              />
-            </div>
+        <form onSubmit={handleSave} className="space-y-8">
+          {/* ======================================================== */}
+          {/* 1. IDENTIDADE                                            */}
+          {/* ======================================================== */}
+          <div className="space-y-4">
+            <h3 className="text-xs font-black uppercase tracking-wider text-primary flex items-center gap-2">
+              <span>1. IDENTIDADE</span>
+            </h3>
 
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">
-                Apelido
-              </label>
-              <Input
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                placeholder="Ex: Silva"
-              />
-            </div>
-          </div>
-
-          <div>
-            <label className="block text-xs font-bold text-foreground mb-1">
-              Nome de Apresentação
-            </label>
-            <Input
-              value={displayName}
-              onChange={(e) => setDisplayName(e.target.value)}
-              placeholder="Como pretende ser apresentado no AgriConnect?"
-              required
-            />
-            <span className="text-[11px] text-muted-foreground mt-1 block">
-              Este nome é usado prioritariamente no cabeçalho e nos seus serviços/produtos.
-            </span>
-          </div>
-
-          {/* 2. Professional Title Selector */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">
-                Título Profissional
-              </label>
-              <select
-                value={professionalTitle}
-                onChange={(e) => setProfessionalTitle(e.target.value as any)}
-                className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                <option value="none">Nenhum (Apenas Nome)</option>
-                <option value="Dr.">Dr. (Médico Veterinário / Doutor)</option>
-                <option value="Prof.">Prof. (Professor / Instrutor)</option>
-                <option value="Eng.">Eng. (Engenheiro Agrónomo)</option>
-                <option value="Tec.">Tec. (Técnico Agrícola)</option>
-                <option value="custom">Outro (Personalizado)</option>
-              </select>
-            </div>
-
-            {professionalTitle === "custom" && (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label className="block text-xs font-bold text-foreground mb-1">
-                  Título Personalizado
+                  Nome
                 </label>
                 <Input
-                  value={professionalTitleCustom}
-                  onChange={(e) => setProfessionalTitleCustom(e.target.value)}
-                  placeholder="Ex: Consultor"
+                  value={firstName}
+                  onChange={(e) => setFirstName(e.target.value)}
+                  placeholder="Ex: João"
+                  required
                 />
               </div>
-            )}
-          </div>
 
-          {/* 3. Phone */}
-          <div>
-            <label className="block text-xs font-bold text-foreground mb-1">
-              Telefone (Angola)
-            </label>
-            <Input
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder="+244 9XX XXX XXX"
-            />
-          </div>
-
-          {/* 4. Geography */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs font-bold text-foreground mb-1">
-                Província
-              </label>
-              <select
-                value={province}
-                onChange={(e) => {
-                  setProvince(e.target.value);
-                  setMunicipality("");
-                }}
-                className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                {ANGOLA_PROVINCES.map((p) => (
-                  <option key={p.code} value={p.name}>
-                    {p.name}
-                  </option>
-                ))}
-              </select>
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Apelido
+                </label>
+                <Input
+                  value={lastName}
+                  onChange={(e) => setLastName(e.target.value)}
+                  placeholder="Ex: Silva"
+                />
+              </div>
             </div>
 
             <div>
               <label className="block text-xs font-bold text-foreground mb-1">
-                Município
+                Nome de Apresentação
               </label>
-              <select
-                value={municipality}
-                onChange={(e) => setMunicipality(e.target.value)}
-                className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
-              >
-                <option value="">Selecione o Município</option>
-                {availableMunicipalities.map((m) => (
-                  <option key={m.code} value={m.name}>
-                    {m.name}
-                  </option>
-                ))}
-              </select>
+              <Input
+                value={displayName}
+                onChange={(e) => setDisplayName(e.target.value)}
+                placeholder="Como pretende ser apresentado no AgriConnect?"
+                required
+              />
+              <span className="text-[11px] text-muted-foreground mt-1 block">
+                Este nome é usado prioritariamente no cabeçalho do painel e nas suas publicações.
+              </span>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Título Profissional
+                </label>
+                <select
+                  value={professionalTitle}
+                  onChange={(e) => setProfessionalTitle(e.target.value as any)}
+                  className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                >
+                  <option value="none">Nenhum (Apenas Nome)</option>
+                  <option value="Dr.">Dr. (Médico Veterinário / Doutor)</option>
+                  <option value="Prof.">Prof. (Professor / Instrutor)</option>
+                  <option value="Eng.">Eng. (Engenheiro Agrónomo)</option>
+                  <option value="Tec.">Tec. (Técnico Agrícola)</option>
+                  <option value="custom">Outro (Personalizado)</option>
+                </select>
+              </div>
+
+              {professionalTitle === "custom" && (
+                <div>
+                  <label className="block text-xs font-bold text-foreground mb-1">
+                    Título Personalizado
+                  </label>
+                  <Input
+                    value={professionalTitleCustom}
+                    onChange={(e) => setProfessionalTitleCustom(e.target.value)}
+                    placeholder="Ex: Consultor"
+                  />
+                </div>
+              )}
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-foreground mb-1">
+                Biografia e Especialidades
+              </label>
+              <textarea
+                rows={3}
+                value={bio}
+                onChange={(e) => setBio(e.target.value)}
+                placeholder="Descreva a sua experiência, culturas agrícolas ou produtos..."
+                className="w-full rounded-2xl border border-input-border bg-input p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
+              />
             </div>
           </div>
 
-          {/* 5. Bio */}
-          <div>
-            <label className="block text-xs font-bold text-foreground mb-1">
-              Biografia e Especialidades Profissionais
-            </label>
-            <textarea
-              rows={4}
-              value={bio}
-              onChange={(e) => setBio(e.target.value)}
-              placeholder="Descreva a sua experiência, culturas agrícolas de atuação, explorações pecuárias ou serviços prestados..."
-              className="w-full rounded-2xl border border-input-border bg-input p-3 text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-            />
+          {/* ======================================================== */}
+          {/* 2. CONTACTOS & WHATSAPP                                  */}
+          {/* ======================================================== */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <h3 className="text-xs font-black uppercase tracking-wider text-primary">
+              2. CONTACTOS & WHATSAPP
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Telefone Principal
+                </label>
+                <Input
+                  value={phone}
+                  onChange={(e) => setPhone(e.target.value)}
+                  placeholder="+244 9XX XXX XXX"
+                />
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1 flex items-center gap-1.5">
+                  <span className="text-emerald-600 dark:text-emerald-400">
+                    <WhatsAppBrandIcon className="w-4 h-4 fill-current inline-block" />
+                  </span>
+                  <span>WhatsApp de Atendimento</span>
+                </label>
+                <Input
+                  value={whatsappPhone}
+                  onChange={(e) => setWhatsappPhone(e.target.value)}
+                  placeholder="+244 9XX XXX XXX"
+                />
+                <span className="text-[11px] text-muted-foreground mt-1 block">
+                  Permite aos clientes e produtores contactá-lo diretamente via WhatsApp.
+                </span>
+              </div>
+            </div>
           </div>
 
-          {/* Save Button */}
+          {/* ======================================================== */}
+          {/* 3. LOCALIZAÇÃO                                           */}
+          {/* ======================================================== */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <h3 className="text-xs font-black uppercase tracking-wider text-primary">
+              3. LOCALIZAÇÃO
+            </h3>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Província
+                </label>
+                <select
+                  value={province}
+                  onChange={(e) => {
+                    setProvince(e.target.value);
+                    setMunicipality("");
+                  }}
+                  className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                >
+                  {ANGOLA_PROVINCES.map((p) => (
+                    <option key={p.code} value={p.name}>
+                      {p.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div>
+                <label className="block text-xs font-bold text-foreground mb-1">
+                  Município
+                </label>
+                <select
+                  value={municipality}
+                  onChange={(e) => setMunicipality(e.target.value)}
+                  className="w-full text-xs bg-surface border border-border rounded-xl px-3.5 py-2.5 text-foreground font-semibold focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
+                >
+                  <option value="">Selecione o Município</option>
+                  {availableMunicipalities.map((m) => (
+                    <option key={m.code} value={m.name}>
+                      {m.name}
+                    </option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* 4. ÁREAS DE ATUAÇÃO NO ECOSSISTEMA                       */}
+          {/* ======================================================== */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <div>
+              <h3 className="text-xs font-black uppercase tracking-wider text-primary">
+                4. ÁREAS DE ATUAÇÃO NO ECOSSISTEMA
+              </h3>
+              <p className="text-xs text-muted-foreground mt-0.5">
+                Selecione todas as áreas de atividade que descrevem o seu perfil no AgriConnect.
+              </p>
+            </div>
+
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              {allProfileTypes.map((type) => {
+                const config = PROFILE_TYPE_CONFIG[type] || PROFILE_TYPE_CONFIG.personal;
+                const isSelected = selectedProfileTypes.includes(type);
+
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => handleToggleProfileType(type)}
+                    className={`p-3.5 rounded-2xl border text-left transition-all cursor-pointer flex items-center justify-between gap-3 ${
+                      isSelected
+                        ? "bg-secondary border-primary shadow-xs ring-2 ring-primary/20 font-bold text-foreground"
+                        : "bg-surface border-border hover:bg-muted text-muted-foreground"
+                    }`}
+                  >
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="text-xl shrink-0">{config.icon}</span>
+                      <div className="min-w-0">
+                        <span className="text-xs font-bold text-foreground block truncate">
+                          {config.label}
+                        </span>
+                        <span className="text-[10px] text-muted-foreground block truncate">
+                          {config.description}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div
+                      className={`w-5 h-5 rounded-md border flex items-center justify-center shrink-0 ${
+                        isSelected
+                          ? "bg-primary border-primary text-primary-foreground"
+                          : "border-input-border bg-surface"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3.5 h-3.5 stroke-[3]" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* ======================================================== */}
+          {/* 5. SUBSCRIÇÃO & PLANO ATUAL                              */}
+          {/* ======================================================== */}
+          <div className="space-y-4 pt-4 border-t border-border">
+            <h3 className="text-xs font-black uppercase tracking-wider text-primary">
+              5. SUBSCRIÇÃO & PLANO ATUAL
+            </h3>
+
+            <div className="bg-surface p-5 rounded-2xl border border-border flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="space-y-1">
+                <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
+                  Plano Ativo
+                </span>
+                <div className="flex items-center gap-2">
+                  <h4 className="text-base font-black text-foreground">Plano Profissional</h4>
+                  <span className="px-2 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800">
+                    Ativo
+                  </span>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  15.000 Kz/mês • Limite de até 10 produtos ativos no AgriShopping
+                </p>
+              </div>
+
+              <Link href="/pricing" className="shrink-0">
+                <Button variant="outline" size="sm" className="font-bold text-xs">
+                  <span>Alterar Plano</span>
+                </Button>
+              </Link>
+            </div>
+          </div>
+
+          {/* Save Action Bar */}
           <div className="pt-4 border-t border-border flex items-center justify-between">
             {saved ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
@@ -248,7 +412,7 @@ export default function EditProfilePage() {
               </span>
             ) : (
               <span className="text-xs text-muted-foreground">
-                As alterações são refletidas imediatamente no seu painel.
+                As alterações atualizam a sua identidade em todo o ecossistema.
               </span>
             )}
 
@@ -260,7 +424,7 @@ export default function EditProfilePage() {
               className="gap-2 font-bold px-6 shadow-md cursor-pointer"
             >
               <Save className="w-4 h-4" />
-              <span>Guardar Alterações</span>
+              <span>Guardar Perfil</span>
             </Button>
           </div>
         </form>

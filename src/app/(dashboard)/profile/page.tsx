@@ -3,9 +3,10 @@
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
 import { MapPin, Mail, Phone, ShieldCheck, Edit, Sparkles, Store, GraduationCap, Briefcase } from "lucide-react";
-import { Button, Badge, Avatar } from "@/components/ui";
+import { Button, Badge, Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { PROFILE_TYPE_CONFIG, getUserGreeting } from "@/lib/auth/identity-resolvers";
+import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function ProfilePage() {
@@ -18,6 +19,7 @@ export default function ProfilePage() {
     title: "Médico Veterinário & Instrutor AgriAcademy",
     email: "joao.silva@agroconnect.ao",
     phone: "+244 923 000 000",
+    whatsappPhone: "+244 923 000 000",
     province: "Huambo",
     municipality: "Caála",
     bio: "Médico veterinário com mais de 12 anos de experiência em reprodução bovina, sanidade animal e gestão pecuária no Planalto Central de Angola. Formador certificado na AgriAcademy.",
@@ -40,9 +42,11 @@ export default function ProfilePage() {
             lastName: parsed.lastName || prev.lastName,
             professionalTitle: parsed.professionalTitle || prev.professionalTitle,
             phone: parsed.phone || prev.phone,
+            whatsappPhone: parsed.whatsappPhone || prev.whatsappPhone,
             bio: parsed.bio || prev.bio,
             province: parsed.province || prev.province,
             municipality: parsed.municipality || prev.municipality,
+            roles: parsed.selectedProfileTypes || prev.roles,
           }));
         } catch {
           // Keep defaults
@@ -58,6 +62,8 @@ export default function ProfilePage() {
     professionalTitle: profileData.professionalTitle,
     activeProfile: profileData.activeProfile,
   });
+
+  const wa = normalizeWhatsAppNumber(profileData.whatsappPhone);
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -94,12 +100,26 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <Link href="/profile/edit">
-            <Button variant="outline" size="sm" className="gap-1.5 font-bold">
-              <Edit className="w-3.5 h-3.5" />
-              <span>Editar Perfil</span>
-            </Button>
-          </Link>
+          <div className="flex flex-wrap items-center gap-2">
+            {wa.isValid && (
+              <a
+                href={wa.waLink}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold shadow-md transition-all cursor-pointer"
+              >
+                <WhatsAppBrandIcon className="w-4 h-4 fill-current" />
+                <span>WhatsApp</span>
+              </a>
+            )}
+
+            <Link href="/profile/edit">
+              <Button variant="outline" size="sm" className="gap-1.5 font-bold">
+                <Edit className="w-3.5 h-3.5" />
+                <span>Editar Perfil</span>
+              </Button>
+            </Link>
+          </div>
         </div>
       </div>
 
@@ -154,6 +174,12 @@ export default function ProfilePage() {
                 <Phone className="w-4 h-4 text-primary shrink-0" />
                 <span>{profileData.phone}</span>
               </div>
+              {wa.isValid && (
+                <div className="flex items-center gap-2.5 text-emerald-700 dark:text-emerald-300 font-semibold">
+                  <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
+                  <span>{wa.formatted}</span>
+                </div>
+              )}
               <div className="flex items-center gap-2.5 text-foreground">
                 <MapPin className="w-4 h-4 text-primary shrink-0" />
                 <span>{profileData.municipality}, {profileData.province} • Angola</span>

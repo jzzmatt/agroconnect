@@ -33,7 +33,7 @@ export type ProfileType =
   | "business"
   | "personal";
 
-export type SubscriptionPlan = "free" | "professional" | "business" | "premium";
+export type SubscriptionPlan = "basic" | "professional" | "business" | "enterprise" | "free" | "premium";
 
 export type AccountType =
   | "customer"
@@ -185,6 +185,7 @@ export interface Database {
           avatar_url: string | null;
           bio: string | null;
           profile_slug: string | null;
+          whatsapp_phone: string | null;
           professional_title: ProfessionalTitle;
           professional_title_custom: string | null;
           active_profile_type: ProfileType;
@@ -208,6 +209,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          whatsapp_phone?: string | null;
           professional_title?: ProfessionalTitle;
           professional_title_custom?: string | null;
           active_profile_type?: ProfileType;
@@ -231,6 +233,7 @@ export interface Database {
           avatar_url?: string | null;
           bio?: string | null;
           profile_slug?: string | null;
+          whatsapp_phone?: string | null;
           professional_title?: ProfessionalTitle;
           professional_title_custom?: string | null;
           active_profile_type?: ProfileType;

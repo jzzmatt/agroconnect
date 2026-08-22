@@ -7,12 +7,17 @@ import {
   GraduationCap,
   ShoppingBag,
   MapPin,
-  LayoutDashboard,
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
+  Lock,
+  Sparkles,
+  Store,
+  Layers,
+  UserPlus,
   CreditCard,
-  TrendingUp,
+  LayoutDashboard,
+  Check,
 } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
@@ -22,10 +27,15 @@ import {
   Badge,
   CheckListItem,
 } from "@/components/ui";
-import { useI18n } from "@/i18n/provider";
+import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 
 export default function LandingPage() {
-  const { dict } = useI18n();
+  const plans = [
+    SUBSCRIPTION_PLANS.basic,
+    SUBSCRIPTION_PLANS.professional,
+    SUBSCRIPTION_PLANS.business,
+    SUBSCRIPTION_PLANS.enterprise,
+  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
@@ -33,82 +43,46 @@ export default function LandingPage() {
 
       <main className="flex-1">
         {/* ======================================================== */}
-        {/* 1. HERO SECTION (Desktop & Mobile)                        */}
+        {/* 1. HERO SECTION (Conversion & Flow Oriented)              */}
         {/* ======================================================== */}
-        <section className="relative overflow-hidden bg-linear-to-b from-secondary/60 via-background to-background py-16 sm:py-24 lg:py-28 border-b border-border">
-          {/* Subtle background mesh grid */}
+        <section className="relative overflow-hidden bg-gradient-to-b from-secondary/60 via-background to-background py-16 sm:py-24 lg:py-28 border-b border-border">
           <div className="absolute inset-0 opacity-15 bg-[radial-gradient(var(--color-primary)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
 
           <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="text-center max-w-3xl mx-auto space-y-6">
-              {/* Figma Tag Badge: "✨ O Futuro da Agricultura em Angola" */}
               <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs sm:text-sm font-bold border border-border-subtle shadow-2xs">
-                <span>{dict.landing.heroTag}</span>
+                <span>✨ Todo o ecossistema agrícola de Angola num só lugar</span>
               </div>
 
-              {/* Figma Main Headline: "Conecte. Aprenda. Cresça. Prospere na Agricultura." */}
               <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-foreground tracking-tight leading-[1.1]">
-                {dict.landing.heroTitle}
+                Conecte. Aprenda. Compre. Venda e Prospere no Campo.
               </h1>
 
-              {/* Supporting description */}
               <p className="text-sm sm:text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                {dict.landing.heroSubtitle}
+                Descubra especialistas certificados, aceda a formações práticas, compre sementes e equipamentos ou venda os seus produtos com localização em Angola.
               </p>
 
-              {/* CTA Banner Card positioned right below description */}
-              <div className="pt-2 pb-2 max-w-xl mx-auto">
-                <div className="bg-linear-to-r from-emerald-900 to-emerald-950 dark:from-emerald-950 dark:to-emerald-900 rounded-3xl p-6 sm:p-8 text-center text-white relative overflow-hidden shadow-xl border border-border">
-                  <div className="relative z-10 max-w-md mx-auto space-y-4">
-                    <span className="inline-block px-3.5 py-1 rounded-full bg-emerald-800 text-emerald-200 text-xs font-bold uppercase tracking-wider">
-                      Junte-se à Comunidade Agrícola
-                    </span>
-                    <h2 className="text-2xl sm:text-3xl font-black tracking-tight text-white leading-tight">
-                      {dict.landing.ctaBannerTitle}
-                    </h2>
-                    <p className="text-xs sm:text-sm text-emerald-100/90 leading-relaxed">
-                      {dict.landing.ctaBannerSubtitle}
-                    </p>
-                    <div className="pt-2">
-                      <Link href="/sign-up">
-                        <Button
-                          variant="primary"
-                          size="lg"
-                          className="bg-white text-emerald-950 hover:bg-emerald-50 font-extrabold px-8 h-11 shadow-lg"
-                        >
-                          {dict.landing.ctaBannerButton}
-                        </Button>
-                      </Link>
-                    </div>
-                  </div>
-
-                  {/* Decorative background circle rings */}
-                  <div className="absolute -top-24 -right-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
-                  <div className="absolute -bottom-24 -left-24 w-72 h-72 rounded-full border border-emerald-800/40 pointer-events-none" />
-                </div>
-              </div>
-
-              {/* Primary & Secondary CTAs */}
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3 pt-2">
-                <Link href="/agriexpert" className="w-full sm:w-auto">
+              {/* Primary Guided CTAs */}
+              <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
+                <Link href="/sign-up" className="w-full sm:w-auto">
                   <Button
                     variant="primary"
                     size="lg"
-                    className="w-full sm:w-auto gap-2 font-bold shadow-md h-12 px-8"
+                    className="w-full sm:w-auto gap-2 font-black shadow-lg h-12 px-8 text-sm"
                   >
-                    <span>{dict.landing.ctaPrimary}</span>
+                    <span>Começar agora</span>
                     <ArrowRight className="w-4 h-4" />
                   </Button>
                 </Link>
 
-                <Link href="/agriacademy" className="w-full sm:w-auto">
+                <Link href="#planos" className="w-full sm:w-auto">
                   <Button
                     variant="outline"
                     size="lg"
-                    className="w-full sm:w-auto gap-2 font-bold h-12 px-8 shadow-2xs"
+                    className="w-full sm:w-auto gap-2 font-bold h-12 px-8 shadow-2xs text-sm"
                   >
-                    <GraduationCap className="w-4 h-4 text-primary" />
-                    <span>{dict.landing.ctaSecondary}</span>
+                    <CreditCard className="w-4 h-4 text-primary" />
+                    <span>Ver Planos e Preços</span>
                   </Button>
                 </Link>
               </div>
@@ -125,52 +99,7 @@ export default function LandingPage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <CheckCircle2 className="w-4 h-4 text-primary" />
-                  <span className="text-foreground">Acesso Direto ao Mercado</span>
-                </div>
-              </div>
-            </div>
-
-            {/* ======================================================== */}
-            {/* 2. STATS SECTION (Figma: 500+, 1,200+, 5,000+, 10K+)      */}
-            {/* ======================================================== */}
-            <div className="mt-14 sm:mt-18 grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 bg-surface-card p-6 sm:p-8 rounded-3xl border border-border shadow-sm max-w-5xl mx-auto">
-              {/* Stat 1 */}
-              <div className="text-center p-2">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground">
-                  {dict.landing.stats.expertsValue}
-                </div>
-                <div className="text-xs sm:text-sm font-semibold text-primary mt-1">
-                  {dict.landing.stats.experts}
-                </div>
-              </div>
-
-              {/* Stat 2 */}
-              <div className="text-center p-2 border-l border-border">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground">
-                  {dict.landing.stats.coursesValue}
-                </div>
-                <div className="text-xs sm:text-sm font-semibold text-primary mt-1">
-                  {dict.landing.stats.courses}
-                </div>
-              </div>
-
-              {/* Stat 3 */}
-              <div className="text-center p-2 border-l border-border">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground">
-                  {dict.landing.stats.productsValue}
-                </div>
-                <div className="text-xs sm:text-sm font-semibold text-primary mt-1">
-                  {dict.landing.stats.products}
-                </div>
-              </div>
-
-              {/* Stat 4 */}
-              <div className="text-center p-2 border-l border-border">
-                <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-foreground">
-                  {dict.landing.stats.usersValue}
-                </div>
-                <div className="text-xs sm:text-sm font-semibold text-primary mt-1">
-                  {dict.landing.stats.users}
+                  <span className="text-foreground">Comércio Direto & Seguro</span>
                 </div>
               </div>
             </div>
@@ -178,357 +107,335 @@ export default function LandingPage() {
         </section>
 
         {/* ======================================================== */}
-        {/* 3. NOSSAS SOLUÇÕES (5 Figma Solution Cards)              */}
+        {/* 2. THREE-STEP GUIDED JOURNEY (Visual Flow)               */}
         {/* ======================================================== */}
-        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
           <SectionHeader
-            badgeText={dict.landing.solutionsBadge}
-            title={dict.landing.solutionsTitle}
-            subtitle={dict.landing.solutionsSubtitle}
+            badgeText="Jornada do Utilizador"
+            title="Como Funciona o AgriConnect"
+            subtitle="Três passos simples para desbloquear todas as ferramentas do ecossistema agropecuário nacional."
             align="center"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6 mt-12">
-            {/* Card 1: AgriExpert */}
-            <div className="bg-surface-card rounded-3xl border border-border p-7 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mb-5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <Users className="w-6 h-6" />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-14 relative">
+            {/* Step 1 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs">
+                  01
                 </div>
-                <Badge variant="pillarExpert" className="mb-2.5">
-                  Solução 1
-                </Badge>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  AgriExpert
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Conecte-se com especialistas agrícolas, agrónomos e médicos veterinários para impulsionar a sua produção.
-                </p>
-
-                <ul className="space-y-2 border-t border-border pt-4 text-xs font-medium text-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Peritos e técnicos certificados</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Consultoria técnica direta</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Agendamentos flexíveis</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Avaliações e classificações</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Pagamentos e transações seguras</span>
-                  </li>
-                </ul>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    Passo 1 • Registo Rápido
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">Criar a sua conta</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Comece gratuitamente e crie o seu perfil no AgriConnect com telefone de Angola e identificação clara.
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-6 pt-2">
-                <Link href="/services" className="w-full block">
-                  <Button variant="primary" className="w-full justify-between font-bold">
-                    <span>Explorar Serviços & Especialistas</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </div>
+              <Link href="/sign-up" className="block pt-2">
+                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>Criar conta gratuita</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                </Button>
+              </Link>
             </div>
 
-            {/* Card 2: AgriAcademy */}
-            <div className="bg-surface-card rounded-3xl border border-border p-7 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-blue-100 dark:bg-blue-950/70 text-blue-800 dark:text-blue-300 flex items-center justify-center mb-5 group-hover:bg-blue-600 group-hover:text-white transition-colors">
-                  <GraduationCap className="w-6 h-6" />
+            {/* Step 2 */}
+            <div className="bg-surface-card rounded-3xl border border-primary/40 bg-gradient-to-b from-secondary/40 to-surface-card p-8 shadow-sm relative flex flex-col justify-between space-y-6 group">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-xl shadow-xs">
+                  02
                 </div>
-                <Badge variant="pillarAcademy" className="mb-2.5">
-                  Solução 2
-                </Badge>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  AgriAcademy
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Cursos e formações práticas para capacitar produtores e profissionais com o conhecimento técnico essencial.
-                </p>
-
-                <ul className="space-y-2 border-t border-border pt-4 text-xs font-medium text-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>Formação online & presencial</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>Tutores e instrutores qualificados</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>Aulas práticas interativas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>Certificados reconhecidos</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-blue-500 shrink-0" />
-                    <span>Apoio contínuo à aprendizagem</span>
-                  </li>
-                </ul>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    Passo 2 • Subscrição
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">Escolher o plano ideal</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Escolha o nível de acesso adequado às suas necessidades (Básico 0 Kz, Profissional 15.000 Kz ou Business 30.000 Kz).
+                  </p>
+                </div>
               </div>
 
-              <div className="mt-6 pt-2">
-                <Link href="/agriacademy" className="w-full block">
-                  <Button variant="outline" className="w-full justify-between font-bold">
-                    <span>Explorar Cursos</span>
-                    <ArrowRight className="w-4 h-4 text-primary" />
-                  </Button>
-                </Link>
-              </div>
+              <Link href="#planos" className="block pt-2">
+                <Button variant="primary" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>Ver planos e preços</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
             </div>
 
-            {/* Card 3: AgriShopping */}
-            <div className="bg-surface-card rounded-3xl border border-border p-7 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-amber-100 dark:bg-amber-950/70 text-amber-800 dark:text-amber-300 flex items-center justify-center mb-5 group-hover:bg-amber-600 group-hover:text-white transition-colors">
-                  <ShoppingBag className="w-6 h-6" />
+            {/* Step 3 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs">
+                  03
                 </div>
-                <Badge variant="pillarShopping" className="mb-2.5">
-                  Solução 3
-                </Badge>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  AgriShopping
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Mercado digital de equipamentos, insumos, sementes e fertilizantes com entrega local garantida.
-                </p>
-
-                <ul className="space-y-2 border-t border-border pt-4 text-xs font-medium text-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Sementes e fertilizantes de qualidade</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Equipamentos e alfaias agrícolas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Lojas e fornecedores locais</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Logística e entregas locais</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-amber-500 shrink-0" />
-                    <span>Insumos agropecuários completos</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-6 pt-2">
-                <Link href="/agrishopping" className="w-full block">
-                  <Button variant="outline" className="w-full justify-between font-bold">
-                    <span>Ver Produtos</span>
-                    <ArrowRight className="w-4 h-4 text-primary" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 4: AgriLocalização */}
-            <div className="bg-surface-card rounded-3xl border border-border p-7 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-teal-100 dark:bg-teal-950/70 text-teal-800 dark:text-teal-300 flex items-center justify-center mb-5 group-hover:bg-teal-600 group-hover:text-white transition-colors">
-                  <MapPin className="w-6 h-6" />
-                </div>
-                <Badge variant="pillarLocation" className="mb-2.5">
-                  Solução 4
-                </Badge>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  AgriLocalização
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Descoberta geográfica de produtores, serviços e recursos agrícolas por província e município.
-                </p>
-
-                <ul className="space-y-2 border-t border-border pt-4 text-xs font-medium text-foreground">
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                    <span>Geolocalização precisa</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                    <span>Filtros pelas 18 províncias</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                    <span>Mapa interactivo de produtores</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                    <span>Rotas e proximidade optimizadas</span>
-                  </li>
-                  <li className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-teal-500 shrink-0" />
-                    <span>Serviços locais no campo</span>
-                  </li>
-                </ul>
-              </div>
-
-              <div className="mt-6 pt-2">
-                <Link href="/agrilocalizacao" className="w-full block">
-                  <Button variant="outline" className="w-full justify-between font-bold">
-                    <span>Explorar Mapa</span>
-                    <ArrowRight className="w-4 h-4 text-primary" />
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Card 5: Dashboard Pessoal */}
-            <div className="bg-surface-card rounded-3xl border border-border p-7 shadow-xs hover:shadow-lg transition-all duration-300 flex flex-col justify-between group md:col-span-2 lg:col-span-2">
-              <div>
-                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mb-5 group-hover:bg-primary group-hover:text-primary-foreground transition-colors">
-                  <LayoutDashboard className="w-6 h-6" />
-                </div>
-                <Badge variant="pillarExpert" className="mb-2.5">
-                  Solução 5
-                </Badge>
-                <h3 className="text-xl font-bold text-foreground mb-2">
-                  Dashboard Pessoal
-                </h3>
-                <p className="text-xs text-muted-foreground leading-relaxed mb-4">
-                  Painel de gestão unificado para acompanhar serviços, cursos inscritos, vendas, mensagens e notificações.
-                </p>
-
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 border-t border-border pt-4 text-xs font-medium text-foreground">
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Painel do utilizador adaptativo</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Gestão de vendas e cursos</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Mensagens e comunicação direta</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Histórico de consultas e transações</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <CheckCircle2 className="w-3.5 h-3.5 text-primary shrink-0" />
-                    <span>Notificações e alertas em tempo real</span>
-                  </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    Passo 3 • Acesso Total
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">Começar a utilizar</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    Aceda ao seu dashboard personalizado e utilize as ferramentas, produtos e formações disponíveis no seu plano.
+                  </p>
                 </div>
               </div>
 
-              <div className="mt-6 pt-2">
-                <Link href="/dashboard" className="w-full sm:w-auto inline-block">
-                  <Button variant="primary" className="gap-2 font-bold">
-                    <span>Aceder ao Painel</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-              </div>
+              <Link href="/dashboard" className="block pt-2">
+                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>Explorar o painel</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                </Button>
+              </Link>
             </div>
           </div>
         </section>
 
         {/* ======================================================== */}
-        {/* 4. OBJECTIVOS PRINCIPAIS (Figma Check-list format)       */}
+        {/* 3. SUBSCRIPTION PLANS SECTION (Exact 4 Plans)            */}
         {/* ======================================================== */}
-        <section className="py-16 sm:py-24 bg-surface border-y border-border">
-          <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section id="planos" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border scroll-mt-20">
+          <SectionHeader
+            badgeText="Planos e Subscrições"
+            title="Escolha o Plano Ideal para o Seu Negócio"
+            subtitle="Planos transparentes em Kwanzas (AOA) com recursos dimensionados para estudantes, profissionais e empresas."
+            align="center"
+          />
+
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-14">
+            {plans.map((plan) => (
+              <div
+                key={plan.id}
+                className={`rounded-3xl p-6 sm:p-7 border flex flex-col justify-between relative transition-all duration-300 ${
+                  plan.isPopular
+                    ? "border-amber-500 bg-gradient-to-b from-amber-500/10 via-surface-card to-surface-card shadow-xl ring-2 ring-amber-500/30 scale-102"
+                    : "border-border bg-surface-card shadow-xs hover:shadow-md"
+                }`}
+              >
+                {plan.highlightBadge && (
+                  <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shadow-md whitespace-nowrap">
+                    {plan.highlightBadge}
+                  </div>
+                )}
+
+                <div className="space-y-4">
+                  <div>
+                    <h3 className="text-lg font-black text-foreground">{plan.name}</h3>
+                    <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed min-h-[32px]">
+                      {plan.tagline}
+                    </p>
+                  </div>
+
+                  <div className="py-2 border-y border-border">
+                    <div className="flex items-baseline gap-1">
+                      <span className="text-3xl font-black text-foreground">{plan.priceFormatted}</span>
+                      <span className="text-xs text-muted-foreground font-semibold">/{plan.period}</span>
+                    </div>
+                    {plan.productLimit !== null ? (
+                      <span className="text-[10px] font-bold text-primary block mt-1">
+                        {plan.productLimit === 0 ? "Apenas navegação e compra" : `Até ${plan.productLimit} produtos ativos`}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-amber-600 block mt-1">
+                        Produtos sem limite definido
+                      </span>
+                    )}
+                  </div>
+
+                  <div className="space-y-2 text-xs">
+                    <span className="text-[10px] font-black uppercase text-muted-foreground block">
+                      Recursos Incluídos
+                    </span>
+                    <ul className="space-y-2">
+                      {plan.features.map((feature, i) => (
+                        <li key={i} className="flex items-start gap-2 text-foreground/90">
+                          <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
+                          <span className="text-[11px] leading-snug">{feature}</span>
+                        </li>
+                      ))}
+                    </ul>
+
+                    {plan.lockedFeatures && (
+                      <div className="pt-2 border-t border-border/60">
+                        <ul className="space-y-1.5 opacity-60">
+                          {plan.lockedFeatures.map((locked, i) => (
+                            <li key={i} className="flex items-start gap-2 text-muted-foreground">
+                              <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
+                              <span className="text-[11px] leading-snug line-through">{locked}</span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-6">
+                  <Link href="/sign-up" className="block">
+                    <Button
+                      variant={plan.isPopular ? "primary" : "outline"}
+                      size="sm"
+                      className={`w-full font-bold text-xs h-10 ${
+                        plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
+                      }`}
+                    >
+                      <span>{plan.ctaText}</span>
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        {/* ======================================================== */}
+        {/* 4. DASHBOARD PREVIEW SECTION (What you get)              */}
+        {/* ======================================================== */}
+        <section className="py-16 sm:py-24 bg-surface border-b border-border">
+          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionHeader
-              badgeText={dict.landing.objectivesBadge}
-              title={dict.landing.objectivesTitle}
-              subtitle="Trabalhamos com foco no impacto real, na sustentabilidade e no crescimento de Angola."
+              badgeText="Experiência de Trabalho"
+              title="O Seu Painel de Controlo Personalizado"
+              subtitle="Após criar a conta e escolher o plano, este é o centro de comando onde gere as suas atividades no campo."
               align="center"
             />
 
-            <div className="bg-surface-card rounded-3xl p-6 sm:p-10 border border-border shadow-sm mt-8">
-              <ul className="space-y-4">
-                {dict.landing.objectives.map((obj, index) => (
-                  <CheckListItem key={index}>{obj}</CheckListItem>
-                ))}
-              </ul>
+            <div className="mt-12 bg-surface-card rounded-3xl border border-border shadow-xl p-6 sm:p-8 max-w-5xl mx-auto space-y-6">
+              {/* Mock Dashboard Hero Header */}
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface p-5 sm:p-6 rounded-2xl border border-border">
+                <div className="space-y-1">
+                  <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-secondary text-secondary-foreground">
+                    <span>🩺</span>
+                    <span>Perfil ativo: Veterinário • Plano Profissional (15.000 Kz/mês)</span>
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">Olá, Dr. Mateus 👋</h3>
+                  <p className="text-xs text-muted-foreground">Aqui está o resumo da sua atividade profissional no ecossistema.</p>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <span className="px-3 py-1.5 rounded-xl bg-surface-card border border-border text-xs font-bold text-foreground">
+                    Produtos: <strong>7 / 10</strong>
+                  </span>
+                </div>
+              </div>
+
+              {/* Mock Module Cards Grid */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 flex items-center justify-center font-bold text-xs">
+                    🩺
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">AgriExpert</h4>
+                  <p className="text-[11px] text-muted-foreground">Consultorias veterinárias e agronómicas.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-blue-100 text-blue-800 flex items-center justify-center font-bold text-xs">
+                    🎓
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">AgriAcademy</h4>
+                  <p className="text-[11px] text-muted-foreground">Cursos técnicos e formações práticas.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center font-bold text-xs">
+                    🛒
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">AgriShopping</h4>
+                  <p className="text-[11px] text-muted-foreground">Venda de sementes, adubos e alfaias.</p>
+                </div>
+
+                <div className="p-4 rounded-2xl bg-surface border border-border space-y-2">
+                  <div className="w-8 h-8 rounded-xl bg-teal-100 text-teal-800 flex items-center justify-center font-bold text-xs">
+                    📍
+                  </div>
+                  <h4 className="font-bold text-sm text-foreground">AgriLocalização</h4>
+                  <p className="text-[11px] text-muted-foreground">Descoberta geográfica nas 18 províncias.</p>
+                </div>
+              </div>
+
+              <div className="text-center pt-2">
+                <Link href="/sign-up">
+                  <Button variant="primary" className="font-bold text-xs h-10 px-8 shadow-md">
+                    <span>Criar Conta e Aceder ao Painel</span>
+                    <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                  </Button>
+                </Link>
+              </div>
             </div>
           </div>
         </section>
 
         {/* ======================================================== */}
-        {/* 5. TRUST SECTION (Desktop & Mobile Figma specs)          */}
+        {/* 5. ECOSYSTEM PILLARS (Detailed Features)                  */}
         {/* ======================================================== */}
         <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeader
-            badgeText={dict.landing.trustBadge}
-            title={dict.landing.trustTitle}
-            subtitle="Construído com base na segurança, proximidade local e transparência para o mercado nacional."
+            badgeText="Capacidades do Ecossistema"
+            title="4 Pilares Integrados para o Agro em Angola"
+            subtitle="Uma solução completa construída com base na realidade rural e comercial das 18 províncias de Angola."
             align="center"
           />
 
-          <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 sm:gap-6 mt-10">
-            {/* Item 1 */}
-            <div className="p-6 bg-surface-card rounded-3xl border border-border text-center space-y-3 shadow-xs hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto">
-                <ShieldCheck className="w-6 h-6" />
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
+            {/* Pillar 1 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold">
+                <Users className="w-5 h-5 text-emerald-600" />
               </div>
-              <h4 className="font-bold text-sm sm:text-base text-foreground">
-                <span className="hidden sm:inline">{dict.landing.trustItems.support.title}</span>
-                <span className="sm:hidden">{dict.landing.trustItems.support.titleMobile}</span>
-              </h4>
+              <h3 className="font-bold text-base text-foreground">AgriExpert</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.trustItems.support.desc}
+                Encontre agrónomos, veterinários e técnicos credenciados para consultoria presencial e remota.
               </p>
+              <Link href="/services" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline pt-1">
+                <span>Ver especialistas</span> →
+              </Link>
             </div>
 
-            {/* Item 2 */}
-            <div className="p-6 bg-surface-card rounded-3xl border border-border text-center space-y-3 shadow-xs hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto">
-                <CreditCard className="w-6 h-6" />
+            {/* Pillar 2 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold">
+                <GraduationCap className="w-5 h-5 text-blue-600" />
               </div>
-              <h4 className="font-bold text-sm sm:text-base text-foreground">
-                <span className="hidden sm:inline">{dict.landing.trustItems.payments.title}</span>
-                <span className="sm:hidden">{dict.landing.trustItems.payments.titleMobile}</span>
-              </h4>
+              <h3 className="font-bold text-base text-foreground">AgriAcademy</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.trustItems.payments.desc}
+                Cursos práticos e masterclasses focadas em culturas de milho, soja, pecuária e gestão agrícola.
               </p>
+              <Link href="/agriacademy" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline pt-1">
+                <span>Ver cursos</span> →
+              </Link>
             </div>
 
-            {/* Item 3 */}
-            <div className="p-6 bg-surface-card rounded-3xl border border-border text-center space-y-3 shadow-xs hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto">
-                <Users className="w-6 h-6" />
+            {/* Pillar 3 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold">
+                <ShoppingBag className="w-5 h-5 text-amber-600" />
               </div>
-              <h4 className="font-bold text-sm sm:text-base text-foreground">
-                <span className="hidden sm:inline">{dict.landing.trustItems.community.title}</span>
-                <span className="sm:hidden">{dict.landing.trustItems.community.titleMobile}</span>
-              </h4>
+              <h3 className="font-bold text-base text-foreground">AgriShopping</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.trustItems.community.desc}
+                Compre e venda sementes certificadas, adubos e sistemas de irrigação com entrega garantida.
               </p>
+              <Link href="/agrishopping" className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:underline pt-1">
+                <span>Ver produtos</span> →
+              </Link>
             </div>
 
-            {/* Item 4 */}
-            <div className="p-6 bg-surface-card rounded-3xl border border-border text-center space-y-3 shadow-xs hover:shadow-md transition-shadow">
-              <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center mx-auto">
-                <TrendingUp className="w-6 h-6" />
+            {/* Pillar 4 */}
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+              <div className="w-10 h-10 rounded-2xl bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 flex items-center justify-center font-bold">
+                <MapPin className="w-5 h-5 text-teal-600" />
               </div>
-              <h4 className="font-bold text-sm sm:text-base text-foreground">
-                <span className="hidden sm:inline">{dict.landing.trustItems.growth.title}</span>
-                <span className="sm:hidden">{dict.landing.trustItems.growth.titleMobile}</span>
-              </h4>
+              <h3 className="font-bold text-base text-foreground">AgriLocalização</h3>
               <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.trustItems.growth.desc}
+                Motor geoespacial alimentado por PostGIS e MapQuest para descobrir recursos perto de si.
               </p>
+              <Link href="/agrilocalizacao" className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:underline pt-1">
+                <span>Explorar mapa</span> →
+              </Link>
             </div>
           </div>
         </section>
