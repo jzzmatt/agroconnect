@@ -516,6 +516,8 @@ export const pt = {
     PLAN_NOT_ACTIVE: "A subscrição não está ativa. Atualize ou reative o plano para continuar.",
     VALIDATION_ERROR: "Verifique os campos obrigatórios e tente novamente.",
     MEDIA_UPLOAD_FAILED: "Não foi possível carregar o ficheiro de média.",
+    BUNNY_NOT_CONFIGURED: "O carregamento de vídeo não está configurado. Adicione as chaves Bunny Stream.",
+    BUNNY_UPLOAD_FAILED: "Não foi possível enviar o vídeo para o Bunny Stream. Tente novamente.",
     PRODUCT_PUBLISH_TIMEOUT: "Não foi possível concluir a publicação. Tente novamente.",
     VIDEO_OPTIMIZE_FAILED: "Não foi possível otimizar este vídeo.",
     PRODUCT_LIMIT_REACHED: "Atingiu o limite de produtos do seu plano.",

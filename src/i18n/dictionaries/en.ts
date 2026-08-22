@@ -518,6 +518,8 @@ export const en: Dictionary = {
     PLAN_NOT_ACTIVE: "This subscription is not active. Renew or reactivate the plan to continue.",
     VALIDATION_ERROR: "Check the required fields and try again.",
     MEDIA_UPLOAD_FAILED: "We couldn't upload the media file.",
+    BUNNY_NOT_CONFIGURED: "Video upload is not configured. Add the Bunny Stream keys.",
+    BUNNY_UPLOAD_FAILED: "We couldn't upload the video to Bunny Stream. Please try again.",
     PRODUCT_PUBLISH_TIMEOUT: "We couldn't finish publishing. Please try again.",
     VIDEO_OPTIMIZE_FAILED: "We couldn't optimize this video.",
     PRODUCT_LIMIT_REACHED: "You have reached your plan’s product limit.",

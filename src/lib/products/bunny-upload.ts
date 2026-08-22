@@ -1,3 +1,8 @@
+"use client";
+
+import * as tus from "tus-js-client";
+import { BUNNY_TUS_ENDPOINT } from "@/lib/video/bunny-constants";
+
 export async function uploadToBunnyTus(params: {
   file: File;
   uploadUrl: string;
@@ -7,40 +12,45 @@ export async function uploadToBunnyTus(params: {
   expire: number;
   signal?: AbortSignal;
 }): Promise<boolean> {
-  const endpoint = params.uploadUrl || "https://video.bunnycdn.com/tusupload";
-  const create = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      "Tus-Resumable": "1.0.0",
-      "Upload-Length": String(params.file.size),
-      "Upload-Metadata": `filetype ${btoa(params.file.type)},title ${btoa(params.file.name)}`,
-      AuthorizationSignature: params.signature,
-      AuthorizationExpire: String(params.expire),
-      LibraryId: params.libraryId,
-      VideoId: params.videoId,
-    },
-    signal: params.signal,
-  });
+  const endpoint = params.uploadUrl || BUNNY_TUS_ENDPOINT;
+  const libraryId = String(params.libraryId || "");
+  const videoId = String(params.videoId || "");
+  const expire = String(params.expire);
 
-  const location = create.headers.get("Location") || endpoint;
-  if (!create.ok && create.status !== 201 && create.status !== 204) {
-    return false;
+  if (!libraryId || !videoId || !params.signature || !expire) {
+    throw new Error("BUNNY_UPLOAD_FAILED");
   }
 
-  const patch = await fetch(location, {
-    method: "PATCH",
-    headers: {
-      "Tus-Resumable": "1.0.0",
-      "Upload-Offset": "0",
-      "Content-Type": "application/offset+octet-stream",
-      AuthorizationSignature: params.signature,
-      AuthorizationExpire: String(params.expire),
-      LibraryId: params.libraryId,
-      VideoId: params.videoId,
-    },
-    body: params.file,
-    signal: params.signal,
-  });
+  return new Promise((resolve, reject) => {
+    const upload = new tus.Upload(params.file, {
+      endpoint,
+      retryDelays: [0, 3000, 5000, 10000, 20000],
+      chunkSize: 5 * 1024 * 1024,
+      removeFingerprintOnSuccess: true,
+      headers: {
+        AuthorizationSignature: params.signature,
+        AuthorizationExpire: expire,
+        VideoId: videoId,
+        LibraryId: libraryId,
+      },
+      metadata: {
+        filetype: params.file.type || "video/webm",
+        title: params.file.name || "product-video",
+      },
+      onError(error) {
+        console.warn("[bunny tus]", error?.message || error);
+        reject(error instanceof Error ? error : new Error("BUNNY_UPLOAD_FAILED"));
+      },
+      onSuccess() {
+        resolve(true);
+      },
+    });
 
-  return patch.ok || patch.status === 204;
+    const onAbort = () => {
+      void upload.abort(true).catch(() => undefined);
+      reject(new Error("BUNNY_UPLOAD_FAILED"));
+    };
+    params.signal?.addEventListener("abort", onAbort, { once: true });
+    upload.start();
+  });
 }

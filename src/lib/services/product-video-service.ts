@@ -58,9 +58,15 @@ export class ProductVideoService {
     }
 
     const bunny = await createBunnyVideo({ title: params.title });
+    if (!bunny.configured || !bunny.bunnyVideoId || !bunny.uploadUrl || !bunny.authorizationSignature) {
+      throw Object.assign(new Error(bunny.error || "Bunny Stream is not configured."), {
+        code: bunny.code || "BUNNY_NOT_CONFIGURED",
+      });
+    }
+
     const now = new Date().toISOString();
     const record: ProductVideoRecord = {
-      id: `pvid-${Math.random().toString(36).slice(2, 10)}`,
+      id: crypto.randomUUID(),
       product_id: params.productId,
       owner_id: params.ownerId,
       bunny_video_id: bunny.bunnyVideoId,
@@ -69,14 +75,28 @@ export class ProductVideoService {
       mime_type: params.mimeType,
       file_size: params.fileSize,
       duration_seconds: params.durationSeconds,
-      status: bunny.bunnyVideoId ? "uploading" : "ready",
+      status: "uploading",
       thumbnail_url: null,
-      playback_url: bunny.uploadUrl,
+      playback_url: bunny.embedUrl || bunny.playbackUrl,
       created_at: now,
       updated_at: now,
     };
     videos.set(record.id, record);
     return { video: record, upload: bunny };
+  }
+
+  public static markStatusByBunnyId(
+    bunnyVideoId: string,
+    status: ProductVideoStatus,
+    extra?: Partial<ProductVideoRecord>
+  ) {
+    for (const current of videos.values()) {
+      if (current.bunny_video_id !== bunnyVideoId) continue;
+      const next = { ...current, ...extra, status, updated_at: new Date().toISOString() };
+      videos.set(current.id, next);
+      return next;
+    }
+    return null;
   }
 
   public static markReady(videoId: string, extra?: Partial<ProductVideoRecord>) {

@@ -158,6 +158,22 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(localizeError(pt, PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE)).toMatch(/Básico/);
     expect(localizeError(pt, "PRODUCT_PUBLISH_TIMEOUT")).toMatch(/Não foi possível concluir/);
     expect(pt.navDash.agriProduct).toBe("AgriProduct");
+    expect(localizeError(pt, "BUNNY_NOT_CONFIGURED")).toMatch(/Bunny Stream/);
+    expect(localizeError(en, "BUNNY_UPLOAD_FAILED")).toMatch(/Bunny Stream/);
+  });
+
+  it("points product video uploads at the official Bunny TUS endpoint", async () => {
+    const { BUNNY_TUS_ENDPOINT, isBunnyConfigured, getBunnyEmbedUrl } = await import("@/lib/video/bunny");
+    expect(BUNNY_TUS_ENDPOINT).toBe("https://video.bunnycdn.com/tusupload");
+    expect(getBunnyEmbedUrl("123", "guid-1")).toBe(
+      "https://iframe.mediadelivery.net/embed/123/guid-1"
+    );
+    expect(isBunnyConfigured()).toBe(
+      Boolean(
+        String(process.env.BUNNY_STREAM_API_KEY || "").trim() &&
+          String(process.env.BUNNY_STREAM_LIBRARY_ID || "").trim()
+      )
+    );
   });
 });
 

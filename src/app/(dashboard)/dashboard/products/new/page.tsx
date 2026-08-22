@@ -252,21 +252,23 @@ export default function NewProductPage() {
               throw Object.assign(new Error(videoResult.code || "MEDIA_UPLOAD_FAILED"), { code: videoResult.code });
             }
             const upload = (videoResult as any).upload;
-            if (upload?.uploadUrl && upload?.bunnyVideoId && upload?.authorizationSignature) {
-              try {
-                await uploadToBunnyTus({
-                  file: pendingVideo.file,
-                  uploadUrl: upload.uploadUrl,
-                  libraryId: upload.bunnyLibraryId,
-                  videoId: upload.bunnyVideoId,
-                  signature: upload.authorizationSignature,
-                  expire: upload.authorizationExpire,
-                });
-              } catch {
-                videoProcessing = true;
-              }
-            } else {
+            if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
+              throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), {
+                code: upload?.code || "BUNNY_NOT_CONFIGURED",
+              });
+            }
+            try {
+              await uploadToBunnyTus({
+                file: pendingVideo.file,
+                uploadUrl: upload.uploadUrl,
+                libraryId: upload.bunnyLibraryId,
+                videoId: upload.bunnyVideoId,
+                signature: upload.authorizationSignature,
+                expire: upload.authorizationExpire,
+              });
               videoProcessing = true;
+            } catch {
+              throw Object.assign(new Error("BUNNY_UPLOAD_FAILED"), { code: "BUNNY_UPLOAD_FAILED" });
             }
           }
 
