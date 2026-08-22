@@ -109,7 +109,7 @@ describe("Phase 9.6 — i18n, animals, land, video, publish", () => {
     expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 61, fileName: "a.mp4" }).ok).toBe(false);
     expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 120, fileName: "a.mp4" }).ok).toBe(false);
     expect(PRODUCT_VIDEO_MAX_SECONDS).toBe(60);
-    const tooLong = validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 31, fileName: "a.mp4" });
+    const tooLong = validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 61, fileName: "a.mp4" });
     expect(tooLong.ok).toBe(false);
     if (!tooLong.ok) expect(tooLong.code).toBe("PRODUCT_VIDEO_TOO_LONG");
   });
