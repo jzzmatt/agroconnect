@@ -31,7 +31,7 @@ export async function syncSubscriptionPlanRow(clerkUserId: string, plan: Subscri
         p_plan: plan,
       }),
       new Promise((_, reject) => {
-        timer = setTimeout(() => reject(new Error("PLAN_SYNC_TIMEOUT")), 8000);
+        timer = setTimeout(() => reject(new Error("PLAN_SYNC_TIMEOUT")), 3000);
       }),
     ]);
   } catch {

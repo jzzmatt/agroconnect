@@ -21,7 +21,6 @@ import {
   type ListingType,
   type ProductCategorySlug,
 } from "@/config/product-catalog";
-import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
 import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
 import { compressImageFile } from "@/lib/products/compress-image";
@@ -42,8 +41,18 @@ export default function NewProductPage() {
   const isLimitReached =
     entitlements.product_limit !== null && activeCount >= entitlements.product_limit;
 
+  const [statsLoaded, setStatsLoaded] = useState(false);
+
   useEffect(() => {
-    getMyProductStatsAction().then((stats) => setActiveCount(stats.activeCount)).catch(() => undefined);
+    fetch("/api/products/stats", { credentials: "same-origin", cache: "no-store" })
+      .then((res) => res.json())
+      .then((data) => {
+        if (typeof data?.activeCount === "number") {
+          setActiveCount(data.activeCount);
+        }
+      })
+      .catch(() => undefined)
+      .finally(() => setStatsLoaded(true));
   }, []);
 
   const [title, setTitle] = useState("");
@@ -176,15 +185,12 @@ export default function NewProductPage() {
 
     try {
       setPublishState("publishing");
-      const createController = new AbortController();
-      const createTimer = setTimeout(() => createController.abort(), 20_000);
       const created = await fetch("/api/products/create", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         cache: "no-store",
         redirect: "manual",
-        signal: createController.signal,
         body: JSON.stringify({
           title,
           description,
@@ -213,7 +219,7 @@ export default function NewProductPage() {
                 : undefined,
           },
         }),
-      }).finally(() => clearTimeout(createTimer));
+      });
 
       if (created.type === "opaqueredirect" || [301, 302, 303, 307, 308].includes(created.status)) {
         throw Object.assign(new Error(PRODUCT_ERROR_CODES.AUTH_REQUIRED), { code: PRODUCT_ERROR_CODES.AUTH_REQUIRED });
@@ -252,54 +258,54 @@ export default function NewProductPage() {
         }
       }
 
-        if (pendingVideo) {
-          const videoRes = await fetch("/api/products/video/create", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-            redirect: "manual",
-            body: JSON.stringify({
-              productId: result.product.id,
-              title,
-              filename: pendingVideo.file.name,
-              mimeType: pendingVideo.file.type,
-              fileSize: pendingVideo.file.size,
-              durationSeconds: pendingVideo.duration,
-            }),
+      if (pendingVideo) {
+        const videoRes = await fetch("/api/products/video/create", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "manual",
+          body: JSON.stringify({
+            productId: result.product.id,
+            title,
+            filename: pendingVideo.file.name,
+            mimeType: pendingVideo.file.type,
+            fileSize: pendingVideo.file.size,
+            durationSeconds: pendingVideo.duration,
+          }),
+        });
+        const videoResult = await videoRes.json().catch(() => null);
+        if (!videoRes.ok || !videoResult?.success) {
+          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED;
+          throw Object.assign(new Error(videoResult?.message || errCode), {
+            code: errCode,
+            message: videoResult?.message,
           });
-          const videoResult = await videoRes.json().catch(() => null);
-          if (!videoRes.ok || !videoResult?.success) {
-            const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED;
-            throw Object.assign(new Error(videoResult?.message || errCode), {
-              code: errCode,
-              message: videoResult?.message,
-            });
-          }
-          const upload = videoResult.upload;
-          if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
-            throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED), {
-              code: upload?.code || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED,
-              message: upload?.error,
-            });
-          }
-          try {
-            await uploadToBunnyTus({
-              file: pendingVideo.file,
-              uploadUrl: upload.uploadUrl,
-              libraryId: upload.bunnyLibraryId,
-              videoId: upload.bunnyVideoId,
-              signature: upload.authorizationSignature,
-              expire: upload.authorizationExpire,
-            });
-            videoProcessing = true;
-          } catch (tusErr: any) {
-            throw Object.assign(new Error(tusErr?.message || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED), {
-              code: PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED,
-              message: tusErr?.message,
-            });
-          }
         }
+        const upload = videoResult.upload;
+        if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
+          throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED), {
+            code: upload?.code || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED,
+            message: upload?.error,
+          });
+        }
+        try {
+          await uploadToBunnyTus({
+            file: pendingVideo.file,
+            uploadUrl: upload.uploadUrl,
+            libraryId: upload.bunnyLibraryId,
+            videoId: upload.bunnyVideoId,
+            signature: upload.authorizationSignature,
+            expire: upload.authorizationExpire,
+          });
+          videoProcessing = true;
+        } catch (tusErr: any) {
+          throw Object.assign(new Error(tusErr?.message || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED), {
+            code: PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED,
+            message: tusErr?.message,
+          });
+        }
+      }
 
       setPublishState("success");
       setSuccessMessage(
@@ -309,7 +315,10 @@ export default function NewProductPage() {
       setTimeout(() => router.push("/dashboard/products"), 1200);
     } catch (err: any) {
       const raw = err?.code || err?.message;
-      const code = err?.name === "AbortError" || /aborted|timeout/i.test(String(raw || ""))
+      const isTimeout =
+        err?.name === "AbortError" ||
+        /aborted|timeout|signal is aborted/i.test(String(err?.message || raw || ""));
+      const code = isTimeout
         ? PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_TIMEOUT
         : sanitizePublishError(raw, PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED);
       setPublishState("error");
