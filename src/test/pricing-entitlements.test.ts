@@ -111,4 +111,10 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(nullEntitlements.can_access_agrishopping).toBe(false);
     expect(nullEntitlements.product_limit).toBe(0);
   });
+
+  it("10. Fails closed on server action when a Basic plan user attempts to create a product", async () => {
+    const basicEntitlements = getUserEntitlements({ subscriptionPlan: "basic" });
+    expect(basicEntitlements.can_create_products).toBe(false);
+    expect(basicEntitlements.can_access_agrishopping).toBe(false);
+  });
 });

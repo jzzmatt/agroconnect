@@ -12,11 +12,15 @@ import {
   Eye,
   AlertCircle,
   Sparkles,
+  Lock,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { INITIAL_PRODUCTS } from "@/lib/services/shopping-service";
 import { updateProductAction } from "@/lib/services/shopping-actions";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { UpgradePlanModal } from "@/components/ui";
 import type { ProductListItem } from "@/types/domain";
 
 export default function MyProductsDashboardPage() {
@@ -24,6 +28,64 @@ export default function MyProductsDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
+  const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
+      if (profileOverride) {
+        try {
+          const parsed = JSON.parse(profileOverride);
+          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const isBasic = !entitlements.can_sell_products;
+
+  if (isBasic) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-card rounded-3xl p-8 sm:p-12 border border-border text-center space-y-6 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2 max-w-md mx-auto">
+            <span className="text-xs font-black uppercase tracking-wider text-amber-600 bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 rounded-full">
+              Módulo Bloqueado • Plano Básico
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-foreground">
+              AgriShopping • Gestão de Produtos
+            </h1>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              A criação, edição e publicação de produtos agrícolas está disponível a partir do plano <strong>Profissional (15.000 Kz/mês)</strong> ou <strong>Business (30.000 Kz/mês)</strong>.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/pricing">
+              <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
+                <Sparkles className="w-4 h-4" />
+                <span>Ver Planos e Desbloquear</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto font-semibold">
+                Voltar ao Painel
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredProducts = products.filter((p) => {
     const matchesStatus = statusFilter === "all" ? true : p.status === statusFilter;

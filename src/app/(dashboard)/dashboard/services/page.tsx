@@ -17,11 +17,14 @@ import {
   AlertCircle,
   Loader2,
   Sparkles,
+  Lock,
+  ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { updateServiceAction } from "@/lib/services/marketplace-actions";
 import { INITIAL_SERVICES } from "@/lib/services/marketplace-service";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function MyServicesDashboardPage() {
@@ -29,6 +32,63 @@ export default function MyServicesDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
+      if (profileOverride) {
+        try {
+          const parsed = JSON.parse(profileOverride);
+          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const isBasic = !entitlements.can_manage_services;
+
+  if (isBasic) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-card rounded-3xl p-8 sm:p-12 border border-border text-center space-y-6 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-emerald-100 dark:bg-emerald-950/80 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2 max-w-md mx-auto">
+            <span className="text-xs font-black uppercase tracking-wider text-emerald-600 bg-emerald-100 dark:bg-emerald-950 px-2.5 py-0.5 rounded-full">
+              Módulo Bloqueado • Plano Básico
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-foreground">
+              AgriExpert • Gestão de Serviços
+            </h1>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              A prestação e publicação de serviços técnicos agropecuários está disponível a partir do plano <strong>Profissional (15.000 Kz/mês)</strong>.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/pricing">
+              <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
+                <Sparkles className="w-4 h-4" />
+                <span>Ver Planos e Desbloquear</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto font-semibold">
+                Voltar ao Painel
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const filteredServices = services.filter((s) => {
     const matchesStatus = statusFilter === "all" ? true : s.status === statusFilter;

@@ -23,12 +23,14 @@ export interface NavItem {
   icon: LucideIcon;
   badge?: string;
   requiredRole?: UserRoleType;
+  requiredModule?: "agriShopping" | "agriAcademy" | "agriExpert" | "agriLocalizacao";
 }
 
 export interface NavSection {
   title: string;
   pillar?: "agriExpert" | "agriAcademy" | "agriShopping" | "agriLocalizacao" | "general";
   roles?: UserRoleType[];
+  requiredModule?: "agriShopping" | "agriAcademy" | "agriExpert" | "agriLocalizacao";
   items: NavItem[];
 }
 
@@ -65,6 +67,7 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
   {
     title: "AgriExpert",
     pillar: "agriExpert",
+    requiredModule: "agriExpert",
     roles: ["expert", "veterinarian", "agronomist", "agricultural_consultant"],
     items: [
       {
@@ -92,6 +95,7 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
   {
     title: "AgriAcademy",
     pillar: "agriAcademy",
+    requiredModule: "agriAcademy",
     roles: ["instructor", "student"],
     items: [
       {
@@ -109,6 +113,7 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
   {
     title: "AgriShopping & Vendas",
     pillar: "agriShopping",
+    requiredModule: "agriShopping",
     roles: ["seller", "farmer", "business", "expert"],
     items: [
       {

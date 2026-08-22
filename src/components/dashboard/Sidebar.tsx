@@ -5,7 +5,8 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, X } from "lucide-react";
 import { DASHBOARD_NAVIGATION } from "@/config/navigation";
-import type { UserRoleType, ProfileType } from "@/types/database";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { cn } from "@/lib/utils";
@@ -14,6 +15,7 @@ interface DashboardSidebarProps {
   userRoles?: UserRoleType[];
   availableProfiles?: ProfileType[];
   activeProfile?: ProfileType;
+  subscriptionPlan?: SubscriptionPlan | string | null;
   onSwitchProfile?: (profile: ProfileType) => void;
   isOpen?: boolean;
   onClose?: () => void;
@@ -21,9 +23,10 @@ interface DashboardSidebarProps {
 }
 
 export function DashboardSidebar({
-  userRoles = ["student", "expert", "seller"],
-  availableProfiles = ["expert", "instructor", "student", "seller"],
-  activeProfile = "expert",
+  userRoles = ["student"],
+  availableProfiles = ["personal"],
+  activeProfile = "personal",
+  subscriptionPlan = "basic",
   onSwitchProfile,
   isOpen,
   onClose,
@@ -31,8 +34,26 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
 
-  // Filter navigation sections based on active user roles & active profile context
+  // Compute entitlements based on actual subscription plan (Basic users will have creation modules locked)
+  const entitlements = getUserEntitlements({
+    subscriptionPlan,
+    roles: userRoles,
+  });
+
+  // Filter navigation sections based on active user roles & subscription plan module entitlements
   const visibleSections = DASHBOARD_NAVIGATION.filter((section) => {
+    // Check module entitlement: if section requires a module that is locked on user's plan, hide from sidebar
+    if (section.requiredModule === "agriShopping" && !entitlements.can_access_agrishopping) {
+      return false;
+    }
+    if (section.requiredModule === "agriAcademy" && !entitlements.can_access_agriacademy) {
+      return false;
+    }
+    if (section.requiredModule === "agriExpert" && !entitlements.can_access_agriexpert) {
+      return false;
+    }
+
+    // Role check
     if (!section.roles || section.roles.length === 0) return true;
     return section.roles.some((role) => userRoles.includes(role));
   });

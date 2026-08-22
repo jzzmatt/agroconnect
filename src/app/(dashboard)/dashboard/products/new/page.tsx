@@ -13,10 +13,31 @@ import {
 import { Button } from "@/components/ui/Button";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { createProductAction } from "@/lib/services/shopping-actions";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { Lock, Sparkles, ArrowRight } from "lucide-react";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export default function NewProductPage() {
   const router = useRouter();
+
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
+
+  React.useEffect(() => {
+    if (typeof window !== "undefined") {
+      const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
+      if (profileOverride) {
+        try {
+          const parsed = JSON.parse(profileOverride);
+          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
+        } catch {
+          // ignore
+        }
+      }
+    }
+  }, []);
+
+  const entitlements = getUserEntitlements({ subscriptionPlan });
+  const isBasic = !entitlements.can_create_products;
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("sementes-e-fertilizantes");
@@ -35,6 +56,45 @@ export default function NewProductPage() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  if (isBasic) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-card rounded-3xl p-8 sm:p-12 border border-border text-center space-y-6 shadow-sm">
+          <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
+            <Lock className="w-8 h-8" />
+          </div>
+
+          <div className="space-y-2 max-w-md mx-auto">
+            <span className="text-xs font-black uppercase tracking-wider text-amber-600 bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 rounded-full">
+              Criação Bloqueada • Plano Básico
+            </span>
+            <h1 className="text-2xl sm:text-3xl font-black text-foreground">
+              Adicionar Produto ao AgriShopping
+            </h1>
+            <p className="text-xs text-muted-foreground leading-relaxed">
+              O seu plano Básico permite explorar o ecossistema e efetuar compras. Para criar e vender produtos, atualize para o plano <strong>Profissional</strong> ou <strong>Business</strong>.
+            </p>
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/pricing">
+              <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
+                <Sparkles className="w-4 h-4" />
+                <span>Ver Planos e Desbloquear</span>
+                <ArrowRight className="w-4 h-4" />
+              </Button>
+            </Link>
+            <Link href="/dashboard">
+              <Button variant="outline" size="lg" className="w-full sm:w-auto font-semibold">
+                Voltar ao Painel
+              </Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

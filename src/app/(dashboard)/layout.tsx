@@ -12,15 +12,12 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeProfile, setActiveProfile] = useState<ProfileType>("veterinarian");
+  const [activeProfile, setActiveProfile] = useState<ProfileType>("personal");
   const [availableProfiles] = useState<ProfileType[]>([
-    "veterinarian",
-    "expert",
-    "instructor",
-    "seller",
     "student",
   ]);
   const [displayName, setDisplayName] = useState("Utilizador");
+  const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
 
   useEffect(() => {
     if (typeof window !== "undefined") {
@@ -34,6 +31,7 @@ export default function DashboardLayout({
         try {
           const parsed = JSON.parse(profileOverride);
           if (parsed.displayName) setDisplayName(parsed.displayName);
+          if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
         } catch {
           // ignore
         }
@@ -50,10 +48,6 @@ export default function DashboardLayout({
   };
 
   const activeRoles: UserRoleType[] = [
-    "veterinarian",
-    "expert",
-    "instructor",
-    "seller",
     "student",
   ];
 
@@ -64,6 +58,7 @@ export default function DashboardLayout({
         userRoles={activeRoles}
         availableProfiles={availableProfiles}
         activeProfile={activeProfile}
+        subscriptionPlan={subscriptionPlan}
         onSwitchProfile={handleSwitchProfile}
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}
