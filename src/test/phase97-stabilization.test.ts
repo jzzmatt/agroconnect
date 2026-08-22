@@ -21,6 +21,7 @@ import {
 } from "@/lib/products/video-validation";
 import { PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { SIGN_OUT_REDIRECT } from "@/lib/auth/clear-client-state";
+import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
 import { getDictionary } from "@/i18n";
 import { localizeError } from "@/i18n/errors";
 import {
@@ -32,6 +33,26 @@ import {
 describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
   it("sign-out always redirects to the public landing page", () => {
     expect(SIGN_OUT_REDIRECT).toBe("/");
+  });
+
+  it("does not surface Chrome message-port failures as the plan error", () => {
+    expect(
+      sanitizeActivationError(
+        "The message port closed before a response was received.",
+        "Não foi possível atualizar o seu plano."
+      )
+    ).toBe("Não foi possível atualizar o seu plano.");
+    expect(sanitizeActivationError("Failed to fetch", "fallback")).toBe("fallback");
+    expect(sanitizeActivationError("timeout", "fallback")).toBe("fallback");
+  });
+
+  it("activates plans through a JSON API instead of a Next.js server action", async () => {
+    const { readFile } = await import("node:fs/promises");
+    const { resolve } = await import("node:path");
+    const src = await readFile(resolve(process.cwd(), "src/app/pricing/page.tsx"), "utf8");
+    expect(src).not.toMatch("activateSubscriptionPlanAction");
+    expect(src).not.toMatch("withTimeout(");
+    expect(src).toMatch("/api/subscription/activate");
   });
 
   it("keeps one plan matrix: Basic locked, Professional 10, Business/Enterprise unlimited", () => {

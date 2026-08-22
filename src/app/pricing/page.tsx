@@ -8,9 +8,9 @@ import { Footer } from "@/components/layout";
 import { SectionHeader, Button } from "@/components/ui";
 import { Check, Lock, HelpCircle, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
-import { activateSubscriptionPlanAction } from "@/lib/auth/profile-actions";
-import { notifySubscriptionChanged, useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { setOptimisticPlan } from "@/lib/subscription/optimistic";
+import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
 import { useI18n } from "@/i18n/provider";
 import {
   formatProductLimitLabel,
@@ -19,20 +19,11 @@ import {
 } from "@/i18n/plan-copy";
 import type { SubscriptionPlan } from "@/types/database";
 
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("timeout")), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
-  });
+function friendlyActivateError(dict: ReturnType<typeof useI18n>["dict"], raw?: string | null) {
+  const fallback = dict.dash.planUpdateFailed || dict.pricing.activateError;
+  const message = String(raw || "");
+  if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) return message;
+  return sanitizeActivationError(raw, fallback);
 }
 
 export default function PricingPage() {
@@ -61,22 +52,35 @@ export default function PricingPage() {
     setError(null);
 
     try {
-      const result = await withTimeout(activateSubscriptionPlanAction(planId), 15000);
-      if (!result.success) {
-        const message = result.error || dict.dash.planUpdateFailed || dict.pricing.activateError;
-        if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) {
-          router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
-          return;
-        }
-        setError(message);
+      const response = await fetch("/api/subscription/activate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        cache: "no-store",
+        redirect: "manual",
+        body: JSON.stringify({ plan: planId }),
+      });
+
+      if (response.type === "opaqueredirect" || [301, 302, 303, 307, 308].includes(response.status)) {
+        router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
         return;
       }
-      setOptimisticPlan(result.plan);
-      notifySubscriptionChanged();
+      const result = await response.json().catch(() => null);
+
+      if (response.status === 401 || /autorizado|iniciar sessão|sign in|unauthor/i.test(result?.error || "")) {
+        router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
+        return;
+      }
+
+      if (!response.ok || !result?.success) {
+        setError(friendlyActivateError(dict, result?.error));
+        return;
+      }
+
+      setOptimisticPlan(result.plan || planId);
       router.push("/dashboard");
-      router.refresh();
-    } catch {
-      setError(dict.dash.planUpdateFailed || dict.pricing.activateError);
+    } catch (err: any) {
+      setError(friendlyActivateError(dict, err?.message));
     } finally {
       setActivating(null);
     }
@@ -170,10 +174,11 @@ export default function PricingPage() {
 
                 <div className="pt-6">
                   <Button
+                    type="button"
                     variant={plan.isPopular ? "primary" : "outline"}
                     size="sm"
                     disabled={activating !== null || isCurrent || !isLoaded}
-                    onClick={() => handleSelectPlan(plan.id)}
+                    onClick={() => void handleSelectPlan(plan.id)}
                     className={`w-full font-bold text-xs h-11 ${
                       plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
                     }`}

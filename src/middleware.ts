@@ -13,6 +13,8 @@ const isPublicRoute = createRouteMatcher([
   "/sign-up(.*)",
   "/api/webhooks(.*)",
   "/api/public(.*)",
+  // JSON plan activation — handler enforces Clerk auth so fetch is not redirected.
+  "/api/subscription(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {
