@@ -210,7 +210,7 @@ export async function getCustomerProductRequestsAction(): Promise<ProductRequest
         currency,
         created_at,
         updated_at,
-        products(title, slug),
+        products(title, slug, status),
         provider_profiles(business_name)
       `)
       .eq("customer_id", userProfile.id)
@@ -223,7 +223,10 @@ export async function getCustomerProductRequestsAction(): Promise<ProductRequest
         seller_id: item.seller_id,
         seller_name: item.provider_profiles?.business_name || "Vendedor",
         product_id: item.product_id,
-        product_title: item.products?.title || "Produto",
+        product_title:
+          item.products?.status === "deleted"
+            ? "Produto indisponível"
+            : item.products?.title || item.product_title || "Produto",
         product_slug: item.products?.slug || null,
         quantity: item.quantity,
         unit: item.unit,
@@ -270,7 +273,7 @@ export async function getSellerProductRequestsAction(): Promise<ProductRequestIt
         currency,
         created_at,
         updated_at,
-        products(title, slug),
+        products(title, slug, status),
         profiles:customer_id(display_name, email, phone)
       `)
       .eq("seller_id", seller.id)
@@ -285,7 +288,10 @@ export async function getSellerProductRequestsAction(): Promise<ProductRequestIt
         customer_phone: item.profiles?.phone || null,
         seller_id: item.seller_id,
         product_id: item.product_id,
-        product_title: item.products?.title || "Produto",
+        product_title:
+          item.products?.status === "deleted"
+            ? "Produto indisponível"
+            : item.products?.title || item.product_title || "Produto",
         product_slug: item.products?.slug || null,
         quantity: item.quantity,
         unit: item.unit,

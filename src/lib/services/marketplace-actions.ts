@@ -39,6 +39,16 @@ export async function getProviderBySlugAction(
 }
 
 /**
+ * Server Action: Resolve a vendor's map location for the AgriLocalização deep link
+ */
+export async function getVendorLocationAction(
+  vendorId: string
+): Promise<import("@/lib/services/vendor-location").VendorLocation | null> {
+  const { getVendorLocation } = await import("@/lib/services/vendor-location");
+  return getVendorLocation(vendorId);
+}
+
+/**
  * Server Action: Get services by provider id
  */
 export async function getProviderServicesAction(
