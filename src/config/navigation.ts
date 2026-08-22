@@ -13,6 +13,8 @@ import {
   ClipboardList,
   Store,
   Package,
+  Truck,
+  Bell,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -125,6 +127,17 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         title: "Encomendas Recebidas",
         href: "/dashboard/orders",
         icon: Package,
+      },
+      {
+        title: "Logística & Entregas",
+        href: "/dashboard/logistics",
+        icon: Truck,
+        badge: "Fulfillment",
+      },
+      {
+        title: "Notificações",
+        href: "/dashboard/notifications",
+        icon: Bell,
       },
       {
         title: "Pedidos de Cotação",

@@ -125,6 +125,34 @@ export type OrderSellerGroupStatus =
   | "completed"
   | "cancelled";
 
+export type DeliveryStatus =
+  | "not_assigned"
+  | "assigned"
+  | "accepted"
+  | "picked_up"
+  | "in_transit"
+  | "delivered"
+  | "failed"
+  | "cancelled";
+
+export type CourierVehicleType =
+  | "motorcycle"
+  | "pickup_truck"
+  | "van"
+  | "heavy_truck"
+  | "bicycle";
+
+export type CourierStatus = "available" | "busy" | "offline" | "suspended";
+
+export type ProofOfDeliveryType = "otp" | "photo" | "signature";
+
+export type TrackingActorType =
+  | "customer"
+  | "seller"
+  | "courier"
+  | "logistics_admin"
+  | "system";
+
 export type AgriculturalResourceType =
   | "agronomist"
   | "veterinarian"
@@ -1045,7 +1073,17 @@ export interface Database {
           order_id: string;
           seller_id: string;
           status: OrderSellerGroupStatus;
+          delivery_status: DeliveryStatus;
           fulfillment_method: OrderFulfillmentMethod;
+          courier_id: string | null;
+          delivery_otp_plain: string | null;
+          delivery_otp_hash: string | null;
+          proof_of_delivery_type: ProofOfDeliveryType | null;
+          proof_of_delivery_url: string | null;
+          assigned_at: string | null;
+          picked_up_at: string | null;
+          delivered_at: string | null;
+          failed_reason: string | null;
           subtotal: number;
           delivery_fee: number;
           total: number;
@@ -1058,7 +1096,17 @@ export interface Database {
           order_id: string;
           seller_id: string;
           status?: OrderSellerGroupStatus;
+          delivery_status?: DeliveryStatus;
           fulfillment_method?: OrderFulfillmentMethod;
+          courier_id?: string | null;
+          delivery_otp_plain?: string | null;
+          delivery_otp_hash?: string | null;
+          proof_of_delivery_type?: ProofOfDeliveryType | null;
+          proof_of_delivery_url?: string | null;
+          assigned_at?: string | null;
+          picked_up_at?: string | null;
+          delivered_at?: string | null;
+          failed_reason?: string | null;
           subtotal?: number;
           delivery_fee?: number;
           total?: number;
@@ -1071,13 +1119,167 @@ export interface Database {
           order_id?: string;
           seller_id?: string;
           status?: OrderSellerGroupStatus;
+          delivery_status?: DeliveryStatus;
           fulfillment_method?: OrderFulfillmentMethod;
+          courier_id?: string | null;
+          delivery_otp_plain?: string | null;
+          delivery_otp_hash?: string | null;
+          proof_of_delivery_type?: ProofOfDeliveryType | null;
+          proof_of_delivery_url?: string | null;
+          assigned_at?: string | null;
+          picked_up_at?: string | null;
+          delivered_at?: string | null;
+          failed_reason?: string | null;
           subtotal?: number;
           delivery_fee?: number;
           total?: number;
           seller_notes?: string | null;
           created_at?: string;
           updated_at?: string;
+        };
+      };
+      delivery_zones: {
+        Row: {
+          id: string;
+          name: string;
+          description: string | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          boundary: unknown | null;
+          base_fee: number;
+          per_km_fee: number;
+          estimated_hours: number | null;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          name: string;
+          description?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          boundary?: unknown | null;
+          base_fee?: number;
+          per_km_fee?: number;
+          estimated_hours?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          name?: string;
+          description?: string | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          boundary?: unknown | null;
+          base_fee?: number;
+          per_km_fee?: number;
+          estimated_hours?: number | null;
+          is_active?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      couriers: {
+        Row: {
+          id: string;
+          profile_id: string;
+          company_name: string | null;
+          vehicle_type: CourierVehicleType;
+          license_plate: string | null;
+          phone: string;
+          whatsapp_phone: string | null;
+          status: CourierStatus;
+          verification_status: VerificationStatus;
+          rating: number | null;
+          deliveries_count: number | null;
+          operating_province_id: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          company_name?: string | null;
+          vehicle_type?: CourierVehicleType;
+          license_plate?: string | null;
+          phone: string;
+          whatsapp_phone?: string | null;
+          status?: CourierStatus;
+          verification_status?: VerificationStatus;
+          rating?: number | null;
+          deliveries_count?: number | null;
+          operating_province_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          company_name?: string | null;
+          vehicle_type?: CourierVehicleType;
+          license_plate?: string | null;
+          phone?: string;
+          whatsapp_phone?: string | null;
+          status?: CourierStatus;
+          verification_status?: VerificationStatus;
+          rating?: number | null;
+          deliveries_count?: number | null;
+          operating_province_id?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      order_tracking_events: {
+        Row: {
+          id: string;
+          order_id: string;
+          order_number: string;
+          seller_group_id: string | null;
+          status: string;
+          title: string;
+          description: string;
+          actor_name: string | null;
+          actor_type: TrackingActorType;
+          location_name: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          metadata: Json | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          order_number: string;
+          seller_group_id?: string | null;
+          status: string;
+          title: string;
+          description: string;
+          actor_name?: string | null;
+          actor_type?: TrackingActorType;
+          location_name?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          metadata?: Json | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          order_number?: string;
+          seller_group_id?: string | null;
+          status?: string;
+          title?: string;
+          description?: string;
+          actor_name?: string | null;
+          actor_type?: TrackingActorType;
+          location_name?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
+          metadata?: Json | null;
+          created_at?: string;
         };
       };
       order_items: {

@@ -15,26 +15,34 @@ import {
   XCircle,
   AlertCircle,
   Truck,
+  KeyRound,
 } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button } from "@/components/ui/Button";
 import { OrderTimeline } from "@/components/commerce/OrderTimeline";
+import { DeliveryTracker } from "@/components/logistics/DeliveryTracker";
 import { getOrderByNumberAction, cancelOrderAction } from "@/lib/services/commerce-actions";
-import type { OrderDescriptor } from "@/types/domain";
+import { getOrderTrackingEventsAction } from "@/lib/services/logistics-actions";
+import type { OrderDescriptor, OrderTrackingEventDescriptor } from "@/types/domain";
 
 export default function OrderDetailPage() {
   const params = useParams();
   const orderNumber = params?.orderNumber as string;
 
   const [order, setOrder] = useState<OrderDescriptor | null>(null);
+  const [trackingEvents, setTrackingEvents] = useState<OrderTrackingEventDescriptor[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isCancelling, setIsCancelling] = useState(false);
 
   useEffect(() => {
     if (!orderNumber) return;
-    getOrderByNumberAction(orderNumber).then((res) => {
-      setOrder(res);
+    Promise.all([
+      getOrderByNumberAction(orderNumber),
+      getOrderTrackingEventsAction(orderNumber),
+    ]).then(([orderRes, eventsRes]) => {
+      setOrder(orderRes);
+      setTrackingEvents(eventsRes);
       setIsLoading(false);
     });
   }, [orderNumber]);
@@ -66,6 +74,7 @@ export default function OrderDetailPage() {
   }
 
   const format = (v: number) => `${new Intl.NumberFormat("pt-AO").format(v)} ${order.currency}`;
+  const firstSellerGroup = order.seller_groups?.[0];
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
@@ -105,8 +114,19 @@ export default function OrderDetailPage() {
         </div>
 
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-          {/* Left Column: Order Items & Shipping details */}
+          {/* Left Column: Delivery Tracker, Order Items & Shipping details */}
           <div className="lg:col-span-8 space-y-6">
+            {/* Delivery Tracking Card with Audit Trail & OTP */}
+            <DeliveryTracker
+              orderNumber={order.order_number}
+              deliveryStatus={firstSellerGroup?.delivery_status || "assigned"}
+              fulfillmentMethod={order.fulfillment_method}
+              deliveryOtp={firstSellerGroup?.delivery_otp || "483921"}
+              trackingEvents={trackingEvents}
+              courierName={firstSellerGroup?.courier_name || "Expresso Rural Huambo"}
+              courierPhone={firstSellerGroup?.courier_phone || "+244 923 555 444"}
+            />
+
             {/* Products Card */}
             <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
               <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
