@@ -12,8 +12,10 @@ import type { ProductListItem } from "@/types/domain";
 import type { ProductAvailabilityStatus } from "@/types/database";
 import { Package, SlidersHorizontal, Map as MapIcon, List } from "lucide-react";
 import { useGeolocation } from "@/lib/location/use-geolocation";
+import { useI18n } from "@/i18n/provider";
 
 export default function AgriShoppingPage() {
+  const { dict } = useI18n();
   const [products, setProducts] = useState<ProductListItem[]>(INITIAL_PRODUCTS);
   const [totalCount, setTotalCount] = useState<number>(INITIAL_PRODUCTS.length);
   const [selectedProduct, setSelectedProduct] = useState<ProductListItem | null>(null);
@@ -122,9 +124,9 @@ export default function AgriShoppingPage() {
         <div className="flex flex-col md:flex-row md:items-end justify-between gap-4">
           <div>
             <SectionHeader
-              badgeText="AgriShopping • Marketplace"
-              title="Produtos, Insumos & Equipamentos Agrícolas"
-              subtitle="Encontre sementes certificadas, adubos, bombas de irrigação solar e produtos locais nas 18 províncias de Angola."
+              badgeText="AgriShopping"
+              title={dict.pillars.agriShopping.headline}
+              subtitle={dict.pillars.agriShopping.description}
             />
           </div>
 
@@ -221,9 +223,9 @@ export default function AgriShoppingPage() {
               ) : (
                 <EmptyState
                   icon={Package}
-                  title="Nenhum produto encontrado"
-                  description="Tente alterar os termos de pesquisa, categoria ou raio de entrega."
-                  actionLabel="Limpar Filtros"
+                  title={dict.shopping.noResults}
+                  description={dict.shopping.searchPlaceholder}
+                  actionLabel={dict.common.clear}
                   onAction={handleClearFilters}
                 />
               )}

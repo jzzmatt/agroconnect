@@ -11,6 +11,7 @@ import {
   MoreHorizontal,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/provider";
 
 export interface MobileBottomNavProps {
   variant?: "marketing" | "dashboard";
@@ -18,15 +19,14 @@ export interface MobileBottomNavProps {
 
 export function MobileBottomNav({ variant = "marketing" }: MobileBottomNavProps) {
   const pathname = usePathname();
+  const { dict } = useI18n();
 
-  // Bottom navigation labels matching Figma design:
-  // Início, Serviços, Cursos, Produtos, Mais
   const items = [
-    { href: variant === "dashboard" ? "/dashboard" : "/", label: "Início", icon: Home },
-    { href: "/services", label: "Serviços", icon: Users },
-    { href: "/agriacademy", label: "Cursos", icon: GraduationCap },
-    { href: "/agrishopping", label: "Produtos", icon: ShoppingBag },
-    { href: "/agrilocalizacao", label: "Mais", icon: MoreHorizontal },
+    { href: variant === "dashboard" ? "/dashboard" : "/", label: dict.navigation.home, icon: Home },
+    { href: "/services", label: dict.navigation.services, icon: Users },
+    { href: "/agriacademy", label: dict.common.courses, icon: GraduationCap },
+    { href: "/agrishopping", label: dict.common.products, icon: ShoppingBag },
+    { href: "/agrilocalizacao", label: dict.common.more, icon: MoreHorizontal },
   ];
 
   return (

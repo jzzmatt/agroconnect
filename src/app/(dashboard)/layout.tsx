@@ -7,6 +7,7 @@ import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useUser } from "@clerk/nextjs";
+import { useI18n } from "@/i18n/provider";
 
 export default function DashboardLayout({
   children,
@@ -14,6 +15,7 @@ export default function DashboardLayout({
   children: React.ReactNode;
 }) {
   const { user } = useUser();
+  const { locale } = useI18n();
   const { plan, marketCountry } = useAuthoritativePlan();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<ProfileType>("personal");
@@ -88,7 +90,7 @@ export default function DashboardLayout({
         <DashboardHeader
           onOpenMobileMenu={() => setMobileMenuOpen(true)}
           userDisplayName={displayName}
-          userProvince={`${marketCountry.flag} ${marketCountry.name.pt}`}
+          userProvince={`${marketCountry.flag} ${marketCountry.name[locale] || marketCountry.name.pt}`}
           activeProfile={activeProfile}
           availableProfiles={availableProfiles}
           onSwitchProfile={handleSwitchProfile}

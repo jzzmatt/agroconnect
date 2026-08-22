@@ -3,6 +3,7 @@ import { ClerkProvider } from "@clerk/nextjs";
 import "leaflet/dist/leaflet.css";
 import "./globals.css";
 import { I18nProvider } from "@/i18n/provider";
+import { LocaleHydrator } from "@/components/i18n/LocaleHydrator";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";
 
 export const metadata: Metadata = {
@@ -24,7 +25,10 @@ export default function RootLayout({
         </head>
         <body className="min-h-screen antialiased bg-background text-foreground transition-colors duration-200 overflow-x-hidden">
           <ThemeProvider defaultTheme="light">
-            <I18nProvider initialLocale="pt">{children}</I18nProvider>
+            <I18nProvider initialLocale="pt">
+              <LocaleHydrator />
+              {children}
+            </I18nProvider>
           </ThemeProvider>
         </body>
       </html>

@@ -4,7 +4,8 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, X } from "lucide-react";
-import { DASHBOARD_NAVIGATION } from "@/config/navigation";
+import { getDashboardNavigation } from "@/config/navigation";
+import { useI18n } from "@/i18n/provider";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
@@ -33,6 +34,8 @@ export function DashboardSidebar({
   className,
 }: DashboardSidebarProps) {
   const pathname = usePathname();
+  const { dict } = useI18n();
+  const navigation = getDashboardNavigation(dict);
 
   // Compute entitlements based on actual subscription plan (Basic users will have creation modules locked)
   const entitlements = getUserEntitlements({
@@ -41,7 +44,7 @@ export function DashboardSidebar({
   });
 
   // Filter navigation sections based on active user roles & subscription plan module entitlements
-  const visibleSections = DASHBOARD_NAVIGATION.filter((section) => {
+  const visibleSections = navigation.filter((section) => {
     // Check module entitlement: if section requires a module that is locked on user's plan, hide from sidebar
     if (section.requiredModule === "agriShopping" && !entitlements.can_access_agrishopping) {
       return false;
@@ -68,10 +71,10 @@ export function DashboardSidebar({
           </div>
           <div className="flex flex-col">
             <span className="text-sm font-black tracking-tight text-sidebar-foreground font-sans">
-              AGROCONNECT
+              {dict.common.brandName}
             </span>
             <span className="text-[9px] font-bold text-primary uppercase tracking-wider">
-              Painel de Controlo
+              {dict.dash.controlPanel}
             </span>
           </div>
         </Link>
@@ -152,7 +155,7 @@ export function DashboardSidebar({
       {/* Areas of Activity in Ecosystem Footer */}
       <div className="p-4 border-t border-sidebar-border bg-surface-muted/50">
         <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
-          ÁREAS DE ATUAÇÃO NO ECOSSISTEMA
+          {dict.dash.areas}
         </span>
         <div className="flex flex-wrap gap-1">
           {availableProfiles.map((type) => {

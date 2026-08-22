@@ -161,6 +161,7 @@ export function getUserEntitlements(params: {
     can_publish_products: isPaid,
     can_manage_inventory: isPaid,
     can_upload_product_images: isPaid,
+    can_upload_product_video: isPaid,
     can_manage_services: isPaid,
     can_teach_courses: isPaid,
     can_create_courses: isPaid,

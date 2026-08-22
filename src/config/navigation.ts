@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
+import { pt, type Dictionary } from "@/i18n/dictionaries/pt";
 
 export interface NavItem {
   title: string;
@@ -50,18 +51,19 @@ export interface NavSection {
  *   - Meus Cursos
  *   - Estudantes
  */
-export const DASHBOARD_NAVIGATION: NavSection[] = [
+export function getDashboardNavigation(dict: Dictionary): NavSection[] {
+  return [
   {
-    title: "Principal",
+    title: dict.navDash.main,
     pillar: "general",
     items: [
       {
-        title: "Dashboard",
+        title: dict.navDash.dashboard,
         href: "/dashboard",
         icon: LayoutDashboard,
       },
       {
-        title: "Meu Perfil",
+        title: dict.navDash.myProfile,
         href: "/profile",
         icon: User,
       },
@@ -74,22 +76,22 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
     roles: ["expert", "veterinarian", "agronomist", "agricultural_consultant"],
     items: [
       {
-        title: "Meus Serviços",
+        title: dict.navDash.myServices,
         href: "/dashboard/services",
         icon: ClipboardList,
       },
       {
-        title: "Pedidos de Serviço",
+        title: dict.navDash.serviceRequests,
         href: "/dashboard/requests",
         icon: Calendar,
       },
       {
-        title: "Avaliações",
+        title: dict.navDash.reviews,
         href: "/dashboard/expert/reviews",
         icon: Star,
       },
       {
-        title: "Ganhos",
+        title: dict.navDash.earnings,
         href: "/dashboard/expert/earnings",
         icon: DollarSign,
       },
@@ -102,56 +104,56 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
     roles: ["instructor", "student"],
     items: [
       {
-        title: "Meus Cursos",
+        title: dict.navDash.myCourses,
         href: "/dashboard/academy/my-courses",
         icon: BookOpen,
       },
       {
-        title: "Vídeos & Armazenamento",
+        title: dict.navDash.videosStorage,
         href: "/dashboard/academy",
         icon: BookOpen,
       },
       {
-        title: "Estudantes",
+        title: dict.navDash.students,
         href: "/dashboard/academy/students",
         icon: Users,
       },
     ],
   },
   {
-    title: "AgriShopping & Vendas",
+    title: dict.navDash.shoppingSales,
     pillar: "agriShopping",
     requiredModule: "agriShopping",
     roles: ["seller", "farmer", "business", "expert"],
     items: [
       {
-        title: "Meus Produtos",
+        title: dict.navDash.myProducts,
         href: "/dashboard/products",
         icon: ShoppingBag,
       },
       {
-        title: "Encomendas Recebidas",
+        title: dict.navDash.receivedOrders,
         href: "/dashboard/orders",
         icon: Package,
       },
       {
-        title: "Logística & Entregas",
+        title: dict.navDash.logistics,
         href: "/dashboard/logistics",
         icon: Truck,
         badge: "Fulfillment",
       },
       {
-        title: "Notificações",
+        title: dict.navDash.notifications,
         href: "/dashboard/notifications",
         icon: Bell,
       },
       {
-        title: "Pedidos de Cotação",
+        title: dict.navDash.quotes,
         href: "/dashboard/product-requests",
         icon: Calendar,
       },
       {
-        title: "Explorar Loja",
+        title: dict.navDash.exploreStore,
         href: "/agrishopping",
         icon: Store,
       },
@@ -159,13 +161,16 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         title: "AgriLocalização",
         href: "/agrilocalizacao",
         icon: MapPin,
-        badge: "Mapa",
+        badge: dict.navDash.map,
       },
       {
-        title: "Serviços empresariais",
+        title: dict.navDash.enterprise,
         href: "/dashboard/enterprise",
         icon: Building2,
       },
     ],
   },
 ];
+}
+
+export const DASHBOARD_NAVIGATION = getDashboardNavigation(pt);

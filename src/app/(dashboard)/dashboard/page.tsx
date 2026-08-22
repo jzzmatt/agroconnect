@@ -22,6 +22,8 @@ import {
   Sparkles,
 } from "lucide-react";
 import { MetricCard, Button, UpgradePlanModal, ProductLimitModal } from "@/components/ui";
+import { useI18n } from "@/i18n/provider";
+import { getLocalizedPlanCopy } from "@/i18n/plan-copy";
 import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
@@ -31,7 +33,9 @@ import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function DashboardPage() {
   const { user } = useUser();
-  const { plan, marketCountry, locale } = useAuthoritativePlan();
+  const { dict, locale } = useI18n();
+  const { plan, marketCountry } = useAuthoritativePlan();
+  const planCopy = getLocalizedPlanCopy(dict, plan);
 
   const [profile, setProfile] = useState({
     displayName: "",
@@ -159,37 +163,37 @@ export default function DashboardPage() {
   // KPIs
   const kpiCards = [
     {
-      title: "Ganhos Totais",
+      title: dict.dash.totalEarnings,
       value: isBasic ? "0 Kz" : "2.450.000 Kz",
-      description: isBasic ? "Disponível a partir do plano Profissional" : "em relação ao mês anterior",
+      description: isBasic ? dict.dash.fromProfessional : dict.dash.vsLastMonth,
       trend: isBasic ? undefined : { value: "12.5% este mês", isPositive: true },
       icon: DollarSign,
     },
     {
-      title: "Venda de Cursos",
+      title: dict.dash.courseSales,
       value: isBasic ? "0 Kz" : "1.250.000 Kz",
-      description: "AgriAcademy",
+      description: dict.navigation.agriAcademy,
       trend: isBasic ? undefined : { value: "18.3% este mês", isPositive: true },
       icon: BookOpen,
     },
     {
-      title: "Consultas Activas",
-      value: isBasic ? "0 Agendadas" : "32 Agendadas",
-      description: "AgriExpert",
+      title: dict.dash.activeConsults,
+      value: isBasic ? "0" : "32",
+      description: dict.navigation.agriExpert,
       trend: isBasic ? undefined : { value: "4.7% este mês", isPositive: true },
       icon: Calendar,
     },
     {
-      title: "Produtos Vendidos",
-      value: isBasic ? "0 Items" : "56 Items",
-      description: "AgriShopping",
+      title: dict.dash.productsSold,
+      value: isBasic ? "0" : "56",
+      description: dict.navigation.agriShopping,
       trend: isBasic ? undefined : { value: "8.2% este mês", isPositive: true },
       icon: ShoppingBag,
     },
     {
-      title: "Total Estudantes",
-      value: isBasic ? "0 Alunos" : "124 Alunos",
-      description: "Inscritos nos seus cursos",
+      title: dict.dash.totalStudents,
+      value: isBasic ? "0" : "124",
+      description: dict.dash.manageCourses,
       trend: isBasic ? undefined : { value: "15.4% este mês", isPositive: true },
       icon: Users,
     },
@@ -202,18 +206,18 @@ export default function DashboardPage() {
         <div className="space-y-1.5">
           <div className="flex items-center gap-2 flex-wrap">
             <span className="text-[10px] font-extrabold uppercase tracking-wider text-primary">
-              Painel de Controlo • AGROCONNECT
+              {dict.dash.controlPanel} • {dict.common.brandName}
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-secondary text-secondary-foreground border border-border">
               <span>{activeProfileConfig.icon}</span>
-              <span>Perfil ativo: {activeProfileConfig.label}</span>
+              <span>{dict.dash.activeProfile}: {activeProfileConfig.label}</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-50 dark:bg-amber-950 text-amber-800 dark:text-amber-200 border border-amber-200 dark:border-amber-800">
               <Sparkles className="w-3 h-3 text-amber-600" />
-              <span>Plano {currentPlanDef.name} ({currentPlanDef.priceFormatted}/mês)</span>
+              <span>{dict.common.currentPlan}: {planCopy.name} ({currentPlanDef.priceFormatted})</span>
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-surface text-foreground border border-border">
-              {marketCountry.flag} {marketCountry.name.pt}
+              {marketCountry.flag} {marketCountry.name[locale] || marketCountry.name.pt}
             </span>
             <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-surface text-foreground border border-border uppercase">
               {locale}
@@ -221,12 +225,10 @@ export default function DashboardPage() {
           </div>
 
           <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
-            {greeting.greeting} 👋
+            {dict.common.hello}{greeting.displayName ? `, ${greeting.displayName}` : ""} 👋
           </h1>
           <p className="text-xs sm:text-sm text-muted-foreground">
-            {isBasic
-              ? "Plano Básico ativo (Acesso a visualização do ecossistema e gestão do perfil pessoal)."
-              : "Bem-vindo ao seu espaço profissional no ecossistema agrícola de Angola."}
+            {isBasic ? dict.dash.welcomeBasic : dict.dash.welcomePaid}
           </p>
         </div>
 
@@ -236,7 +238,7 @@ export default function DashboardPage() {
             <Link href="/pricing">
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-5 shadow-md">
                 <Sparkles className="w-4 h-4" />
-                <span>Melhorar Plano</span>
+                <span>{dict.dash.upgradePlan}</span>
               </Button>
             </Link>
           ) : profile.activeProfile === "seller" ? (
@@ -252,7 +254,7 @@ export default function DashboardPage() {
                 }`}
               >
                 {isLimitReached ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{isLimitReached ? "🔒 Limite atingido (10/10)" : "Adicionar Produto"}</span>
+                <span>{isLimitReached ? dict.dash.limitReached : dict.dash.addProduct}</span>
               </Button>
             </Link>
           ) : profile.activeProfile === "instructor" ? (
@@ -262,14 +264,14 @@ export default function DashboardPage() {
             >
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
                 {!entitlements.can_create_courses ? <Lock className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
-                <span>{!entitlements.can_create_courses ? "🔒 Criar Curso" : "Gerir Cursos"}</span>
+                <span>{!entitlements.can_create_courses ? dict.dash.createCourse : dict.dash.manageCourses}</span>
               </Button>
             </Link>
           ) : (
             <Link href="/dashboard/services/new">
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
                 <Plus className="w-4 h-4" />
-                <span>Novo Serviço</span>
+                <span>{dict.dash.newService}</span>
               </Button>
             </Link>
           )}
@@ -294,7 +296,7 @@ export default function DashboardPage() {
               <div className="space-y-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
-                    Capacidade Comercial Ativa
+                    {dict.dash.sellerActive}
                   </span>
                   <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
                     Vendedor AgriShopping
@@ -310,7 +312,7 @@ export default function DashboardPage() {
                   )}
                 </div>
                 <h3 className="text-lg font-black text-amber-950 dark:text-amber-100">
-                  AgriShopping • Gestão de Vendas & Insumos
+                  {dict.dash.sellerTitle}
                 </h3>
                 <p className="text-xs text-amber-900/80 dark:text-amber-200/80 max-w-xl">
                   {entitlements.product_limit !== null
@@ -324,7 +326,7 @@ export default function DashboardPage() {
               <Link href="/dashboard/products">
                 <Button variant="outline" size="sm" className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100">
                   <Package className="w-3.5 h-3.5 mr-1" />
-                  <span>Meus Produtos ({profile.activeProductsCount})</span>
+                  <span>{dict.dash.myProducts} ({profile.activeProductsCount})</span>
                 </Button>
               </Link>
               <Link
@@ -339,12 +341,12 @@ export default function DashboardPage() {
                   }`}
                 >
                   {isLimitReached ? <Lock className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                  <span>{isLimitReached ? "🔒 Limite atingido" : "Adicionar Produto"}</span>
+                  <span>{isLimitReached ? dict.dash.limitReached : dict.dash.addProduct}</span>
                 </Button>
               </Link>
               <Link href="/dashboard/orders">
                 <Button variant="outline" size="sm" className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800">
-                  <span>Encomendas</span>
+                  <span>{dict.dash.orders}</span>
                 </Button>
               </Link>
             </div>
@@ -359,15 +361,15 @@ export default function DashboardPage() {
             <div>
               <h3 className="text-base font-black text-foreground flex items-center gap-2">
                 <Lock className="w-4 h-4 text-amber-600" />
-                <span>Módulos do Ecossistema (Disponíveis em Planos Superiores)</span>
+                <span>{dict.dash.lockedModules}</span>
               </h3>
               <p className="text-xs text-muted-foreground">
-                No plano Básico tem acesso a navegação e compras. Para criar produtos, serviços e cursos, atualize o seu plano.
+                {dict.dash.lockedHint}
               </p>
             </div>
             <Link href="/pricing">
               <Button variant="outline" size="sm" className="text-xs font-bold">
-                Ver Todos os Planos
+                {dict.dash.seePlans}
               </Button>
             </Link>
           </div>
@@ -393,7 +395,7 @@ export default function DashboardPage() {
                 onClick={() => triggerLockedModule("Venda de Produtos no AgriShopping", "professional")}
                 className="w-full text-xs font-bold border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-200"
               >
-                <span>🔒 Desbloquear Vendas</span>
+                <span>🔒 {dict.dash.unlockSales}</span>
               </Button>
             </div>
 
@@ -417,7 +419,7 @@ export default function DashboardPage() {
                 onClick={() => triggerLockedModule("Criação de Cursos no AgriAcademy", "professional")}
                 className="w-full text-xs font-bold border-blue-300 dark:border-blue-800 text-blue-900 dark:text-blue-200"
               >
-                <span>🔒 Desbloquear Ensino</span>
+                <span>🔒 {dict.dash.unlockTeaching}</span>
               </Button>
             </div>
 
@@ -441,7 +443,7 @@ export default function DashboardPage() {
                 onClick={() => triggerLockedModule("Gestão Profissional no AgriExpert", "professional")}
                 className="w-full text-xs font-bold border-emerald-300 dark:border-emerald-800 text-emerald-900 dark:text-emerald-200"
               >
-                <span>🔒 Desbloquear Serviços</span>
+                <span>🔒 {dict.dash.unlockServices}</span>
               </Button>
             </div>
 
@@ -465,7 +467,7 @@ export default function DashboardPage() {
                 onClick={() => triggerLockedModule("Destaque no AgriLocalização", "professional")}
                 className="w-full text-xs font-bold border-teal-300 dark:border-teal-800 text-teal-900 dark:text-teal-200"
               >
-                <span>🔒 Desbloquear Destaque</span>
+                <span>🔒 {dict.dash.unlockMap}</span>
               </Button>
             </div>
           </div>
@@ -494,7 +496,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center">
                 <Calendar className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-base text-foreground">Próximos Agendamentos</h3>
+              <h3 className="font-bold text-base text-foreground">{dict.dash.upcoming}</h3>
             </div>
             <Link href="/dashboard/requests" className="text-xs font-bold text-primary hover:underline">
               Ver pedidos
@@ -504,7 +506,7 @@ export default function DashboardPage() {
           <div className="space-y-3">
             {isBasic ? (
               <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
-                <p className="text-xs text-muted-foreground">Nenhum agendamento ativo.</p>
+                <p className="text-xs text-muted-foreground">{dict.dash.noAppointments}</p>
               </div>
             ) : (
               <div className="p-4 rounded-2xl bg-surface border border-border space-y-1">
@@ -528,7 +530,7 @@ export default function DashboardPage() {
               <div className="w-8 h-8 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center">
                 <TrendingUp className="w-4 h-4" />
               </div>
-              <h3 className="font-bold text-base text-foreground">Atividade Recente</h3>
+              <h3 className="font-bold text-base text-foreground">{dict.dash.recentActivity}</h3>
             </div>
           </div>
 

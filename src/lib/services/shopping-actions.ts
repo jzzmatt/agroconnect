@@ -40,108 +40,228 @@ export async function getSellerProductsAction(
 }
 
 import { getUserEntitlements } from "@/lib/services/pricing-service";
+import {
+  dbCondition,
+  isProductCategorySlug,
+  productTypeFromCategory,
+} from "@/config/product-catalog";
+import { buildProductMetadata } from "@/lib/products/metadata";
+import {
+  PRODUCT_ERROR_CODES,
+  createRequestId,
+  logProductOperation,
+  type ProductActionResult,
+} from "@/lib/products/errors";
+
+export type CreateProductResult = ProductActionResult<ProductListItem> & {
+  product?: ProductListItem;
+};
 
 /**
- * Server Action: Create product with strict Plan Entitlements & Product Limit Enforcement
+ * Server Action: Create/publish a product with entitlements, category validation,
+ * and structured errors. Never throws a raw 500 to the client.
  */
 export async function createProductAction(
   input: CreateProductInput
-): Promise<ProductListItem> {
-  await requireAuth();
-  const currentUser = await getCurrentUserProfile();
-  if (!currentUser) {
-    throw new Error("Não autorizado: Sessão não encontrada.");
+): Promise<CreateProductResult> {
+  const requestId = input.idempotencyKey || createRequestId();
+
+  try {
+    await requireAuth();
+    const currentUser = await getCurrentUserProfile();
+    if (!currentUser) {
+      return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };
+    }
+
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: currentUser.subscription_plan,
+      roles: currentUser.roles,
+      accountType: currentUser.account_type,
+    });
+
+    if (!entitlements.can_create_products || !entitlements.can_publish_products) {
+      logProductOperation({
+        requestId,
+        operation: "create_product",
+        userId: currentUser.clerk_user_id,
+        subscription: currentUser.subscription_plan,
+        category: input.categorySlug,
+        status: "error",
+        error: "creation_locked",
+      });
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_CREATION_LOCKED, requestId };
+    }
+
+    if (!input.title || input.title.trim().length < 3) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VALIDATION_FAILED, requestId };
+    }
+    if (input.price === undefined || input.price < 0) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VALIDATION_FAILED, requestId };
+    }
+
+    const categorySlug = isProductCategorySlug(input.categorySlug)
+      ? input.categorySlug
+      : "sementes-e-fertilizantes";
+    const productType = input.productType || productTypeFromCategory(categorySlug);
+
+    let metadata;
+    try {
+      metadata = buildProductMetadata({
+        categorySlug,
+        productType,
+        condition: input.condition,
+        animal: (input.metadata as any)?.animal,
+        land: (input.metadata as any)?.land,
+        location: {
+          province_name: input.provinceName || "Luanda",
+          municipality_name: input.municipalityName,
+          latitude: input.latitude,
+          longitude: input.longitude,
+        },
+      });
+    } catch {
+      return {
+        success: false,
+        code:
+          productType === "animal"
+            ? PRODUCT_ERROR_CODES.PRODUCT_ANIMAL_INVALID
+            : productType === "land"
+              ? PRODUCT_ERROR_CODES.PRODUCT_LAND_INVALID
+              : PRODUCT_ERROR_CODES.PRODUCT_VALIDATION_FAILED,
+        requestId,
+      };
+    }
+
+    const seller = await getOrCreateCurrentProviderProfileAction();
+    const currentSellerProducts = await ShoppingService.getSellerProducts(seller.id);
+    const activeCount = currentSellerProducts.filter((p) => p.status !== "archived").length;
+
+    if (entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_LIMIT_REACHED, requestId };
+    }
+
+    const supabase = await createServerSupabaseClient();
+    const slugBase = input.title.toLowerCase().replace(/\s+/g, "-");
+    const uniqueSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+
+    let categoryId = input.categoryId || null;
+    if (!categoryId) {
+      const { data: categoryRow } = await (supabase.from("categories") as any)
+        .select("id")
+        .eq("slug", categorySlug)
+        .eq("category_type", "product")
+        .maybeSingle();
+      categoryId = categoryRow?.id || null;
+    }
+
+    const { data, error } = await (supabase.from("products") as any)
+      .insert({
+        seller_id: seller.id,
+        category_id: categoryId,
+        category_slug: categorySlug,
+        product_type: productType,
+        title: input.title.trim(),
+        slug: uniqueSlug,
+        description: input.description || "",
+        condition: dbCondition(input.condition),
+        price: input.price,
+        currency: input.currency || "AOA",
+        quantity: input.quantity ?? metadata.animal?.quantity ?? 1,
+        unit: input.unit || metadata.animal?.unit || "unidade",
+        sku: input.sku || null,
+        availability_status: input.availabilityStatus || "in_stock",
+        location_type: input.locationType || "physical_location",
+        province_id: input.provinceId || null,
+        municipality_id: input.municipalityId || null,
+        latitude: input.latitude || null,
+        longitude: input.longitude || null,
+        selling_radius_km: input.sellingRadiusKm || 50,
+        status: input.status || "published",
+        is_featured: input.isFeatured || false,
+        metadata,
+      })
+      .select("*")
+      .single();
+
+    if (error) {
+      console.warn("[createProductAction] DB insert warning:", error.message, requestId);
+    }
+
+    const product: ProductListItem = data
+      ? {
+          id: data.id,
+          seller_id: seller.id,
+          seller_name: seller.business_name,
+          seller_slug: seller.slug,
+          seller_verified: seller.verification_status === "verified",
+          category_id: data.category_id,
+          category_slug: categorySlug,
+          product_type: productType,
+          title: data.title,
+          slug: data.slug,
+          description: data.description,
+          condition: data.condition,
+          price: Number(data.price),
+          currency: data.currency,
+          quantity: data.quantity,
+          unit: data.unit,
+          sku: data.sku,
+          availability_status: data.availability_status,
+          location_type: data.location_type,
+          province_id: data.province_id,
+          municipality_id: data.municipality_id,
+          province_name: input.provinceName,
+          municipality_name: input.municipalityName,
+          latitude: data.latitude,
+          longitude: data.longitude,
+          selling_radius_km: data.selling_radius_km,
+          status: data.status,
+          is_featured: data.is_featured,
+          metadata,
+          created_at: data.created_at,
+        }
+      : await ShoppingService.createProduct({
+          ...input,
+          categorySlug,
+          productType,
+          metadata,
+        });
+
+    if (!data) {
+      product.category_slug = categorySlug;
+      product.product_type = productType;
+      product.metadata = metadata;
+      product.province_name = input.provinceName;
+      product.municipality_name = input.municipalityName;
+    }
+
+    logProductOperation({
+      requestId,
+      operation: "create_product",
+      userId: currentUser.clerk_user_id,
+      productId: product.id,
+      category: categorySlug,
+      productType,
+      subscription: currentUser.subscription_plan,
+      status: "ok",
+    });
+
+    return { success: true, product, data: product, requestId };
+  } catch (err: any) {
+    logProductOperation({
+      requestId,
+      operation: "create_product",
+      category: input.categorySlug,
+      status: "error",
+      error: err?.message,
+    });
+    return {
+      success: false,
+      code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED,
+      message: err?.message,
+      requestId,
+    };
   }
-
-  // 1. Resolve Plan Entitlements
-  const entitlements = getUserEntitlements({
-    subscriptionPlan: currentUser.subscription_plan,
-    roles: currentUser.roles,
-    accountType: currentUser.account_type,
-  });
-
-  if (!entitlements.can_create_products) {
-    throw new Error("PRODUCT_CREATION_LOCKED: O seu plano Básico não permite criar produtos. Atualize para o plano Profissional ou Business.");
-  }
-
-  const seller = await getOrCreateCurrentProviderProfileAction();
-  const currentSellerProducts = await ShoppingService.getSellerProducts(seller.id);
-  const activeCount = currentSellerProducts.filter((p) => p.status !== "archived").length;
-
-  // 2. Check 10-Product limit for Professional plan
-  if (entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
-    throw new Error(`PRODUCT_LIMIT_REACHED: Atingiu o limite de ${entitlements.product_limit} produtos ativos do plano Profissional. Atualize para o plano Business.`);
-  }
-
-  const supabase = await createServerSupabaseClient();
-
-  if (!input.title || input.title.trim().length < 3) {
-    throw new Error("O título do produto deve conter pelo menos 3 caracteres.");
-  }
-  if (input.price === undefined || input.price < 0) {
-    throw new Error("O preço do produto deve ser um valor positivo.");
-  }
-
-  const slugBase = input.title.toLowerCase().replace(/\s+/g, "-");
-  const uniqueSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
-
-  const { data, error } = await (supabase.from("products") as any)
-    .insert({
-      seller_id: seller.id,
-      category_id: input.categoryId || null,
-      title: input.title.trim(),
-      slug: uniqueSlug,
-      description: input.description || "",
-      condition: input.condition || "new",
-      price: input.price,
-      currency: input.currency || "AOA",
-      quantity: input.quantity ?? 10,
-      unit: input.unit || "unidade",
-      sku: input.sku || null,
-      availability_status: input.availabilityStatus || "in_stock",
-      location_type: input.locationType || "physical_location",
-      province_id: input.provinceId || null,
-      municipality_id: input.municipalityId || null,
-      latitude: input.latitude || null,
-      longitude: input.longitude || null,
-      selling_radius_km: input.sellingRadiusKm || 50,
-      status: input.status || "published",
-      is_featured: input.isFeatured || false,
-    })
-    .select("*")
-    .single();
-
-  if (error || !data) {
-    return ShoppingService.createProduct(input);
-  }
-
-  return {
-    id: data.id,
-    seller_id: seller.id,
-    seller_name: seller.business_name,
-    seller_slug: seller.slug,
-    seller_verified: seller.verification_status === "verified",
-    category_id: data.category_id,
-    title: data.title,
-    slug: data.slug,
-    description: data.description,
-    condition: data.condition,
-    price: Number(data.price),
-    currency: data.currency,
-    quantity: data.quantity,
-    unit: data.unit,
-    sku: data.sku,
-    availability_status: data.availability_status,
-    location_type: data.location_type,
-    province_id: data.province_id,
-    municipality_id: data.municipality_id,
-    latitude: data.latitude,
-    longitude: data.longitude,
-    selling_radius_km: data.selling_radius_km,
-    status: data.status,
-    is_featured: data.is_featured,
-    created_at: data.created_at,
-  };
 }
 
 /**

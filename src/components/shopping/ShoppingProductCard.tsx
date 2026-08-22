@@ -16,6 +16,8 @@ import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
 import { Button } from "@/components/ui/Button";
 import type { ProductListItem } from "@/types/domain";
+import { useI18n } from "@/i18n/provider";
+import { isProductCategorySlug } from "@/config/product-catalog";
 
 interface ShoppingProductCardProps {
   product: ProductListItem;
@@ -34,6 +36,7 @@ export function ShoppingProductCard({
   isSelected = false,
   className,
 }: ShoppingProductCardProps) {
+  const { dict } = useI18n();
   const formatPrice = (price: number, currency = "Kz") => {
     return `${new Intl.NumberFormat("pt-AO").format(price)} ${currency}`;
   };
@@ -44,26 +47,26 @@ export function ShoppingProductCard({
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-emerald-700 dark:text-emerald-300 bg-emerald-50 dark:bg-emerald-950/80 px-2 py-0.5 rounded-md border border-emerald-200 dark:border-emerald-800">
             <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse" />
-            Em Stock ({product.quantity})
+            {dict.products.inStock} ({product.quantity})
           </span>
         );
       case "limited":
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-amber-700 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/80 px-2 py-0.5 rounded-md border border-amber-200 dark:border-amber-800">
-            Stock Limitado
+            {dict.products.limited}
           </span>
         );
       case "pre_order":
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-blue-700 dark:text-blue-300 bg-blue-50 dark:bg-blue-950/80 px-2 py-0.5 rounded-md border border-blue-200 dark:border-blue-800">
-            Sob Encomenda
+            {dict.products.preOrder}
           </span>
         );
       case "out_of_stock":
       default:
         return (
           <span className="inline-flex items-center gap-1 text-[10px] font-bold text-rose-700 dark:text-rose-300 bg-rose-50 dark:bg-rose-950/80 px-2 py-0.5 rounded-md border border-rose-200 dark:border-rose-800">
-            Sem Stock
+            {dict.products.outOfStock}
           </span>
         );
     }
@@ -89,8 +92,15 @@ export function ShoppingProductCard({
               </span>
             )}
             <Badge variant="pillarShopping" className="text-[10px] font-bold">
-              {product.category_name || "AgriShopping"}
+              {isProductCategorySlug(product.category_slug)
+                ? dict.products.categories[product.category_slug]
+                : product.category_name || "AgriShopping"}
             </Badge>
+            {product.has_video && (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-extrabold bg-slate-900 text-white">
+                ▶ {dict.shopping.videoBadge}
+              </span>
+            )}
           </div>
 
           <button

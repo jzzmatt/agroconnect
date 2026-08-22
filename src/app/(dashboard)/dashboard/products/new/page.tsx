@@ -1,47 +1,91 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import {
-  ChevronLeft,
-  CheckCircle2,
-  AlertCircle,
-  Loader2,
-  Package,
-} from "lucide-react";
+import { ChevronLeft, CheckCircle2, AlertCircle, Loader2, Lock, Sparkles, ArrowRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ANGOLA_PROVINCES } from "@/config/locations";
+import {
+  ANIMAL_SPECIES,
+  LAND_PROPERTY_TYPES,
+  PRODUCT_CATEGORY_SLUGS,
+  formatAreaEquivalent,
+  productTypeFromCategory,
+  type AnimalSex,
+  type AnimalSpecies,
+  type AnimalUnit,
+  type LandAreaUnit,
+  type LandPropertyType,
+  type LeasePeriod,
+  type ListingType,
+  type ProductCategorySlug,
+} from "@/config/product-catalog";
 import { createProductAction } from "@/lib/services/shopping-actions";
 import { uploadProductImageAction } from "@/lib/services/product-media-actions";
+import { createProductVideoUploadAction } from "@/lib/services/product-video-actions";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
+import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
+import { compressImageFile } from "@/lib/products/compress-image";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
-import { Lock, Sparkles, ArrowRight } from "lucide-react";
+import { useI18n } from "@/i18n/provider";
+import { localizeError } from "@/i18n/errors";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export default function NewProductPage() {
   const router = useRouter();
+  const { dict } = useI18n();
   const { entitlements } = useAuthoritativePlan();
-  const isBasic = !entitlements.can_create_products;
+  const isBasic = !entitlements.can_create_products && !entitlements.can_publish_products;
 
   const [title, setTitle] = useState("");
-  const [category, setCategory] = useState("sementes-e-fertilizantes");
+  const [category, setCategory] = useState<ProductCategorySlug>("sementes-e-fertilizantes");
   const [description, setDescription] = useState("");
   const [condition, setCondition] = useState<ProductCondition>("new");
   const [price, setPrice] = useState<number>(30000);
-  const [unit, setUnit] = useState("saco 50kg");
-  const [quantity, setQuantity] = useState<number>(50);
+  const [unit, setUnit] = useState("unidade");
+  const [quantity, setQuantity] = useState<number>(1);
   const [sku, setSku] = useState("");
   const [availabilityStatus, setAvailabilityStatus] = useState<ProductAvailabilityStatus>("in_stock");
-  const [locationType, setLocationType] = useState<ProductLocationType>("physical_location");
-  const [selectedProvince, setSelectedProvince] = useState("Benguela");
-  const [selectedMunicipality, setSelectedMunicipality] = useState("Lobito");
+  const [locationType] = useState<ProductLocationType>("physical_location");
+  const [selectedProvince, setSelectedProvince] = useState("Huambo");
+  const [selectedMunicipality, setSelectedMunicipality] = useState("Huambo");
   const [sellingRadiusKm, setSellingRadiusKm] = useState<number>(70);
   const [pendingImages, setPendingImages] = useState<Array<{ id: string; url: string; alt_text: string; is_primary: boolean; file: File }>>([]);
+  const [pendingVideo, setPendingVideo] = useState<PendingProductVideo | null>(null);
+
+  const [species, setSpecies] = useState<AnimalSpecies>("pigs");
+  const [breed, setBreed] = useState("");
+  const [sex, setSex] = useState<AnimalSex>("unspecified");
+  const [age, setAge] = useState("");
+  const [weight, setWeight] = useState("");
+  const [animalUnit, setAnimalUnit] = useState<AnimalUnit>("unit");
+  const [animalNotes, setAnimalNotes] = useState("");
+
+  const [listingType, setListingType] = useState<ListingType>("sale");
+  const [propertyType, setPropertyType] = useState<LandPropertyType>("farm");
+  const [areaValue, setAreaValue] = useState<number>(1);
+  const [areaUnit, setAreaUnit] = useState<LandAreaUnit>("hectare");
+  const [leasePeriod, setLeasePeriod] = useState<LeasePeriod>("year");
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+
+  const productType = productTypeFromCategory(category);
+  const areaPreview = useMemo(() => formatAreaEquivalent(areaValue || 0, areaUnit), [areaValue, areaUnit]);
+
+  const resetCategoryExtras = (next: ProductCategorySlug) => {
+    setCategory(next);
+    if (productTypeFromCategory(next) !== "animal") {
+      setSpecies("pigs");
+      setBreed("");
+    }
+    if (productTypeFromCategory(next) !== "land") {
+      setListingType("sale");
+      setAreaValue(1);
+    }
+  };
 
   if (isBasic) {
     return (
@@ -50,30 +94,24 @@ export default function NewProductPage() {
           <div className="w-16 h-16 rounded-3xl bg-amber-100 dark:bg-amber-950/80 text-amber-600 flex items-center justify-center mx-auto shadow-xs">
             <Lock className="w-8 h-8" />
           </div>
-
           <div className="space-y-2 max-w-md mx-auto">
             <span className="text-xs font-black uppercase tracking-wider text-amber-600 bg-amber-100 dark:bg-amber-950 px-2.5 py-0.5 rounded-full">
-              Criação Bloqueada • Plano Básico
+              {dict.products.lockedTitle}
             </span>
-            <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-              Adicionar Produto ao AgriShopping
-            </h1>
-            <p className="text-xs text-muted-foreground leading-relaxed">
-              O seu plano Básico permite explorar o ecossistema e efetuar compras. Para criar e vender produtos, atualize para o plano <strong>Profissional</strong> ou <strong>Business</strong>.
-            </p>
+            <h1 className="text-2xl sm:text-3xl font-black text-foreground">{dict.products.add}</h1>
+            <p className="text-xs text-muted-foreground leading-relaxed">{dict.products.lockedBody}</p>
           </div>
-
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
             <Link href="/pricing">
               <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
                 <Sparkles className="w-4 h-4" />
-                <span>Ver Planos e Desbloquear</span>
+                <span>{dict.products.unlock}</span>
                 <ArrowRight className="w-4 h-4" />
               </Button>
             </Link>
             <Link href="/dashboard">
               <Button variant="outline" size="lg" className="w-full sm:w-auto font-semibold">
-                Voltar ao Painel
+                {dict.products.backDashboard}
               </Button>
             </Link>
           </div>
@@ -84,16 +122,17 @@ export default function NewProductPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim() || title.length < 3) {
-      setError("O título do produto deve conter pelo menos 3 caracteres.");
+    if (isLoading) return;
+    if (!title.trim() || title.length < 3 || price < 0) {
+      setError(dict.errors.PRODUCT_VALIDATION_FAILED);
       return;
     }
-    if (price === undefined || price < 0) {
-      setError("O preço do produto deve ser um valor positivo.");
+    if (productType === "animal" && (!species || quantity < 1)) {
+      setError(dict.errors.PRODUCT_ANIMAL_INVALID);
       return;
     }
-    if (quantity < 0) {
-      setError("A quantidade de stock não pode ser negativa.");
+    if (productType === "land" && (!areaValue || areaValue <= 0 || !listingType)) {
+      setError(dict.errors.PRODUCT_LAND_INVALID);
       return;
     }
 
@@ -101,38 +140,74 @@ export default function NewProductPage() {
     setError(null);
 
     try {
-      const created = await createProductAction({
+      const result = await createProductAction({
         title,
         description,
         condition,
         price,
-        unit,
+        unit: productType === "animal" ? animalUnit : unit,
         quantity,
         sku: sku || undefined,
         availabilityStatus,
         locationType,
         sellingRadiusKm,
         status: "published",
+        categorySlug: category,
+        productType,
+        provinceName: selectedProvince,
+        municipalityName: selectedMunicipality,
+        metadata: {
+          animal:
+            productType === "animal"
+              ? { species, breed, sex, age, weight, quantity, unit: animalUnit, notes: animalNotes, listing_type: "sale" }
+              : undefined,
+          land:
+            productType === "land"
+              ? { listing_type: listingType, property_type: propertyType, area_value: areaValue, area_unit: areaUnit, lease_period: listingType === "lease" ? leasePeriod : undefined }
+              : undefined,
+        },
       });
 
+      if (!result.success || !result.product) {
+        setError(localizeError(dict, result.code, result.message));
+        return;
+      }
+
       for (const img of pendingImages) {
-        await uploadProductImageAction({
-          productId: created.id,
+        const compressed = await compressImageFile(img.file);
+        const uploaded = await uploadProductImageAction({
+          productId: result.product.id,
           productTitle: title,
-          mimeType: img.file.type,
-          fileName: img.file.name,
-          fileSize: img.file.size,
-          dataUrl: img.url,
+          mimeType: compressed.mimeType,
+          fileName: compressed.fileName,
+          fileSize: compressed.fileSize,
+          dataUrl: compressed.dataUrl,
           isPrimary: img.is_primary,
         });
+        if (!uploaded.success) {
+          setError(localizeError(dict, "PRODUCT_IMAGE_FAILED", uploaded.error));
+        }
+      }
+
+      if (pendingVideo) {
+        const videoResult = await createProductVideoUploadAction({
+          productId: result.product.id,
+          title,
+          filename: pendingVideo.file.name,
+          mimeType: pendingVideo.file.type,
+          fileSize: pendingVideo.file.size,
+          durationSeconds: pendingVideo.duration,
+        });
+        if (!videoResult.success) {
+          setError(localizeError(dict, videoResult.code, videoResult.message));
+          return;
+        }
       }
 
       setSuccess(true);
-      setTimeout(() => {
-        router.push("/dashboard/products");
-      }, 1500);
-    } catch (err: any) {
-      setError(err?.message || "Erro ao publicar produto. Tente novamente.");
+      setTimeout(() => router.push("/dashboard/products"), 1200);
+    } catch {
+      setError(dict.errors.NETWORK_FAILED);
     } finally {
       setIsLoading(false);
     }
@@ -140,21 +215,12 @@ export default function NewProductPage() {
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">
-      {/* Header */}
       <div>
-        <Link
-          href="/dashboard/products"
-          className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3 transition-colors"
-        >
+        <Link href="/dashboard/products" className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3">
           <ChevronLeft className="w-4 h-4" />
-          <span>Voltar para Os Meus Produtos</span>
+          <span>{dict.products.backToProducts}</span>
         </Link>
-        <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-          Adicionar Novo Produto
-        </h1>
-        <p className="text-xs text-muted-foreground mt-1">
-          Registe sementes, fertilizantes, equipamentos ou colheitas para comercialização no AgriShopping.
-        </p>
+        <h1 className="text-2xl sm:text-3xl font-black text-foreground">{dict.products.addNew}</h1>
       </div>
 
       {success ? (
@@ -162,266 +228,239 @@ export default function NewProductPage() {
           <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-foreground">Produto Publicado com Sucesso!</h3>
-          <p className="text-xs text-muted-foreground">A redirecionar para a gestão de produtos...</p>
+          <h3 className="text-lg font-bold text-foreground">{dict.products.publishedOk}</h3>
+          <p className="text-xs text-muted-foreground">{dict.products.redirecting}</p>
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">
           {error && (
-            <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center gap-2">
-              <AlertCircle className="w-4 h-4 shrink-0" />
-              <span>{error}</span>
+            <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center justify-between gap-2">
+              <span className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4 shrink-0" />
+                {error}
+              </span>
+              <Button type="button" variant="outline" size="sm" onClick={handleSubmit as any}>
+                {dict.common.retry}
+              </Button>
             </div>
           )}
 
-          {/* 1. Basic Info */}
           <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              1. Identificação do Produto
-            </h3>
-
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.identification}</h3>
             <div>
-              <label className="text-xs font-bold text-foreground block mb-1">
-                Nome do Produto <span className="text-destructive">*</span>
+              <label className="text-xs font-bold text-foreground block mb-1" htmlFor="product-name">
+                {dict.products.name} <span className="text-destructive">*</span>
               </label>
-              <input
-                type="text"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                placeholder="Ex: Semente de Milho Híbrido ZM-521 (25kg)"
-                className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                required
-              />
+              <input id="product-name" type="text" value={title} onChange={(e) => setTitle(e.target.value)} placeholder={dict.products.namePlaceholder} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" required />
             </div>
-
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Categoria Principal <span className="text-destructive">*</span>
-                </label>
-                <select
-                  value={category}
-                  onChange={(e) => setCategory(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="sementes-e-fertilizantes">Sementes & Fertilizantes</option>
-                  <option value="maquinas-e-irrigacao">Máquinas & Irrigação</option>
-                  <option value="produtos-agricolas">Produtos Agrícolas & Colheitas</option>
-                  <option value="alimentacao-animal">Alimentação & Saúde Animal</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Condição
-                </label>
-                <select
-                  value={condition}
-                  onChange={(e) => setCondition(e.target.value as any)}
-                  className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="new">Novo (Insumo / Equipamento)</option>
-                  <option value="used">Usado (Máquinas / Alfaias)</option>
-                  <option value="not_applicable">Não Aplicável (Colheitas Frescas)</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Código / SKU (Opcional)
-                </label>
-                <input
-                  type="text"
-                  value={sku}
-                  onChange={(e) => setSku(e.target.value)}
-                  placeholder="Ex: SEM-MIL-521"
-                  className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
-              </div>
-            </div>
-
-            <div>
-              <label className="text-xs font-bold text-foreground block mb-1">
-                Descrição Técnica do Produto
-              </label>
-              <textarea
-                value={description}
-                onChange={(e) => setDescription(e.target.value)}
-                rows={4}
-                placeholder="Indique especificações, variedade da cultura, taxa de germinação, dosagem ou potência..."
-                className="w-full p-3 rounded-2xl bg-surface border border-input-border text-xs text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary resize-none"
-              />
-            </div>
-          </div>
-
-          {/* 2. Pricing & Stock */}
-          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              2. Preço, Unidade e Stock
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Preço (Kwanza - Kz) <span className="text-destructive">*</span>
-                </label>
-                <input
-                  type="number"
-                  value={price}
-                  onChange={(e) => setPrice(Number(e.target.value))}
-                  min={0}
-                  step={500}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Unidade de Medida
-                </label>
-                <select
-                  value={unit}
-                  onChange={(e) => setUnit(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="unidade">unidade</option>
-                  <option value="kg">kg</option>
-                  <option value="saco 50kg">saco 50kg</option>
-                  <option value="saco 25kg">saco 25kg</option>
-                  <option value="tonelada">tonelada</option>
-                  <option value="litro">litro</option>
-                  <option value="conjunto">conjunto</option>
-                  <option value="kit">kit</option>
-                  <option value="caixa">caixa</option>
-                </select>
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Quantidade em Stock
-                </label>
-                <input
-                  type="number"
-                  value={quantity}
-                  onChange={(e) => setQuantity(Math.max(0, Number(e.target.value)))}
-                  min={0}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                  required
-                />
-              </div>
-
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Estado de Stock
-                </label>
-                <select
-                  value={availabilityStatus}
-                  onChange={(e) => setAvailabilityStatus(e.target.value as any)}
-                  className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  <option value="in_stock">Em Stock</option>
-                  <option value="limited">Stock Limitado</option>
-                  <option value="pre_order">Sob Encomenda</option>
-                  <option value="out_of_stock">Sem Stock</option>
-                </select>
-              </div>
-            </div>
-          </div>
-
-          {/* 3. Location & Delivery Radius */}
-          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
-            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">
-              3. Localização do Armazém / Loja e Raio de Entrega
-            </h3>
-
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div>
-                <label className="text-xs font-bold text-foreground block mb-1">Província</label>
-                <select
-                  value={selectedProvince}
-                  onChange={(e) => setSelectedProvince(e.target.value)}
-                  className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                >
-                  {ANGOLA_PROVINCES.map((p) => (
-                    <option key={p.code} value={p.name}>
-                      {p.name}
+                <label className="text-xs font-bold text-foreground block mb-1">{dict.products.category}</label>
+                <select value={category} onChange={(e) => resetCategoryExtras(e.target.value as ProductCategorySlug)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold">
+                  {PRODUCT_CATEGORY_SLUGS.map((slug) => (
+                    <option key={slug} value={slug}>
+                      {dict.products.categories[slug]}
                     </option>
                   ))}
                 </select>
               </div>
-
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">Município</label>
-                <input
-                  type="text"
-                  value={selectedMunicipality}
-                  onChange={(e) => setSelectedMunicipality(e.target.value)}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <label className="text-xs font-bold text-foreground block mb-1">{dict.products.condition}</label>
+                <select value={condition} onChange={(e) => setCondition(e.target.value as ProductCondition)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-semibold">
+                  <option value="new">{dict.products.conditionNew}</option>
+                  <option value="used">{dict.products.conditionUsed}</option>
+                  <option value="not_applicable">{dict.products.conditionNa}</option>
+                </select>
               </div>
-
               <div>
-                <label className="text-xs font-bold text-foreground block mb-1">
-                  Raio de Entrega (km)
-                </label>
-                <input
-                  type="number"
-                  value={sellingRadiusKm}
-                  onChange={(e) => setSellingRadiusKm(Number(e.target.value))}
-                  min={1}
-                  max={200}
-                  className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs font-bold text-foreground focus:outline-none focus:ring-2 focus:ring-primary"
-                />
+                <label className="text-xs font-bold text-foreground block mb-1">{dict.products.sku}</label>
+                <input type="text" value={sku} onChange={(e) => setSku(e.target.value)} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+              </div>
+            </div>
+            <div>
+              <label className="text-xs font-bold text-foreground block mb-1">{dict.products.description}</label>
+              <textarea value={description} onChange={(e) => setDescription(e.target.value)} rows={4} placeholder={dict.products.descriptionPlaceholder} className="w-full p-3 rounded-2xl bg-surface border border-input-border text-xs resize-none" />
+            </div>
+          </div>
+
+          {productType === "animal" && (
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.extraSection}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.species}</label>
+                  <select value={species} onChange={(e) => setSpecies(e.target.value as AnimalSpecies)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    {ANIMAL_SPECIES.map((code) => (
+                      <option key={code} value={code}>{dict.animals[code]}</option>
+                    ))}
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.breed}</label>
+                  <input value={breed} onChange={(e) => setBreed(e.target.value)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.sex}</label>
+                  <select value={sex} onChange={(e) => setSex(e.target.value as AnimalSex)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    <option value="male">{dict.animals.male}</option>
+                    <option value="female">{dict.animals.female}</option>
+                    <option value="mixed">{dict.animals.mixed}</option>
+                    <option value="unspecified">{dict.animals.unspecified}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.age}</label>
+                  <input value={age} onChange={(e) => setAge(e.target.value)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.weight}</label>
+                  <input value={weight} onChange={(e) => setWeight(e.target.value)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.animals.unit}</label>
+                  <select value={animalUnit} onChange={(e) => setAnimalUnit(e.target.value as AnimalUnit)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    <option value="unit">{dict.animals.unitLabel}</option>
+                    <option value="head">{dict.animals.headLabel}</option>
+                  </select>
+                </div>
+              </div>
+              <textarea value={animalNotes} onChange={(e) => setAnimalNotes(e.target.value)} rows={3} placeholder={dict.animals.notes} className="w-full p-3 rounded-2xl bg-surface border border-input-border text-xs resize-none" />
+            </div>
+          )}
+
+          {productType === "land" && (
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+              <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.extraSection}</h3>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.land.listingType}</label>
+                  <select value={listingType} onChange={(e) => setListingType(e.target.value as ListingType)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    <option value="sale">{dict.land.sale}</option>
+                    <option value="lease">{dict.land.lease}</option>
+                  </select>
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.land.propertyType}</label>
+                  <select value={propertyType} onChange={(e) => setPropertyType(e.target.value as LandPropertyType)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    {LAND_PROPERTY_TYPES.map((type) => (
+                      <option key={type} value={type}>
+                        {type === "raw_land" ? dict.land.rawLand : type === "farm" ? dict.land.farm : dict.land.agriculturalProperty}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                {listingType === "lease" && (
+                  <div>
+                    <label className="text-xs font-bold block mb-1">{dict.land.leasePeriod}</label>
+                    <select value={leasePeriod} onChange={(e) => setLeasePeriod(e.target.value as LeasePeriod)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                      <option value="month">{dict.land.month}</option>
+                      <option value="year">{dict.land.year}</option>
+                    </select>
+                  </div>
+                )}
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.land.area}</label>
+                  <input type="number" min={0.01} step={0.01} value={areaValue} onChange={(e) => setAreaValue(Number(e.target.value))} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.land.hectare} / {dict.land.sqm}</label>
+                  <select value={areaUnit} onChange={(e) => setAreaUnit(e.target.value as LandAreaUnit)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                    <option value="hectare">{dict.land.hectare}</option>
+                    <option value="sqm">{dict.land.sqm}</option>
+                  </select>
+                </div>
+              </div>
+              {areaValue > 0 && (
+                <p className="text-xs font-semibold text-primary">
+                  {areaPreview.primary} · {dict.land.equivalent}: {areaPreview.equivalent}
+                </p>
+              )}
+            </div>
+          )}
+
+          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.pricing}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+              <div>
+                <label className="text-xs font-bold block mb-1">{dict.products.price}</label>
+                <input type="number" min={0} value={price} onChange={(e) => setPrice(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" required />
+              </div>
+              {productType !== "land" && (
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.products.stock}</label>
+                  <input type="number" min={0} value={quantity} onChange={(e) => setQuantity(Math.max(0, Number(e.target.value)))} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+              )}
+              <div>
+                <label className="text-xs font-bold block mb-1">{dict.products.stockStatus}</label>
+                <select value={availabilityStatus} onChange={(e) => setAvailabilityStatus(e.target.value as ProductAvailabilityStatus)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                  <option value="in_stock">{dict.products.inStock}</option>
+                  <option value="limited">{dict.products.limited}</option>
+                  <option value="pre_order">{dict.products.preOrder}</option>
+                  <option value="out_of_stock">{dict.products.outOfStock}</option>
+                </select>
+              </div>
+              {productType === "standard" && (
+                <div>
+                  <label className="text-xs font-bold block mb-1">{dict.products.unit}</label>
+                  <input value={unit} onChange={(e) => setUnit(e.target.value)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.locationSection}</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label className="text-xs font-bold block mb-1">{dict.products.province}</label>
+                <select value={selectedProvince} onChange={(e) => setSelectedProvince(e.target.value)} className="w-full px-3 py-2.5 rounded-2xl bg-surface border border-input-border text-xs">
+                  {ANGOLA_PROVINCES.map((p) => (
+                    <option key={p.code} value={p.name}>{p.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div>
+                <label className="text-xs font-bold block mb-1">{dict.products.municipality}</label>
+                <input value={selectedMunicipality} onChange={(e) => setSelectedMunicipality(e.target.value)} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
+              </div>
+              <div>
+                <label className="text-xs font-bold block mb-1">{dict.products.radius}</label>
+                <input type="number" min={1} max={200} value={sellingRadiusKm} onChange={(e) => setSellingRadiusKm(Number(e.target.value))} className="w-full px-4 py-2.5 rounded-2xl bg-surface border border-input-border text-xs" />
               </div>
             </div>
           </div>
 
-          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs">
+          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-6">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.mediaSection}</h3>
             <ProductImageUploader
               images={pendingImages}
               onAdd={(file, dataUrl) => {
                 setPendingImages((prev) => [
                   ...prev,
-                  {
-                    id: `local-${prev.length + 1}`,
-                    url: dataUrl,
-                    alt_text: `${title || "Produto"} — AgriConnect`,
-                    is_primary: prev.length === 0,
-                    file,
-                  },
+                  { id: `local-${prev.length + 1}`, url: dataUrl, alt_text: title || dict.glossary.product, is_primary: prev.length === 0, file },
                 ]);
               }}
               onRemove={(id) => setPendingImages((prev) => prev.filter((i) => i.id !== id))}
-              onSetPrimary={(id) =>
-                setPendingImages((prev) => prev.map((i) => ({ ...i, is_primary: i.id === id })))
-              }
+              onSetPrimary={(id) => setPendingImages((prev) => prev.map((i) => ({ ...i, is_primary: i.id === id })))}
             />
+            <ProductVideoUploader video={pendingVideo} onChange={setPendingVideo} />
           </div>
 
-          {/* Action buttons */}
           <div className="flex items-center justify-end gap-3 pt-4">
             <Link href="/dashboard/products">
-              <Button variant="outline" size="lg" disabled={isLoading}>
-                Cancelar
-              </Button>
+              <Button variant="outline" size="lg" disabled={isLoading}>{dict.common.cancel}</Button>
             </Link>
-            <Button
-              type="submit"
-              variant="primary"
-              size="lg"
-              disabled={isLoading}
-              className="gap-2 font-bold px-8 shadow-md"
-            >
+            <Button type="submit" variant="primary" size="lg" disabled={isLoading} className="gap-2 font-bold px-8">
               {isLoading ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>A publicar...</span>
+                  <span>{dict.products.publishing}</span>
                 </>
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>Publicar Produto</span>
+                  <span>{dict.products.publish}</span>
                 </>
               )}
             </Button>

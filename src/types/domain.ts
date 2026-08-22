@@ -51,6 +51,7 @@ export interface UserEntitlements {
   can_publish_products: boolean;
   can_manage_inventory: boolean;
   can_upload_product_images: boolean;
+  can_upload_product_video: boolean;
   can_manage_services: boolean;
   can_teach_courses: boolean;
   can_create_courses: boolean;
@@ -233,6 +234,10 @@ export interface ProductListItem {
   status: string;
   is_featured: boolean;
   image_url?: string | null;
+  has_video?: boolean;
+  video_status?: string | null;
+  product_type?: "standard" | "animal" | "land";
+  metadata?: Record<string, unknown> | null;
   created_at: string;
 }
 

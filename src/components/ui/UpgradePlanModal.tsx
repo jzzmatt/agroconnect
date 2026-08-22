@@ -5,6 +5,8 @@ import Link from "next/link";
 import { Lock, Sparkles, X, ArrowRight, Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
+import { useI18n } from "@/i18n/provider";
+import { getLocalizedPlanCopy } from "@/i18n/plan-copy";
 
 interface UpgradePlanModalProps {
   isOpen: boolean;
@@ -21,9 +23,11 @@ export function UpgradePlanModal({
   requiredPlan = "professional",
   currentPlanName = "Básico",
 }: UpgradePlanModalProps) {
+  const { dict } = useI18n();
   if (!isOpen) return null;
 
   const targetPlan = SUBSCRIPTION_PLANS[requiredPlan] || SUBSCRIPTION_PLANS.professional;
+  const copy = getLocalizedPlanCopy(dict, requiredPlan);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-in fade-in duration-200">
@@ -31,7 +35,7 @@ export function UpgradePlanModal({
         <button
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-xl text-muted-foreground hover:text-foreground hover:bg-muted transition-colors cursor-pointer"
-          aria-label="Fechar"
+          aria-label={dict.common.close}
         >
           <X className="w-5 h-5" />
         </button>
@@ -42,13 +46,13 @@ export function UpgradePlanModal({
             <Lock className="w-6 h-6" />
           </div>
           <span className="text-[10px] font-extrabold uppercase tracking-wider text-amber-600 block">
-            Função disponível num plano superior
+            {dict.ui.upgradeTitle}
           </span>
           <h2 className="text-xl font-black text-foreground">
             {featureTitle}
           </h2>
           <p className="text-xs text-muted-foreground max-w-sm mx-auto">
-            Atualmente está no plano <strong className="text-foreground">{currentPlanName}</strong>. Para desbloquear a criação e publicação no AgriConnect, atualize a sua subscrição.
+            {dict.ui.upgradeBody}
           </p>
         </div>
 
@@ -57,7 +61,7 @@ export function UpgradePlanModal({
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-1.5">
               <Sparkles className="w-4 h-4 text-primary" />
-              <h3 className="font-bold text-sm text-foreground">Plano {targetPlan.name}</h3>
+              <h3 className="font-bold text-sm text-foreground">{copy.name}</h3>
             </div>
             <div className="text-right">
               <span className="text-base font-black text-foreground">{targetPlan.priceFormatted}</span>

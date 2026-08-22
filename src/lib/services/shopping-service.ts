@@ -24,6 +24,8 @@ export interface SearchProductsFilterParams {
 export interface CreateProductInput {
   title: string;
   categoryId?: string;
+  categorySlug?: string;
+  productType?: "standard" | "animal" | "land";
   description?: string;
   condition?: ProductCondition;
   price: number;
@@ -35,11 +37,15 @@ export interface CreateProductInput {
   locationType?: ProductLocationType;
   provinceId?: string;
   municipalityId?: string;
+  provinceName?: string;
+  municipalityName?: string;
   latitude?: number;
   longitude?: number;
   sellingRadiusKm?: number;
   status?: ProductStatus;
   isFeatured?: boolean;
+  metadata?: Record<string, unknown>;
+  idempotencyKey?: string;
 }
 
 export interface UpdateProductInput extends Partial<CreateProductInput> {
@@ -654,6 +660,9 @@ export class ShoppingService {
       seller_slug: "dr-joao-silva",
       seller_verified: true,
       category_id: input.categoryId || "cat-seed-sem",
+      category_slug: input.categorySlug,
+      product_type: input.productType || "standard",
+      metadata: input.metadata || null,
       title: input.title,
       slug: uniqueSlug,
       description: input.description,

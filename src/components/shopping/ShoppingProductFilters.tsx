@@ -4,6 +4,8 @@ import React from "react";
 import { Search, MapPin, X, Package } from "lucide-react";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import type { ProductAvailabilityStatus } from "@/types/database";
+import { useI18n } from "@/i18n/provider";
+import { PRODUCT_CATEGORY_SLUGS } from "@/config/product-catalog";
 
 interface ShoppingProductFiltersProps {
   searchQuery: string;
@@ -28,14 +30,6 @@ interface ShoppingProductFiltersProps {
   totalResults: number;
 }
 
-const CATEGORY_OPTIONS = [
-  { slug: "", name: "Todas as Categorias" },
-  { slug: "sementes-e-fertilizantes", name: "Sementes & Fertilizantes" },
-  { slug: "maquinas-e-irrigacao", name: "Máquinas & Irrigação" },
-  { slug: "produtos-agricolas", name: "Produtos Agrícolas & Colheitas" },
-  { slug: "alimentacao-animal", name: "Alimentação & Saúde Animal" },
-];
-
 export function ShoppingProductFilters({
   searchQuery,
   onSearchChange,
@@ -58,6 +52,11 @@ export function ShoppingProductFilters({
   onClearFilters,
   totalResults,
 }: ShoppingProductFiltersProps) {
+  const { dict } = useI18n();
+  const categoryOptions = [
+    { slug: "", name: dict.shopping.allCategories },
+    ...PRODUCT_CATEGORY_SLUGS.map((slug) => ({ slug, name: dict.products.categories[slug] })),
+  ];
   const hasActiveFilters =
     Boolean(searchQuery) ||
     Boolean(selectedCategory) ||
@@ -77,7 +76,7 @@ export function ShoppingProductFilters({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Pesquisar sementes de milho, bombas solares, adubo NPK, alfaias..."
+            placeholder={dict.shopping.searchPlaceholder}
             className="w-full pl-10 pr-4 py-2.5 rounded-2xl bg-surface border border-input-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-primary focus:border-transparent transition-all"
           />
           {searchQuery && (
@@ -112,14 +111,14 @@ export function ShoppingProductFilters({
         {/* Category selector */}
         <div>
           <label className="text-[11px] font-bold text-muted-foreground uppercase tracking-wider block mb-1">
-            Categoria
+            {dict.products.category}
           </label>
           <select
             value={selectedCategory}
             onChange={(e) => onCategoryChange(e.target.value)}
             className="w-full px-3 py-2 rounded-xl bg-surface border border-input-border text-xs font-semibold text-foreground focus:outline-none focus:ring-2 focus:ring-primary cursor-pointer"
           >
-            {CATEGORY_OPTIONS.map((c) => (
+            {categoryOptions.map((c) => (
               <option key={c.slug} value={c.slug}>
                 {c.name}
               </option>
