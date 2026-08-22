@@ -441,7 +441,7 @@ export class ShoppingService {
     }
 
     // High performance fallback over verified seed data
-    let filtered = [...INITIAL_PRODUCTS];
+    let filtered = [...INITIAL_PRODUCTS].filter((p) => p.status !== "deleted");
 
     if (params.query) {
       const q = params.query.toLowerCase();
@@ -569,6 +569,9 @@ export class ShoppingService {
 
         if (!error && data) {
           const item: any = data;
+          if (item.status === "deleted" || item.status === "archived") {
+            return null;
+          }
           // Single product view: cheap enough to confirm the encoding state with
           // Bunny so a stuck "uploading" row starts playing without a webhook.
           const { reconcileProductVideoStatus } = await import("@/lib/products/video-status");
@@ -616,7 +619,7 @@ export class ShoppingService {
       }
     }
 
-    return seedMatch || null;
+    return seedMatch && seedMatch.status !== "deleted" ? seedMatch : null;
   }
 
   /**
@@ -660,6 +663,8 @@ export class ShoppingService {
 
         if (onlyPublished) {
           query = query.in("status", ["published", "active"]);
+        } else {
+          query = query.neq("status", "deleted");
         }
 
         const { data, error } = await query;
@@ -750,6 +755,58 @@ export class ShoppingService {
       is_featured: input.isFeatured || false,
       created_at: new Date().toISOString(),
     };
+  }
+
+  /**
+   * Soft-delete a product (owner-authorized). Historical orders remain intact.
+   */
+  public static async deleteProduct(
+    productId: string,
+    sellerId: string
+  ): Promise<{ success: boolean; productId?: string; code?: string }> {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      try {
+        const supabase = createPublicServerSupabaseClient();
+        const { data: existing, error: fetchError } = await supabase
+          .from("products")
+          .select("id, seller_id, status")
+          .eq("id", productId)
+          .single();
+
+        if (fetchError || !existing) {
+          return { success: false, code: "PRODUCT_NOT_FOUND" };
+        }
+
+        if ((existing as any).seller_id !== sellerId) {
+          return { success: false, code: "NOT_OWNER" };
+        }
+
+        const { error } = await (supabase.from("products") as any)
+          .update({
+            status: "deleted",
+            deleted_at: new Date().toISOString(),
+          })
+          .eq("id", productId)
+          .eq("seller_id", sellerId);
+
+        if (error) {
+          return { success: false, code: "DELETE_FAILED" };
+        }
+
+        return { success: true, productId };
+      } catch {
+        return { success: false, code: "DELETE_FAILED" };
+      }
+    }
+
+    // In-memory fallback for tests/dev without Supabase
+    const idx = INITIAL_PRODUCTS.findIndex((p) => p.id === productId);
+    if (idx === -1) return { success: false, code: "PRODUCT_NOT_FOUND" };
+    if (INITIAL_PRODUCTS[idx].seller_id !== sellerId) {
+      return { success: false, code: "NOT_OWNER" };
+    }
+    INITIAL_PRODUCTS[idx] = { ...INITIAL_PRODUCTS[idx], status: "deleted" };
+    return { success: true, productId };
   }
 
   /**

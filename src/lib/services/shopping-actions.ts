@@ -109,6 +109,17 @@ export async function updateProductAction(
 }
 
 /**
+ * Server Action: Soft-delete a product (owner-authorized)
+ */
+export async function deleteProductAction(
+  productId: string
+): Promise<{ success: boolean; productId?: string; code?: string }> {
+  await requireAuth();
+  const seller = await getOrCreateCurrentProviderProfileAction();
+  return ShoppingService.deleteProduct(productId, seller.id);
+}
+
+/**
  * Server Action: Create product request / order inquiry
  */
 export async function createProductRequestAction(params: {

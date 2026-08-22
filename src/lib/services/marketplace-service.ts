@@ -619,6 +619,78 @@ export class MarketplaceService {
   }
 
   /**
+   * Get public provider profile by id (vendor/seller)
+   */
+  public static async getProviderById(id: string): Promise<ProviderPublicProfile | null> {
+    const seedMatch = INITIAL_PROVIDERS.find((p) => p.id === id);
+
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      try {
+        const supabase = createPublicServerSupabaseClient();
+        const { data, error } = await supabase
+          .from("provider_profiles")
+          .select(`
+            id,
+            profile_id,
+            business_name,
+            slug,
+            headline,
+            description,
+            provider_type,
+            phone,
+            email,
+            website,
+            verification_status,
+            status,
+            rating,
+            reviews_count,
+            latitude,
+            longitude,
+            service_radius_km,
+            created_at,
+            provinces(name),
+            municipalities(name)
+          `)
+          .eq("id", id)
+          .eq("status", "active")
+          .single();
+
+        if (!error && data) {
+          const item: any = data;
+          return {
+            id: item.id,
+            profile_id: item.profile_id,
+            business_name: item.business_name,
+            slug: item.slug,
+            headline: item.headline,
+            description: item.description,
+            provider_type: item.provider_type,
+            avatar_url: null,
+            banner_url: null,
+            phone: item.phone,
+            email: item.email,
+            website: item.website,
+            verification_status: item.verification_status,
+            status: item.status,
+            rating: Number(item.rating || 5.0),
+            reviews_count: Number(item.reviews_count || 0),
+            province_name: item.provinces?.name || null,
+            municipality_name: item.municipalities?.name || null,
+            latitude: item.latitude ? Number(item.latitude) : null,
+            longitude: item.longitude ? Number(item.longitude) : null,
+            service_radius_km: Number(item.service_radius_km || 50),
+            created_at: item.created_at,
+          };
+        }
+      } catch {
+        // Fallback
+      }
+    }
+
+    return seedMatch || null;
+  }
+
+  /**
    * Get all services for a specific provider
    */
   public static async getProviderServices(providerId: string, onlyPublished = true): Promise<ServiceListItem[]> {

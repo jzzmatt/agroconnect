@@ -75,7 +75,7 @@ export type ServiceLocationType = "physical_location" | "service_area" | "remote
 export type ServiceContactPreference = "platform" | "phone" | "whatsapp" | "email";
 
 export type ProductCondition = "new" | "used" | "refurbished" | "not_applicable";
-export type ProductStatus = "draft" | "published" | "active" | "paused" | "out_of_stock" | "archived" | "rejected";
+export type ProductStatus = "draft" | "published" | "active" | "paused" | "out_of_stock" | "archived" | "rejected" | "deleted";
 export type ProductAvailabilityStatus = "in_stock" | "out_of_stock" | "limited" | "pre_order" | "on_request";
 export type ProductLocationType = "physical_location" | "service_area" | "remote";
 

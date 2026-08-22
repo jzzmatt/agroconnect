@@ -63,6 +63,7 @@ export class MapQuestProvider implements IMapProvider {
 
   private apiKey: string;
   private mapInstance: any = null;
+  private containerElement: HTMLElement | null = null;
   private currentTileLayer: any = null;
   private markersMap: Map<string, any> = new Map();
   private userLocationMarker: any = null;
@@ -71,6 +72,7 @@ export class MapQuestProvider implements IMapProvider {
   private currentLayerType: MapLayerType;
   private isMapLoaded = false;
   private pendingMarkers: MapMarkerDescriptor[] = [];
+  private initPromise: Promise<void> | null = null;
 
   constructor(apiKey?: string, initialLayer: MapLayerType = "map") {
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
@@ -83,7 +85,26 @@ export class MapQuestProvider implements IMapProvider {
   public async initialize(options: MapOptions): Promise<void> {
     if (typeof window === "undefined") return;
 
-    // Dynamically import Leaflet
+    // Reuse existing map instance when already bound to the same container
+    if (this.mapInstance && this.isMapLoaded) {
+      if (options.center) this.setCenter(options.center, options.zoom);
+      if (options.onLoad) options.onLoad();
+      return;
+    }
+
+    // Prevent concurrent initialization (React Strict Mode / fast remounts)
+    if (this.initPromise) {
+      return this.initPromise;
+    }
+
+    this.initPromise = this.doInitialize(options).finally(() => {
+      this.initPromise = null;
+    });
+
+    return this.initPromise;
+  }
+
+  private async doInitialize(options: MapOptions): Promise<void> {
     const L = (await import("leaflet")).default;
 
     if (options.center) {
@@ -103,13 +124,18 @@ export class MapQuestProvider implements IMapProvider {
 
     if (!container) return;
 
+    this.containerElement = container;
+
+    // If Leaflet already bound this DOM node, tear it down first
+    if ((container as any)._leaflet_id) {
+      this.destroy();
+    }
+
     if (this.mapInstance) {
       this.destroy();
     }
 
     try {
-      // Initialize Leaflet Map instance
-      // Leaflet uses [latitude, longitude]
       this.mapInstance = L.map(container, {
         center: [this.currentCenter.latitude, this.currentCenter.longitude],
         zoom: this.currentZoom,
@@ -119,10 +145,8 @@ export class MapQuestProvider implements IMapProvider {
         attributionControl: true,
       });
 
-      // Apply initial tile layer
       this.applyTileLayer(L);
 
-      // Invalidate size across multiple ticks to guarantee layout stabilization in React/Next.js
       setTimeout(() => {
         if (this.mapInstance) this.mapInstance.invalidateSize();
       }, 50);
@@ -133,7 +157,6 @@ export class MapQuestProvider implements IMapProvider {
         if (this.mapInstance) this.mapInstance.invalidateSize();
       }, 800);
 
-      // Track camera changes
       this.mapInstance.on("moveend", () => {
         if (!this.mapInstance) return;
         const center = this.mapInstance.getCenter();
@@ -142,11 +165,7 @@ export class MapQuestProvider implements IMapProvider {
       });
 
       this.isMapLoaded = true;
-
-      // Flush queued markers
       this.flushPendingMarkers();
-
-      // Ensure dimensions fit
       this.resize();
 
       if (options.onLoad) {
@@ -154,6 +173,7 @@ export class MapQuestProvider implements IMapProvider {
       }
     } catch (err: any) {
       console.error("[MapQuest Init Exception]", err);
+      this.isMapLoaded = false;
       if (options.onError) {
         options.onError(err);
       }
@@ -370,9 +390,21 @@ export class MapQuestProvider implements IMapProvider {
     this.clearMarkers();
     this.removeUserLocationMarker();
     if (this.mapInstance) {
-      this.mapInstance.remove();
+      try {
+        this.mapInstance.off();
+        this.mapInstance.remove();
+      } catch {
+        // Leaflet may already be partially torn down
+      }
       this.mapInstance = null;
     }
+    if (this.containerElement) {
+      delete (this.containerElement as any)._leaflet_id;
+      this.containerElement.innerHTML = "";
+      this.containerElement = null;
+    }
+    this.currentTileLayer = null;
     this.isMapLoaded = false;
+    this.initPromise = null;
   }
 }

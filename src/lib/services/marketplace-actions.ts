@@ -39,6 +39,15 @@ export async function getProviderBySlugAction(
 }
 
 /**
+ * Server Action: Get provider by id (vendor/seller)
+ */
+export async function getProviderByIdAction(
+  id: string
+): Promise<ProviderPublicProfile | null> {
+  return MarketplaceService.getProviderById(id);
+}
+
+/**
  * Server Action: Get services by provider id
  */
 export async function getProviderServicesAction(
