@@ -57,7 +57,8 @@ export type ProviderType =
   | "veterinarian"
   | "agronomist"
   | "instructor"
-  | "supplier";
+  | "supplier"
+  | "agricultural_consultant";
 
 export type VerificationStatus = "unverified" | "pending" | "verified" | "rejected";
 

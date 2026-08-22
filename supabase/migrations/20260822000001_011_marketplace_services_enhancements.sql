@@ -199,7 +199,24 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql STABLE SECURITY DEFINER;
 
--- 5. Additional Initial Seed for Marketplace Services (Agricultural & Expert)
+-- 5. Allow agricultural_consultant on provider_profiles (used by seed + marketplace)
+ALTER TABLE public.provider_profiles DROP CONSTRAINT IF EXISTS provider_profiles_provider_type_check;
+ALTER TABLE public.provider_profiles ADD CONSTRAINT provider_profiles_provider_type_check CHECK (
+  provider_type IN (
+    'individual',
+    'company',
+    'cooperative',
+    'organization',
+    'technician',
+    'veterinarian',
+    'agronomist',
+    'instructor',
+    'supplier',
+    'agricultural_consultant'
+  )
+);
+
+-- 6. Additional Initial Seed for Marketplace Services (Agricultural & Expert)
 DO $$
 DECLARE
   v_p_hua UUID;

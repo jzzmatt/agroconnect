@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS public.provider_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   profile_id UUID NOT NULL REFERENCES public.profiles(id) ON DELETE RESTRICT,
   provider_type TEXT NOT NULL DEFAULT 'individual' CHECK (
-    provider_type IN ('individual', 'company', 'cooperative', 'organization', 'technician', 'veterinarian', 'agronomist', 'instructor', 'supplier')
+    provider_type IN ('individual', 'company', 'cooperative', 'organization', 'technician', 'veterinarian', 'agronomist', 'instructor', 'supplier', 'agricultural_consultant')
   ),
   business_name TEXT NOT NULL,
   slug TEXT UNIQUE NOT NULL,
