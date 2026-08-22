@@ -4,8 +4,9 @@ import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { ProductVideoService } from "@/lib/services/product-video-service";
 import { validateProductVideo } from "@/lib/products/video-validation";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCT_ERROR_CODES, createRequestId, logProductOperation } from "@/lib/products/errors";
+import { isUuid, normalizeVideoUploadMeta } from "@/lib/products/ids";
 
 export async function createProductVideoUploadAction(params: {
   productId: string;
@@ -40,11 +41,19 @@ export async function createProductVideoUploadAction(params: {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_FORBIDDEN, requestId };
     }
 
-    const validation = validateProductVideo({
+    if (!isUuid(params.productId) || !isUuid(profile.id)) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED, requestId };
+    }
+
+    const meta = normalizeVideoUploadMeta({
       mimeType: params.mimeType,
+      fileName: params.filename,
+    });
+    const validation = validateProductVideo({
+      mimeType: meta.mimeType,
       fileSize: params.fileSize,
       durationSeconds: params.durationSeconds,
-      fileName: params.filename,
+      fileName: meta.fileName,
     });
     if (!validation.ok) {
       return { success: false, code: validation.code, message: validation.error, requestId };
@@ -54,14 +63,14 @@ export async function createProductVideoUploadAction(params: {
       ownerId: profile.id,
       productId: params.productId,
       title: params.title,
-      filename: params.filename,
-      mimeType: params.mimeType,
+      filename: meta.fileName,
+      mimeType: meta.mimeType,
       fileSize: params.fileSize,
       durationSeconds: params.durationSeconds,
     });
 
     try {
-      const supabase = await createServerSupabaseClient();
+      const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
       await (supabase.from("product_videos") as any).insert({
         id: created.video.id,
         product_id: params.productId,

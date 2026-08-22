@@ -11,7 +11,8 @@ const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY || "eyJ
  */
 export async function createServerSupabaseClient() {
   const { getToken } = await auth();
-  const token = await getToken();
+  const token =
+    (await getToken({ template: "supabase" }).catch(() => null)) || (await getToken());
 
   return createClient<Database>(
     supabaseUrl,
@@ -50,5 +51,14 @@ export function createAdminServerSupabaseClient() {
       persistSession: false,
     },
   });
+}
+
+export function tryCreateAdminServerSupabaseClient() {
+  if (!process.env.SUPABASE_SERVICE_ROLE_KEY) return null;
+  try {
+    return createAdminServerSupabaseClient();
+  } catch {
+    return null;
+  }
 }
 

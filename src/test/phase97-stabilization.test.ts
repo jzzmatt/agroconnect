@@ -176,6 +176,17 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     );
   });
 
+  it("rejects fake product ids and normalizes video mime for Bunny", async () => {
+    const { isUuid, normalizeVideoUploadMeta } = await import("@/lib/products/ids");
+    expect(isUuid("prd-abc123")).toBe(false);
+    expect(isUuid("pimg-not-a-uuid")).toBe(false);
+    expect(isUuid("2c9c1b7a-4d3e-4f21-9b0a-1a2b3c4d5e6f")).toBe(true);
+    expect(normalizeVideoUploadMeta({ mimeType: "video/webm;codecs=vp9,opus", fileName: "clip.mov" })).toEqual({
+      mimeType: "video/webm",
+      fileName: "clip.webm",
+    });
+  });
+
   it("corrects reversed Bunny library ID and API key", async () => {
     const { normalizeBunnyCredentials } = await import("@/lib/video/bunny");
     const swapped = normalizeBunnyCredentials("123456", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");

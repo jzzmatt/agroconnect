@@ -1,10 +1,22 @@
-const MAX_EDGE = 1600;
-const QUALITY = 0.78;
+const MAX_EDGE = 1280;
+const QUALITY = 0.72;
 
-export async function compressImageFile(file: File): Promise<{ dataUrl: string; fileSize: number; mimeType: string; fileName: string }> {
+export async function compressImageFile(file: File): Promise<{
+  file: File;
+  dataUrl: string;
+  fileSize: number;
+  mimeType: string;
+  fileName: string;
+}> {
+  const fileName = file.name.replace(/\.\w+$/, ".jpg");
   if (typeof window === "undefined" || !file.type.startsWith("image/")) {
-    const dataUrl = await readAsDataUrl(file);
-    return { dataUrl, fileSize: file.size, mimeType: file.type, fileName: file.name };
+    return {
+      file,
+      dataUrl: "",
+      fileSize: file.size,
+      mimeType: file.type || "image/jpeg",
+      fileName,
+    };
   }
 
   const dataUrl = await readAsDataUrl(file);
@@ -15,16 +27,20 @@ export async function compressImageFile(file: File): Promise<{ dataUrl: string; 
   canvas.height = Math.max(1, Math.round(image.height * scale));
   const ctx = canvas.getContext("2d");
   if (!ctx) {
-    return { dataUrl, fileSize: file.size, mimeType: file.type, fileName: file.name };
+    return { file, dataUrl, fileSize: file.size, mimeType: file.type, fileName: file.name };
   }
   ctx.drawImage(image, 0, 0, canvas.width, canvas.height);
+  const blob = await new Promise<Blob>((resolve, reject) => {
+    canvas.toBlob((next) => (next ? resolve(next) : reject(new Error("image_compress_failed"))), "image/jpeg", QUALITY);
+  });
+  const compressedFile = new File([blob], fileName, { type: "image/jpeg" });
   const compressed = canvas.toDataURL("image/jpeg", QUALITY);
-  const approxBytes = Math.ceil((compressed.length * 3) / 4);
   return {
+    file: compressedFile,
     dataUrl: compressed,
-    fileSize: approxBytes,
+    fileSize: compressedFile.size,
     mimeType: "image/jpeg",
-    fileName: file.name.replace(/\.\w+$/, ".jpg"),
+    fileName,
   };
 }
 

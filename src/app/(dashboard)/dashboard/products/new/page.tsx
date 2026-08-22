@@ -22,8 +22,6 @@ import {
   type ProductCategorySlug,
 } from "@/config/product-catalog";
 import { createProductAction, getMyProductStatsAction } from "@/lib/services/shopping-actions";
-import { uploadProductImageAction } from "@/lib/services/product-media-actions";
-import { createProductVideoUploadAction } from "@/lib/services/product-video-actions";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
 import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
 import { compressImageFile } from "@/lib/products/compress-image";
@@ -175,7 +173,7 @@ export default function NewProductPage() {
     setError(null);
     setSuccessMessage(null);
 
-    const PUBLISH_TIMEOUT_MS = 45000;
+    const PUBLISH_TIMEOUT_MS = pendingVideo ? 90_000 : 45_000;
     let timeoutId: ReturnType<typeof setTimeout> | undefined;
     const timeout = new Promise<never>((_, reject) => {
       timeoutId = setTimeout(() => reject(new Error("PRODUCT_PUBLISH_TIMEOUT")), PUBLISH_TIMEOUT_MS);
@@ -225,33 +223,48 @@ export default function NewProductPage() {
 
           for (const img of pendingImages) {
             const compressed = await compressImageFile(img.file);
-            const uploaded = await uploadProductImageAction({
-              productId: result.product.id,
-              productTitle: title,
-              mimeType: compressed.mimeType,
-              fileName: compressed.fileName,
-              fileSize: compressed.fileSize,
-              dataUrl: compressed.dataUrl,
-              isPrimary: img.is_primary,
+            const form = new FormData();
+            form.append("productId", result.product.id);
+            form.append("file", compressed.file, compressed.fileName);
+            form.append("isPrimary", img.is_primary ? "true" : "false");
+            form.append("altText", title);
+            const uploaded = await fetch("/api/products/images", {
+              method: "POST",
+              body: form,
+              credentials: "same-origin",
+              redirect: "manual",
             });
-            if (!uploaded.success) {
-              throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), { code: "MEDIA_UPLOAD_FAILED" });
+            const payload = await uploaded.json().catch(() => null);
+            if (!uploaded.ok || !payload?.success) {
+              throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), {
+                code: payload?.error || "MEDIA_UPLOAD_FAILED",
+              });
             }
           }
 
           if (pendingVideo) {
-            const videoResult = await createProductVideoUploadAction({
-              productId: result.product.id,
-              title,
-              filename: pendingVideo.file.name,
-              mimeType: pendingVideo.file.type,
-              fileSize: pendingVideo.file.size,
-              durationSeconds: pendingVideo.duration,
+            const videoRes = await fetch("/api/products/video/create", {
+              method: "POST",
+              headers: { "Content-Type": "application/json" },
+              credentials: "same-origin",
+              cache: "no-store",
+              redirect: "manual",
+              body: JSON.stringify({
+                productId: result.product.id,
+                title,
+                filename: pendingVideo.file.name,
+                mimeType: pendingVideo.file.type,
+                fileSize: pendingVideo.file.size,
+                durationSeconds: pendingVideo.duration,
+              }),
             });
-            if (!videoResult.success) {
-              throw Object.assign(new Error(videoResult.code || "MEDIA_UPLOAD_FAILED"), { code: videoResult.code });
+            const videoResult = await videoRes.json().catch(() => null);
+            if (!videoRes.ok || !videoResult?.success) {
+              throw Object.assign(new Error(videoResult?.code || "MEDIA_UPLOAD_FAILED"), {
+                code: videoResult?.code || videoResult?.error || "MEDIA_UPLOAD_FAILED",
+              });
             }
-            const upload = (videoResult as any).upload;
+            const upload = videoResult.upload;
             if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
               throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), {
                 code: upload?.code || "BUNNY_NOT_CONFIGURED",
