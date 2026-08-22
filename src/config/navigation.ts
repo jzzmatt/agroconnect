@@ -12,6 +12,7 @@ import {
   Star,
   ClipboardList,
   Store,
+  Package,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -116,7 +117,12 @@ export const DASHBOARD_NAVIGATION: NavSection[] = [
         icon: ShoppingBag,
       },
       {
-        title: "Pedidos de Produtos",
+        title: "Encomendas Recebidas",
+        href: "/dashboard/orders",
+        icon: Package,
+      },
+      {
+        title: "Pedidos de Cotação",
         href: "/dashboard/product-requests",
         icon: Calendar,
       },

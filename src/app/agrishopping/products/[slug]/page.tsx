@@ -227,16 +227,32 @@ export default function ProductDetailPage() {
                 </div>
               </div>
 
-              {/* Action Button: Solicitar Produto / Cotação */}
-              <Button
-                variant="primary"
-                size="lg"
-                onClick={() => setIsRequestModalOpen(true)}
-                className="w-full gap-2 font-bold h-12 text-sm shadow-md cursor-pointer"
-              >
-                <Send className="w-4 h-4" />
-                <span>Solicitar / Contactar Vendedor</span>
-              </Button>
+              {/* Action Buttons: Add to Cart + Direct Request */}
+              <div className="space-y-2">
+                <Button
+                  variant="primary"
+                  size="lg"
+                  onClick={async () => {
+                    const { addToCartAction } = await import("@/lib/services/commerce-actions");
+                    await addToCartAction({ productId: product.id, quantity: 1 });
+                    alert("Produto adicionado ao carrinho!");
+                  }}
+                  className="w-full gap-2 font-bold h-12 text-sm shadow-md cursor-pointer"
+                >
+                  <Package className="w-4 h-4" />
+                  <span>Adicionar ao Carrinho</span>
+                </Button>
+
+                <Button
+                  variant="outline"
+                  size="lg"
+                  onClick={() => setIsRequestModalOpen(true)}
+                  className="w-full gap-2 font-bold h-11 text-xs cursor-pointer"
+                >
+                  <Send className="w-3.5 h-3.5" />
+                  <span>Pedir Cotação Especial</span>
+                </Button>
+              </div>
 
               {/* Seller Summary */}
               <div className="pt-5 border-t border-border space-y-3">

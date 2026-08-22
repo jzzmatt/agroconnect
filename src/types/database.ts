@@ -69,6 +69,46 @@ export type ProductRequestStatus =
   | "cancelled"
   | "completed";
 
+export type CartStatus = "active" | "converted" | "abandoned";
+
+export type OrderStatus =
+  | "pending_payment"
+  | "paid"
+  | "processing"
+  | "ready_for_fulfillment"
+  | "shipped"
+  | "ready_for_pickup"
+  | "completed"
+  | "cancelled"
+  | "failed"
+  | "refunded";
+
+export type OrderFulfillmentMethod = "delivery" | "pickup";
+
+export type PaymentStatus =
+  | "pending"
+  | "processing"
+  | "paid"
+  | "failed"
+  | "cancelled"
+  | "refunded"
+  | "partially_refunded";
+
+export type PaymentMethod =
+  | "card"
+  | "bank_transfer"
+  | "mobile_money"
+  | "cash_on_delivery"
+  | "mock_sandbox";
+
+export type OrderSellerGroupStatus =
+  | "pending"
+  | "processing"
+  | "ready_for_pickup"
+  | "shipped"
+  | "completed"
+  | "cancelled";
+
 export type AgriculturalResourceType =
   | "agronomist"
   | "veterinarian"
@@ -788,6 +828,320 @@ export interface Database {
           status?: ProductStatus;
           is_featured?: boolean;
           metadata?: Json | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      customer_addresses: {
+        Row: {
+          id: string;
+          profile_id: string;
+          label: string | null;
+          recipient_name: string;
+          phone: string;
+          province_id: string | null;
+          municipality_id: string | null;
+          address_line: string;
+          latitude: number | null;
+          longitude: number | null;
+          location: unknown | null;
+          notes: string | null;
+          is_default: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          profile_id: string;
+          label?: string | null;
+          recipient_name: string;
+          phone: string;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          address_line: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          notes?: string | null;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          profile_id?: string;
+          label?: string | null;
+          recipient_name?: string;
+          phone?: string;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          address_line?: string;
+          latitude?: number | null;
+          longitude?: number | null;
+          location?: unknown | null;
+          notes?: string | null;
+          is_default?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      carts: {
+        Row: {
+          id: string;
+          customer_id: string;
+          currency: string;
+          status: CartStatus;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          currency?: string;
+          status?: CartStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          currency?: string;
+          status?: CartStatus;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      cart_items: {
+        Row: {
+          id: string;
+          cart_id: string;
+          product_id: string;
+          seller_id: string;
+          quantity: number;
+          unit_price: number;
+          currency: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          cart_id: string;
+          product_id: string;
+          seller_id: string;
+          quantity?: number;
+          unit_price?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          cart_id?: string;
+          product_id?: string;
+          seller_id?: string;
+          quantity?: number;
+          unit_price?: number;
+          currency?: string;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      orders: {
+        Row: {
+          id: string;
+          customer_id: string;
+          order_number: string;
+          status: OrderStatus;
+          payment_status: PaymentStatus;
+          fulfillment_method: OrderFulfillmentMethod;
+          currency: string;
+          subtotal: number;
+          delivery_fee: number;
+          discount: number;
+          tax: number;
+          total: number;
+          shipping_address_id: string | null;
+          shipping_address_snapshot: Json | null;
+          notes: string | null;
+          cancelled_reason: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          customer_id: string;
+          order_number?: string;
+          status?: OrderStatus;
+          payment_status?: PaymentStatus;
+          fulfillment_method?: OrderFulfillmentMethod;
+          currency?: string;
+          subtotal?: number;
+          delivery_fee?: number;
+          discount?: number;
+          tax?: number;
+          total?: number;
+          shipping_address_id?: string | null;
+          shipping_address_snapshot?: Json | null;
+          notes?: string | null;
+          cancelled_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          customer_id?: string;
+          order_number?: string;
+          status?: OrderStatus;
+          payment_status?: PaymentStatus;
+          fulfillment_method?: OrderFulfillmentMethod;
+          currency?: string;
+          subtotal?: number;
+          delivery_fee?: number;
+          discount?: number;
+          tax?: number;
+          total?: number;
+          shipping_address_id?: string | null;
+          shipping_address_snapshot?: Json | null;
+          notes?: string | null;
+          cancelled_reason?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      order_seller_groups: {
+        Row: {
+          id: string;
+          order_id: string;
+          seller_id: string;
+          status: OrderSellerGroupStatus;
+          fulfillment_method: OrderFulfillmentMethod;
+          subtotal: number;
+          delivery_fee: number;
+          total: number;
+          seller_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          seller_id: string;
+          status?: OrderSellerGroupStatus;
+          fulfillment_method?: OrderFulfillmentMethod;
+          subtotal?: number;
+          delivery_fee?: number;
+          total?: number;
+          seller_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          seller_id?: string;
+          status?: OrderSellerGroupStatus;
+          fulfillment_method?: OrderFulfillmentMethod;
+          subtotal?: number;
+          delivery_fee?: number;
+          total?: number;
+          seller_notes?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      order_items: {
+        Row: {
+          id: string;
+          order_id: string;
+          seller_group_id: string | null;
+          product_id: string | null;
+          seller_id: string;
+          product_title: string;
+          product_slug: string | null;
+          sku: string | null;
+          unit: string;
+          quantity: number;
+          unit_price: number;
+          subtotal: number;
+          currency: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          seller_group_id?: string | null;
+          product_id?: string | null;
+          seller_id: string;
+          product_title: string;
+          product_slug?: string | null;
+          sku?: string | null;
+          unit?: string;
+          quantity?: number;
+          unit_price?: number;
+          subtotal?: number;
+          currency?: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          seller_group_id?: string | null;
+          product_id?: string | null;
+          seller_id?: string;
+          product_title?: string;
+          product_slug?: string | null;
+          sku?: string | null;
+          unit?: string;
+          quantity?: number;
+          unit_price?: number;
+          subtotal?: number;
+          currency?: string;
+          created_at?: string;
+        };
+      };
+      payments: {
+        Row: {
+          id: string;
+          order_id: string;
+          provider: string;
+          provider_payment_id: string | null;
+          payment_method: PaymentMethod;
+          amount: number;
+          currency: string;
+          status: PaymentStatus;
+          idempotency_key: string | null;
+          metadata: Json | null;
+          paid_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          order_id: string;
+          provider?: string;
+          provider_payment_id?: string | null;
+          payment_method?: PaymentMethod;
+          amount?: number;
+          currency?: string;
+          status?: PaymentStatus;
+          idempotency_key?: string | null;
+          metadata?: Json | null;
+          paid_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          order_id?: string;
+          provider?: string;
+          provider_payment_id?: string | null;
+          payment_method?: PaymentMethod;
+          amount?: number;
+          currency?: string;
+          status?: PaymentStatus;
+          idempotency_key?: string | null;
+          metadata?: Json | null;
+          paid_at?: string | null;
           created_at?: string;
           updated_at?: string;
         };

@@ -80,6 +80,10 @@ export function Navbar() {
           <div className="hidden lg:flex items-center gap-3">
             <ThemeSwitcher />
 
+            <Link href="/cart" className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors" title="Carrinho">
+              <ShoppingBag className="w-5 h-5 text-primary" />
+            </Link>
+
             <Link href="/dashboard">
               <Button variant="outline" size="sm" className="gap-1.5 font-bold">
                 <User className="w-3.5 h-3.5 text-primary" />
@@ -97,6 +101,10 @@ export function Navbar() {
           {/* Mobile Menu Button */}
           <div className="flex items-center gap-2 lg:hidden">
             <ThemeSwitcher />
+
+            <Link href="/cart" className="p-1.5 rounded-lg text-foreground hover:bg-muted relative transition-colors" title="Carrinho">
+              <ShoppingBag className="w-4 h-4 text-primary" />
+            </Link>
 
             <Link href="/dashboard">
               <Button variant="outline" size="sm" className="h-8 px-2.5 text-xs font-bold">
