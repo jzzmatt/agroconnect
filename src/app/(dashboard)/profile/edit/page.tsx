@@ -6,7 +6,7 @@ import { useUser } from "@clerk/nextjs";
 import { Button, Input, WhatsAppBrandIcon } from "@/components/ui";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
 import { ArrowLeft, Save, Check, ShieldCheck, User, Sparkles, Lock } from "lucide-react";
-import { updateProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { updateProfileDetailsAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import type { ProfessionalTitle, ProfileType } from "@/types/database";
@@ -35,6 +35,24 @@ export default function EditProfilePage() {
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
+    // 1. Fetch authoritative server profile details
+    getProfileDetailsAction().then((serverProfile) => {
+      if (serverProfile) {
+        if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
+        if (serverProfile.first_name) setFirstName(serverProfile.first_name);
+        if (serverProfile.last_name) setLastName(serverProfile.last_name);
+        if (serverProfile.phone) setPhone(serverProfile.phone);
+        if (serverProfile.whatsapp_phone) setWhatsappPhone(serverProfile.whatsapp_phone);
+        if (serverProfile.bio) setBio(serverProfile.bio);
+        if (serverProfile.professional_title) setProfessionalTitle(serverProfile.professional_title);
+        if (serverProfile.professional_title_custom) setProfessionalTitleCustom(serverProfile.professional_title_custom);
+        if (serverProfile.subscription_plan) setSubscriptionPlan(serverProfile.subscription_plan);
+        if (serverProfile.roles && serverProfile.roles.length > 0) {
+          setSelectedProfileTypes(serverProfile.roles as ProfileType[]);
+        }
+      }
+    });
+
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
       const clerkUsername = user?.username || "";
@@ -42,9 +60,9 @@ export default function EditProfilePage() {
       const clerkLast = user?.lastName || "";
       const initialDisplay = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "");
 
-      setDisplayName(initialDisplay);
-      setFirstName(clerkFirst);
-      setLastName(clerkLast);
+      setDisplayName((prev) => prev || initialDisplay);
+      setFirstName((prev) => prev || clerkFirst);
+      setLastName((prev) => prev || clerkLast);
 
       const savedData = localStorage.getItem("agroconnect_user_profile_override");
       if (savedData) {
@@ -112,6 +130,7 @@ export default function EditProfilePage() {
             province,
             municipality,
             selectedProfileTypes,
+            subscriptionPlan: subscriptionPlan || "basic",
           })
         );
       }

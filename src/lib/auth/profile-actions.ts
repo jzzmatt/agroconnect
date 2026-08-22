@@ -100,6 +100,18 @@ export async function switchActiveProfileTypeAction(
 }
 
 /**
+ * Server Action: Get authenticated user's profile details including plan, roles, etc.
+ */
+export async function getProfileDetailsAction(): Promise<UserProfileWithRoles | null> {
+  try {
+    const current = await getCurrentUserProfile();
+    return current;
+  } catch (e) {
+    return null;
+  }
+}
+
+/**
  * Server Action: Activate or Update Subscription Plan explicitly chosen by user
  */
 export async function activateSubscriptionPlanAction(

@@ -25,6 +25,7 @@ import { MetricCard, Button, UpgradePlanModal, ProductLimitModal } from "@/compo
 import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
+import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function DashboardPage() {
@@ -48,6 +49,22 @@ export default function DashboardPage() {
   const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
 
   useEffect(() => {
+    // 1. Fetch server-side profile state
+    getProfileDetailsAction().then((serverProfile) => {
+      if (serverProfile) {
+        setProfile((prev) => ({
+          ...prev,
+          displayName: serverProfile.display_name || prev.displayName,
+          firstName: serverProfile.first_name || prev.firstName,
+          lastName: serverProfile.last_name || prev.lastName,
+          email: serverProfile.email || prev.email,
+          professionalTitle: serverProfile.professional_title || prev.professionalTitle,
+          activeProfile: serverProfile.active_profile_type || prev.activeProfile,
+          subscriptionPlan: serverProfile.subscription_plan || "basic",
+        }));
+      }
+    });
+
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
       const clerkUsername = user?.username || "";
@@ -57,10 +74,10 @@ export default function DashboardPage() {
 
       setProfile((prev) => ({
         ...prev,
-        displayName: initialDisplay,
-        firstName: clerkFirst,
-        lastName: clerkLast,
-        email: realEmail,
+        displayName: prev.displayName || initialDisplay,
+        firstName: prev.firstName || clerkFirst,
+        lastName: prev.lastName || clerkLast,
+        email: prev.email || realEmail,
       }));
 
       const savedActive = localStorage.getItem("agroconnect_active_profile_type");

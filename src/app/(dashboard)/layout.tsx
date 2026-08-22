@@ -4,23 +4,45 @@ import React, { useState, useEffect } from "react";
 import { DashboardSidebar, DashboardHeader } from "@/components/dashboard";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
-import { switchActiveProfileTypeAction } from "@/lib/auth/profile-actions";
+import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useUser } from "@clerk/nextjs";
 
 export default function DashboardLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const { user } = useUser();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [activeProfile, setActiveProfile] = useState<ProfileType>("personal");
-  const [availableProfiles] = useState<ProfileType[]>([
+  const [availableProfiles, setAvailableProfiles] = useState<ProfileType[]>([
     "student",
   ]);
   const [displayName, setDisplayName] = useState("Utilizador");
   const [subscriptionPlan, setSubscriptionPlan] = useState<string>("basic");
 
   useEffect(() => {
+    // 1. Fetch server-side profile state
+    getProfileDetailsAction().then((serverProfile) => {
+      if (serverProfile) {
+        if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
+        if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
+        if (serverProfile.subscription_plan) setSubscriptionPlan(serverProfile.subscription_plan);
+        if (serverProfile.roles && serverProfile.roles.length > 0) {
+          setAvailableProfiles(serverProfile.roles as ProfileType[]);
+        }
+      }
+    });
+
     if (typeof window !== "undefined") {
+      const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
+      const clerkUsername = user?.username || "";
+      const clerkFirst = user?.firstName || "";
+      const clerkLast = user?.lastName || "";
+      const initialDisplay = clerkUsername || (clerkFirst && clerkLast ? `${clerkFirst} ${clerkLast}` : clerkFirst) || (realEmail ? realEmail.split("@")[0] : "Utilizador");
+
+      setDisplayName((prev) => prev !== "Utilizador" ? prev : initialDisplay);
+
       const saved = localStorage.getItem("agroconnect_active_profile_type");
       if (saved) {
         setActiveProfile(saved as ProfileType);
@@ -32,12 +54,13 @@ export default function DashboardLayout({
           const parsed = JSON.parse(profileOverride);
           if (parsed.displayName) setDisplayName(parsed.displayName);
           if (parsed.subscriptionPlan) setSubscriptionPlan(parsed.subscriptionPlan);
+          if (parsed.selectedProfileTypes) setAvailableProfiles(parsed.selectedProfileTypes);
         } catch {
           // ignore
         }
       }
     }
-  }, [availableProfiles.length]);
+  }, [user]);
 
   const handleSwitchProfile = async (profile: ProfileType) => {
     setActiveProfile(profile);

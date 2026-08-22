@@ -7,7 +7,8 @@ import { MapPin, Mail, Phone, ShieldCheck, Edit, Sparkles, Store, GraduationCap,
 import { Button, Badge, Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { PROFILE_TYPE_CONFIG, getUserGreeting } from "@/lib/auth/identity-resolvers";
-import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
+import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function ProfilePage() {
@@ -28,12 +29,33 @@ export default function ProfilePage() {
     bio: "",
     roles: ["student"] as ProfileType[],
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: null as string | null,
+    subscriptionPlan: "basic" as string,
     activeSince: "Agosto 2026",
     isVerified: false,
   });
 
   useEffect(() => {
+    // 1. First fetch server-side authoritative profile details
+    getProfileDetailsAction().then((serverProfile) => {
+      if (serverProfile) {
+        setProfileData((prev) => ({
+          ...prev,
+          displayName: serverProfile.display_name || prev.displayName,
+          firstName: serverProfile.first_name || prev.firstName,
+          lastName: serverProfile.last_name || prev.lastName,
+          email: serverProfile.email || prev.email,
+          phone: serverProfile.phone || prev.phone,
+          whatsappPhone: serverProfile.whatsapp_phone || prev.whatsappPhone,
+          bio: serverProfile.bio || prev.bio,
+          professionalTitle: serverProfile.professional_title || prev.professionalTitle,
+          professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
+          activeProfile: serverProfile.active_profile_type || prev.activeProfile,
+          subscriptionPlan: serverProfile.subscription_plan || "basic",
+          roles: (serverProfile.roles as ProfileType[]) || prev.roles,
+        }));
+      }
+    });
+
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
       const clerkUsername = user?.username || "";
@@ -43,10 +65,10 @@ export default function ProfilePage() {
 
       setProfileData((prev) => ({
         ...prev,
-        displayName: defaultName,
-        firstName: clerkFirst,
-        lastName: clerkLast,
-        email: realEmail,
+        displayName: prev.displayName || defaultName,
+        firstName: prev.firstName || clerkFirst,
+        lastName: prev.lastName || clerkLast,
+        email: prev.email || realEmail,
       }));
 
       const saved = localStorage.getItem("agroconnect_user_profile_override");
@@ -65,7 +87,7 @@ export default function ProfilePage() {
             province: parsed.province || prev.province,
             municipality: parsed.municipality || prev.municipality,
             roles: parsed.selectedProfileTypes || prev.roles,
-            subscriptionPlan: parsed.subscriptionPlan !== undefined ? parsed.subscriptionPlan : prev.subscriptionPlan,
+            subscriptionPlan: parsed.subscriptionPlan || prev.subscriptionPlan || "basic",
           }));
         } catch {
           // Keep defaults
@@ -85,6 +107,9 @@ export default function ProfilePage() {
   });
 
   const wa = normalizeWhatsAppNumber(profileData.whatsappPhone);
+
+  const planSlug = normalizePlanSlug(profileData.subscriptionPlan) || "basic";
+  const planDef = SUBSCRIPTION_PLANS[planSlug];
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -125,14 +150,7 @@ export default function ProfilePage() {
                 <span className="text-muted-foreground italic">Localização não definida</span>
               )}
               <span>
-                • Plano:{" "}
-                {profileData.subscriptionPlan ? (
-                  <strong className="text-foreground capitalize">{profileData.subscriptionPlan}</strong>
-                ) : (
-                  <Link href="/pricing" className="text-amber-600 font-bold hover:underline">
-                    Plano ainda não selecionado (Escolher plano →)
-                  </Link>
-                )}
+                • Plano: <strong className="text-foreground font-bold">{planDef.name} ({planDef.priceFormatted}/mês)</strong>
               </span>
               <span>• Membro desde {profileData.activeSince}</span>
             </div>
