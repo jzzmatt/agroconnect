@@ -202,6 +202,42 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(src).toMatch("persisted: persist.ok");
   });
 
+  it("classifies a dropped Supabase connection as a network fault, not a plan fault", async () => {
+    const { describeSupabaseError, isTransientSupabaseError } = await import(
+      "@/lib/supabase/retry"
+    );
+    const undiciFailure = Object.assign(new TypeError("fetch failed"), {
+      cause: Object.assign(new Error("getaddrinfo ENOTFOUND db.example.supabase.co"), {
+        code: "ENOTFOUND",
+      }),
+    });
+    expect(isTransientSupabaseError(undiciFailure)).toBe(true);
+    expect(describeSupabaseError(undiciFailure)).toMatch("ENOTFOUND");
+    expect(isTransientSupabaseError(new Error("duplicate key value"))).toBe(false);
+  });
+
+  it("retries a dropped Supabase connection and gives up on real errors", async () => {
+    const { withSupabaseRetry } = await import("@/lib/supabase/retry");
+
+    let attempts = 0;
+    const recovered = await withSupabaseRetry("probe", async () => {
+      attempts += 1;
+      if (attempts < 3) throw new TypeError("fetch failed");
+      return { data: { id: "ok" }, error: null };
+    });
+    expect(attempts).toBe(3);
+    expect(recovered.data.id).toBe("ok");
+
+    let constraintAttempts = 0;
+    await expect(
+      withSupabaseRetry("probe", async () => {
+        constraintAttempts += 1;
+        throw new Error("duplicate key value violates unique constraint");
+      })
+    ).rejects.toThrow(/duplicate key/);
+    expect(constraintAttempts).toBe(1);
+  });
+
   it("does not surface Chrome extension listener errors as the publish reason", () => {
     expect(
       sanitizePublishError(

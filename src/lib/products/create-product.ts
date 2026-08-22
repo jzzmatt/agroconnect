@@ -13,6 +13,7 @@ import {
   syncSubscriptionPlanRow,
 } from "@/lib/products/publish";
 import { isUuid } from "@/lib/products/ids";
+import { describeSupabaseError, isTransientSupabaseError } from "@/lib/supabase/retry";
 import {
   PRODUCT_ERROR_CODES,
   createRequestId,
@@ -212,7 +213,7 @@ export async function createPublishedProduct(
 
     return { success: true, product, data: product, requestId };
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : String(err || "");
+    const message = describeSupabaseError(err) || String(err || "");
     logProductOperation({
       requestId,
       operation: "create_product",
@@ -226,8 +227,10 @@ export async function createPublishedProduct(
     if (/PRODUCT_CREATION_LOCKED|FEATURE_NOT_AVAILABLE/i.test(message)) {
       return { success: false, code: PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE, requestId };
     }
-    if (/TIMEOUT|abort/i.test(message)) {
-      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_TIMEOUT, message, requestId };
+    // A dropped connection to Supabase is not a validation or plan problem;
+    // telling the user it is a network fault is what they can act on.
+    if (isTransientSupabaseError(err)) {
+      return { success: false, code: PRODUCT_ERROR_CODES.NETWORK_FAILED, message, requestId };
     }
     return {
       success: false,
