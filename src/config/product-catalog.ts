@@ -34,9 +34,10 @@ export type LeasePeriod = (typeof LEASE_PERIODS)[number];
 
 export const SQM_PER_HECTARE = 10_000;
 
-export const PRODUCT_VIDEO_MAX_SECONDS = 30;
-export const PRODUCT_VIDEO_MAX_BYTES = 25 * 1024 * 1024; // 25 MB — enough for a 30s 720p clip
-export const PRODUCT_VIDEO_ALLOWED_MIME = ["video/mp4", "video/webm"] as const;
+export const PRODUCT_VIDEO_MAX_SECONDS = 60;
+export const PRODUCT_VIDEO_MAX_BYTES = 40 * 1024 * 1024; // optimized upload cap
+export const PRODUCT_VIDEO_SOURCE_MAX_BYTES = 250 * 1024 * 1024; // original before compression
+export const PRODUCT_VIDEO_ALLOWED_MIME = ["video/mp4", "video/webm", "video/quicktime"] as const;
 
 export function isProductCategorySlug(value?: string | null): value is ProductCategorySlug {
   return !!value && (PRODUCT_CATEGORY_SLUGS as readonly string[]).includes(value);

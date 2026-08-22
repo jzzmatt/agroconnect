@@ -3,9 +3,10 @@
 import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Sprout, X } from "lucide-react";
+import { Sprout, X, LogOut, Lock } from "lucide-react";
 import { getDashboardNavigation } from "@/config/navigation";
 import { useI18n } from "@/i18n/provider";
+import { useSignOut } from "@/lib/auth/use-sign-out";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
@@ -35,28 +36,24 @@ export function DashboardSidebar({
 }: DashboardSidebarProps) {
   const pathname = usePathname();
   const { dict } = useI18n();
+  const { handleSignOut, pending: signingOut } = useSignOut();
   const navigation = getDashboardNavigation(dict);
 
-  // Compute entitlements based on actual subscription plan (Basic users will have creation modules locked)
   const entitlements = getUserEntitlements({
     subscriptionPlan,
     roles: userRoles,
   });
 
-  // Filter navigation sections based on active user roles & subscription plan module entitlements
   const visibleSections = navigation.filter((section) => {
-    // Check module entitlement: if section requires a module that is locked on user's plan, hide from sidebar
-    if (section.requiredModule === "agriShopping" && !entitlements.can_access_agrishopping) {
-      return false;
-    }
     if (section.requiredModule === "agriAcademy" && !entitlements.can_access_agriacademy) {
       return false;
     }
     if (section.requiredModule === "agriExpert" && !entitlements.can_access_agriexpert) {
       return false;
     }
-
-    // Role check
+    if (section.requiredModule === "agriShopping") {
+      return true;
+    }
     if (!section.roles || section.roles.length === 0) return true;
     return section.roles.some((role) => userRoles.includes(role));
   });
@@ -111,14 +108,17 @@ export function DashboardSidebar({
               {section.items.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
+                const agriLocked =
+                  section.requiredModule === "agriShopping" && !entitlements.can_access_agriproduct;
+                const href = agriLocked ? "/pricing" : item.href;
                 return (
                   <Link
-                    key={item.href}
-                    href={item.href}
+                    key={`${item.href}-${item.title}`}
+                    href={href}
                     onClick={() => onClose && onClose()}
                     className={cn(
                       "flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors",
-                      isActive
+                      isActive && !agriLocked
                         ? "bg-sidebar-active text-sidebar-active-foreground shadow-xs font-bold"
                         : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
                     )}
@@ -127,12 +127,14 @@ export function DashboardSidebar({
                       <Icon
                         className={cn(
                           "w-4 h-4 shrink-0",
-                          isActive ? "text-primary-foreground" : "text-primary"
+                          isActive && !agriLocked ? "text-primary-foreground" : "text-primary"
                         )}
                       />
                       <span className="truncate">{item.title}</span>
                     </div>
-                    {item.badge && (
+                    {agriLocked ? (
+                      <Lock className="w-3.5 h-3.5 text-amber-600" />
+                    ) : item.badge ? (
                       <span
                         className={cn(
                           "px-1.5 py-0.2 rounded text-[9px] font-bold",
@@ -143,7 +145,7 @@ export function DashboardSidebar({
                       >
                         {item.badge}
                       </span>
-                    )}
+                    ) : null}
                   </Link>
                 );
               })}
@@ -153,8 +155,22 @@ export function DashboardSidebar({
       </div>
 
       {/* Areas of Activity in Ecosystem Footer */}
-      <div className="p-4 border-t border-sidebar-border bg-surface-muted/50">
-        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block mb-1.5">
+      <div className="p-4 border-t border-sidebar-border bg-surface-muted/50 space-y-3">
+        {!entitlements.can_access_agriproduct && (
+          <Link
+            href="/pricing"
+            onClick={() => onClose && onClose()}
+            className="block rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2"
+          >
+            <span className="text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-200">
+              AgriProduct 🔒
+            </span>
+            <span className="block text-[11px] font-bold text-amber-900 dark:text-amber-100 mt-0.5">
+              {dict.dash.upgradePlan}
+            </span>
+          </Link>
+        )}
+        <span className="text-[10px] font-bold text-muted-foreground uppercase tracking-wider block">
           {dict.dash.areas}
         </span>
         <div className="flex flex-wrap gap-1">
@@ -171,6 +187,18 @@ export function DashboardSidebar({
             );
           })}
         </div>
+        <button
+          type="button"
+          onClick={() => {
+            onClose && onClose();
+            void handleSignOut();
+          }}
+          disabled={signingOut}
+          className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-bold text-destructive hover:bg-destructive/10 transition-colors"
+        >
+          <LogOut className="w-4 h-4" />
+          <span>{dict.navigation.signOut}</span>
+        </button>
       </div>
     </div>
   );

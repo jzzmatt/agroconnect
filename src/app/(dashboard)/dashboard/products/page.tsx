@@ -17,21 +17,32 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { INITIAL_PRODUCTS } from "@/lib/services/shopping-service";
-import { updateProductAction } from "@/lib/services/shopping-actions";
+import { getMyProductStatsAction, updateProductAction } from "@/lib/services/shopping-actions";
 import { UpgradePlanModal } from "@/components/ui";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { countActiveProducts } from "@/lib/services/pricing-service";
+import { useI18n } from "@/i18n/provider";
 import type { ProductListItem } from "@/types/domain";
 
 export default function MyProductsDashboardPage() {
-  const [products, setProducts] = useState<ProductListItem[]>(INITIAL_PRODUCTS);
+  const { dict } = useI18n();
+  const [products, setProducts] = useState<ProductListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const { entitlements } = useAuthoritativePlan();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
-  const isBasic = !entitlements.can_sell_products;
+  useEffect(() => {
+    getMyProductStatsAction()
+      .then((stats) => setProducts(stats.products))
+      .catch(() => setProducts([]));
+  }, []);
+
+  const isBasic = !entitlements.can_access_agriproduct;
+  const activeCount = countActiveProducts(products);
+  const isLimitReached =
+    entitlements.product_limit !== null && activeCount >= entitlements.product_limit;
 
   if (isBasic) {
     return (
@@ -46,7 +57,7 @@ export default function MyProductsDashboardPage() {
               Módulo Bloqueado • Plano Básico
             </span>
             <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-              AgriShopping • Gestão de Produtos
+              AgriProduct
             </h1>
             <p className="text-xs text-muted-foreground leading-relaxed">
               A criação, edição e publicação de produtos agrícolas está disponível a partir do plano <strong>Profissional (15.000 Kz/mês)</strong> ou <strong>Business (30.000 Kz/mês)</strong>.
@@ -139,20 +150,26 @@ export default function MyProductsDashboardPage() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-surface-card p-6 sm:p-8 rounded-3xl border border-border shadow-xs">
         <div>
           <span className="text-xs font-bold text-primary uppercase tracking-wider">
-            AgriShopping • Gestão de Loja
+            AgriProduct • Gestão de Loja
           </span>
           <h1 className="text-2xl sm:text-3xl font-black text-foreground mt-1">
             Os Meus Produtos
           </h1>
           <p className="text-xs text-muted-foreground mt-1">
-            Adicione sementes, fertilizantes, equipamentos ou colheitas e faça a gestão do stock e preços.
+            {entitlements.product_limit !== null
+              ? isLimitReached
+                ? dict.products.limitTenReached
+                : dict.products.activeCountOf
+                    .replace("{count}", String(activeCount))
+                    .replace("{limit}", String(entitlements.product_limit))
+              : `${dict.products.unlimitedActive}: ${dict.products.unlimitedLabel}`}
           </p>
         </div>
 
-        <Link href="/dashboard/products/new">
+        <Link href={isLimitReached ? "/pricing" : "/dashboard/products/new"}>
           <Button variant="primary" className="gap-2 font-bold shadow-md h-11 px-6">
             <Plus className="w-4 h-4" />
-            <span>Adicionar Produto</span>
+            <span>{isLimitReached ? dict.dash.upgradePlan : dict.products.add}</span>
           </Button>
         </Link>
       </div>

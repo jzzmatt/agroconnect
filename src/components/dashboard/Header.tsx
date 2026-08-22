@@ -2,8 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { useSignOut } from "@/lib/auth/use-sign-out";
 import { Menu, Bell, User, Search, MapPin, ChevronDown, UserCircle, Settings, LogOut, Heart, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
@@ -32,21 +31,10 @@ export function DashboardHeader({
   availableProfiles = ["expert", "instructor", "student", "seller"],
   onSwitchProfile,
 }: DashboardHeaderProps) {
-  const router = useRouter();
-  const { signOut } = useClerk();
+  const { handleSignOut, pending: signingOut } = useSignOut();
   const { dict } = useI18n();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const activeConfig = PROFILE_TYPE_CONFIG[activeProfile] || PROFILE_TYPE_CONFIG.personal;
-
-  const handleSignOut = async () => {
-    setAccountMenuOpen(false);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("agroconnect_active_profile_type");
-      localStorage.removeItem("agroconnect_user_profile_override");
-      sessionStorage.removeItem("agroconnect_prompted_profile_selector");
-    }
-    await signOut({ redirectUrl: "/" });
-  };
 
   return (
     <header className="h-16 bg-surface-elevated border-b border-border px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 transition-colors">
@@ -148,7 +136,11 @@ export function DashboardHeader({
                 <div className="pt-1 border-t border-border">
                   <button
                     type="button"
-                    onClick={handleSignOut}
+                    onClick={() => {
+                      setAccountMenuOpen(false);
+                      void handleSignOut();
+                    }}
+                    disabled={signingOut}
                     className="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold text-destructive hover:bg-destructive/10 transition-colors cursor-pointer"
                   >
                     <LogOut className="w-4 h-4 text-destructive" />

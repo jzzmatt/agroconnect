@@ -23,8 +23,11 @@ export async function createProductVideoUploadAction(params: {
       return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };
     }
 
-    const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
-    if (!entitlements.can_create_products && !entitlements.can_upload_product_images) {
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: profile.subscription_plan,
+      roles: profile.roles,
+    });
+    if (!entitlements.can_upload_product_video || !entitlements.can_access_agriproduct) {
       logProductOperation({
         requestId,
         operation: "product_video_upload",
@@ -112,7 +115,7 @@ export async function deleteProductVideoAction(videoId: string) {
   const profile = await getCurrentUserProfile();
   if (!profile) return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED };
   const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
-  if (!entitlements.can_upload_product_images) {
+  if (!entitlements.can_upload_product_video) {
     return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_FORBIDDEN };
   }
   return { success: ProductVideoService.markDeleted(videoId, profile.id) };

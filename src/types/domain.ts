@@ -39,7 +39,9 @@ export interface UserProfileWithRoles {
 
 export interface UserEntitlements {
   plan: "basic" | "professional" | "business" | "enterprise";
+  subscription_status: "active" | "pending" | "cancelled" | "expired";
   can_access_agrishopping: boolean;
+  can_access_agriproduct: boolean;
   can_access_agriacademy: boolean;
   can_access_agrilocalization: boolean;
   can_access_agriexpert: boolean;
@@ -52,6 +54,7 @@ export interface UserEntitlements {
   can_manage_inventory: boolean;
   can_upload_product_images: boolean;
   can_upload_product_video: boolean;
+  product_limit_reached: boolean;
   can_manage_services: boolean;
   can_teach_courses: boolean;
   can_create_courses: boolean;

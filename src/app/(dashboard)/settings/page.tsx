@@ -1,8 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { useRouter } from "next/navigation";
-import { useClerk } from "@clerk/nextjs";
+import { useSignOut } from "@/lib/auth/use-sign-out";
 import { Button, SectionHeader, ThemeSwitcher } from "@/components/ui";
 import { useI18n } from "@/i18n/provider";
 import { useTheme } from "@/lib/theme";
@@ -12,23 +11,13 @@ import { MARKET_COUNTRIES, type MarketCountryCode } from "@/config/markets";
 import { Bell, Globe, Save, Check, Sun, Moon, LogOut, Lock, MapPin } from "lucide-react";
 
 export default function SettingsPage() {
-  const router = useRouter();
-  const { signOut } = useClerk();
+  const { handleSignOut, pending: signingOut } = useSignOut();
   const { dict, locale, setLocale } = useI18n();
   const { theme, setTheme } = useTheme();
   const { entitlements, marketCountry, refresh } = useAuthoritativePlan();
   const [emailNotifications, setEmailNotifications] = useState(true);
   const [smsNotifications, setSmsNotifications] = useState(true);
   const [saved, setSaved] = useState(false);
-
-  const handleSignOut = async () => {
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("agroconnect_active_profile_type");
-      localStorage.removeItem("agroconnect_user_profile_override");
-      sessionStorage.removeItem("agroconnect_prompted_profile_selector");
-    }
-    await signOut({ redirectUrl: "/" });
-  };
 
   const handleSave = () => {
     setSaved(true);
@@ -274,7 +263,8 @@ export default function SettingsPage() {
             <Button
               type="button"
               variant="outline"
-              onClick={handleSignOut}
+              onClick={() => void handleSignOut()}
+              disabled={signingOut}
               className="font-bold text-xs text-destructive hover:bg-destructive/10 border-destructive/30"
             >
               <LogOut className="w-3.5 h-3.5 mr-1.5" />

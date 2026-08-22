@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useMemo, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2, AlertCircle, Loader2, Lock, Sparkles, ArrowRight } from "lucide-react";
@@ -21,7 +21,7 @@ import {
   type ListingType,
   type ProductCategorySlug,
 } from "@/config/product-catalog";
-import { createProductAction } from "@/lib/services/shopping-actions";
+import { createProductAction, getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { uploadProductImageAction } from "@/lib/services/product-media-actions";
 import { createProductVideoUploadAction } from "@/lib/services/product-video-actions";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
@@ -30,13 +30,22 @@ import { compressImageFile } from "@/lib/products/compress-image";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
+import { createRequestId } from "@/lib/products/errors";
+import { uploadToBunnyTus } from "@/lib/products/bunny-upload";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export default function NewProductPage() {
   const router = useRouter();
   const { dict } = useI18n();
-  const { entitlements } = useAuthoritativePlan();
-  const isBasic = !entitlements.can_create_products && !entitlements.can_publish_products;
+  const { entitlements, refresh } = useAuthoritativePlan();
+  const isBasic = !entitlements.can_access_agriproduct;
+  const [activeCount, setActiveCount] = useState(0);
+  const isLimitReached =
+    entitlements.product_limit !== null && activeCount >= entitlements.product_limit;
+
+  useEffect(() => {
+    getMyProductStatsAction().then((stats) => setActiveCount(stats.activeCount)).catch(() => undefined);
+  }, []);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ProductCategorySlug>("sementes-e-fertilizantes");
@@ -68,9 +77,10 @@ export default function NewProductPage() {
   const [areaUnit, setAreaUnit] = useState<LandAreaUnit>("hectare");
   const [leasePeriod, setLeasePeriod] = useState<LeasePeriod>("year");
 
-  const [isLoading, setIsLoading] = useState(false);
+  const [publishState, setPublishState] = useState<"idle" | "validating" | "uploading_media" | "publishing" | "success" | "error">("idle");
+  const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [idempotencyKey] = useState(() => createRequestId());
 
   const productType = productTypeFromCategory(category);
   const areaPreview = useMemo(() => formatAreaEquivalent(areaValue || 0, areaUnit), [areaValue, areaUnit]);
@@ -86,6 +96,8 @@ export default function NewProductPage() {
       setAreaValue(1);
     }
   };
+
+  const busy = publishState === "validating" || publishState === "uploading_media" || publishState === "publishing";
 
   if (isBasic) {
     return (
@@ -120,96 +132,164 @@ export default function NewProductPage() {
     );
   }
 
+  if (isLimitReached) {
+    return (
+      <div className="max-w-4xl mx-auto space-y-6">
+        <div className="bg-surface-card rounded-3xl p-8 sm:p-12 border border-border text-center space-y-6 shadow-sm">
+          <Lock className="w-10 h-10 text-amber-600 mx-auto" />
+          <h1 className="text-2xl font-black">{dict.products.limitTenReached}</h1>
+          <p className="text-xs text-muted-foreground">{dict.errors.PRODUCT_LIMIT_REACHED}</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link href="/dashboard/products">
+              <Button variant="outline">{dict.products.manageProducts}</Button>
+            </Link>
+            <Link href="/pricing">
+              <Button variant="primary">{dict.dash.upgradePlan}</Button>
+            </Link>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (isLoading) return;
+    if (busy) return;
     if (!title.trim() || title.length < 3 || price < 0) {
-      setError(dict.errors.PRODUCT_VALIDATION_FAILED);
+      setError(dict.errors.VALIDATION_ERROR);
+      setPublishState("error");
       return;
     }
     if (productType === "animal" && (!species || quantity < 1)) {
       setError(dict.errors.PRODUCT_ANIMAL_INVALID);
+      setPublishState("error");
       return;
     }
     if (productType === "land" && (!areaValue || areaValue <= 0 || !listingType)) {
       setError(dict.errors.PRODUCT_LAND_INVALID);
+      setPublishState("error");
       return;
     }
 
-    setIsLoading(true);
+    setPublishState("validating");
     setError(null);
+    setSuccessMessage(null);
+
+    const PUBLISH_TIMEOUT_MS = 45000;
+    let timeoutId: ReturnType<typeof setTimeout> | undefined;
+    const timeout = new Promise<never>((_, reject) => {
+      timeoutId = setTimeout(() => reject(new Error("PRODUCT_PUBLISH_TIMEOUT")), PUBLISH_TIMEOUT_MS);
+    });
 
     try {
-      const result = await createProductAction({
-        title,
-        description,
-        condition,
-        price,
-        unit: productType === "animal" ? animalUnit : unit,
-        quantity,
-        sku: sku || undefined,
-        availabilityStatus,
-        locationType,
-        sellingRadiusKm,
-        status: "published",
-        categorySlug: category,
-        productType,
-        provinceName: selectedProvince,
-        municipalityName: selectedMunicipality,
-        metadata: {
-          animal:
-            productType === "animal"
-              ? { species, breed, sex, age, weight, quantity, unit: animalUnit, notes: animalNotes, listing_type: "sale" }
-              : undefined,
-          land:
-            productType === "land"
-              ? { listing_type: listingType, property_type: propertyType, area_value: areaValue, area_unit: areaUnit, lease_period: listingType === "lease" ? leasePeriod : undefined }
-              : undefined,
-        },
-      });
+      await Promise.race([
+        (async () => {
+          setPublishState("publishing");
+          const result = await createProductAction({
+            title,
+            description,
+            condition,
+            price,
+            unit: productType === "animal" ? animalUnit : unit,
+            quantity,
+            sku: sku || undefined,
+            availabilityStatus,
+            locationType,
+            sellingRadiusKm,
+            status: "published",
+            categorySlug: category,
+            productType,
+            provinceName: selectedProvince,
+            municipalityName: selectedMunicipality,
+            idempotencyKey,
+            metadata: {
+              animal:
+                productType === "animal"
+                  ? { species, breed, sex, age, weight, quantity, unit: animalUnit, notes: animalNotes, listing_type: "sale" }
+                  : undefined,
+              land:
+                productType === "land"
+                  ? { listing_type: listingType, property_type: propertyType, area_value: areaValue, area_unit: areaUnit, lease_period: listingType === "lease" ? leasePeriod : undefined }
+                  : undefined,
+            },
+          });
 
-      if (!result.success || !result.product) {
-        setError(localizeError(dict, result.code, result.message));
-        return;
+          if (!result.success || !result.product) {
+            throw Object.assign(new Error(result.code || "PRODUCT_PUBLISH_FAILED"), { code: result.code, message: result.message });
+          }
+
+          let videoProcessing = false;
+          if (pendingImages.length || pendingVideo) {
+            setPublishState("uploading_media");
+          }
+
+          for (const img of pendingImages) {
+            const compressed = await compressImageFile(img.file);
+            const uploaded = await uploadProductImageAction({
+              productId: result.product.id,
+              productTitle: title,
+              mimeType: compressed.mimeType,
+              fileName: compressed.fileName,
+              fileSize: compressed.fileSize,
+              dataUrl: compressed.dataUrl,
+              isPrimary: img.is_primary,
+            });
+            if (!uploaded.success) {
+              throw Object.assign(new Error("MEDIA_UPLOAD_FAILED"), { code: "MEDIA_UPLOAD_FAILED" });
+            }
+          }
+
+          if (pendingVideo) {
+            const videoResult = await createProductVideoUploadAction({
+              productId: result.product.id,
+              title,
+              filename: pendingVideo.file.name,
+              mimeType: pendingVideo.file.type,
+              fileSize: pendingVideo.file.size,
+              durationSeconds: pendingVideo.duration,
+            });
+            if (!videoResult.success) {
+              throw Object.assign(new Error(videoResult.code || "MEDIA_UPLOAD_FAILED"), { code: videoResult.code });
+            }
+            const upload = (videoResult as any).upload;
+            if (upload?.uploadUrl && upload?.bunnyVideoId && upload?.authorizationSignature) {
+              try {
+                await uploadToBunnyTus({
+                  file: pendingVideo.file,
+                  uploadUrl: upload.uploadUrl,
+                  libraryId: upload.bunnyLibraryId,
+                  videoId: upload.bunnyVideoId,
+                  signature: upload.authorizationSignature,
+                  expire: upload.authorizationExpire,
+                });
+              } catch {
+                videoProcessing = true;
+              }
+            } else {
+              videoProcessing = true;
+            }
+          }
+
+          setPublishState("success");
+          setSuccessMessage(
+            videoProcessing ? dict.products.publishedVideoProcessing : dict.products.publishedOk
+          );
+          void refresh();
+          setTimeout(() => router.push("/dashboard/products"), 1200);
+        })(),
+        timeout,
+      ]);
+    } catch (err: any) {
+      const code = err?.code || err?.message;
+      setPublishState("error");
+      if (code === "PRODUCT_PUBLISH_TIMEOUT") {
+        setError(dict.errors.PRODUCT_PUBLISH_TIMEOUT);
+      } else {
+        setError(localizeError(dict, code, err?.message));
       }
-
-      for (const img of pendingImages) {
-        const compressed = await compressImageFile(img.file);
-        const uploaded = await uploadProductImageAction({
-          productId: result.product.id,
-          productTitle: title,
-          mimeType: compressed.mimeType,
-          fileName: compressed.fileName,
-          fileSize: compressed.fileSize,
-          dataUrl: compressed.dataUrl,
-          isPrimary: img.is_primary,
-        });
-        if (!uploaded.success) {
-          setError(localizeError(dict, "PRODUCT_IMAGE_FAILED", uploaded.error));
-        }
-      }
-
-      if (pendingVideo) {
-        const videoResult = await createProductVideoUploadAction({
-          productId: result.product.id,
-          title,
-          filename: pendingVideo.file.name,
-          mimeType: pendingVideo.file.type,
-          fileSize: pendingVideo.file.size,
-          durationSeconds: pendingVideo.duration,
-        });
-        if (!videoResult.success) {
-          setError(localizeError(dict, videoResult.code, videoResult.message));
-          return;
-        }
-      }
-
-      setSuccess(true);
-      setTimeout(() => router.push("/dashboard/products"), 1200);
-    } catch {
-      setError(dict.errors.NETWORK_FAILED);
     } finally {
-      setIsLoading(false);
+      if (timeoutId) clearTimeout(timeoutId);
+      setPublishState((current) => (current === "success" ? "success" : current === "error" ? "error" : "idle"));
     }
   };
 
@@ -223,12 +303,12 @@ export default function NewProductPage() {
         <h1 className="text-2xl sm:text-3xl font-black text-foreground">{dict.products.addNew}</h1>
       </div>
 
-      {success ? (
+      {publishState === "success" ? (
         <div className="bg-surface-card rounded-3xl p-12 text-center border border-border space-y-3">
           <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
-          <h3 className="text-lg font-bold text-foreground">{dict.products.publishedOk}</h3>
+          <h3 className="text-lg font-bold text-foreground">{successMessage || dict.products.publishedOk}</h3>
           <p className="text-xs text-muted-foreground">{dict.products.redirecting}</p>
         </div>
       ) : (
@@ -239,7 +319,7 @@ export default function NewProductPage() {
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {error}
               </span>
-              <Button type="button" variant="outline" size="sm" onClick={handleSubmit as any}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleSubmit({ preventDefault() {} } as React.FormEvent)}>
                 {dict.common.retry}
               </Button>
             </div>
@@ -449,10 +529,10 @@ export default function NewProductPage() {
 
           <div className="flex items-center justify-end gap-3 pt-4">
             <Link href="/dashboard/products">
-              <Button variant="outline" size="lg" disabled={isLoading}>{dict.common.cancel}</Button>
+              <Button variant="outline" size="lg" disabled={busy} type="button">{dict.common.cancel}</Button>
             </Link>
-            <Button type="submit" variant="primary" size="lg" disabled={isLoading} className="gap-2 font-bold px-8">
-              {isLoading ? (
+            <Button type="submit" variant="primary" size="lg" disabled={busy} className="gap-2 font-bold px-8">
+              {busy ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
                   <span>{dict.products.publishing}</span>

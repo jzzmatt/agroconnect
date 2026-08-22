@@ -1,6 +1,7 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { getCurrentUserContext } from "@/lib/auth/user-context";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import {
   ShoppingService,
@@ -39,7 +40,7 @@ export async function getSellerProductsAction(
   return ShoppingService.getSellerProducts(sellerId, onlyPublished);
 }
 
-import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { countActiveProducts } from "@/lib/services/pricing-service";
 import {
   dbCondition,
   isProductCategorySlug,
@@ -52,6 +53,8 @@ import {
   logProductOperation,
   type ProductActionResult,
 } from "@/lib/products/errors";
+
+const publishedByIdempotencyKey = new Map<string, ProductListItem>();
 
 export type CreateProductResult = ProductActionResult<ProductListItem> & {
   product?: ProductListItem;
@@ -68,28 +71,47 @@ export async function createProductAction(
 
   try {
     await requireAuth();
-    const currentUser = await getCurrentUserProfile();
-    if (!currentUser) {
+    const context = await getCurrentUserContext();
+    if (!context) {
       return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };
     }
 
-    const entitlements = getUserEntitlements({
-      subscriptionPlan: currentUser.subscription_plan,
-      roles: currentUser.roles,
-      accountType: currentUser.account_type,
-    });
+    if (input.idempotencyKey && publishedByIdempotencyKey.has(input.idempotencyKey)) {
+      const existing = publishedByIdempotencyKey.get(input.idempotencyKey)!;
+      return { success: true, product: existing, data: existing, requestId };
+    }
 
-    if (!entitlements.can_create_products || !entitlements.can_publish_products) {
+    const currentUser = context.profile;
+    const entitlements = context.entitlements;
+
+    if (context.subscription.status !== "active" && context.plan !== "basic") {
       logProductOperation({
         requestId,
         operation: "create_product",
         userId: currentUser.clerk_user_id,
-        subscription: currentUser.subscription_plan,
-        category: input.categorySlug,
+        subscriptionId: context.subscription.id,
+        plan: context.plan,
+        subscriptionStatus: context.subscription.status,
+        entitlements: ["can_create_products=false"],
         status: "error",
-        error: "creation_locked",
+        error: "plan_not_active",
       });
-      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_CREATION_LOCKED, requestId };
+      return { success: false, code: PRODUCT_ERROR_CODES.PLAN_NOT_ACTIVE, requestId };
+    }
+
+    if (!entitlements.can_create_products || !entitlements.can_publish_products || !entitlements.can_access_agriproduct) {
+      logProductOperation({
+        requestId,
+        operation: "create_product",
+        userId: currentUser.clerk_user_id,
+        subscriptionId: context.subscription.id,
+        plan: context.plan,
+        subscriptionStatus: context.subscription.status,
+        entitlements: ["can_access_agriproduct=false"],
+        status: "error",
+        error: "feature_not_available",
+      });
+      return { success: false, code: PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE, requestId };
     }
 
     if (!input.title || input.title.trim().length < 3) {
@@ -133,8 +155,27 @@ export async function createProductAction(
     }
 
     const seller = await getOrCreateCurrentProviderProfileAction();
-    const currentSellerProducts = await ShoppingService.getSellerProducts(seller.id);
-    const activeCount = currentSellerProducts.filter((p) => p.status !== "archived").length;
+    const currentSellerProducts = await ShoppingService.getSellerProducts(seller.id, false);
+    const activeCount = countActiveProducts(currentSellerProducts);
+
+    logProductOperation({
+      requestId,
+      operation: "create_product_preflight",
+      userId: currentUser.clerk_user_id,
+      subscriptionId: context.subscription.id,
+      plan: context.plan,
+      subscriptionStatus: context.subscription.status,
+      entitlements: [
+        `can_access_agriproduct=${entitlements.can_access_agriproduct}`,
+        `can_create_products=${entitlements.can_create_products}`,
+        `can_publish_products=${entitlements.can_publish_products}`,
+        `product_limit=${entitlements.product_limit ?? "unlimited"}`,
+      ],
+      productCount: activeCount,
+      category: categorySlug,
+      productType,
+      status: "ok",
+    });
 
     if (entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_LIMIT_REACHED, requestId };
@@ -242,25 +283,60 @@ export async function createProductAction(
       productId: product.id,
       category: categorySlug,
       productType,
-      subscription: currentUser.subscription_plan,
+      subscriptionId: context.subscription.id,
+      plan: context.plan,
+      subscriptionStatus: context.subscription.status,
+      productCount: activeCount + 1,
       status: "ok",
     });
 
+    if (input.idempotencyKey) {
+      publishedByIdempotencyKey.set(input.idempotencyKey, product);
+    }
+
     return { success: true, product, data: product, requestId };
   } catch (err: any) {
+    const message = String(err?.message || "");
     logProductOperation({
       requestId,
       operation: "create_product",
       category: input.categorySlug,
       status: "error",
-      error: err?.message,
+      error: message,
     });
+    if (/PRODUCT_LIMIT_REACHED/i.test(message)) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_LIMIT_REACHED, requestId };
+    }
+    if (/PRODUCT_CREATION_LOCKED|FEATURE_NOT_AVAILABLE/i.test(message)) {
+      return { success: false, code: PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE, requestId };
+    }
     return {
       success: false,
       code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED,
-      message: err?.message,
+      message,
       requestId,
     };
+  }
+}
+
+/**
+ * Current seller's catalog + active (limit-counted) product total.
+ */
+export async function getMyProductStatsAction(): Promise<{
+  products: ProductListItem[];
+  activeCount: number;
+}> {
+  try {
+    await requireAuth();
+    const seller = await getOrCreateCurrentProviderProfileAction();
+    const products = await ShoppingService.getSellerProducts(seller.id, false);
+    const ownProducts = products.filter((product) => product.seller_id === seller.id);
+    return {
+      products: ownProducts,
+      activeCount: countActiveProducts(ownProducts),
+    };
+  } catch {
+    return { products: [], activeCount: 0 };
   }
 }
 

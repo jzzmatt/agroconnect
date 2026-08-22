@@ -123,58 +123,122 @@ export function normalizePlanSlug(plan?: string | null): "basic" | "professional
   return "basic";
 }
 
+export type SubscriptionLifecycleStatus = "active" | "pending" | "cancelled" | "expired";
+
+export function normalizeSubscriptionStatus(
+  status?: string | null
+): SubscriptionLifecycleStatus {
+  if (status === "pending" || status === "cancelled" || status === "expired") return status;
+  return "active";
+}
+
+/**
+ * Paid capabilities are granted only when the stored plan is paid AND the
+ * subscription lifecycle is active. Missing status defaults to active so
+ * existing rows without a status column keep working.
+ */
+export function isPaidSubscriptionActive(
+  plan?: string | null,
+  status?: string | null
+): boolean {
+  const planSlug = normalizePlanSlug(plan);
+  if (planSlug === "basic") return false;
+  return normalizeSubscriptionStatus(status) === "active";
+}
+
+export function canAccessAgriProduct(plan?: string | null, status?: string | null): boolean {
+  return isPaidSubscriptionActive(plan, status);
+}
+
+export function canCreateProducts(plan?: string | null, status?: string | null): boolean {
+  return isPaidSubscriptionActive(plan, status);
+}
+
+export function canPublishProducts(plan?: string | null, status?: string | null): boolean {
+  return isPaidSubscriptionActive(plan, status);
+}
+
+export function canUploadProductVideo(plan?: string | null, status?: string | null): boolean {
+  return isPaidSubscriptionActive(plan, status);
+}
+
+export const ACTIVE_PRODUCT_STATUSES = ["published", "active", "draft"] as const;
+
+export function isCountableActiveProduct(status?: string | null): boolean {
+  if (!status) return false;
+  if (status === "archived" || status === "deleted") return false;
+  return (ACTIVE_PRODUCT_STATUSES as readonly string[]).includes(status);
+}
+
+export function countActiveProducts<T extends { status?: string | null }>(products: T[]): number {
+  return products.filter((product) => isCountableActiveProduct(product.status)).length;
+}
+
+export function isProductLimitReached(plan?: string | null, activeCount = 0): boolean {
+  const limit = SUBSCRIPTION_PLANS[normalizePlanSlug(plan)].productLimit;
+  return limit !== null && activeCount >= limit;
+}
+
 /**
  * Computes user entitlements strictly based on subscription plan.
  * FAILS CLOSED: missing or invalid plan defaults safely to Basic.
+ *
+ * can_create_products is a plan capability (Professional+). The 10-product
+ * Professional cap is exposed separately as product_limit / product_limit_reached
+ * and must be enforced in the product API — never conflated with "Basic locked".
  */
 export function getUserEntitlements(params: {
   subscriptionPlan?: SubscriptionPlan | string | null;
+  subscriptionStatus?: string | null;
   roles?: UserRoleType[];
   accountType?: string;
   activeProductCount?: number;
 }): UserEntitlements {
   const planSlug = normalizePlanSlug(params.subscriptionPlan);
   const planDef = SUBSCRIPTION_PLANS[planSlug];
+  const subscriptionStatus = normalizeSubscriptionStatus(params.subscriptionStatus);
 
   const isBasic = planSlug === "basic";
   const isProfessional = planSlug === "professional";
   const isBusiness = planSlug === "business";
   const isEnterprise = planSlug === "enterprise";
-  const isPaid = !isBasic;
+  const isPaid = isPaidSubscriptionActive(planSlug, subscriptionStatus);
 
   const productLimit = planDef.productLimit;
   const activeCount = params.activeProductCount ?? 0;
-  const canCreateMoreProducts =
-    isPaid && (productLimit === null || activeCount < productLimit);
+  const productLimitReached = isPaid && productLimit !== null && activeCount >= productLimit;
 
   return {
     plan: planSlug,
+    subscription_status: subscriptionStatus,
     can_access_agrishopping: isPaid,
+    can_access_agriproduct: isPaid,
     can_access_agriacademy: isPaid,
     can_access_agrilocalization: isPaid,
     can_access_agriexpert: isPaid,
-    can_access_business_dashboard: isBusiness || isEnterprise,
+    can_access_business_dashboard: isPaid && (isBusiness || isEnterprise),
 
     can_sell_products: isPaid,
-    can_create_products: canCreateMoreProducts,
+    can_create_products: isPaid,
     can_edit_products: isPaid,
     can_publish_products: isPaid,
     can_manage_inventory: isPaid,
     can_upload_product_images: isPaid,
     can_upload_product_video: isPaid,
+    product_limit_reached: productLimitReached,
     can_manage_services: isPaid,
     can_teach_courses: isPaid,
     can_create_courses: isPaid,
     can_publish_courses: isPaid,
     can_manage_locations: isPaid,
     can_change_market_country: isPaid,
-    can_request_custom_payment_gateway: isEnterprise,
+    can_request_custom_payment_gateway: isPaid && isEnterprise,
 
-    product_limit: productLimit,
-    max_products: productLimit,
-    max_services: isBasic ? 0 : isProfessional ? 20 : null,
-    video_storage_limit_bytes: VIDEO_STORAGE_QUOTA_BYTES[planSlug],
-    video_storage_limit_gb: planDef.videoStorageLimitGb,
+    product_limit: isBasic ? 0 : productLimit,
+    max_products: isBasic ? 0 : productLimit,
+    max_services: isBasic || !isPaid ? 0 : isProfessional ? 20 : null,
+    video_storage_limit_bytes: isPaid ? VIDEO_STORAGE_QUOTA_BYTES[planSlug] : 0,
+    video_storage_limit_gb: isPaid ? planDef.videoStorageLimitGb : 0,
   };
 }
 

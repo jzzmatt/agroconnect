@@ -3,7 +3,7 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser, useClerk } from "@clerk/nextjs";
+import { useUser } from "@clerk/nextjs";
 import {
   Sprout,
   Users,
@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
+import { useSignOut } from "@/lib/auth/use-sign-out";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -27,18 +28,7 @@ export function Navbar() {
   const pathname = usePathname();
   const { dict } = useI18n();
   const { isSignedIn } = useUser();
-  const { signOut } = useClerk();
-
-  const handleSignOut = async () => {
-    setMobileMenuOpen(false);
-    if (typeof window !== "undefined") {
-      localStorage.removeItem("agroconnect_active_profile_type");
-      localStorage.removeItem("agroconnect_user_profile_override");
-      sessionStorage.removeItem("agroconnect_prompted_profile_selector");
-      sessionStorage.removeItem("agroconnect_optimistic_plan");
-    }
-    await signOut({ redirectUrl: "/" });
-  };
+  const { handleSignOut, pending: signingOut } = useSignOut();
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
@@ -108,9 +98,11 @@ export function Navbar() {
                 </Link>
 
                 <Button
+                  type="button"
                   variant="outline"
                   size="sm"
-                  onClick={handleSignOut}
+                  onClick={() => void handleSignOut()}
+                  disabled={signingOut}
                   className="gap-1.5 font-bold text-destructive hover:bg-destructive/10"
                 >
                   <LogOut className="w-3.5 h-3.5" />
@@ -197,8 +189,13 @@ export function Navbar() {
                   </Button>
                 </Link>
                 <Button
+                  type="button"
                   variant="outline"
-                  onClick={handleSignOut}
+                  onClick={() => {
+                    setMobileMenuOpen(false);
+                    void handleSignOut();
+                  }}
+                  disabled={signingOut}
                   className="w-full justify-center text-destructive font-bold"
                 >
                   <LogOut className="w-4 h-4 mr-1.5" />

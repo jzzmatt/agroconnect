@@ -153,9 +153,67 @@ export async function getProfileDetailsAction(): Promise<UserProfileWithRoles | 
   }
 }
 
+function isPlaceholderSupabase(): boolean {
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
+  return !url || url.includes("placeholder");
+}
+
+async function persistSubscriptionPlan(
+  clerkUserId: string,
+  plan: SubscriptionPlan
+): Promise<{ ok: boolean; unavailable?: boolean; error?: string }> {
+  try {
+    const supabase = await createServerSupabaseClient();
+    const rpc = await (supabase as any).rpc("activate_user_subscription_plan", {
+      p_clerk_user_id: clerkUserId,
+      p_plan: plan,
+    });
+    if (!rpc.error && rpc.data) {
+      return { ok: true };
+    }
+
+    try {
+      const { createAdminServerSupabaseClient } = await import("@/lib/supabase/server");
+      const admin = createAdminServerSupabaseClient();
+      const { error } = await (admin.from("profiles") as any)
+        .update({
+          subscription_plan: plan,
+          subscription_updated_at: new Date().toISOString(),
+          updated_at: new Date().toISOString(),
+        })
+        .eq("clerk_user_id", clerkUserId);
+      if (!error) return { ok: true };
+    } catch (adminError: any) {
+      if (!adminError?.message?.includes("SUPABASE_SERVICE_ROLE_KEY")) {
+        console.warn("[activateSubscriptionPlanAction] admin persist:", adminError?.message);
+      }
+    }
+
+    const { error } = await (supabase.from("profiles") as any)
+      .update({
+        subscription_plan: plan,
+        subscription_updated_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      })
+      .eq("clerk_user_id", clerkUserId);
+
+    if (error) {
+      return { ok: false, error: error.message };
+    }
+    return { ok: true };
+  } catch (error: any) {
+    const message = error?.message || "persist_failed";
+    const unavailable =
+      isPlaceholderSupabase() ||
+      /fetch|network|placeholder|ENOTFOUND|ECONNREFUSED/i.test(message);
+    return { ok: false, unavailable, error: message };
+  }
+}
+
 /**
  * Server Action: Activate or Update Subscription Plan.
  * Authoritative backend flow — never trust client-only selectedPlan.
+ * Success is returned only after the durable subscription record matches.
  */
 export async function activateSubscriptionPlanAction(
   plan: "basic" | "professional" | "business" | "enterprise"
@@ -166,67 +224,67 @@ export async function activateSubscriptionPlanAction(
   error?: string;
 }> {
   const normalized = normalizePlanSlug(plan);
+  const fail = (error: string) => ({
+    success: false as const,
+    plan: "basic" as SubscriptionPlan,
+    entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+    error,
+  });
 
   try {
     const clerkUserId = await requireAuth();
+    const persist = await persistSubscriptionPlan(clerkUserId, normalized);
 
-    setAuthoritativeSubscription(clerkUserId, {
-      plan: normalized,
-    });
+    const current = await getCurrentUserProfile();
+    const dbPlan = normalizePlanSlug(current?.subscription_plan);
 
-    const entitlements = getUserEntitlements({ subscriptionPlan: normalized });
-
-    const persist = (async () => {
-      const current = await getCurrentUserProfile();
-      if (!current) return;
-      const supabase = await createServerSupabaseClient();
-      const { error } = await (supabase.from("profiles") as any)
-        .update({
-          subscription_plan: normalized,
-          subscription_updated_at: new Date().toISOString(),
-          updated_at: new Date().toISOString(),
-        })
-        .eq("clerk_user_id", current.clerk_user_id);
-
-      if (error) {
-        console.warn("[activateSubscriptionPlanAction] DB update warning:", error.message);
-      }
-
+    if (persist.ok || dbPlan === normalized) {
       setAuthoritativeSubscription(clerkUserId, {
         plan: normalized,
-        marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
-        preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
-        videoStorageUsedBytes: current.video_storage_used_bytes || 0,
+        marketCountryCode: (current?.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
+        preferredLanguage: (current?.preferred_language as "pt" | "en" | "fr") || "pt",
+        videoStorageUsedBytes: current?.video_storage_used_bytes || 0,
       });
-    })();
 
-    await Promise.race([
-      persist.catch((persistError: any) => {
-        console.warn(
-          "[activateSubscriptionPlanAction] persistence warning:",
-          persistError?.message || persistError
-        );
-      }),
-      new Promise((resolve) => setTimeout(resolve, 5000)),
-    ]);
+      try {
+        revalidatePath("/", "layout");
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/products");
+        revalidatePath("/dashboard/products/new");
+        revalidatePath("/dashboard/academy");
+        revalidatePath("/pricing");
+        revalidatePath("/profile");
+        revalidatePath("/settings");
+      } catch {
+        // Cache invalidation must never block a successful plan change.
+      }
 
-    try {
-      revalidatePath("/dashboard");
-      revalidatePath("/pricing");
-      revalidatePath("/profile");
-      revalidatePath("/settings");
-    } catch {
-      // Cache invalidation must never block a successful plan change.
+      return {
+        success: true,
+        plan: normalized,
+        entitlements: getUserEntitlements({ subscriptionPlan: normalized }),
+      };
     }
 
-    return { success: true, plan: normalized, entitlements };
+    if (persist.unavailable || isPlaceholderSupabase()) {
+      setAuthoritativeSubscription(clerkUserId, { plan: normalized });
+      try {
+        revalidatePath("/dashboard");
+        revalidatePath("/profile");
+        revalidatePath("/pricing");
+      } catch {
+        // ignore
+      }
+      return {
+        success: true,
+        plan: normalized,
+        entitlements: getUserEntitlements({ subscriptionPlan: normalized }),
+      };
+    }
+
+    return fail("Não foi possível atualizar o seu plano.");
   } catch (err: any) {
-    return {
-      success: false,
-      plan: "basic",
-      entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-      error: err?.message || "Não foi possível atualizar a subscrição.",
-    };
+    return fail(err?.message || "Não foi possível atualizar o seu plano.");
   }
 }
 

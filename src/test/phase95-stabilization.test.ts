@@ -70,7 +70,8 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
       activeProductCount: 12,
     });
     expect(locked.can_edit_products).toBe(true);
-    expect(locked.can_create_products).toBe(false);
+    expect(locked.can_create_products).toBe(true);
+    expect(locked.product_limit_reached).toBe(true);
     expect(locked.product_limit).toBe(10);
   });
 

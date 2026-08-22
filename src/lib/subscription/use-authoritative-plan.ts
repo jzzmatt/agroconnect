@@ -25,6 +25,12 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
   });
 }
 
+/**
+ * Client representation of the authoritative backend subscription.
+ * Optimistic session values are used only while the first server fetch is
+ * in flight after a confirmed activation — they never override a returned
+ * server plan.
+ */
 export function useAuthoritativePlan() {
   const [plan, setPlan] = useState<SubscriptionPlan>("basic");
   const [marketCountry, setMarketCountry] = useState<MarketCountry>(
@@ -36,7 +42,7 @@ export function useAuthoritativePlan() {
 
   const refresh = useCallback(async () => {
     const optimistic = getOptimisticPlan();
-    if (optimistic) {
+    if (optimistic && loading) {
       setPlan(optimistic);
     }
 
@@ -44,13 +50,12 @@ export function useAuthoritativePlan() {
       const profile = await withTimeout(getProfileDetailsAction(), 8000);
       if (profile) {
         const nextPlan = normalizePlanSlug(profile.subscription_plan);
-        if (optimistic && nextPlan !== optimistic) {
-          setPlan(optimistic);
-        } else {
-          setPlan(nextPlan);
-          if (optimistic && nextPlan === optimistic) {
-            clearOptimisticPlan();
-          }
+        setPlan(nextPlan);
+        if (optimistic && nextPlan === optimistic) {
+          clearOptimisticPlan();
+        } else if (optimistic && nextPlan !== optimistic) {
+          // Server won. Do not keep a competing client plan.
+          clearOptimisticPlan();
         }
         setMarketCountry(getMarketCountry(profile.market_country_code || DEFAULT_MARKET_COUNTRY));
         const lang = profile.preferred_language;
@@ -64,7 +69,7 @@ export function useAuthoritativePlan() {
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [loading]);
 
   useEffect(() => {
     refresh();
@@ -75,9 +80,11 @@ export function useAuthoritativePlan() {
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
     window.addEventListener("focus", onChange);
+    window.addEventListener("visibilitychange", onChange);
     return () => {
       window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
       window.removeEventListener("focus", onChange);
+      window.removeEventListener("visibilitychange", onChange);
     };
   }, [refresh]);
 

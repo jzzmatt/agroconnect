@@ -126,7 +126,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
 
   const memory = getAuthoritativeSubscription(clerkUser.id);
   const dbPlan = (effectiveProfile as any)?.subscription_plan;
-  const subscriptionPlan = normalizePlanSlug(memory?.plan || dbPlan || "basic");
+  // Database is the durable source of truth. In-memory cache is only a
+  // fallback when the profile row has not been persisted yet.
+  const subscriptionPlan = normalizePlanSlug(dbPlan || memory?.plan || "basic");
 
   return {
     id: effectiveProfile?.id || clerkUser.id,

@@ -39,7 +39,7 @@ describe("Phase 9.6 — i18n, animals, land, video, publish", () => {
 
   it("maps server error codes to localized messages", () => {
     const en = getDictionary("en");
-    expect(localizeError(en, "PRODUCT_VIDEO_TOO_LONG")).toBe("The video cannot be longer than 30 seconds.");
+    expect(localizeError(en, "PRODUCT_VIDEO_TOO_LONG")).toBe("The video cannot be longer than 1 minute.");
     expect(localizeError(en, "NETWORK_FAILED")).toMatch(/Network/);
   });
 
@@ -101,14 +101,14 @@ describe("Phase 9.6 — i18n, animals, land, video, publish", () => {
     ).toThrow();
   });
 
-  it("enforces the 30-second product video limit on the server validator", () => {
+  it("enforces the 60-second product video limit on the server validator", () => {
     expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 10, fileName: "a.mp4" }).ok).toBe(true);
-    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 29, fileName: "a.mp4" }).ok).toBe(true);
-    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 30, fileName: "a.mp4" }).ok).toBe(true);
-    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 30.1, fileName: "a.mp4" }).ok).toBe(false);
-    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 45, fileName: "a.mp4" }).ok).toBe(false);
+    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 45, fileName: "a.mp4" }).ok).toBe(true);
+    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 60, fileName: "a.mp4" }).ok).toBe(true);
+    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 60.1, fileName: "a.mp4" }).ok).toBe(false);
+    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 61, fileName: "a.mp4" }).ok).toBe(false);
     expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 120, fileName: "a.mp4" }).ok).toBe(false);
-    expect(PRODUCT_VIDEO_MAX_SECONDS).toBe(30);
+    expect(PRODUCT_VIDEO_MAX_SECONDS).toBe(60);
     const tooLong = validateProductVideo({ mimeType: "video/mp4", fileSize: 1_000_000, durationSeconds: 31, fileName: "a.mp4" });
     expect(tooLong.ok).toBe(false);
     if (!tooLong.ok) expect(tooLong.code).toBe("PRODUCT_VIDEO_TOO_LONG");
@@ -116,7 +116,7 @@ describe("Phase 9.6 — i18n, animals, land, video, publish", () => {
 
   it("rejects non-web video types and oversized files", () => {
     expect(validateProductVideo({ mimeType: "video/avi", fileSize: 1000, durationSeconds: 10, fileName: "a.avi" }).ok).toBe(false);
-    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 40 * 1024 * 1024, durationSeconds: 10, fileName: "a.mp4" }).ok).toBe(false);
+    expect(validateProductVideo({ mimeType: "video/mp4", fileSize: 50 * 1024 * 1024, durationSeconds: 10, fileName: "a.mp4" }).ok).toBe(false);
   });
 
   it("locks Basic from product and product-video uploads", () => {

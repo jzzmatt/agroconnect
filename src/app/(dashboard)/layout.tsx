@@ -22,6 +22,7 @@ export default function DashboardLayout({
   const [availableProfiles, setAvailableProfiles] = useState<ProfileType[]>([
     "student",
   ]);
+  const [userRoles, setUserRoles] = useState<UserRoleType[]>(["student"]);
   const [displayName, setDisplayName] = useState("Utilizador");
 
   useEffect(() => {
@@ -31,6 +32,7 @@ export default function DashboardLayout({
         if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
         if (serverProfile.roles && serverProfile.roles.length > 0) {
           setAvailableProfiles(serverProfile.roles as ProfileType[]);
+          setUserRoles(serverProfile.roles as UserRoleType[]);
         }
       }
     });
@@ -70,9 +72,7 @@ export default function DashboardLayout({
     await switchActiveProfileTypeAction(profile);
   };
 
-  const activeRoles: UserRoleType[] = [
-    "student",
-  ];
+  const activeRoles: UserRoleType[] = userRoles.length > 0 ? userRoles : ["student"];
 
   return (
     <div className="min-h-screen bg-background text-foreground flex transition-colors overflow-x-hidden">

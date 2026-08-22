@@ -59,25 +59,24 @@ export default function PricingPage() {
 
     setActivating(planId);
     setError(null);
-    setOptimisticPlan(planId);
-    notifySubscriptionChanged();
 
     try {
-      const result = await withTimeout(activateSubscriptionPlanAction(planId), 10000);
+      const result = await withTimeout(activateSubscriptionPlanAction(planId), 15000);
       if (!result.success) {
-        const message = result.error || dict.pricing.activateError;
+        const message = result.error || dict.dash.planUpdateFailed || dict.pricing.activateError;
         if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) {
           router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
           return;
         }
         setError(message);
-        router.push("/dashboard");
         return;
       }
+      setOptimisticPlan(result.plan);
       notifySubscriptionChanged();
       router.push("/dashboard");
+      router.refresh();
     } catch {
-      router.push("/dashboard");
+      setError(dict.dash.planUpdateFailed || dict.pricing.activateError);
     } finally {
       setActivating(null);
     }

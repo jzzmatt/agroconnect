@@ -121,15 +121,29 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
     ],
   },
   {
-    title: dict.navDash.shoppingSales,
+    title: dict.navDash.agriProduct,
     pillar: "agriShopping",
     requiredModule: "agriShopping",
-    roles: ["seller", "farmer", "business", "expert"],
     items: [
       {
         title: dict.navDash.myProducts,
         href: "/dashboard/products",
         icon: ShoppingBag,
+      },
+      {
+        title: dict.navDash.addProduct,
+        href: "/dashboard/products/new",
+        icon: Package,
+      },
+      {
+        title: dict.navDash.editProduct,
+        href: "/dashboard/products",
+        icon: Store,
+      },
+      {
+        title: dict.navDash.publishProduct,
+        href: "/dashboard/products/new",
+        icon: Package,
       },
       {
         title: dict.navDash.receivedOrders,

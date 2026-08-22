@@ -28,6 +28,7 @@ import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
@@ -69,6 +70,9 @@ export default function DashboardPage() {
           subscriptionPlan: serverProfile.subscription_plan || "basic",
         }));
       }
+    });
+    getMyProductStatsAction().then((stats) => {
+      setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
     });
 
     if (typeof window !== "undefined") {
@@ -131,9 +135,10 @@ export default function DashboardPage() {
 
   const isBasic = planKey === "basic";
 
-  const isLimitReached =
+  const isLimitReached = entitlements.product_limit_reached || (
     entitlements.product_limit !== null &&
-    profile.activeProductsCount >= entitlements.product_limit;
+    profile.activeProductsCount >= entitlements.product_limit
+  );
 
   const triggerLockedModule = (title: string, plan: "professional" | "business" = "professional") => {
     setModalFeatureTitle(title);
@@ -142,9 +147,9 @@ export default function DashboardPage() {
   };
 
   const handleAddProductClick = (e: React.MouseEvent) => {
-    if (!entitlements.can_create_products) {
+    if (!entitlements.can_access_agriproduct) {
       e.preventDefault();
-      triggerLockedModule("Criar Produtos no AgriShopping", "professional");
+      triggerLockedModule("Criar Produtos no AgriProduct", "professional");
       return;
     }
     if (isLimitReached) {
@@ -241,9 +246,9 @@ export default function DashboardPage() {
                 <span>{dict.dash.upgradePlan}</span>
               </Button>
             </Link>
-          ) : profile.activeProfile === "seller" ? (
+          ) : entitlements.can_access_agriproduct ? (
             <Link
-              href={isLimitReached ? "#" : "/dashboard/products/new"}
+              href={isLimitReached ? "/dashboard/products" : "/dashboard/products/new"}
               onClick={handleAddProductClick}
             >
               <Button
@@ -286,7 +291,7 @@ export default function DashboardPage() {
       </div>
 
       {/* 2. Capability-Driven AgriShopping Seller Card OR Locked Card for Basic */}
-      {entitlements.can_sell_products ? (
+      {entitlements.can_access_agriproduct ? (
         <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 rounded-3xl border border-amber-200 dark:border-amber-900/60 p-6 sm:p-7 shadow-xs">
           <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
             <div className="flex items-start gap-4">
@@ -299,15 +304,15 @@ export default function DashboardPage() {
                     {dict.dash.sellerActive}
                   </span>
                   <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                    Vendedor AgriShopping
+                    AgriProduct
                   </span>
                   {entitlements.product_limit !== null ? (
                     <span className="text-xs font-black text-foreground bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
-                      Produtos: {profile.activeProductsCount} / {entitlements.product_limit}
+                      {dict.dash.productsCount}: {profile.activeProductsCount} / {entitlements.product_limit}
                     </span>
                   ) : (
                     <span className="text-xs font-black text-amber-600 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
-                      Produtos: Sem limite (Business)
+                      {dict.dash.productsCount}: {dict.dash.unlimitedProducts}
                     </span>
                   )}
                 </div>
@@ -316,8 +321,12 @@ export default function DashboardPage() {
                 </h3>
                 <p className="text-xs text-amber-900/80 dark:text-amber-200/80 max-w-xl">
                   {entitlements.product_limit !== null
-                    ? `Plano Profissional: utilize até ${entitlements.product_limit} produtos ativos. Atualize para Business para catálogo ilimitado.`
-                    : "Plano Business ativo: venda e gira o seu catálogo completo sem limites de produtos."}
+                    ? (isLimitReached
+                        ? dict.dash.limitTenReached
+                        : dict.dash.activeProductsOf
+                            .replace("{count}", String(profile.activeProductsCount))
+                            .replace("{limit}", String(entitlements.product_limit)))
+                    : `${dict.products.unlimitedActive}: ${dict.dash.unlimitedProducts}`}
                 </p>
               </div>
             </div>
@@ -383,7 +392,7 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-1.5">
                   <Lock className="w-3.5 h-3.5 text-amber-600" />
-                  <h4 className="font-bold text-sm text-foreground">AgriShopping</h4>
+                  <h4 className="font-bold text-sm text-foreground">AgriProduct</h4>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
                   Venda sementes, adubos e equipamentos agrícolas a produtores em Angola.
