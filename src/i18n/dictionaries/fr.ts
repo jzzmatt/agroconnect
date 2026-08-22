@@ -535,6 +535,8 @@ export const fr: Dictionary = {
     PRODUCT_VIDEO_TOO_LONG: "La vidéo ne peut pas dépasser 1 minute.",
     PRODUCT_VIDEO_TOO_LARGE: "La vidéo du produit est trop volumineuse.",
     NETWORK_FAILED: "Erreur réseau. Vérifiez votre connexion et réessayez.",
+    SUPABASE_NOT_CONFIGURED:
+      "La base de données n'est pas configurée dans cet environnement. Définissez NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY et SUPABASE_SERVICE_ROLE_KEY, puis redémarrez l'application.",
   },
   products: {
     add: "Ajouter un produit",

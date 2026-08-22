@@ -17,6 +17,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/subscription(.*)",
   // JSON product create — handler enforces Clerk auth so fetch is not redirected.
   "/api/products(.*)",
+  // Reports which env vars a deployment can see. Never returns values.
+  "/api/health(.*)",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

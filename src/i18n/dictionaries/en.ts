@@ -535,6 +535,8 @@ export const en: Dictionary = {
     PRODUCT_VIDEO_TOO_LONG: "The video cannot be longer than 1 minute.",
     PRODUCT_VIDEO_TOO_LARGE: "The product video is too large.",
     NETWORK_FAILED: "Network error. Check your connection and try again.",
+    SUPABASE_NOT_CONFIGURED:
+      "The database is not configured in this environment. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SERVICE_ROLE_KEY, then restart the app.",
   },
   products: {
     add: "Add product",

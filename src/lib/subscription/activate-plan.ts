@@ -2,6 +2,8 @@ import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
+  isSupabaseConfigured,
+  missingSupabaseEnvVars,
 } from "@/lib/supabase/server";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
@@ -219,6 +221,22 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
 
   try {
     const clerkUserId = await requireAuth();
+
+    // Without database credentials the plan can only live in this process, so a
+    // later request reads "basic" again. Reporting success here is what made the
+    // plan appear to revert moments after being selected.
+    if (!isSupabaseConfigured()) {
+      const missing = missingSupabaseEnvVars().join(", ");
+      console.error("[activatePlan] database not configured; missing:", missing);
+      return {
+        success: false,
+        plan: "basic",
+        persisted: false,
+        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+        error: `A base de dados não está configurada neste ambiente (em falta: ${missing}).`,
+      };
+    }
+
     // Authenticated cache first so the dashboard can read the new plan even if
     // durable persist is briefly behind or unreachable.
     cachePlan(clerkUserId, normalized);

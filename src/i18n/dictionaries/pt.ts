@@ -533,6 +533,8 @@ export const pt = {
     PRODUCT_VIDEO_TOO_LONG: "O vídeo não pode ter mais de 1 minuto.",
     PRODUCT_VIDEO_TOO_LARGE: "O vídeo do produto é demasiado grande.",
     NETWORK_FAILED: "Falha de rede. Verifique a ligação e tente novamente.",
+    SUPABASE_NOT_CONFIGURED:
+      "A base de dados não está configurada neste ambiente. Defina NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY e SUPABASE_SERVICE_ROLE_KEY e reinicie a aplicação.",
   },
   products: {
     add: "Adicionar produto",

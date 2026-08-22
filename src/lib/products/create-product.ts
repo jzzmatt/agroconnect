@@ -18,6 +18,7 @@ import {
   describeSupabaseReachability,
   isTransientSupabaseError,
 } from "@/lib/supabase/retry";
+import { isSupabaseConfigured, missingSupabaseEnvVars } from "@/lib/supabase/server";
 import {
   PRODUCT_ERROR_CODES,
   createRequestId,
@@ -39,6 +40,25 @@ export async function createPublishedProduct(
 
   try {
     await requireAuth();
+
+    // Fail fast and by name: without these the Supabase client targets a
+    // placeholder host and every write dies as an opaque "fetch failed".
+    if (!isSupabaseConfigured()) {
+      const missing = missingSupabaseEnvVars();
+      logProductOperation({
+        requestId,
+        operation: "create_product",
+        status: "error",
+        error: `supabase_not_configured: ${missing.join(", ")}`,
+      });
+      return {
+        success: false,
+        code: PRODUCT_ERROR_CODES.SUPABASE_NOT_CONFIGURED,
+        message: `Missing environment variables: ${missing.join(", ")}`,
+        requestId,
+      };
+    }
+
     const context = await getCurrentUserContext();
     if (!context) {
       return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };

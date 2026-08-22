@@ -265,6 +265,73 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(rejected.error.message).toMatch(/duplicate key/);
   });
 
+  it("names the missing database variables instead of failing opaquely", async () => {
+    const { isSupabaseConfigured, missingSupabaseEnvVars } = await import(
+      "@/lib/supabase/server"
+    );
+    const original = {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      service: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    };
+
+    try {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+      expect(isSupabaseConfigured()).toBe(false);
+      expect(missingSupabaseEnvVars()).toEqual([
+        "NEXT_PUBLIC_SUPABASE_URL",
+        "NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY",
+        "SUPABASE_SERVICE_ROLE_KEY",
+      ]);
+
+      // The placeholder fallback must not read as configured.
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://placeholder-agroconnect.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_placeholder_key";
+      expect(isSupabaseConfigured()).toBe(false);
+
+      process.env.NEXT_PUBLIC_SUPABASE_URL = "https://real-project.supabase.co";
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = "sb_publishable_real";
+      process.env.SUPABASE_SERVICE_ROLE_KEY = "service-role";
+      expect(isSupabaseConfigured()).toBe(true);
+      expect(missingSupabaseEnvVars()).toEqual([]);
+    } finally {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = original.url;
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = original.key;
+      process.env.SUPABASE_SERVICE_ROLE_KEY = original.service;
+    }
+  });
+
+  it("reports an unconfigured deployment as unhealthy without leaking values", async () => {
+    const { GET } = await import("@/app/api/health/config/route");
+    const original = {
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL,
+      key: process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY,
+      service: process.env.SUPABASE_SERVICE_ROLE_KEY,
+    };
+
+    try {
+      delete process.env.NEXT_PUBLIC_SUPABASE_URL;
+      delete process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
+      delete process.env.SUPABASE_SERVICE_ROLE_KEY;
+
+      const response = await GET();
+      const body = await response.json();
+
+      expect(response.status).toBe(503);
+      expect(body.canPublishProducts).toBe(false);
+      expect(body.supabase.configured).toBe(false);
+      expect(body.supabase.missing).toContain("NEXT_PUBLIC_SUPABASE_URL");
+      // Only presence flags, never the secret itself.
+      expect(JSON.stringify(body)).not.toMatch(/eyJ|sb_publishable_|sk_test_/);
+    } finally {
+      process.env.NEXT_PUBLIC_SUPABASE_URL = original.url;
+      process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY = original.key;
+      process.env.SUPABASE_SERVICE_ROLE_KEY = original.service;
+    }
+  });
+
   it("does not surface Chrome extension listener errors as the publish reason", () => {
     expect(
       sanitizePublishError(
