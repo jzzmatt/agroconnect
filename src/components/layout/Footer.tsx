@@ -9,11 +9,11 @@ export function Footer() {
   const { dict } = useI18n();
 
   return (
-    <footer className="bg-emerald-950 text-emerald-100 border-t border-emerald-900/40 pt-16 pb-24 lg:pb-12">
+    <footer className="bg-emerald-950 text-emerald-100 border-t border-emerald-900/40 pt-16 pb-24 lg:pb-12 text-center md:text-left">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-10">
           {/* Brand Info */}
-          <div className="lg:col-span-2 space-y-4">
+          <div className="lg:col-span-2 space-y-4 flex flex-col items-center md:items-start text-center md:text-left">
             <Link href="/" className="flex items-center gap-2.5">
               <div className="w-10 h-10 rounded-xl bg-emerald-700 flex items-center justify-center text-white shadow-md">
                 <span className="text-xl">🌿</span>
@@ -22,17 +22,17 @@ export function Footer() {
                 AGROCONNECT
               </span>
             </Link>
-            <p className="text-sm text-emerald-200/80 leading-relaxed max-w-md">
+            <p className="text-sm text-emerald-200/80 leading-relaxed max-w-md mx-auto md:mx-0">
               A plataforma líder em inovação e capacitação para a agricultura em Angola. Conectando conhecimento e mercado.
             </p>
-            <div className="flex items-center gap-2 text-xs text-emerald-300">
+            <div className="flex items-center justify-center md:justify-start gap-2 text-xs text-emerald-300">
               <MapPin className="w-4 h-4 text-emerald-400" />
               <span>Angola • 18 Províncias Cobertas</span>
             </div>
           </div>
 
           {/* Column 1: Ecossistema */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex flex-col items-center md:items-start">
             <h4 className="text-sm font-bold text-white uppercase tracking-wider">
               Ecossistema
             </h4>
@@ -61,7 +61,7 @@ export function Footer() {
           </div>
 
           {/* Column 2: Suporte */}
-          <div className="space-y-3">
+          <div className="space-y-3 flex flex-col items-center md:items-start">
             <h4 className="text-sm font-bold text-white uppercase tracking-wider">
               Suporte
             </h4>
@@ -86,9 +86,9 @@ export function Footer() {
         </div>
 
         {/* Bottom copyright */}
-        <div className="mt-12 pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between text-xs text-emerald-400 gap-4">
+        <div className="mt-12 pt-8 border-t border-emerald-900/60 flex flex-col sm:flex-row items-center justify-between text-xs text-emerald-400 gap-4 text-center sm:text-left">
           <p>© 2026 AGROCONNECT. Todos os direitos reservados.</p>
-          <p className="flex items-center gap-1 font-semibold text-emerald-300">
+          <p className="flex items-center justify-center gap-1 font-semibold text-emerald-300">
             <span>Feito em Angola 🇦🇴</span>
           </p>
         </div>
