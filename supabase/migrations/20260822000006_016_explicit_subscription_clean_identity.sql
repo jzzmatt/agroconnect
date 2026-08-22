@@ -18,6 +18,8 @@ ALTER TABLE public.profiles ADD CONSTRAINT profiles_subscription_plan_check CHEC
 );
 
 -- 3. Add explicit plan activation helper function
+-- DROP is required when an earlier apply already created this as RETURNS TEXT.
+DROP FUNCTION IF EXISTS public.activate_user_subscription_plan(TEXT);
 CREATE OR REPLACE FUNCTION public.activate_user_subscription_plan(
   p_plan TEXT
 )

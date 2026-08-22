@@ -1,6 +1,7 @@
 -- Phase 9.7b: make plan activation callable from the trusted Next.js server.
 -- Users still cannot UPDATE subscription_plan through ordinary client RLS.
 
+DROP FUNCTION IF EXISTS public.activate_user_subscription_plan(TEXT);
 CREATE OR REPLACE FUNCTION public.activate_user_subscription_plan(p_plan TEXT)
 RETURNS TEXT AS $$
 DECLARE
@@ -38,6 +39,7 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public;
 
+DROP FUNCTION IF EXISTS public.activate_user_subscription_plan(TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.activate_user_subscription_plan(
   p_clerk_user_id TEXT,
   p_plan TEXT

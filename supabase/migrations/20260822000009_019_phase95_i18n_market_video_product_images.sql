@@ -153,6 +153,7 @@ DROP TRIGGER IF EXISTS tr_enterprise_service_requests_updated_at ON public.enter
 CREATE TRIGGER tr_enterprise_service_requests_updated_at BEFORE UPDATE ON public.enterprise_service_requests FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 6. Authoritative plan activation RPC (server-side only; users cannot UPDATE subscription_plan directly)
+DROP FUNCTION IF EXISTS public.activate_user_subscription_plan(TEXT, TEXT);
 CREATE OR REPLACE FUNCTION public.activate_user_subscription_plan(
   p_clerk_user_id TEXT,
   p_plan TEXT
