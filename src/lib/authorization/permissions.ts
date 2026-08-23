@@ -48,9 +48,15 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
-/** Entitlement flags that a permission may depend on. */
+/**
+ * Entitlement flags a permission may depend on.
+ *
+ * `-?` strips optionality before the check, so an optional flag cannot leak
+ * `undefined` into the union and become an invalid index. Optional flags exist
+ * only as deprecated spelling aliases, and a guard must never key on one.
+ */
 export type EntitlementFlag = {
-  [K in keyof UserEntitlements]: UserEntitlements[K] extends boolean ? K : never;
+  [K in keyof UserEntitlements]-?: UserEntitlements[K] extends boolean ? K : never;
 }[keyof UserEntitlements];
 
 /**
