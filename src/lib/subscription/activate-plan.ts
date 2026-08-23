@@ -6,6 +6,7 @@ import {
   missingSupabaseEnvVars,
 } from "@/lib/supabase/server";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { AuthorizationError, requirePlanActivationAllowed } from "@/lib/authorization";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
 import { DEFAULT_MARKET_COUNTRY } from "@/config/markets";
 import type { SubscriptionPlan } from "@/types/database";
@@ -221,6 +222,24 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
 
   try {
     const clerkUserId = await requireAuth();
+
+    // Authentication is not authorization: without this guard any signed-in user
+    // could POST their own tier and unlock every paid entitlement.
+    try {
+      requirePlanActivationAllowed(normalized);
+    } catch (denied) {
+      if (denied instanceof AuthorizationError) {
+        console.warn("[activatePlan] denied:", denied.code, normalized);
+        return {
+          success: false,
+          plan: "basic",
+          persisted: false,
+          entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+          error: PLAN_ERROR,
+        };
+      }
+      throw denied;
+    }
 
     // Without database credentials the plan can only live in this process, so a
     // later request reads "basic" again. Reporting success here is what made the

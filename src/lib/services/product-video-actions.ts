@@ -7,6 +7,11 @@ import { validateProductVideo } from "@/lib/products/video-validation";
 import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCT_ERROR_CODES, createRequestId, logProductOperation } from "@/lib/products/errors";
 import { isUuid, normalizeVideoUploadMeta } from "@/lib/products/ids";
+import {
+  AuthorizationError,
+  requireProductOwnership,
+  subjectFromProfile,
+} from "@/lib/authorization/server";
 
 export async function createProductVideoUploadAction(params: {
   productId: string;
@@ -43,6 +48,25 @@ export async function createProductVideoUploadAction(params: {
 
     if (!isUuid(params.productId) || !isUuid(profile.id)) {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED, requestId };
+    }
+
+    // The upload entitlement does not grant access to another seller's product.
+    try {
+      await requireProductOwnership(params.productId, subjectFromProfile(profile));
+    } catch (ownershipError) {
+      if (ownershipError instanceof AuthorizationError) {
+        logProductOperation({
+          requestId,
+          operation: "product_video_upload",
+          userId: profile.clerk_user_id,
+          productId: params.productId,
+          subscription: profile.subscription_plan,
+          status: "error",
+          error: ownershipError.code,
+        });
+        return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_FORBIDDEN, requestId };
+      }
+      throw ownershipError;
     }
 
     const meta = normalizeVideoUploadMeta({
