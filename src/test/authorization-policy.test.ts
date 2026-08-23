@@ -9,6 +9,7 @@ import {
   isOwner,
   isPermission,
   requireEntitlement,
+  isSelfServicePaidActivationEnabled,
   requireOwnership,
   requirePermission,
   requirePlanActivationAllowed,
@@ -253,35 +254,64 @@ describe("client-safe boundary", () => {
   });
 });
 
-describe("plan activation is authorized, not merely authenticated", () => {
-  const original = process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+describe("plan activation: selectable for testing, payment-gated in production", () => {
+  const originalFlag = process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+  const originalEnv = process.env.NODE_ENV;
+
+  function setEnv(value: string | undefined) {
+    if (value === undefined) delete (process.env as Record<string, string | undefined>).NODE_ENV;
+    else (process.env as Record<string, string | undefined>).NODE_ENV = value;
+  }
 
   afterEach(() => {
-    if (original === undefined) delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    else process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = original;
+    if (originalFlag === undefined) delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+    else process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = originalFlag;
+    setEnv(originalEnv);
   });
 
-  it("denies self-activating a paid plan by default", () => {
+  const paidPlans = ["professional", "business", "enterprise"];
+
+  it("lets a user select any paid plan outside production", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    for (const plan of ["professional", "business", "enterprise"]) {
+    for (const env of ["development", "test"]) {
+      setEnv(env);
+      expect(isSelfServicePaidActivationEnabled()).toBe(true);
+      for (const plan of paidPlans) {
+        expect(() => requirePlanActivationAllowed(plan)).not.toThrow();
+      }
+    }
+  });
+
+  it("requires a confirmed payment in production", () => {
+    delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+    setEnv("production");
+    expect(isSelfServicePaidActivationEnabled()).toBe(false);
+    for (const plan of paidPlans) {
       expect(() => requirePlanActivationAllowed(plan)).toThrow(AuthorizationError);
     }
   });
 
-  it("denies paid activation through a legacy alias too", () => {
+  it("blocks legacy aliases from bypassing the production gate", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+    setEnv("production");
     expect(() => requirePlanActivationAllowed("premium")).toThrow(AuthorizationError);
     expect(() => requirePlanActivationAllowed("pro")).toThrow(AuthorizationError);
   });
 
-  it("always allows downgrading to basic, including via the free alias", () => {
+  it("always allows downgrading to basic, including in production", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+    setEnv("production");
     expect(() => requirePlanActivationAllowed("basic")).not.toThrow();
     expect(() => requirePlanActivationAllowed("free")).not.toThrow();
   });
 
-  it("allows paid activation only where the deployment opts in", () => {
+  it("honours an explicit override in both directions", () => {
+    setEnv("production");
     process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "true";
     expect(() => requirePlanActivationAllowed("professional")).not.toThrow();
+
+    setEnv("development");
+    process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "false";
+    expect(() => requirePlanActivationAllowed("professional")).toThrow(AuthorizationError);
   });
 });
