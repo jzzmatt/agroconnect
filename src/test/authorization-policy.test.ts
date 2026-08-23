@@ -254,7 +254,7 @@ describe("client-safe boundary", () => {
   });
 });
 
-describe("plan activation: selectable for testing, payment-gated in production", () => {
+describe("plan activation: self-service by default, one switch to close it", () => {
   const originalFlag = process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
   const originalEnv = process.env.NODE_ENV;
 
@@ -270,10 +270,20 @@ describe("plan activation: selectable for testing, payment-gated in production",
   });
 
   const paidPlans = ["professional", "business", "enterprise"];
+  const upgradePairs: Array<[string, string]> = [
+    ["basic", "business"],
+    ["basic", "professional"],
+    ["basic", "enterprise"],
+  ];
 
-  it("lets a user select any paid plan outside production", () => {
+  it("is enabled when the flag is unset", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    for (const env of ["development", "test"]) {
+    expect(isSelfServicePaidActivationEnabled()).toBe(true);
+  });
+
+  it("lets a user select any paid plan in every environment by default", () => {
+    delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
+    for (const env of ["development", "test", "production"]) {
       setEnv(env);
       expect(isSelfServicePaidActivationEnabled()).toBe(true);
       for (const plan of paidPlans) {
@@ -282,36 +292,43 @@ describe("plan activation: selectable for testing, payment-gated in production",
     }
   });
 
-  it("requires a confirmed payment in production", () => {
+  it("permits the upgrades a user actually performs, including basic to business", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    setEnv("production");
-    expect(isSelfServicePaidActivationEnabled()).toBe(false);
-    for (const plan of paidPlans) {
-      expect(() => requirePlanActivationAllowed(plan)).toThrow(AuthorizationError);
+    for (const [, target] of upgradePairs) {
+      expect(() => requirePlanActivationAllowed(target)).not.toThrow();
     }
   });
 
-  it("blocks legacy aliases from bypassing the production gate", () => {
+  it("accepts legacy aliases while enabled", () => {
     delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    setEnv("production");
-    expect(() => requirePlanActivationAllowed("premium")).toThrow(AuthorizationError);
-    expect(() => requirePlanActivationAllowed("pro")).toThrow(AuthorizationError);
+    expect(() => requirePlanActivationAllowed("premium")).not.toThrow();
+    expect(() => requirePlanActivationAllowed("pro")).not.toThrow();
   });
 
-  it("always allows downgrading to basic, including in production", () => {
-    delete process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION;
-    setEnv("production");
+  it("closes when explicitly set to false, in any environment", () => {
+    process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "false";
+    for (const env of ["development", "production"]) {
+      setEnv(env);
+      expect(isSelfServicePaidActivationEnabled()).toBe(false);
+      for (const plan of paidPlans) {
+        expect(() => requirePlanActivationAllowed(plan)).toThrow(AuthorizationError);
+      }
+      // Legacy aliases must not slip past the closed gate.
+      expect(() => requirePlanActivationAllowed("premium")).toThrow(AuthorizationError);
+      expect(() => requirePlanActivationAllowed("pro")).toThrow(AuthorizationError);
+    }
+  });
+
+  it("treats only the exact string 'false' as off", () => {
+    for (const value of ["true", "0", "no", "FALSE", ""]) {
+      process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = value;
+      expect(isSelfServicePaidActivationEnabled(), `value ${JSON.stringify(value)}`).toBe(true);
+    }
+  });
+
+  it("always allows downgrading to basic, even when the gate is closed", () => {
+    process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "false";
     expect(() => requirePlanActivationAllowed("basic")).not.toThrow();
     expect(() => requirePlanActivationAllowed("free")).not.toThrow();
-  });
-
-  it("honours an explicit override in both directions", () => {
-    setEnv("production");
-    process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "true";
-    expect(() => requirePlanActivationAllowed("professional")).not.toThrow();
-
-    setEnv("development");
-    process.env.ALLOW_SELF_SERVICE_PLAN_ACTIVATION = "false";
-    expect(() => requirePlanActivationAllowed("professional")).toThrow(AuthorizationError);
   });
 });
