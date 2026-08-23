@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DashboardSidebar, DashboardHeader } from "@/components/dashboard";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useProfileChangeListener, notifyProfileChanged } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useUser } from "@clerk/nextjs";
 import { useI18n } from "@/i18n/provider";
@@ -25,17 +26,24 @@ export default function DashboardLayout({
   const [userRoles, setUserRoles] = useState<UserRoleType[]>(["student"]);
   const [displayName, setDisplayName] = useState("Utilizador");
 
+  const loadServerProfile = useCallback(async () => {
+    const serverProfile = await getProfileDetailsAction();
+    if (!serverProfile) return;
+
+    if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
+    if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
+    if (serverProfile.roles && serverProfile.roles.length > 0) {
+      setAvailableProfiles(serverProfile.roles as ProfileType[]);
+      setUserRoles(serverProfile.roles as UserRoleType[]);
+    }
+  }, []);
+
+  // This layout survives client-side navigation, so a save on /profile/edit does
+  // not remount it. Without this it would keep the profile it first fetched.
+  useProfileChangeListener(loadServerProfile);
+
   useEffect(() => {
-    getProfileDetailsAction().then((serverProfile) => {
-      if (serverProfile) {
-        if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
-        if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
-        if (serverProfile.roles && serverProfile.roles.length > 0) {
-          setAvailableProfiles(serverProfile.roles as ProfileType[]);
-          setUserRoles(serverProfile.roles as UserRoleType[]);
-        }
-      }
-    });
+    loadServerProfile();
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
@@ -46,9 +54,11 @@ export default function DashboardLayout({
 
       setDisplayName((prev) => (prev !== "Utilizador" ? prev : initialDisplay));
 
-      const saved = localStorage.getItem("agroconnect_active_profile_type");
-      if (saved) {
-        setActiveProfile(saved as ProfileType);
+      // Pre-hydration only, to avoid a flicker before the server profile
+      // arrives. The server response below is authoritative and overwrites it.
+      const cachedActive = localStorage.getItem("agroconnect_active_profile_type");
+      if (cachedActive) {
+        setActiveProfile(cachedActive as ProfileType);
       }
 
       const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
@@ -56,20 +66,34 @@ export default function DashboardLayout({
         try {
           const parsed = JSON.parse(profileOverride);
           if (parsed.displayName) setDisplayName(parsed.displayName);
-          if (parsed.selectedProfileTypes) setAvailableProfiles(parsed.selectedProfileTypes);
+          // Available profiles come from the persisted roles, never from
+          // localStorage: a stale local copy raced the server response here.
         } catch {
           // ignore — subscription is never read from localStorage
         }
       }
     }
-  }, [user]);
+  }, [user, loadServerProfile]);
 
   const handleSwitchProfile = async (profile: ProfileType) => {
+    const previous = activeProfile;
     setActiveProfile(profile);
     if (typeof window !== "undefined") {
       localStorage.setItem("agroconnect_active_profile_type", profile);
     }
-    await switchActiveProfileTypeAction(profile);
+
+    const result = await switchActiveProfileTypeAction(profile);
+    if (!result.success) {
+      // Showing a switch that did not persist is worse than not switching: it
+      // silently reverts on the next page load.
+      setActiveProfile(previous);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("agroconnect_active_profile_type", previous);
+      }
+      return;
+    }
+    // Let the dashboard banner and profile view pick up the new active profile.
+    notifyProfileChanged();
   };
 
   const activeRoles: UserRoleType[] = userRoles.length > 0 ? userRoles : ["student"];

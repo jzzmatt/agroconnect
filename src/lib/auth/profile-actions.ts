@@ -2,7 +2,10 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import {
+  createServerSupabaseClient,
+  tryCreateAdminServerSupabaseClient,
+} from "@/lib/supabase/server";
 import { normalizePlanSlug, getUserEntitlements } from "@/lib/services/pricing-service";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
 import { getMarketCountry, isMarketCountryCode, DEFAULT_MARKET_COUNTRY } from "@/config/markets";
@@ -124,20 +127,145 @@ export async function updateProfileDetailsAction(
  */
 export async function switchActiveProfileTypeAction(
   profileType: ProfileType
-): Promise<{ success: boolean; activeProfileType: ProfileType }> {
+): Promise<{ success: boolean; activeProfileType: ProfileType; error?: string }> {
   try {
     await requireAuth();
     const current = await getCurrentUserProfile();
-    if (!current) throw new Error("Não autorizado");
+    if (!current) {
+      return { success: false, activeProfileType: profileType, error: "Perfil não encontrado." };
+    }
 
-    const supabase = await createServerSupabaseClient();
-    await (supabase.from("profiles") as any)
+    // The admin client is preferred for the same reason every other write path
+    // prefers it: when the Clerk JWT is not a Supabase JWT, an RLS-scoped update
+    // matches zero rows and the switch is silently lost on the next page load.
+    const supabase =
+      tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+    const { error } = await (supabase.from("profiles") as any)
       .update({ active_profile_type: profileType, updated_at: new Date().toISOString() })
       .eq("clerk_user_id", current.clerk_user_id);
 
+    if (error) {
+      console.warn("[switchActiveProfileType] persist failed:", error.message);
+      return { success: false, activeProfileType: profileType, error: error.message };
+    }
+
+    revalidatePath("/profile");
     return { success: true, activeProfileType: profileType };
   } catch (e) {
-    return { success: true, activeProfileType: profileType };
+    const message = e instanceof Error ? e.message : String(e || "");
+    console.warn("[switchActiveProfileType] persist failed:", message);
+    return { success: false, activeProfileType: profileType, error: message };
+  }
+}
+
+/** Profile types that map onto a `user_roles.role` value. */
+const ROLE_BACKED_PROFILE_TYPES = [
+  "veterinarian",
+  "expert",
+  "instructor",
+  "student",
+  "seller",
+  "farmer",
+  "service_provider",
+  "business",
+] as const;
+
+type RoleBackedProfileType = (typeof ROLE_BACKED_PROFILE_TYPES)[number];
+
+function toRoleBackedTypes(types: ProfileType[]): RoleBackedProfileType[] {
+  const allowed = new Set<string>(ROLE_BACKED_PROFILE_TYPES);
+  // `personal` is implicit rather than a stored role, so it is dropped here.
+  const unique = Array.from(new Set(types.filter((type) => allowed.has(type))));
+  return unique as RoleBackedProfileType[];
+}
+
+/**
+ * Server Action: Persist the user's selected profile types.
+ *
+ * Profile types are stored as `user_roles` rows, which is what
+ * `getCurrentUserProfile()` reads back. Without this the selection only ever
+ * reached localStorage, so it was lost on the next load.
+ */
+export async function updateProfileTypesAction(
+  profileTypes: ProfileType[]
+): Promise<{ success: boolean; profileTypes: ProfileType[]; error?: string }> {
+  try {
+    await requireAuth();
+    const current = await getCurrentUserProfile();
+    if (!current) {
+      return { success: false, profileTypes: [], error: "Perfil não encontrado." };
+    }
+
+    const desired = toRoleBackedTypes(profileTypes);
+    if (desired.length === 0) {
+      return {
+        success: false,
+        profileTypes: current.roles as ProfileType[],
+        error: "Selecione pelo menos uma área de atividade.",
+      };
+    }
+
+    const supabase =
+      tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+
+    const { data: existingRows, error: readError } = await (supabase.from("user_roles") as any)
+      .select("role")
+      .eq("clerk_user_id", current.clerk_user_id);
+
+    if (readError) {
+      console.warn("[updateProfileTypes] read failed:", readError.message);
+      return { success: false, profileTypes: [], error: readError.message };
+    }
+
+    const existing = new Set<string>(
+      ((existingRows as Array<{ role: string }> | null) || []).map((row) => row.role)
+    );
+    const toInsert = desired.filter((role) => !existing.has(role));
+    const toRemove = Array.from(existing).filter(
+      (role) => !(desired as string[]).includes(role)
+    );
+
+    if (toInsert.length > 0) {
+      const { error: insertError } = await (supabase.from("user_roles") as any).insert(
+        toInsert.map((role, index) => ({
+          profile_id: current.id,
+          clerk_user_id: current.clerk_user_id,
+          role,
+          is_primary: existing.size === 0 && index === 0,
+        }))
+      );
+      if (insertError) {
+        console.warn("[updateProfileTypes] insert failed:", insertError.message);
+        return { success: false, profileTypes: [], error: insertError.message };
+      }
+    }
+
+    if (toRemove.length > 0) {
+      const { error: deleteError } = await (supabase.from("user_roles") as any)
+        .delete()
+        .eq("clerk_user_id", current.clerk_user_id)
+        .in("role", toRemove);
+      if (deleteError) {
+        console.warn("[updateProfileTypes] delete failed:", deleteError.message);
+        return { success: false, profileTypes: [], error: deleteError.message };
+      }
+    }
+
+    // An active profile the user no longer holds would otherwise persist and
+    // read back as a type that is not in their list.
+    if (!(desired as string[]).includes(current.active_profile_type as string)) {
+      await (supabase.from("profiles") as any)
+        .update({ active_profile_type: desired[0], updated_at: new Date().toISOString() })
+        .eq("clerk_user_id", current.clerk_user_id);
+    }
+
+    revalidatePath("/profile");
+    revalidatePath("/profile/edit");
+    return { success: true, profileTypes: desired as ProfileType[] };
+  } catch (e) {
+    const message = e instanceof Error ? e.message : String(e || "");
+    console.warn("[updateProfileTypes] failed:", message);
+    return { success: false, profileTypes: [], error: message };
   }
 }
 
