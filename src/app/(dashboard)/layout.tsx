@@ -46,9 +46,11 @@ export default function DashboardLayout({
 
       setDisplayName((prev) => (prev !== "Utilizador" ? prev : initialDisplay));
 
-      const saved = localStorage.getItem("agroconnect_active_profile_type");
-      if (saved) {
-        setActiveProfile(saved as ProfileType);
+      // Pre-hydration only, to avoid a flicker before the server profile
+      // arrives. The server response below is authoritative and overwrites it.
+      const cachedActive = localStorage.getItem("agroconnect_active_profile_type");
+      if (cachedActive) {
+        setActiveProfile(cachedActive as ProfileType);
       }
 
       const profileOverride = localStorage.getItem("agroconnect_user_profile_override");
@@ -56,7 +58,8 @@ export default function DashboardLayout({
         try {
           const parsed = JSON.parse(profileOverride);
           if (parsed.displayName) setDisplayName(parsed.displayName);
-          if (parsed.selectedProfileTypes) setAvailableProfiles(parsed.selectedProfileTypes);
+          // Available profiles come from the persisted roles, never from
+          // localStorage: a stale local copy raced the server response here.
         } catch {
           // ignore — subscription is never read from localStorage
         }
@@ -65,11 +68,21 @@ export default function DashboardLayout({
   }, [user]);
 
   const handleSwitchProfile = async (profile: ProfileType) => {
+    const previous = activeProfile;
     setActiveProfile(profile);
     if (typeof window !== "undefined") {
       localStorage.setItem("agroconnect_active_profile_type", profile);
     }
-    await switchActiveProfileTypeAction(profile);
+
+    const result = await switchActiveProfileTypeAction(profile);
+    if (!result.success) {
+      // Showing a switch that did not persist is worse than not switching: it
+      // silently reverts on the next page load.
+      setActiveProfile(previous);
+      if (typeof window !== "undefined") {
+        localStorage.setItem("agroconnect_active_profile_type", previous);
+      }
+    }
   };
 
   const activeRoles: UserRoleType[] = userRoles.length > 0 ? userRoles : ["student"];

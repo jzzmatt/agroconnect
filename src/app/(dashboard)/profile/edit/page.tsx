@@ -5,8 +5,12 @@ import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { Button, Input, WhatsAppBrandIcon } from "@/components/ui";
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
-import { ArrowLeft, Save, Check, ShieldCheck, User, Sparkles, Lock } from "lucide-react";
-import { updateProfileDetailsAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { ArrowLeft, Save, Check, AlertCircle, ShieldCheck, User, Sparkles, Lock } from "lucide-react";
+import {
+  updateProfileDetailsAction,
+  updateProfileTypesAction,
+  getProfileDetailsAction,
+} from "@/lib/auth/profile-actions";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import type { ProfessionalTitle, ProfileType } from "@/types/database";
@@ -32,6 +36,7 @@ export default function EditProfilePage() {
   ]);
 
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
 
   useEffect(() => {
@@ -78,7 +83,9 @@ export default function EditProfilePage() {
           if (parsed.bio) setBio(parsed.bio);
           if (parsed.province) setProvince(parsed.province);
           if (parsed.municipality) setMunicipality(parsed.municipality);
-          if (parsed.selectedProfileTypes) setSelectedProfileTypes(parsed.selectedProfileTypes);
+          // Profile types are intentionally not restored from localStorage: the
+          // database is authoritative, and a stale local copy used to fight the
+          // server response and win or lose depending on network timing.
         } catch {
           // ignore
         }
@@ -114,6 +121,17 @@ export default function EditProfilePage() {
         bio,
       });
 
+      // Profile types are durable state, so they go to the database rather than
+      // localStorage. Report a failure instead of showing "saved" regardless.
+      const typesResult = await updateProfileTypesAction(selectedProfileTypes);
+      if (!typesResult.success) {
+        setSaveError(
+          typesResult.error || "Não foi possível guardar as áreas de atividade."
+        );
+        return;
+      }
+      setSelectedProfileTypes(typesResult.profileTypes);
+
       if (typeof window !== "undefined") {
         localStorage.setItem(
           "agroconnect_user_profile_override",
@@ -128,17 +146,18 @@ export default function EditProfilePage() {
             bio,
             province,
             municipality,
-            selectedProfileTypes,
           })
         );
       }
 
+      setSaveError(null);
       setSaved(true);
       setTimeout(() => setSaved(false), 3000);
     } catch (err) {
       console.warn("Error updating profile:", err);
-      setSaved(true);
-      setTimeout(() => setSaved(false), 3000);
+      setSaveError(
+        err instanceof Error ? err.message : "Não foi possível guardar o perfil."
+      );
     } finally {
       setIsLoading(false);
     }
@@ -475,7 +494,12 @@ export default function EditProfilePage() {
 
           {/* Save Action Bar */}
           <div className="pt-4 border-t border-border flex items-center justify-between">
-            {saved ? (
+            {saveError ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-bold text-red-600">
+                <AlertCircle className="w-4 h-4" />
+                {saveError}
+              </span>
+            ) : saved ? (
               <span className="inline-flex items-center gap-1.5 text-xs font-bold text-emerald-600">
                 <Check className="w-4 h-4" />
                 Alterações guardadas com sucesso!

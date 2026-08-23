@@ -88,7 +88,8 @@ export default function ProfilePage() {
             bio: parsed.bio || prev.bio,
             province: parsed.province || prev.province,
             municipality: parsed.municipality || prev.municipality,
-            roles: parsed.selectedProfileTypes || prev.roles,
+            // `roles` is intentionally not read from localStorage: the persisted
+            // roles are authoritative and a stale local copy raced them.
           }));
         } catch {
           // Keep defaults
