@@ -3,14 +3,39 @@
 This package contains the Phase 1 architecture artifacts, Cursor rules,
 specialized agent contracts, and implementation prompts for Phases 0–12.
 
+## Layout
+
+- `/.cursor/rules/` — the ten `.mdc` rules, at the repository root so they apply repository-wide.
+- `/.cursor/agents/` — the twelve domain contracts, registered as live Cursor subagents.
+- `docs/docplus/docs/` — the Phase 1 architecture artifacts.
+- `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
+- `docs/docplus/CONTEXT_MAP.md` — which files to load for each `@context`.
+- `docs/docplus/EXECUTION_GUIDE.md` — the step-by-step runbook for executing the phases.
+
 ## How to use
 
+Follow `EXECUTION_GUIDE.md`, which pairs each phase with the subagent that owns it and
+gives a copy-paste prompt per step. In summary:
+
 1. Back up/commit the current AgriConnect repository.
-2. Copy `.cursor/` and `docs/` into the repository.
-3. Start with `phases/01_phase_1_architecture_freeze.md`.
-4. Do not allow implementation work from later phases until the current phase passes validation.
-5. Use only the relevant @contexts/agent contracts for each task.
-6. After each phase, run the project's validation commands and update documentation.
+2. Start with Step 1 (Phase 0, the read-only audit), then work through the steps in order.
+3. Do not allow implementation work from later phases until the current phase passes validation.
+4. Use only the relevant @contexts/agent contracts for each task, in a fresh chat per phase.
+5. After each phase, run the project's validation commands and update documentation.
+
+## Subagents
+
+The twelve domain contracts in `/.cursor/agents/` are live Cursor subagents. Each
+carries `name` and `description` frontmatter, so Cursor can delegate to them
+automatically, and each can be invoked explicitly by name:
+
+`foundation`, `identity`, `authorization`, `media`, `agriprofile`,
+`agrishopping`, `agriacademy`, `agriexpert`, `localization`, `commerce`,
+`qa`, `documentation`.
+
+Every subagent prompt carries a phase gate: none of them may start, resume or
+execute a numbered phase from `phases/` without explicit human approval for that
+specific phase.
 
 ## Locked architectural decisions
 
