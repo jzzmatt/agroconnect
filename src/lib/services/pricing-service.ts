@@ -214,6 +214,7 @@ export function getUserEntitlements(params: {
     can_access_agrishopping: isPaid,
     can_access_agriproduct: isPaid,
     can_access_agriacademy: isPaid,
+    can_access_agrilocalizacao: isPaid,
     can_access_agrilocalization: isPaid,
     can_access_agriexpert: isPaid,
     can_access_business_dashboard: isPaid && (isBusiness || isEnterprise),

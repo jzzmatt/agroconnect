@@ -1,15 +1,5 @@
-export interface ProductImageDescriptor {
-  id: string;
-  product_id: string;
-  owner_id: string;
-  url: string;
-  alt_text: string;
-  mime_type: "image/jpeg" | "image/png" | "image/webp";
-  file_size: number;
-  sort_order: number;
-  is_primary: boolean;
-  created_at: string;
-}
+import type { ProductImageDescriptor } from "@/types/media";
+export type { ProductImageDescriptor };
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
