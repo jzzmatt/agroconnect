@@ -36,9 +36,14 @@ Recommended metadata:
 - file_size
 - dimensions/duration where applicable
 - status
-- metadata JSONB
+- metadata JSONB — provider-specific extras only
 - created_at
 - updated_at
+
+The `metadata JSONB` column is an escape hatch for provider-specific fields that carry no
+relational meaning. It must not hold core relational data: anything queried, filtered,
+joined or constrained gets a real column. This keeps the model consistent with
+`.cursor/rules/03-database.mdc`, which forbids JSONB for core relational data.
 
 ## Upload
 Prefer direct signed/browser uploads to the provider.
