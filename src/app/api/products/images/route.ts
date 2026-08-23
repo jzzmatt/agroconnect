@@ -4,6 +4,11 @@ import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { validateProductImage } from "@/lib/services/product-media-service";
 import { isUuid } from "@/lib/products/ids";
 import {
+  AuthorizationError,
+  requireProductOwnership,
+  subjectFromProfile,
+} from "@/lib/authorization/server";
+import {
   createServerSupabaseClient,
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
@@ -30,6 +35,21 @@ export async function POST(request: Request) {
 
     if (!isUuid(productId) || !(file instanceof File)) {
       return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED" }, { status: 400 });
+    }
+
+    // Holding the upload entitlement does not grant access to another seller's
+    // product. The write below uses the service-role client, which bypasses RLS,
+    // so ownership must be proven here.
+    try {
+      await requireProductOwnership(productId, subjectFromProfile(profile));
+    } catch (ownershipError) {
+      if (ownershipError instanceof AuthorizationError) {
+        return NextResponse.json(
+          { success: false, error: ownershipError.code, code: ownershipError.code },
+          { status: ownershipError.code === "AUTH_REQUIRED" ? 401 : 403 }
+        );
+      }
+      throw ownershipError;
     }
 
     const mimeType = file.type === "image/png" || file.type === "image/webp" ? file.type : "image/jpeg";

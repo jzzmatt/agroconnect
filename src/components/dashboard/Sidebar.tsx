@@ -7,7 +7,7 @@ import { Sprout, X, LogOut, Lock } from "lucide-react";
 import { getDashboardNavigation } from "@/config/navigation";
 import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
-import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { can, subjectFromProfile, type Permission } from "@/lib/authorization";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { ProfileSwitcher } from "./ProfileSwitcher";
@@ -39,21 +39,34 @@ export function DashboardSidebar({
   const { handleSignOut, pending: signingOut } = useSignOut();
   const navigation = getDashboardNavigation(dict);
 
-  const entitlements = getUserEntitlements({
-    subscriptionPlan,
+  // Presentation-only capability subject. Every module a user may view stays
+  // visible; the ones they cannot manage are shown locked. Server guards decide
+  // what is actually permitted.
+  const subject = subjectFromProfile({
+    id: "",
+    clerk_user_id: "",
     roles: userRoles,
+    account_type: "customer",
+    subscription_plan: (subscriptionPlan || "basic") as SubscriptionPlan,
   });
 
+  /**
+   * Which capability unlocks management for a module. A module absent from this
+   * map is never locked, because viewing it is not a paid capability.
+   */
+  const moduleManagePermission: Partial<Record<
+    NonNullable<(typeof navigation)[number]["requiredModule"]>,
+    Permission
+  >> = {
+    agriShopping: "product.create",
+    agriAcademy: "academy.course.create",
+    agriExpert: "service.manage",
+  };
+
   const visibleSections = navigation.filter((section) => {
-    if (section.requiredModule === "agriAcademy" && !entitlements.can_access_agriacademy) {
-      return false;
-    }
-    if (section.requiredModule === "agriExpert" && !entitlements.can_access_agriexpert) {
-      return false;
-    }
-    if (section.requiredModule === "agriShopping") {
-      return true;
-    }
+    // Free/basic may view all five major modules, so module sections are never
+    // hidden on subscription grounds — only locked.
+    if (section.requiredModule) return true;
     if (!section.roles || section.roles.length === 0) return true;
     return section.roles.some((role) => userRoles.includes(role));
   });
@@ -108,8 +121,12 @@ export function DashboardSidebar({
               {section.items.map((item) => {
                 const isActive = pathname === item.href;
                 const Icon = item.icon;
-                const agriLocked =
-                  section.requiredModule === "agriShopping" && !entitlements.can_access_agriproduct;
+                const managePermission = section.requiredModule
+                  ? moduleManagePermission[section.requiredModule]
+                  : undefined;
+                const agriLocked = managePermission
+                  ? !can(subject, managePermission)
+                  : false;
                 const href = agriLocked ? "/pricing" : item.href;
                 return (
                   <Link
@@ -156,7 +173,7 @@ export function DashboardSidebar({
 
       {/* Areas of Activity in Ecosystem Footer */}
       <div className="p-4 border-t border-sidebar-border bg-surface-muted/50 space-y-3">
-        {!entitlements.can_access_agriproduct && (
+        {!can(subject, "product.create") && (
           <Link
             href="/pricing"
             onClick={() => onClose && onClose()}
