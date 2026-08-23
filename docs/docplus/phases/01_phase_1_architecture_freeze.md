@@ -12,7 +12,7 @@ Create or update:
 - docs/docplus/docs/route-map.md
 - docs/docplus/docs/migration-strategy.md
 - .cursor/rules/*
-- docs/docplus/.cursor/agents/*
+- .cursor/agents/*
 
 Adopt these locked decisions:
 1. AgriProfile becomes the user workspace at /[userId]/agriprofile.
