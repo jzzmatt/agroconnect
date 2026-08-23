@@ -1,27 +1,9 @@
 import { VIDEO_STORAGE_QUOTA_BYTES, getUserEntitlements } from "@/lib/services/pricing-service";
 import { createBunnyVideo, deleteBunnyVideo, isBunnyConfigured } from "@/lib/video/bunny";
-import type { SubscriptionPlan } from "@/types/database";
+import type { SubscriptionPlan, AcademyVideoStatus } from "@/types/database";
+import type { AcademyVideoDescriptor, AcademyVideoVisibility } from "@/types/agriacademy";
 
-export type AcademyVideoRecord = {
-  id: string;
-  owner_id: string;
-  course_id?: string | null;
-  chapter_id?: string | null;
-  bunny_video_id?: string | null;
-  bunny_library_id?: string | null;
-  title: string;
-  description?: string | null;
-  filename?: string | null;
-  mime_type?: string | null;
-  file_size: number;
-  duration_seconds?: number | null;
-  status: "pending" | "uploading" | "processing" | "ready" | "failed" | "deleted" | "video_unavailable";
-  visibility: "private" | "unlisted" | "public" | "enrolled_only";
-  thumbnail_url?: string | null;
-  playback_url?: string | null;
-  created_at: string;
-  updated_at: string;
-};
+export type AcademyVideoRecord = AcademyVideoDescriptor;
 
 const videos: AcademyVideoRecord[] = [];
 const usageByOwner = new Map<string, number>();
