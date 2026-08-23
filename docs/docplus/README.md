@@ -3,14 +3,21 @@
 This package contains the Phase 1 architecture artifacts, Cursor rules,
 specialized agent contracts, and implementation prompts for Phases 0–12.
 
+## Layout
+
+- `/.cursor/rules/` — the ten `.mdc` rules, at the repository root so they apply repository-wide.
+- `docs/docplus/.cursor/agents/` — the specialized agent contracts.
+- `docs/docplus/docs/` — the Phase 1 architecture artifacts.
+- `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
+- `docs/docplus/CONTEXT_MAP.md` — which files to load for each `@context`.
+
 ## How to use
 
 1. Back up/commit the current AgriConnect repository.
-2. Copy `.cursor/` and `docs/` into the repository.
-3. Start with `phases/01_phase_1_architecture_freeze.md`.
-4. Do not allow implementation work from later phases until the current phase passes validation.
-5. Use only the relevant @contexts/agent contracts for each task.
-6. After each phase, run the project's validation commands and update documentation.
+2. Start with `phases/01_phase_1_architecture_freeze.md`.
+3. Do not allow implementation work from later phases until the current phase passes validation.
+4. Use only the relevant @contexts/agent contracts for each task.
+5. After each phase, run the project's validation commands and update documentation.
 
 ## Locked architectural decisions
 
