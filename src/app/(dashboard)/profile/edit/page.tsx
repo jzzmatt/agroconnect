@@ -11,6 +11,7 @@ import {
   updateProfileTypesAction,
   getProfileDetailsAction,
 } from "@/lib/auth/profile-actions";
+import { notifyProfileChanged } from "@/lib/auth/profile-events";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import type { ProfessionalTitle, ProfileType } from "@/types/database";
@@ -149,6 +150,10 @@ export default function EditProfilePage() {
           })
         );
       }
+
+      // The dashboard layout and banner hold their own copy of the profile and
+      // do not remount on client-side navigation, so tell them to refetch.
+      notifyProfileChanged();
 
       setSaveError(null);
       setSaved(true);

@@ -72,6 +72,60 @@ describe("persistence failures are reported rather than swallowed", () => {
   });
 });
 
+describe("views refresh after a profile is saved", () => {
+  const EVENTS = "src/lib/auth/profile-events.ts";
+
+  it("broadcasts a profile change event", () => {
+    const src = read(EVENTS);
+    expect(src).toMatch("PROFILE_CHANGED_EVENT");
+    expect(src).toMatch("export function notifyProfileChanged");
+    expect(src).toMatch("export function useProfileChangeListener");
+  });
+
+  it("notifies after a successful save, not before", () => {
+    const src = read(EDIT_PAGE);
+    expect(src).toMatch("notifyProfileChanged()");
+    // The notification must come after the types call, so listeners refetch
+    // state that already includes the new selection.
+    expect(src.indexOf("updateProfileTypesAction(selectedProfileTypes)")).toBeLessThan(
+      src.indexOf("notifyProfileChanged()")
+    );
+  });
+
+  it("notifies after switching the active profile", () => {
+    const src = read(DASHBOARD_LAYOUT);
+    expect(src).toMatch("notifyProfileChanged()");
+  });
+
+  it("subscribes both cards and the layout to the event", () => {
+    for (const file of [DASHBOARD_LAYOUT, PROFILE_PAGE, "src/app/(dashboard)/dashboard/page.tsx"]) {
+      const src = read(file);
+      expect(src, `${file} must listen for profile changes`).toMatch(
+        "useProfileChangeListener(loadServerProfile)"
+      );
+      expect(src, `${file} must expose a stable reload callback`).toMatch(
+        "const loadServerProfile = useCallback"
+      );
+    }
+  });
+
+  it("replaces the areas-of-activity list rather than merging it", () => {
+    // Merging would leave a removed area on the card after a save.
+    const src = read(PROFILE_PAGE);
+    expect(src).toMatch(/serverProfile\.roles && serverProfile\.roles\.length > 0/);
+  });
+
+  it("listens for visibilitychange on document, where it actually fires", () => {
+    for (const file of [EVENTS, "src/lib/subscription/use-authoritative-plan.ts"]) {
+      const src = read(file);
+      expect(src, `${file} must not listen for visibilitychange on window`).not.toMatch(
+        /window\.(add|remove)EventListener\("visibilitychange"/
+      );
+      expect(src).toMatch(/document\.addEventListener\("visibilitychange"/);
+    }
+  });
+});
+
 describe("profile type to role mapping", () => {
   /**
    * Every profile type offered by the edit form must be a valid user role,

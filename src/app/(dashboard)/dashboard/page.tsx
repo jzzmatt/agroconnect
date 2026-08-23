@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import {
   DollarSign,
@@ -28,6 +28,7 @@ import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
@@ -55,22 +56,26 @@ export default function DashboardPage() {
   const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
   const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
 
+  const loadServerProfile = useCallback(async () => {
+    const serverProfile = await getProfileDetailsAction();
+    if (!serverProfile) return;
+
+    setProfile((prev) => ({
+      ...prev,
+      displayName: serverProfile.display_name || prev.displayName,
+      firstName: serverProfile.first_name || prev.firstName,
+      lastName: serverProfile.last_name || prev.lastName,
+      email: serverProfile.email || prev.email,
+      professionalTitle: serverProfile.professional_title || prev.professionalTitle,
+      activeProfile: serverProfile.active_profile_type || prev.activeProfile,
+      subscriptionPlan: serverProfile.subscription_plan || "basic",
+    }));
+  }, []);
+
+  useProfileChangeListener(loadServerProfile);
+
   useEffect(() => {
-    // 1. Fetch server-side profile state
-    getProfileDetailsAction().then((serverProfile) => {
-      if (serverProfile) {
-        setProfile((prev) => ({
-          ...prev,
-          displayName: serverProfile.display_name || prev.displayName,
-          firstName: serverProfile.first_name || prev.firstName,
-          lastName: serverProfile.last_name || prev.lastName,
-          email: serverProfile.email || prev.email,
-          professionalTitle: serverProfile.professional_title || prev.professionalTitle,
-          activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-          subscriptionPlan: serverProfile.subscription_plan || "basic",
-        }));
-      }
-    });
+    loadServerProfile();
     getMyProductStatsAction().then((stats) => {
       setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
     });
@@ -111,7 +116,7 @@ export default function DashboardPage() {
         }
       }
     }
-  }, [user]);
+  }, [user, loadServerProfile]);
 
   const greeting = getUserGreeting({
     displayName: profile.displayName,

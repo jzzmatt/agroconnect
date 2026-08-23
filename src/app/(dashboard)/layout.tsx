@@ -1,10 +1,11 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { DashboardSidebar, DashboardHeader } from "@/components/dashboard";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType } from "@/types/database";
 import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useProfileChangeListener, notifyProfileChanged } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useUser } from "@clerk/nextjs";
 import { useI18n } from "@/i18n/provider";
@@ -25,17 +26,24 @@ export default function DashboardLayout({
   const [userRoles, setUserRoles] = useState<UserRoleType[]>(["student"]);
   const [displayName, setDisplayName] = useState("Utilizador");
 
+  const loadServerProfile = useCallback(async () => {
+    const serverProfile = await getProfileDetailsAction();
+    if (!serverProfile) return;
+
+    if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
+    if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
+    if (serverProfile.roles && serverProfile.roles.length > 0) {
+      setAvailableProfiles(serverProfile.roles as ProfileType[]);
+      setUserRoles(serverProfile.roles as UserRoleType[]);
+    }
+  }, []);
+
+  // This layout survives client-side navigation, so a save on /profile/edit does
+  // not remount it. Without this it would keep the profile it first fetched.
+  useProfileChangeListener(loadServerProfile);
+
   useEffect(() => {
-    getProfileDetailsAction().then((serverProfile) => {
-      if (serverProfile) {
-        if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
-        if (serverProfile.active_profile_type) setActiveProfile(serverProfile.active_profile_type);
-        if (serverProfile.roles && serverProfile.roles.length > 0) {
-          setAvailableProfiles(serverProfile.roles as ProfileType[]);
-          setUserRoles(serverProfile.roles as UserRoleType[]);
-        }
-      }
-    });
+    loadServerProfile();
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
@@ -65,7 +73,7 @@ export default function DashboardLayout({
         }
       }
     }
-  }, [user]);
+  }, [user, loadServerProfile]);
 
   const handleSwitchProfile = async (profile: ProfileType) => {
     const previous = activeProfile;
@@ -82,7 +90,10 @@ export default function DashboardLayout({
       if (typeof window !== "undefined") {
         localStorage.setItem("agroconnect_active_profile_type", previous);
       }
+      return;
     }
+    // Let the dashboard banner and profile view pick up the new active profile.
+    notifyProfileChanged();
   };
 
   const activeRoles: UserRoleType[] = userRoles.length > 0 ? userRoles : ["student"];

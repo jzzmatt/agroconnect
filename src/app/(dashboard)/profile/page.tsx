@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useUser } from "@clerk/nextjs";
 import { MapPin, Mail, Phone, ShieldCheck, Edit, Sparkles, Store, GraduationCap, Briefcase } from "lucide-react";
@@ -9,6 +9,7 @@ import { LocationBadge } from "@/components/location";
 import { PROFILE_TYPE_CONFIG, getUserGreeting } from "@/lib/auth/identity-resolvers";
 import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
@@ -36,27 +37,36 @@ export default function ProfilePage() {
     isVerified: false,
   });
 
+  const loadServerProfile = useCallback(async () => {
+    const serverProfile = await getProfileDetailsAction();
+    if (!serverProfile) return;
+
+    setProfileData((prev) => ({
+      ...prev,
+      displayName: serverProfile.display_name || prev.displayName,
+      firstName: serverProfile.first_name || prev.firstName,
+      lastName: serverProfile.last_name || prev.lastName,
+      email: serverProfile.email || prev.email,
+      phone: serverProfile.phone || prev.phone,
+      whatsappPhone: serverProfile.whatsapp_phone || prev.whatsappPhone,
+      bio: serverProfile.bio || prev.bio,
+      professionalTitle: serverProfile.professional_title || prev.professionalTitle,
+      professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
+      activeProfile: serverProfile.active_profile_type || prev.activeProfile,
+      subscriptionPlan: serverProfile.subscription_plan || "basic",
+      // Replaced outright rather than merged: a removed area of activity must
+      // disappear from the card, not linger from the previous render.
+      roles:
+        serverProfile.roles && serverProfile.roles.length > 0
+          ? (serverProfile.roles as ProfileType[])
+          : prev.roles,
+    }));
+  }, []);
+
+  useProfileChangeListener(loadServerProfile);
+
   useEffect(() => {
-    // 1. First fetch server-side authoritative profile details
-    getProfileDetailsAction().then((serverProfile) => {
-      if (serverProfile) {
-        setProfileData((prev) => ({
-          ...prev,
-          displayName: serverProfile.display_name || prev.displayName,
-          firstName: serverProfile.first_name || prev.firstName,
-          lastName: serverProfile.last_name || prev.lastName,
-          email: serverProfile.email || prev.email,
-          phone: serverProfile.phone || prev.phone,
-          whatsappPhone: serverProfile.whatsapp_phone || prev.whatsappPhone,
-          bio: serverProfile.bio || prev.bio,
-          professionalTitle: serverProfile.professional_title || prev.professionalTitle,
-          professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
-          activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-          subscriptionPlan: serverProfile.subscription_plan || "basic",
-          roles: (serverProfile.roles as ProfileType[]) || prev.roles,
-        }));
-      }
-    });
+    loadServerProfile();
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
@@ -96,7 +106,7 @@ export default function ProfilePage() {
         }
       }
     }
-  }, [user]);
+  }, [user, loadServerProfile]);
 
   const greeting = getUserGreeting({
     displayName: profileData.displayName,

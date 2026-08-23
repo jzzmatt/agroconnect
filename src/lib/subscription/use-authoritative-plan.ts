@@ -80,11 +80,12 @@ export function useAuthoritativePlan() {
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
     window.addEventListener("focus", onChange);
-    window.addEventListener("visibilitychange", onChange);
+    // visibilitychange fires on document, so listening on window never fired.
+    document.addEventListener("visibilitychange", onChange);
     return () => {
       window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
       window.removeEventListener("focus", onChange);
-      window.removeEventListener("visibilitychange", onChange);
+      document.removeEventListener("visibilitychange", onChange);
     };
   }, [refresh]);
 
