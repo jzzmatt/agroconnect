@@ -1,0 +1,12 @@
+---
+description: UI and Figma rules
+alwaysApply: true
+---
+# UI Rules
+
+Figma is the source of truth for approved visual designs.
+Reuse existing design-system components.
+Do not duplicate UI patterns unnecessarily.
+Do not put business authorization logic in presentation components.
+Use responsive layouts and proper loading/empty/error states.
+Use i18n for user-facing text.

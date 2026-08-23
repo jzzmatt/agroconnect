@@ -1,0 +1,10 @@
+---
+description: Localization and language rules
+alwaysApply: true
+---
+# i18n Rules
+
+Primary product language: Portuguese.
+Support architecture for Portuguese, English and French.
+Prefer Angolan Portuguese terminology where appropriate.
+Do not hardcode user-facing strings in domain services.

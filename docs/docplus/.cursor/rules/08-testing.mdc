@@ -1,0 +1,19 @@
+---
+description: Testing requirements
+alwaysApply: true
+---
+# Testing Rules
+
+Run typecheck, lint, tests and build for completed phases.
+
+Critical authorization paths require tests for:
+- unauthenticated
+- authenticated
+- wrong owner
+- correct owner
+- wrong role
+- correct role
+- insufficient entitlement
+- sufficient entitlement
+
+Do not delete existing tests without replacing their coverage.

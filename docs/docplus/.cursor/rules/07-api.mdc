@@ -1,0 +1,17 @@
+---
+description: API implementation rules
+alwaysApply: true
+---
+# API Rules
+
+Every API handler must define:
+- authentication
+- input validation
+- authorization
+- ownership/resource validation
+- domain service call
+- normalized response/errors
+
+Flow:
+Request → Auth → Validation → Authorization → Domain Service → Data/Provider → Audit → Response.
+Do not put large business logic directly in route handlers.

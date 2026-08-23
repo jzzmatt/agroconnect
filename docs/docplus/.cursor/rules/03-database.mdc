@@ -1,0 +1,12 @@
+---
+description: Supabase/PostgreSQL database rules
+alwaysApply: true
+---
+# Database Rules
+
+Supabase/PostgreSQL is the durable source of truth.
+Schema changes require migrations.
+Never rewrite migration history.
+Every new persistent entity requires ownership strategy, indexes, foreign keys, timestamps and RLS policy where applicable.
+Use PostGIS for geographic operations.
+Avoid JSONB for core relational data.

@@ -1,0 +1,20 @@
+---
+description: ImageKit and Bunny media architecture
+alwaysApply: true
+---
+# Media Rules
+
+ImageKit:
+- product images
+- product short videos
+- application/profile images
+- thumbnails
+
+Bunny Stream:
+- AgriAcademy training videos only
+
+Supabase stores media metadata.
+Provider stores/delivers media.
+Do not use Map/Set/global memory as durable media state.
+Prefer direct signed uploads.
+Never expose provider secrets.

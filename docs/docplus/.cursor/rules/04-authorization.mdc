@@ -1,0 +1,16 @@
+---
+description: Roles subscriptions entitlements
+alwaysApply: true
+---
+# Authorization Rules
+
+Role != subscription != entitlement.
+
+Never hardcode subscription names inside UI/business logic.
+Use capability checks such as:
+- can(user, permission)
+- requirePermission(user, permission)
+- requireEntitlement(user, entitlement)
+
+Server-side authorization is mandatory.
+UI permission checks only control presentation.

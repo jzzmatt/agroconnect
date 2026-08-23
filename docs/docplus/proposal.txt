@@ -1,0 +1,15 @@
+| Context               | Main responsibility                        | Recommended model/agent | Why                                                          |
+| --------------------- | ------------------------------------------ | ----------------------- | ------------------------------------------------------------ |
+| **@00-master**        | Architecture, global rules, decisions      | **Claude Opus**         | Best suited for deep architectural reasoning and consistency |
+| **@01-foundation**    | Next.js, TypeScript, shared infrastructure | **Gemini Pro**          | Strong codebase understanding and broad implementation       |
+| **@02-identity**      | Clerk, profiles, authentication            | **Claude Sonnet**       | Good balance of security reasoning + implementation          |
+| **@03-authorization** | Roles, plans, entitlements, permissions    | **Claude Opus**         | High-risk business/security logic needs deeper reasoning     |
+| **@04-media**         | ImageKit + Bunny + upload architecture     | **Claude Sonnet**       | Strong integration/refactoring work                          |
+| **@05-agriprofile**   | Dashboard/profile/user workspace           | **Gemini Pro**          | Good frontend/full-stack implementation                      |
+| **@06-agrishopping**  | Products, vendor, inventory, product UI    | **Gemini Pro**          | Strong for large UI + CRUD implementation                    |
+| **@07-agriacademy**   | LMS, courses, lessons, Bunny Stream        | **Claude Sonnet**       | Complex domain + backend/frontend coordination               |
+| **@08-agriexpert**    | Experts, services, appointments            | **Gemini Pro**          | Mostly structured CRUD/domain implementation                 |
+| **@09-localization**  | PostGIS, maps, geographic search           | **Claude Sonnet**       | Better for complex data/query reasoning                      |
+| **@10-commerce**      | Cart, checkout, orders, payments           | **Claude Opus**         | High-risk transactional/business logic                       |
+| **@11-qa**            | Tests, regression, security validation     | **Claude Sonnet**       | Strong debugging and test reasoning                          |
+| **@12-docs**          | Architecture/docs/ADRs                     | **Gemini Pro**          | Efficient for structured documentation                       |
