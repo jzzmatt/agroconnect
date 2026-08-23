@@ -5,14 +5,14 @@
 This phase is documentation/rules only. Do not refactor application code.
 
 Create or update:
-- docs/architecture-v2.md
-- docs/domain-map.md
-- docs/authorization-model.md
-- docs/media-architecture.md
-- docs/route-map.md
-- docs/migration-strategy.md
-- .cursor/rules/*
-- .cursor/agents/*
+- docs/docplus/architecture-v2.md
+- docs/docplus/domain-map.md
+- docs/docplus/authorization-model.md
+- docs/docplus/media-architecture.md
+- docs/docplus/route-map.md
+- docs/docplus/migration-strategy.md
+- docs/docplus/.cursor/rules/*
+- docs/docplus/.cursor/agents/*
 
 Adopt these locked decisions:
 1. AgriProfile becomes the user workspace at /[userId]/agriprofile.
