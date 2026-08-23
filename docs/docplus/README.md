@@ -10,13 +10,17 @@ specialized agent contracts, and implementation prompts for Phases 0–12.
 - `docs/docplus/docs/` — the Phase 1 architecture artifacts.
 - `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
 - `docs/docplus/CONTEXT_MAP.md` — which files to load for each `@context`.
+- `docs/docplus/EXECUTION_GUIDE.md` — the step-by-step runbook for executing the phases.
 
 ## How to use
 
+Follow `EXECUTION_GUIDE.md`, which pairs each phase with the subagent that owns it and
+gives a copy-paste prompt per step. In summary:
+
 1. Back up/commit the current AgriConnect repository.
-2. Start with `phases/01_phase_1_architecture_freeze.md`.
+2. Start with Step 1 (Phase 0, the read-only audit), then work through the steps in order.
 3. Do not allow implementation work from later phases until the current phase passes validation.
-4. Use only the relevant @contexts/agent contracts for each task.
+4. Use only the relevant @contexts/agent contracts for each task, in a fresh chat per phase.
 5. After each phase, run the project's validation commands and update documentation.
 
 ## Subagents
