@@ -1,7 +1,6 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Check, Loader2, Sparkles, AlertCircle, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
@@ -51,22 +50,33 @@ function isAuthFailure(status: number, error?: string | null) {
   );
 }
 
+function redirectToSignIn() {
+  if (typeof window === "undefined") return;
+  window.location.assign(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
+}
+
 export function SubscriptionSyncModal({
   isOpen,
   targetPlan,
   onClose,
 }: SubscriptionSyncModalProps) {
-  const router = useRouter();
   const { dict } = useI18n();
   const { handleSignOut, pending: isSigningOut } = useSignOut();
   const [currentStage, setCurrentStage] = useState<SyncStage>("confirming");
   const [errorDetails, setErrorDetails] = useState<string | null>(null);
+  const runIdRef = useRef(0);
+  const dictRef = useRef(dict);
+  dictRef.current = dict;
 
   const planName =
     SUBSCRIPTION_PLANS[targetPlan]?.name ||
     targetPlan.charAt(0).toUpperCase() + targetPlan.slice(1);
 
   const runSynchronizationFlow = useCallback(async () => {
+    const runId = ++runIdRef.current;
+    const isStale = () => runId !== runIdRef.current;
+    const copy = () => dictRef.current.sync;
+
     setCurrentStage("confirming");
     setErrorDetails(null);
 
@@ -80,20 +90,22 @@ export function SubscriptionSyncModal({
         body: JSON.stringify({ plan: targetPlan }),
       });
 
+      if (isStale()) return;
       setCurrentStage("updating_plan");
 
       if (
         response.type === "opaqueredirect" ||
         [301, 302, 303, 307, 308].includes(response.status)
       ) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
+        redirectToSignIn();
         return;
       }
 
       const result = await response.json().catch(() => null);
+      if (isStale()) return;
 
       if (isAuthFailure(response.status, result?.error)) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
+        redirectToSignIn();
         return;
       }
 
@@ -103,7 +115,7 @@ export function SubscriptionSyncModal({
         }
         throw new Error(
           withDiagnosticCode(
-            sanitizeActivationError(result?.error, dict.sync.errorMessage),
+            sanitizeActivationError(result?.error, copy().errorMessage),
             result?.code
           )
         );
@@ -115,32 +127,39 @@ export function SubscriptionSyncModal({
 
       setCurrentStage("revalidating_dashboard");
       await new Promise((resolve) => setTimeout(resolve, 350));
+      if (isStale()) return;
 
       setCurrentStage("revalidating_products");
       await new Promise((resolve) => setTimeout(resolve, 350));
+      if (isStale()) return;
 
       setCurrentStage("revalidating_courses");
       await new Promise((resolve) => setTimeout(resolve, 350));
+      if (isStale()) return;
 
       setCurrentStage("verifying");
       if (result.plan !== targetPlan) {
-        throw new Error(dict.sync.planMismatch);
+        throw new Error(copy().planMismatch);
       }
       await new Promise((resolve) => setTimeout(resolve, 300));
+      if (isStale()) return;
 
       setCurrentStage("completed");
     } catch (err: unknown) {
+      if (isStale()) return;
       console.error("[SubscriptionSync] Sync error:", err);
-      setErrorDetails(err instanceof Error ? err.message : dict.sync.errorMessage);
+      setErrorDetails(err instanceof Error ? err.message : copy().errorMessage);
       setCurrentStage("error");
     }
-  }, [targetPlan, dict, router]);
+  }, [targetPlan]);
 
   useEffect(() => {
-    if (isOpen) {
-      void runSynchronizationFlow();
-    }
-  }, [isOpen, runSynchronizationFlow]);
+    if (!isOpen) return;
+    void runSynchronizationFlow();
+    return () => {
+      runIdRef.current += 1;
+    };
+  }, [isOpen, targetPlan, runSynchronizationFlow]);
 
   if (!isOpen) return null;
 

@@ -1,6 +1,6 @@
 import React from "react";
-import { describe, it, expect, vi, beforeEach } from "vitest";
-import { render, screen, waitFor } from "@testing-library/react";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { render, screen, waitFor, cleanup } from "@testing-library/react";
 import { SubscriptionSyncModal } from "@/components/subscription/SubscriptionSyncModal";
 import { I18nProvider } from "@/i18n/provider";
 
@@ -10,16 +10,13 @@ vi.mock("@clerk/nextjs", () => ({
   }),
 }));
 
-vi.mock("next/navigation", () => ({
-  useRouter: () => ({
-    push: vi.fn(),
-    refresh: vi.fn(),
-  }),
-}));
-
 describe("SubscriptionSyncModal Component", () => {
   beforeEach(() => {
-    vi.restoreAllMocks();
+    global.fetch = vi.fn();
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("renders synchronization progression steps and reaches 100% completion", async () => {
