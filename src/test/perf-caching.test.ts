@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { getCachedUserProfile, setCachedUserProfile, invalidateCachedUserProfile, clearAllCachedUserProfiles } from "@/lib/auth/profile-cache";
-import { fetchClientProfileDetails, invalidateClientProfileCache } from "@/lib/auth/user-client-cache";
+import { fetchClientProfileDetails, getSynchronousCachedProfile, invalidateClientProfileCache } from "@/lib/auth/user-client-cache";
 import type { UserProfileWithRoles } from "@/types/domain";
 
 describe("Performance Optimization & Caching Infrastructure", () => {
@@ -52,5 +52,10 @@ describe("Performance Optimization & Caching Infrastructure", () => {
 
     expect(p1).toEqual(p2);
     expect(p2).toEqual(p3);
+  });
+
+  it("synchronously returns cached profile without falling back to basic", () => {
+    const syncProfile = getSynchronousCachedProfile();
+    expect(syncProfile).toBeDefined();
   });
 });

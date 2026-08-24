@@ -568,7 +568,7 @@ export const pt = {
     locationSection: "3. Localização",
     mediaSection: "4. Imagens e vídeo",
     extraSection: "5. Dados da categoria",
-    publish: "Publicar produto",
+    publish: "Publicar",
     publishing: "A publicar...",
     publishedOk: "Produto publicado com sucesso.",
     redirecting: "A redirecionar para a gestão de produtos...",

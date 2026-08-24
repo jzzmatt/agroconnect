@@ -570,7 +570,7 @@ export const en: Dictionary = {
     locationSection: "3. Location",
     mediaSection: "4. Images and video",
     extraSection: "5. Category details",
-    publish: "Publish product",
+    publish: "Publish",
     publishing: "Publishing...",
     publishedOk: "Product published successfully.",
     redirecting: "Redirecting to product management...",

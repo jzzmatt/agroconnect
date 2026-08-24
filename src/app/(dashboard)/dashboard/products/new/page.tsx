@@ -35,8 +35,8 @@ import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType }
 export default function NewProductPage() {
   const router = useRouter();
   const { dict } = useI18n();
-  const { entitlements, refresh } = useAuthoritativePlan();
-  const isBasic = !entitlements.can_access_agriproduct;
+  const { entitlements, loading, refresh } = useAuthoritativePlan();
+  const isBasic = !loading && !entitlements.can_access_agriproduct;
   const [activeCount, setActiveCount] = useState(0);
   const isLimitReached =
     entitlements.product_limit !== null && activeCount >= entitlements.product_limit;

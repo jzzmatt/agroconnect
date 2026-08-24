@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { fetchClientProfileDetails, invalidateClientProfileCache } from "@/lib/auth/user-client-cache";
+import {
+  fetchClientProfileDetails,
+  getSynchronousCachedProfile,
+  invalidateClientProfileCache,
+} from "@/lib/auth/user-client-cache";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
 import { clearOptimisticPlan, getOptimisticPlan } from "@/lib/subscription/optimistic";
@@ -32,13 +36,22 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  * server plan.
  */
 export function useAuthoritativePlan() {
-  const [plan, setPlan] = useState<SubscriptionPlan>("basic");
+  const syncCached = typeof window !== "undefined" ? getSynchronousCachedProfile() : null;
+  const initialPlan = syncCached?.subscription_plan
+    ? normalizePlanSlug(syncCached.subscription_plan)
+    : "basic";
+
+  const [plan, setPlan] = useState<SubscriptionPlan>(initialPlan);
   const [marketCountry, setMarketCountry] = useState<MarketCountry>(
-    getMarketCountry(DEFAULT_MARKET_COUNTRY)
+    getMarketCountry(syncCached?.market_country_code || DEFAULT_MARKET_COUNTRY)
   );
-  const [locale, setLocale] = useState<"pt" | "en" | "fr">("pt");
-  const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const [locale, setLocale] = useState<"pt" | "en" | "fr">(
+    (syncCached?.preferred_language as "pt" | "en" | "fr") || "pt"
+  );
+  const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(
+    syncCached?.video_storage_used_bytes || 0
+  );
+  const [loading, setLoading] = useState(!syncCached);
 
   const refresh = useCallback(async (force = false) => {
     const optimistic = getOptimisticPlan();
