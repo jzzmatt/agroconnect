@@ -157,6 +157,10 @@ export const en: Dictionary = {
     coursesInHuambo: "Courses in Huambo",
     servicesWithinRadius: "Services within {radius} km",
     productsNearMe: "Products near my location",
+    viewOnMap: "Location",
+    vendorNotFound: "Vendor not found or has no registered location.",
+    vendorMarkerDescription: "Seller location on AgriShopping.",
+    viewVendorProfile: "View seller profile",
   },
   landing: {
     heroTag: "✨ The entire Angolan agricultural ecosystem in one place",
@@ -537,6 +541,10 @@ export const en: Dictionary = {
     NETWORK_FAILED: "Network error. Check your connection and try again.",
     SUPABASE_NOT_CONFIGURED:
       "The database is not configured in this environment. Set NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, and SUPABASE_SERVICE_ROLE_KEY, then restart the app.",
+    PRODUCT_NOT_FOUND: "Product not found.",
+    NOT_OWNER: "You do not have permission to delete this product.",
+    PRODUCT_DELETE_FORBIDDEN: "The Basic plan does not allow deleting products.",
+    PRODUCT_DELETE_FAILED: "Could not delete the product. Please try again.",
   },
   products: {
     add: "Add product",
@@ -614,6 +622,11 @@ export const en: Dictionary = {
     emptyVideos: "No videos",
     emptyImages: "No images",
     emptyOrders: "No orders",
+    deleteConfirmTitle: "Delete product?",
+    deleteConfirmBody:
+      'Are you sure you want to delete "{title}"? It will disappear from the marketplace, but past orders keep their history.',
+    deleteFailed: "Could not delete the product.",
+    productUnavailable: "Product unavailable",
     categories: {
       "sementes-e-fertilizantes": "Seeds & Fertilizers",
       "maquinas-e-irrigacao": "Machinery & Irrigation",

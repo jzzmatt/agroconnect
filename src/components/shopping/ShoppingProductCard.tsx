@@ -122,13 +122,14 @@ export function ShoppingProductCard({
         </div>
 
         {/* Product Visual Area */}
-        <div className="relative h-36 w-full rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted p-3 flex items-center justify-center overflow-hidden border border-border mb-3 group-hover:border-primary/40 transition-colors">
+        <div className="relative w-full aspect-[4/3] rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted flex items-center justify-center overflow-hidden border border-border mb-3 group-hover:border-primary/40 transition-colors">
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image_url}
               alt={`${product.title} — AgriConnect`}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
+              loading="lazy"
             />
           ) : (
             <Package className="w-14 h-14 text-amber-700/50 dark:text-amber-400/50 group-hover:scale-110 transition-transform duration-300" aria-hidden />

@@ -155,6 +155,10 @@ export const pt = {
     coursesInHuambo: "Cursos no Huambo",
     servicesWithinRadius: "Serviços num raio de {radius} km",
     productsNearMe: "Produtos perto da minha localização",
+    viewOnMap: "Localização",
+    vendorNotFound: "Vendedor não encontrado ou sem localização registada.",
+    vendorMarkerDescription: "Localização do vendedor no AgriShopping.",
+    viewVendorProfile: "Ver perfil do vendedor",
   },
   landing: {
     heroTag: "✨ Todo o ecossistema agrícola de Angola num só lugar",
@@ -535,6 +539,10 @@ export const pt = {
     NETWORK_FAILED: "Falha de rede. Verifique a ligação e tente novamente.",
     SUPABASE_NOT_CONFIGURED:
       "A base de dados não está configurada neste ambiente. Defina NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY e SUPABASE_SERVICE_ROLE_KEY e reinicie a aplicação.",
+    PRODUCT_NOT_FOUND: "Produto não encontrado.",
+    NOT_OWNER: "Não tem permissão para eliminar este produto.",
+    PRODUCT_DELETE_FORBIDDEN: "O plano Básico não permite eliminar produtos.",
+    PRODUCT_DELETE_FAILED: "Não foi possível eliminar o produto. Tente novamente.",
   },
   products: {
     add: "Adicionar produto",
@@ -612,6 +620,11 @@ export const pt = {
     emptyVideos: "Sem vídeos",
     emptyImages: "Sem imagens",
     emptyOrders: "Sem pedidos",
+    deleteConfirmTitle: "Eliminar produto?",
+    deleteConfirmBody:
+      'Tem a certeza de que pretende eliminar "{title}"? O produto deixará de aparecer no marketplace, mas pedidos anteriores mantêm o histórico.',
+    deleteFailed: "Não foi possível eliminar o produto.",
+    productUnavailable: "Produto indisponível",
     categories: {
       "sementes-e-fertilizantes": "Sementes & Fertilizantes",
       "maquinas-e-irrigacao": "Máquinas & Irrigação",

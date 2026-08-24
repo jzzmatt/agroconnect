@@ -565,6 +565,7 @@ export class ShoppingService {
             municipalities(id, name)
           `)
           .eq("slug", slug)
+          .in("status", ["published", "active"])
           .single();
 
         if (!error && data) {
@@ -656,7 +657,8 @@ export class ShoppingService {
             provinces(id, name),
             municipalities(id, name)
           `)
-          .eq("seller_id", sellerId);
+          .eq("seller_id", sellerId)
+          .neq("status", "deleted");
 
         if (onlyPublished) {
           query = query.in("status", ["published", "active"]);

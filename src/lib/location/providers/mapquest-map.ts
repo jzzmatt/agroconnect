@@ -53,6 +53,32 @@ export function getMapTileUrl(
 }
 
 /**
+ * Leaflet stamps `_leaflet_id` on a container and refuses a second `L.map()`
+ * call on it with "Map container is already initialized". Tracking the live map
+ * per container lets a stale instance be torn down before reusing the node,
+ * which is what happens when React remounts a component.
+ */
+const MAPS_BY_CONTAINER = new WeakMap<HTMLElement, any>();
+
+function releaseContainer(container: HTMLElement | null | undefined): void {
+  if (!container) return;
+  const existing = MAPS_BY_CONTAINER.get(container);
+  if (existing) {
+    try {
+      existing.remove();
+    } catch {
+      // Already detached; the container reset below is what matters.
+    }
+    MAPS_BY_CONTAINER.delete(container);
+  }
+  // Leaflet only checks this property, so clearing it makes the node reusable
+  // even if the previous instance was lost.
+  if ((container as any)._leaflet_id != null) {
+    delete (container as any)._leaflet_id;
+  }
+}
+
+/**
  * MapQuest Provider (Leaflet-based MapQuest SDK architecture)
  * Renders standard map, satellite, and dark styles with high-performance tile rendering,
  * custom markers, popups, and user GPS indicator.
@@ -71,6 +97,13 @@ export class MapQuestProvider implements IMapProvider {
   private currentLayerType: MapLayerType;
   private isMapLoaded = false;
   private pendingMarkers: MapMarkerDescriptor[] = [];
+  private container: HTMLElement | null = null;
+  /**
+   * `initialize` awaits the Leaflet import, so `destroy()` can land before the
+   * map exists. Without this the map would be created after teardown and left
+   * bound to the container, breaking the next initialization.
+   */
+  private disposed = false;
 
   constructor(apiKey?: string, initialLayer: MapLayerType = "map") {
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
@@ -83,8 +116,14 @@ export class MapQuestProvider implements IMapProvider {
   public async initialize(options: MapOptions): Promise<void> {
     if (typeof window === "undefined") return;
 
+    this.disposed = false;
+
     // Dynamically import Leaflet
     const L = (await import("leaflet")).default;
+
+    // Torn down while the import was in flight: creating a map now would leak
+    // an instance onto the container and block the next initialization.
+    if (this.disposed) return;
 
     if (options.center) {
       this.currentCenter = options.center;
@@ -105,7 +144,13 @@ export class MapQuestProvider implements IMapProvider {
 
     if (this.mapInstance) {
       this.destroy();
+      this.disposed = false;
     }
+
+    // Drop any map still bound to this node (React remount, hot reload, or a
+    // provider instance that was garbage collected without cleanup).
+    releaseContainer(container);
+    this.container = container;
 
     try {
       // Initialize Leaflet Map instance
@@ -118,6 +163,14 @@ export class MapQuestProvider implements IMapProvider {
         zoomControl: options.interactive ?? true,
         attributionControl: true,
       });
+
+      MAPS_BY_CONTAINER.set(container, this.mapInstance);
+
+      // A teardown that raced this creation must not leave the map attached.
+      if (this.disposed) {
+        this.destroy();
+        return;
+      }
 
       // Apply initial tile layer
       this.applyTileLayer(L);
@@ -367,12 +420,19 @@ export class MapQuestProvider implements IMapProvider {
   }
 
   public destroy(): void {
+    this.disposed = true;
     this.clearMarkers();
     this.removeUserLocationMarker();
-    if (this.mapInstance) {
-      this.mapInstance.remove();
-      this.mapInstance = null;
-    }
+
+    const container = this.container;
+    this.mapInstance = null;
+    this.container = null;
     this.isMapLoaded = false;
+
+    if (container) {
+      // Single owner of teardown: removes the map bound to this node and clears
+      // Leaflet's marker so the container can be initialized again.
+      releaseContainer(container);
+    }
   }
 }

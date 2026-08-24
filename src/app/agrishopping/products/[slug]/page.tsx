@@ -21,16 +21,17 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { LocationMap } from "@/components/location";
 import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
 import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
+import { useI18n } from "@/i18n/provider";
 import type { ProductListItem } from "@/types/domain";
 
 export default function ProductDetailPage() {
   const params = useParams();
   const slug = params?.slug as string;
+  const { dict } = useI18n();
 
   const [product, setProduct] = useState<ProductListItem | null>(null);
   const [relatedProducts, setRelatedProducts] = useState<ProductListItem[]>([]);
@@ -87,16 +88,7 @@ export default function ProductDetailPage() {
     }
   };
 
-  const mapMarkers = product.latitude && product.longitude ? [{
-    id: product.id,
-    title: product.title,
-    category: "shopping" as const,
-    latitude: product.latitude,
-    longitude: product.longitude,
-    provinceName: product.province_name || "Angola",
-    municipalityName: product.municipality_name || undefined,
-    description: `${product.price} ${product.currency} / ${product.unit}`,
-  }] : [];
+  const vendorLocationHref = `/agrilocalizacao?vendorId=${encodeURIComponent(product.seller_id)}`;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
@@ -138,12 +130,12 @@ export default function ProductDetailPage() {
           <div className="lg:col-span-8 space-y-6">
             <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 shadow-xs space-y-5">
               {/* Product photo, falling back to an icon when none was uploaded */}
-              <div className="h-64 sm:h-80 w-full rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted border border-border flex items-center justify-center relative overflow-hidden">
+              <div className="relative w-full aspect-[4/3] rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted border border-border flex items-center justify-center overflow-hidden">
                 {product.image_url ? (
                   <img
                     src={product.image_url}
                     alt={product.title}
-                    className="absolute inset-0 w-full h-full object-cover"
+                    className="absolute inset-0 w-full h-full object-cover object-center"
                     loading="lazy"
                   />
                 ) : (
@@ -223,20 +215,22 @@ export default function ProductDetailPage() {
               </div>
             </div>
 
-            {/* MapQuest Location Map */}
-            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-4">
-              <h3 className="text-base font-bold text-foreground">Localização do Vendedor & Entrega</h3>
-              <div className="rounded-2xl overflow-hidden border border-border">
-                <LocationMap
-                  markers={mapMarkers}
-                  height="h-[340px]"
-                  center={
-                    product.latitude && product.longitude
-                      ? { latitude: product.latitude, longitude: product.longitude }
-                      : undefined
-                  }
-                  zoom={11}
-                />
+            <div className="flex flex-wrap items-center gap-3">
+              <Link
+                href={vendorLocationHref}
+                className="inline-flex items-center gap-2 px-4 py-2.5 rounded-2xl border border-border bg-surface hover:bg-muted text-sm font-bold text-foreground transition-colors"
+              >
+                <MapPin className="w-4 h-4 text-primary" />
+                <span>{dict.location.viewOnMap}</span>
+              </Link>
+              <div className="inline-flex items-center gap-2 text-xs text-muted-foreground">
+                <Truck className="w-4 h-4 text-primary" />
+                <span>
+                  {dict.location.radiusKm.replace(
+                    "{radius}",
+                    String(product.selling_radius_km || 50)
+                  )}
+                </span>
               </div>
             </div>
           </div>

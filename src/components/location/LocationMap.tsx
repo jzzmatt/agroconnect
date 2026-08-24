@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useEffect, useRef, useCallback } from "react";
+import React, { useState, useEffect, useRef, useCallback, useMemo } from "react";
+import Link from "next/link";
 import {
   MapPin,
   Navigation,
@@ -27,6 +28,9 @@ export interface MapMarkerItem {
   provinceName: string;
   municipalityName?: string;
   description?: string;
+  /** Optional profile link shown in the selected-marker card. */
+  profileUrl?: string;
+  profileLabel?: string;
 }
 
 interface LocationMapProps {
@@ -120,10 +124,34 @@ export function LocationMap({
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const providerRef = useRef<IMapProvider | null>(null);
-  const isInitializedRef = useRef(false);
+  const [initAttempt, setInitAttempt] = useState(0);
 
-  const filteredMarkers = markers.filter((m) =>
-    activeCategory === "all" ? true : m.category === activeCategory
+  // Callers pass `center`/`markers` as inline literals, so their identity
+  // changes on every parent render. Initialization must not depend on those
+  // identities, so the latest values are read through refs instead.
+  const centerLat = center.latitude;
+  const centerLng = center.longitude;
+  const initialViewRef = useRef({ centerLat, centerLng, zoom });
+  const layerRef = useRef<MapLayerType>(
+    currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
+  );
+  layerRef.current =
+    currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map";
+
+  const filteredMarkers = useMemo(
+    () =>
+      markers.filter((m) => (activeCategory === "all" ? true : m.category === activeCategory)),
+    [markers, activeCategory]
+  );
+
+  // A stable signature keeps the marker effect from clearing and re-adding every
+  // pin on each render just because the array literal is new.
+  const markerSignature = useMemo(
+    () =>
+      filteredMarkers
+        .map((m) => `${m.id}:${m.latitude}:${m.longitude}:${m.category}:${m.title}`)
+        .join("|"),
+    [filteredMarkers]
   );
 
   const handleMarkerClick = useCallback(
@@ -141,27 +169,36 @@ export function LocationMap({
     [onSelectMarker]
   );
 
-  // Initialize MapQuest Map
-  const initMap = useCallback(() => {
-    if (typeof window === "undefined" || !mapContainerRef.current) return;
+  /**
+   * Creates the map exactly once per mounted container.
+   *
+   * Deliberately depends only on `initAttempt` (bumped by the retry button) and
+   * the injectable provider. Depending on `center`, `zoom`, theme, or layer used
+   * to tear the map down and rebuild it on every parent render; combined with
+   * the awaited Leaflet import inside `initialize()`, a teardown could land
+   * before creation finished and Leaflet then reported
+   * "Map container is already initialized". Camera, layer, and marker changes
+   * are applied to the live instance by the effects below.
+   */
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const container = mapContainerRef.current;
+    if (!container) return;
 
     setMapError(null);
     setMapLoaded(false);
 
     const provider =
-      mapProvider ||
-      new MapQuestProvider(
-        process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
-        currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
-      );
+      mapProvider || new MapQuestProvider(process.env.NEXT_PUBLIC_MAPQUEST_API_KEY, layerRef.current);
 
     providerRef.current = provider;
 
+    const view = initialViewRef.current;
     provider.initialize({
-      container: mapContainerRef.current,
-      center,
-      zoom,
-      layerType: currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map",
+      container,
+      center: { latitude: view.centerLat, longitude: view.centerLng },
+      zoom: view.zoom,
+      layerType: layerRef.current,
       onLoad: () => {
         setMapLoaded(true);
         setMapError(null);
@@ -172,43 +209,35 @@ export function LocationMap({
       },
     });
 
-    // Fallback timer to confirm load state
+    // The SDK does not always fire onLoad for cached raster tiles.
     const timer = setTimeout(() => {
       setMapLoaded(true);
-      if (providerRef.current) {
-        providerRef.current.resize();
-      }
+      providerRef.current?.resize();
     }, 1200);
 
-    return () => clearTimeout(timer);
-  }, [center, zoom, currentLayer, theme, mapProvider]);
-
-  useEffect(() => {
-    if (isInitializedRef.current) return;
-    isInitializedRef.current = true;
-
-    const cleanup = initMap();
-
     let observer: ResizeObserver | null = null;
-    if (mapContainerRef.current && typeof ResizeObserver !== "undefined") {
-      observer = new ResizeObserver(() => {
-        if (providerRef.current) {
-          providerRef.current.resize();
-        }
-      });
-      observer.observe(mapContainerRef.current);
+    if (typeof ResizeObserver !== "undefined") {
+      observer = new ResizeObserver(() => providerRef.current?.resize());
+      observer.observe(container);
     }
 
     return () => {
-      if (cleanup) cleanup();
-      if (observer) observer.disconnect();
-      if (providerRef.current) {
-        providerRef.current.destroy();
+      clearTimeout(timer);
+      observer?.disconnect();
+      // Always destroy: the provider handles a teardown that races the pending
+      // Leaflet import and releases the container for the next mount.
+      provider.destroy();
+      if (providerRef.current === provider) {
         providerRef.current = null;
       }
-      isInitializedRef.current = false;
     };
-  }, [initMap]);
+  }, [mapProvider, initAttempt]);
+
+  // Move the existing camera rather than rebuilding the map.
+  useEffect(() => {
+    if (!providerRef.current || !mapLoaded) return;
+    providerRef.current.setCenter({ latitude: centerLat, longitude: centerLng }, zoom, 600);
+  }, [centerLat, centerLng, zoom, mapLoaded]);
 
   // Sync theme or layer changes
   useEffect(() => {
@@ -258,7 +287,10 @@ export function LocationMap({
         `,
       });
     });
-  }, [filteredMarkers, handleMarkerClick, theme]);
+    // Keyed on the marker signature so identical pins are not rebuilt when the
+    // parent re-renders with a fresh array literal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [markerSignature, handleMarkerClick, theme, mapLoaded]);
 
   // Center camera when selectedMarkerId changes externally
   useEffect(() => {
@@ -439,7 +471,9 @@ export function LocationMap({
             </div>
             <button
               type="button"
-              onClick={initMap}
+              // Re-runs the init effect, whose cleanup destroys the previous
+              // instance first. Never initializes a second map on a live container.
+              onClick={() => setInitAttempt((attempt) => attempt + 1)}
               className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow-xs hover:bg-primary-hover transition-colors"
             >
               Tentar novamente
@@ -482,6 +516,14 @@ export function LocationMap({
               <p className="text-xs text-muted-foreground mt-2 line-clamp-2 leading-relaxed">
                 {activeMarker.description}
               </p>
+            )}
+            {activeMarker.profileUrl && (
+              <Link
+                href={activeMarker.profileUrl}
+                className="inline-block mt-3 text-xs font-bold text-primary hover:underline"
+              >
+                {activeMarker.profileLabel || "Ver perfil"} →
+              </Link>
             )}
           </div>
         )}

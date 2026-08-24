@@ -157,6 +157,10 @@ export const fr: Dictionary = {
     coursesInHuambo: "Cours à Huambo",
     servicesWithinRadius: "Services dans un rayon de {radius} km",
     productsNearMe: "Produits près de moi",
+    viewOnMap: "Localisation",
+    vendorNotFound: "Vendeur introuvable ou sans localisation enregistrée.",
+    vendorMarkerDescription: "Localisation du vendeur sur AgriShopping.",
+    viewVendorProfile: "Voir le profil du vendeur",
   },
   landing: {
     heroTag: "✨ Tout l'écosystème agricole de l'Angola en un seul endroit",
@@ -537,6 +541,10 @@ export const fr: Dictionary = {
     NETWORK_FAILED: "Erreur réseau. Vérifiez votre connexion et réessayez.",
     SUPABASE_NOT_CONFIGURED:
       "La base de données n'est pas configurée dans cet environnement. Définissez NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY et SUPABASE_SERVICE_ROLE_KEY, puis redémarrez l'application.",
+    PRODUCT_NOT_FOUND: "Produit introuvable.",
+    NOT_OWNER: "Vous n'avez pas l'autorisation de supprimer ce produit.",
+    PRODUCT_DELETE_FORBIDDEN: "Le plan Basique ne permet pas de supprimer des produits.",
+    PRODUCT_DELETE_FAILED: "Impossible de supprimer le produit. Réessayez.",
   },
   products: {
     add: "Ajouter un produit",
@@ -614,6 +622,11 @@ export const fr: Dictionary = {
     emptyVideos: "Aucune vidéo",
     emptyImages: "Aucune image",
     emptyOrders: "Aucune commande",
+    deleteConfirmTitle: "Supprimer le produit ?",
+    deleteConfirmBody:
+      'Voulez-vous vraiment supprimer « {title} » ? Il disparaîtra du marketplace, mais les commandes passées conservent leur historique.',
+    deleteFailed: "Impossible de supprimer le produit.",
+    productUnavailable: "Produit indisponible",
     categories: {
       "sementes-e-fertilizantes": "Semences et engrais",
       "maquinas-e-irrigacao": "Machines et irrigation",
