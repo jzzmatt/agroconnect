@@ -29,7 +29,7 @@ import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
-import { uploadToBunnyTus } from "@/lib/products/bunny-upload";
+import { uploadToImageKit } from "@/lib/products/imagekit-upload";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export default function NewProductPage() {
@@ -276,33 +276,55 @@ export default function NewProductPage() {
         });
         const videoResult = await videoRes.json().catch(() => null);
         if (!videoRes.ok || !videoResult?.success) {
-          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED;
+          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED;
           throw Object.assign(new Error(videoResult?.message || errCode), {
             code: errCode,
             message: videoResult?.message,
           });
         }
         const upload = videoResult.upload;
-        if (!upload?.uploadUrl || !upload?.bunnyVideoId || !upload?.authorizationSignature) {
-          throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED), {
-            code: upload?.code || PRODUCT_ERROR_CODES.BUNNY_NOT_CONFIGURED,
+        if (!upload?.uploadUrl || !upload?.publicKey || !upload?.signature || !upload?.token || !upload?.expire) {
+          throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.IMAGEKIT_NOT_CONFIGURED), {
+            code: upload?.code || PRODUCT_ERROR_CODES.IMAGEKIT_NOT_CONFIGURED,
             message: upload?.error,
           });
         }
         try {
-          await uploadToBunnyTus({
+          const uploaded = await uploadToImageKit({
             file: pendingVideo.file,
             uploadUrl: upload.uploadUrl,
-            libraryId: upload.bunnyLibraryId,
-            videoId: upload.bunnyVideoId,
-            signature: upload.authorizationSignature,
-            expire: upload.authorizationExpire,
+            publicKey: upload.publicKey,
+            signature: upload.signature,
+            token: upload.token,
+            expire: upload.expire,
+            folder: upload.folder,
           });
+          const confirmRes = await fetch("/api/products/video/complete", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            credentials: "same-origin",
+            cache: "no-store",
+            redirect: "manual",
+            body: JSON.stringify({
+              videoId: videoResult.video.id,
+              productId: result.product.id,
+              fileId: uploaded.fileId,
+              url: uploaded.url,
+              thumbnailUrl: uploaded.thumbnailUrl,
+              fileSize: uploaded.size,
+            }),
+          });
+          const confirmResult = await confirmRes.json().catch(() => null);
+          if (!confirmRes.ok || !confirmResult?.success) {
+            throw Object.assign(new Error(confirmResult?.message || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED), {
+              code: confirmResult?.code || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED,
+            });
+          }
           videoProcessing = true;
-        } catch (tusErr: any) {
-          throw Object.assign(new Error(tusErr?.message || PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED), {
-            code: PRODUCT_ERROR_CODES.BUNNY_UPLOAD_FAILED,
-            message: tusErr?.message,
+        } catch (uploadErr: any) {
+          throw Object.assign(new Error(uploadErr?.message || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED), {
+            code: uploadErr?.code || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED,
+            message: uploadErr?.message,
           });
         }
       }

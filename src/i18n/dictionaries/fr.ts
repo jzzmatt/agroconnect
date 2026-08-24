@@ -520,6 +520,8 @@ export const fr: Dictionary = {
     MEDIA_UPLOAD_FAILED: "Impossible de charger le fichier média.",
     BUNNY_NOT_CONFIGURED: "Le chargement vidéo n'est pas configuré. Ajoutez les clés Bunny Stream.",
     BUNNY_UPLOAD_FAILED: "Impossible d'envoyer la vidéo vers Bunny Stream. Veuillez réessayer.",
+    IMAGEKIT_NOT_CONFIGURED: "Le chargement de média n'est pas configuré. Ajoutez les clés ImageKit.",
+    IMAGEKIT_UPLOAD_FAILED: "Impossible d'envoyer le fichier vers ImageKit. Veuillez réessayer.",
     PRODUCT_PUBLISH_TIMEOUT: "Impossible de terminer la publication. Veuillez réessayer.",
     VIDEO_OPTIMIZE_FAILED: "Impossible d'optimiser cette vidéo.",
     PRODUCT_LIMIT_REACHED: "Vous avez atteint la limite de produits de votre plan.",

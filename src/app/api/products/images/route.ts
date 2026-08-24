@@ -1,17 +1,13 @@
 import { NextResponse } from "next/server";
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
-import { validateProductImage } from "@/lib/services/product-media-service";
+import { ProductMediaService, validateProductImage } from "@/lib/services/product-media-service";
 import { isUuid } from "@/lib/products/ids";
 import {
   AuthorizationError,
   requireProductOwnership,
   subjectFromProfile,
 } from "@/lib/authorization/server";
-import {
-  createServerSupabaseClient,
-  tryCreateAdminServerSupabaseClient,
-} from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -62,60 +58,30 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED", message: validation.error }, { status: 400 });
     }
 
-    const imageId = crypto.randomUUID();
-    const storagePath = `products/${productId}/${imageId}.jpg`;
-    const client = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
     const bytes = Buffer.from(await file.arrayBuffer());
 
-    let publicUrl = "";
+    let image;
     try {
-      const uploaded = await client.storage.from("product-images").upload(storagePath, bytes, {
-        contentType: mimeType,
-        upsert: true,
+      image = await ProductMediaService.add({
+        productId,
+        ownerId: profile.id,
+        buffer: bytes,
+        fileName: file.name || "product-image.jpg",
+        mimeType,
+        fileSize: file.size,
+        altText,
+        isPrimary,
       });
-      if (!uploaded.error) {
-        publicUrl = client.storage.from("product-images").getPublicUrl(storagePath).data.publicUrl;
-      } else {
-        console.warn("[product image] storage:", uploaded.error.message);
-      }
-    } catch (storageError) {
-      console.warn("[product image] storage:", storageError instanceof Error ? storageError.message : storageError);
-    }
-
-    if (!publicUrl) {
-      if (bytes.length > 350_000) {
-        return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED" }, { status: 500 });
-      }
-      publicUrl = `data:${mimeType};base64,${bytes.toString("base64")}`;
-    }
-
-    const { error } = await (client.from("product_images") as any).insert({
-      id: imageId,
-      product_id: productId,
-      owner_id: profile.id,
-      storage_provider: publicUrl.startsWith("data:") ? "local" : "supabase_storage",
-      storage_path: storagePath,
-      url: publicUrl,
-      alt_text: altText,
-      mime_type: mimeType,
-      file_size: file.size,
-      sort_order: 0,
-      is_primary: isPrimary,
-    });
-    if (error) {
-      console.warn("[product image] insert:", error.message);
-      return NextResponse.json({ success: false, error: "PRODUCT_IMAGE_FAILED", code: "PRODUCT_IMAGE_FAILED", message: error.message }, { status: 500 });
-    }
-
-    if (isPrimary) {
-      await (client.from("products") as any)
-        .update({ primary_image_url: publicUrl.startsWith("data:") ? null : publicUrl })
-        .eq("id", productId);
+    } catch (uploadError: unknown) {
+      const message = uploadError instanceof Error ? uploadError.message : "PRODUCT_IMAGE_FAILED";
+      const code = (uploadError as { code?: string })?.code || "PRODUCT_IMAGE_FAILED";
+      console.warn("[product image] upload:", message);
+      return NextResponse.json({ success: false, error: code, code, message }, { status: 500 });
     }
 
     return NextResponse.json({
       success: true,
-      image: { id: imageId, product_id: productId, url: publicUrl, is_primary: isPrimary },
+      image,
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "PRODUCT_IMAGE_FAILED";

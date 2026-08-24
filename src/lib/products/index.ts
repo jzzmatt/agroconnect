@@ -8,6 +8,7 @@ export * from "./video-validation";
 export * from "./compress-image";
 export * from "./metadata";
 export * from "./bunny-upload";
+export * from "./imagekit-upload";
 export * from "./video-optimizer";
 export * from "./video-status";
 export * from "./publish";

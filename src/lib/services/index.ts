@@ -25,7 +25,6 @@ export * from "./enterprise-service-actions";
 
 // Media & Uploads
 export * from "./product-media-service";
-export * from "./product-media-actions";
 export * from "./product-video-service";
 export * from "./product-video-actions";
 export * from "./academy-video-service";

@@ -15,7 +15,7 @@ export default function AgriAcademyDashboardPage() {
   const [message, setMessage] = useState<string | null>(null);
 
   useEffect(() => {
-    getAcademyStorageAction().then(setStorage);
+    getAcademyStorageAction().then(setStorage).catch(() => setStorage(null));
   }, [plan]);
 
   const subject = subjectFromProfile({

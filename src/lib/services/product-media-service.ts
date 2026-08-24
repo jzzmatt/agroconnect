@@ -1,10 +1,30 @@
 import type { ProductImageDescriptor } from "@/types/media";
+import { getMediaSupabaseClient } from "@/lib/media/db";
+import { deleteImageKitFile, productMediaFolder, uploadBufferToImageKit } from "@/lib/media/imagekit";
+import type { Database } from "@/types/database";
+
 export type { ProductImageDescriptor };
 
+const TABLE = "product_images";
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
 const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
-const imagesByProduct = new Map<string, ProductImageDescriptor[]>();
+type ProductImageRow = Database["public"]["Tables"]["product_images"]["Row"];
+
+function toDescriptor(row: ProductImageRow): ProductImageDescriptor {
+  return {
+    id: row.id,
+    product_id: row.product_id,
+    owner_id: row.owner_id,
+    url: row.url,
+    alt_text: row.alt_text || "",
+    mime_type: row.mime_type,
+    file_size: row.file_size,
+    sort_order: row.sort_order,
+    is_primary: row.is_primary,
+    created_at: row.created_at,
+  };
+}
 
 export function validateProductImage(params: {
   mimeType: string;
@@ -29,76 +49,145 @@ export function buildProductImageAlt(productName: string): string {
   return `${name} — AgriConnect`;
 }
 
+/**
+ * Supabase-backed (`product_images`), ImageKit-backed for the binary. No
+ * module-level Map — every list/add/remove round-trips the database, and the
+ * bytes always go to ImageKit, never to Supabase Storage.
+ */
 export class ProductMediaService {
-  public static list(productId: string): ProductImageDescriptor[] {
-    return [...(imagesByProduct.get(productId) || [])].sort((a, b) => a.sort_order - b.sort_order);
+  public static async list(productId: string): Promise<ProductImageDescriptor[]> {
+    const supabase = getMediaSupabaseClient();
+    const { data, error } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("product_id", productId)
+      .order("sort_order", { ascending: true });
+    if (error) throw Object.assign(new Error(error.message), { code: "PRODUCT_IMAGE_READ_FAILED" });
+    return ((data || []) as ProductImageRow[]).map(toDescriptor);
   }
 
-  public static primaryUrl(productId: string): string | null {
-    const images = this.list(productId);
+  public static async primaryUrl(productId: string): Promise<string | null> {
+    const images = await this.list(productId);
     return images.find((i) => i.is_primary)?.url || images[0]?.url || null;
   }
 
-  public static add(params: {
+  public static async add(params: {
     productId: string;
     ownerId: string;
-    url: string;
+    buffer: Buffer;
+    fileName: string;
     mimeType: "image/jpeg" | "image/png" | "image/webp";
     fileSize: number;
     altText: string;
     isPrimary?: boolean;
-  }): ProductImageDescriptor {
-    const existing = this.list(params.productId);
-    const image: ProductImageDescriptor = {
-      id: `pimg-${Math.random().toString(36).slice(2, 10)}`,
-      product_id: params.productId,
-      owner_id: params.ownerId,
-      url: params.url,
-      alt_text: params.altText,
-      mime_type: params.mimeType,
-      file_size: params.fileSize,
-      sort_order: existing.length,
-      is_primary: params.isPrimary || existing.length === 0,
-      created_at: new Date().toISOString(),
-    };
-    const next = params.isPrimary
-      ? existing.map((i) => ({ ...i, is_primary: false })).concat(image)
-      : existing.concat(image);
-    imagesByProduct.set(params.productId, next);
-    return image;
-  }
+  }): Promise<ProductImageDescriptor> {
+    const uploaded = await uploadBufferToImageKit({
+      buffer: params.buffer,
+      fileName: params.fileName,
+      folder: productMediaFolder(params.productId, "images"),
+    });
+    if (!uploaded.configured || !uploaded.url) {
+      throw Object.assign(new Error(uploaded.error || "Não foi possível carregar a imagem."), {
+        code: uploaded.code || "IMAGEKIT_UPLOAD_FAILED",
+      });
+    }
 
-  public static remove(productId: string, imageId: string, ownerId: string): boolean {
-    const existing = this.list(productId);
-    const target = existing.find((i) => i.id === imageId);
-    if (!target || target.owner_id !== ownerId) return false;
-    const next = existing.filter((i) => i.id !== imageId);
-    if (target.is_primary && next[0]) next[0].is_primary = true;
-    imagesByProduct.set(productId, next);
-    return true;
-  }
+    const supabase = getMediaSupabaseClient();
+    const existing = await this.list(params.productId);
+    const isPrimary = params.isPrimary || existing.length === 0;
 
-  public static setPrimary(productId: string, imageId: string, ownerId: string): boolean {
-    const existing = this.list(productId);
-    if (!existing.some((i) => i.id === imageId && i.owner_id === ownerId)) return false;
-    imagesByProduct.set(
-      productId,
-      existing.map((i) => ({ ...i, is_primary: i.id === imageId }))
-    );
-    return true;
-  }
+    if (isPrimary && existing.length > 0) {
+      await (supabase.from(TABLE) as any).update({ is_primary: false }).eq("product_id", params.productId);
+    }
 
-  public static reorder(productId: string, orderedIds: string[], ownerId: string): boolean {
-    const existing = this.list(productId);
-    if (existing.some((i) => i.owner_id !== ownerId)) return false;
-    const byId = new Map(existing.map((i) => [i.id, i]));
-    const next = orderedIds
-      .map((id, index) => {
-        const img = byId.get(id);
-        return img ? { ...img, sort_order: index } : null;
+    const { data, error } = await (supabase.from(TABLE) as any)
+      .insert({
+        product_id: params.productId,
+        owner_id: params.ownerId,
+        storage_provider: "imagekit",
+        storage_path: uploaded.filePath || params.fileName,
+        external_id: uploaded.fileId,
+        url: uploaded.url,
+        alt_text: params.altText,
+        mime_type: params.mimeType,
+        file_size: uploaded.fileSize ?? params.fileSize,
+        sort_order: existing.length,
+        is_primary: isPrimary,
       })
-      .filter(Boolean) as ProductImageDescriptor[];
-    imagesByProduct.set(productId, next);
+      .select()
+      .single();
+    if (error || !data) {
+      void deleteImageKitFile(uploaded.fileId || "").catch(() => undefined);
+      throw Object.assign(new Error(error?.message || "Não foi possível guardar a imagem."), {
+        code: "PRODUCT_IMAGE_INSERT_FAILED",
+      });
+    }
+
+    if (isPrimary) {
+      await (supabase.from("products") as any).update({ primary_image_url: uploaded.url }).eq("id", params.productId);
+    }
+
+    return toDescriptor(data as ProductImageRow);
+  }
+
+  public static async remove(productId: string, imageId: string, ownerId: string): Promise<boolean> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", imageId)
+      .eq("product_id", productId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const target = current as ProductImageRow | null;
+    if (!target) return false;
+
+    await supabase.from(TABLE).delete().eq("id", imageId);
+
+    if (target.is_primary) {
+      const remaining = await this.list(productId);
+      await (supabase.from("products") as any)
+        .update({ primary_image_url: remaining[0]?.url || null })
+        .eq("id", productId);
+      if (remaining[0]) {
+        await (supabase.from(TABLE) as any).update({ is_primary: true }).eq("id", remaining[0].id);
+      }
+    }
+
+    if (target.external_id) {
+      void deleteImageKitFile(target.external_id).catch(() => undefined);
+    }
+    return true;
+  }
+
+  public static async setPrimary(productId: string, imageId: string, ownerId: string): Promise<boolean> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", imageId)
+      .eq("product_id", productId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    if (!current) return false;
+    const row = current as ProductImageRow;
+
+    await (supabase.from(TABLE) as any).update({ is_primary: false }).eq("product_id", productId);
+    await (supabase.from(TABLE) as any).update({ is_primary: true }).eq("id", imageId);
+    await (supabase.from("products") as any).update({ primary_image_url: row.url }).eq("id", productId);
+    return true;
+  }
+
+  public static async reorder(productId: string, orderedIds: string[], ownerId: string): Promise<boolean> {
+    const supabase = getMediaSupabaseClient();
+    const existing = await this.list(productId);
+    if (existing.some((i) => i.owner_id !== ownerId)) return false;
+
+    await Promise.all(
+      orderedIds.map((id, index) =>
+        (supabase.from(TABLE) as any).update({ sort_order: index }).eq("id", id).eq("product_id", productId)
+      )
+    );
     return true;
   }
 }

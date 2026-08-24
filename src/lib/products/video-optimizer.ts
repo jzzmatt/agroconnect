@@ -22,7 +22,14 @@ export type OptimizedProductVideo = {
 const MAX_EDGE = 1080;
 const TARGET_VIDEO_BITS = 2_400_000;
 const TARGET_AUDIO_BITS = 96_000;
-const PROCESS_TIMEOUT_MS = 45_000;
+// Recording works by replaying the clip in real time and capturing the
+// canvas as it renders, so a D-second clip always takes ~D seconds of
+// wall-clock time to produce — this cannot be a fixed budget shorter than
+// the longest clip the UI allows (PRODUCT_VIDEO_MAX_SECONDS = 60). A flat
+// 45s timeout meant every trim close to the 60s maximum (the common case,
+// including the "use first minute" shortcut) always failed.
+const MIN_PROCESS_TIMEOUT_MS = 45_000;
+const PROCESS_TIMEOUT_BUFFER_MS = 20_000;
 
 function pickMimeType(): string {
   if (typeof MediaRecorder === "undefined") return "video/webm";
@@ -46,22 +53,6 @@ function loadVideo(file: File): Promise<HTMLVideoElement> {
       URL.revokeObjectURL(url);
       reject(new Error("video_metadata_failed"));
     };
-  });
-}
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error("video_optimize_timeout")), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (error) => {
-        clearTimeout(timer);
-        reject(error);
-      }
-    );
   });
 }
 
@@ -118,17 +109,26 @@ export async function optimizeProductVideo(
 
   options.onProgress?.(trimRequired ? "trimming" : "optimizing");
 
+  // Recording a D-second clip takes ~D seconds of wall-clock time, so the
+  // budget must scale with the clip length rather than being flat.
+  const timeoutMs = Math.max(MIN_PROCESS_TIMEOUT_MS, Math.ceil(clippedDuration * 1000) + PROCESS_TIMEOUT_BUFFER_MS);
+  const recordController = new AbortController();
+  const forwardExternalAbort = () => recordController.abort();
+  options.signal?.addEventListener("abort", forwardExternalAbort);
+  let timedOut = false;
+  const timeoutId = setTimeout(() => {
+    timedOut = true;
+    recordController.abort();
+  }, timeoutMs);
+
   try {
-    const optimized = await withTimeout(
-      recordClip(video, {
-        start: window.start,
-        duration: clippedDuration,
-        width,
-        height,
-        signal: options.signal,
-      }),
-      PROCESS_TIMEOUT_MS
-    );
+    const optimized = await recordClip(video, {
+      start: window.start,
+      duration: clippedDuration,
+      width,
+      height,
+      signal: recordController.signal,
+    });
     URL.revokeObjectURL(video.src);
     options.onProgress?.("ready");
     return {
@@ -155,7 +155,16 @@ export async function optimizeProductVideo(
         endSeconds: duration,
       };
     }
+    // recordClip only ever rejects with "video_optimize_cancelled" on abort;
+    // disambiguate our own timeout from a real user-initiated cancel so the
+    // UI can show a real error instead of silently reopening the trim step.
+    if (timedOut) {
+      throw new Error("video_optimize_timeout");
+    }
     throw error;
+  } finally {
+    clearTimeout(timeoutId);
+    options.signal?.removeEventListener("abort", forwardExternalAbort);
   }
 }
 

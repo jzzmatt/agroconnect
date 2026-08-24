@@ -518,6 +518,8 @@ export const pt = {
     MEDIA_UPLOAD_FAILED: "Não foi possível carregar o ficheiro de média.",
     BUNNY_NOT_CONFIGURED: "O carregamento de vídeo não está configurado. Adicione as chaves Bunny Stream.",
     BUNNY_UPLOAD_FAILED: "Não foi possível enviar o vídeo para o Bunny Stream. Tente novamente.",
+    IMAGEKIT_NOT_CONFIGURED: "O carregamento de média não está configurado. Adicione as chaves ImageKit.",
+    IMAGEKIT_UPLOAD_FAILED: "Não foi possível enviar o ficheiro para o ImageKit. Tente novamente.",
     PRODUCT_PUBLISH_TIMEOUT: "Não foi possível concluir a publicação. Tente novamente.",
     VIDEO_OPTIMIZE_FAILED: "Não foi possível otimizar este vídeo.",
     PRODUCT_LIMIT_REACHED: "Atingiu o limite de produtos do seu plano.",

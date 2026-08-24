@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach } from "vitest";
+import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   SUBSCRIPTION_PLANS,
   getUserEntitlements,
@@ -15,6 +15,33 @@ import { validateProductImage, ProductMediaService, buildProductImageAlt } from 
 import { AcademyVideoService } from "@/lib/services/academy-video-service";
 import { PaymentService, MulticaixaOnlineAdapter } from "@/lib/payments";
 import { canTransitionDeliveryStatus } from "@/lib/logistics/state-machine";
+
+// Hoisted by vitest above the imports above, so both media services see the
+// fake Supabase client instead of reaching for real credentials in tests.
+vi.mock("@/lib/media/db", async () => {
+  const { createFakeSupabaseClient } = await import("@/test/helpers/fake-supabase");
+  const client = createFakeSupabaseClient();
+  return {
+    getMediaSupabaseClient: () => client,
+    tryGetMediaSupabaseClient: () => client,
+  };
+});
+
+vi.mock("@/lib/media/imagekit", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/media/imagekit")>("@/lib/media/imagekit");
+  return {
+    ...actual,
+    uploadBufferToImageKit: async (params: { fileName: string }) => ({
+      configured: true,
+      fileId: `fk-${params.fileName}`,
+      url: `https://ik.imagekit.io/agroconnect-test/${params.fileName}`,
+      thumbnailUrl: null,
+      filePath: `/agriconnect/products/test/${params.fileName}`,
+      fileSize: 1024,
+    }),
+    deleteImageKitFile: async () => true,
+  };
+});
 
 describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => {
   beforeEach(() => {
@@ -96,39 +123,44 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
     expect(getDictionary("xx" as any).navigation.dashboard).toBe("Painel");
   });
 
-  it("validates product images and stores metadata only", () => {
+  it("validates product images, persists metadata in Supabase, and uploads the bytes to ImageKit", async () => {
     expect(validateProductImage({ mimeType: "image/gif", fileSize: 100 }).ok).toBe(false);
     expect(validateProductImage({ mimeType: "image/jpeg", fileSize: 1024 }).ok).toBe(true);
     expect(buildProductImageAlt("Milho amarelo")).toBe("Milho amarelo — AgriConnect");
-    const image = ProductMediaService.add({
+
+    const image = await ProductMediaService.add({
       productId: "p1",
       ownerId: "owner-1",
-      url: "data:image/jpeg;base64,abc",
+      buffer: Buffer.from("fake-jpeg-bytes"),
+      fileName: "milho.jpg",
       mimeType: "image/jpeg",
       fileSize: 1024,
       altText: buildProductImageAlt("Milho amarelo"),
       isPrimary: true,
     });
     expect(image.is_primary).toBe(true);
-    expect(ProductMediaService.primaryUrl("p1")).toContain("data:image/jpeg");
+    // The record is round-tripped through the (fake) product_images table —
+    // not held in a Map — so a second, independent read sees the same image.
+    expect(await ProductMediaService.primaryUrl("p1")).toContain("ik.imagekit.io");
+    expect((await ProductMediaService.list("p1"))[0]?.id).toBe(image.id);
   });
 
-  it("enforces AgriAcademy video quota before upload", () => {
-    const basic = AcademyVideoService.canAcceptUpload({
+  it("enforces AgriAcademy video quota before upload", async () => {
+    const basic = await AcademyVideoService.canAcceptUpload({
       ownerId: "u1",
       plan: "basic",
       incomingBytes: 1,
     });
     expect(basic.ok).toBe(false);
 
-    const proOk = AcademyVideoService.canAcceptUpload({
+    const proOk = await AcademyVideoService.canAcceptUpload({
       ownerId: "u2",
       plan: "professional",
       incomingBytes: 10 * GB,
     });
     expect(proOk.ok).toBe(true);
 
-    const proOver = AcademyVideoService.canAcceptUpload({
+    const proOver = await AcademyVideoService.canAcceptUpload({
       ownerId: "u3",
       plan: "professional",
       incomingBytes: 101 * GB,
