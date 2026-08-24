@@ -183,7 +183,8 @@ export type StorageProvider =
   | "supabase_storage"
   | "local"
   | "external"
-  | "bunny_stream";
+  | "bunny_stream"
+  | "imagekit";
 
 export type AcademyVideoStatus =
   | "pending"
@@ -193,6 +194,16 @@ export type AcademyVideoStatus =
   | "failed"
   | "deleted"
   | "video_unavailable";
+
+export type ProductVideoProvider = "imagekit" | "bunny_stream";
+
+export type ProductVideoStatus =
+  | "pending"
+  | "uploading"
+  | "processing"
+  | "ready"
+  | "failed"
+  | "deleted";
 
 export type ReviewStatus = "pending" | "published" | "flagged" | "hidden";
 
@@ -852,6 +863,8 @@ export interface Database {
           status: ProductStatus;
           is_featured: boolean;
           metadata: Json | null;
+          product_video_id: string | null;
+          primary_image_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -880,6 +893,8 @@ export interface Database {
           status?: ProductStatus;
           is_featured?: boolean;
           metadata?: Json | null;
+          product_video_id?: string | null;
+          primary_image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -908,6 +923,8 @@ export interface Database {
           status?: ProductStatus;
           is_featured?: boolean;
           metadata?: Json | null;
+          product_video_id?: string | null;
+          primary_image_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1554,6 +1571,189 @@ export interface Database {
           file_size?: number | null;
           metadata?: Json | null;
           created_at?: string;
+        };
+      };
+      product_images: {
+        Row: {
+          id: string;
+          product_id: string;
+          owner_id: string;
+          storage_provider: StorageProvider;
+          storage_path: string;
+          external_id: string | null;
+          url: string;
+          alt_text: string | null;
+          mime_type: "image/jpeg" | "image/png" | "image/webp";
+          file_size: number;
+          width: number | null;
+          height: number | null;
+          sort_order: number;
+          is_primary: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          owner_id: string;
+          storage_provider?: StorageProvider;
+          storage_path: string;
+          external_id?: string | null;
+          url: string;
+          alt_text?: string | null;
+          mime_type: "image/jpeg" | "image/png" | "image/webp";
+          file_size?: number;
+          width?: number | null;
+          height?: number | null;
+          sort_order?: number;
+          is_primary?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          owner_id?: string;
+          storage_provider?: StorageProvider;
+          storage_path?: string;
+          external_id?: string | null;
+          url?: string;
+          alt_text?: string | null;
+          mime_type?: "image/jpeg" | "image/png" | "image/webp";
+          file_size?: number;
+          width?: number | null;
+          height?: number | null;
+          sort_order?: number;
+          is_primary?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      product_videos: {
+        Row: {
+          id: string;
+          product_id: string;
+          owner_id: string;
+          provider: ProductVideoProvider;
+          external_id: string | null;
+          bunny_video_id: string | null;
+          bunny_library_id: string | null;
+          filename: string | null;
+          mime_type: "video/mp4" | "video/webm";
+          file_size: number;
+          duration_seconds: number;
+          status: ProductVideoStatus;
+          thumbnail_url: string | null;
+          playback_url: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          product_id: string;
+          owner_id: string;
+          provider?: ProductVideoProvider;
+          external_id?: string | null;
+          bunny_video_id?: string | null;
+          bunny_library_id?: string | null;
+          filename?: string | null;
+          mime_type: "video/mp4" | "video/webm";
+          file_size?: number;
+          duration_seconds: number;
+          status?: ProductVideoStatus;
+          thumbnail_url?: string | null;
+          playback_url?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          product_id?: string;
+          owner_id?: string;
+          provider?: ProductVideoProvider;
+          external_id?: string | null;
+          bunny_video_id?: string | null;
+          bunny_library_id?: string | null;
+          filename?: string | null;
+          mime_type?: "video/mp4" | "video/webm";
+          file_size?: number;
+          duration_seconds?: number;
+          status?: ProductVideoStatus;
+          thumbnail_url?: string | null;
+          playback_url?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      academy_videos: {
+        Row: {
+          id: string;
+          owner_id: string;
+          course_id: string | null;
+          chapter_id: string | null;
+          bunny_video_id: string | null;
+          bunny_library_id: string | null;
+          title: string;
+          description: string | null;
+          filename: string | null;
+          mime_type: string | null;
+          file_size: number;
+          duration_seconds: number | null;
+          status: AcademyVideoStatus;
+          visibility: "private" | "unlisted" | "public" | "enrolled_only";
+          thumbnail_url: string | null;
+          playback_url: string | null;
+          upload_authorization_expires_at: string | null;
+          error_message: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          course_id?: string | null;
+          chapter_id?: string | null;
+          bunny_video_id?: string | null;
+          bunny_library_id?: string | null;
+          title: string;
+          description?: string | null;
+          filename?: string | null;
+          mime_type?: string | null;
+          file_size?: number;
+          duration_seconds?: number | null;
+          status?: AcademyVideoStatus;
+          visibility?: "private" | "unlisted" | "public" | "enrolled_only";
+          thumbnail_url?: string | null;
+          playback_url?: string | null;
+          upload_authorization_expires_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          course_id?: string | null;
+          chapter_id?: string | null;
+          bunny_video_id?: string | null;
+          bunny_library_id?: string | null;
+          title?: string;
+          description?: string | null;
+          filename?: string | null;
+          mime_type?: string | null;
+          file_size?: number;
+          duration_seconds?: number | null;
+          status?: AcademyVideoStatus;
+          visibility?: "private" | "unlisted" | "public" | "enrolled_only";
+          thumbnail_url?: string | null;
+          playback_url?: string | null;
+          upload_authorization_expires_at?: string | null;
+          error_message?: string | null;
+          created_at?: string;
+          updated_at?: string;
         };
       };
       reviews: {
