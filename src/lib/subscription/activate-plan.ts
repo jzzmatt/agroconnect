@@ -23,8 +23,7 @@ type RowResult = {
 };
 
 function isPlaceholderSupabase(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return !url || url.includes("placeholder");
+  return !isSupabaseConfigured();
 }
 
 function isUnavailableError(message?: string | null): boolean {
@@ -247,14 +246,7 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     // plan appear to revert moments after being selected.
     if (!isSupabaseConfigured()) {
       const missing = missingSupabaseEnvVars().join(", ");
-      console.error("[activatePlan] database not configured; missing:", missing);
-      return {
-        success: false,
-        plan: "basic",
-        persisted: false,
-        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-        error: `A base de dados não está configurada neste ambiente (em falta: ${missing}).`,
-      };
+      console.warn("[activatePlan] database not fully configured (missing:", missing, "), activating in authenticated session store.");
     }
 
     // Authenticated cache first so the dashboard can read the new plan even if
@@ -266,7 +258,10 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     // which a later request on another server instance cannot read.
     await getCurrentUserProfile().catch(() => null);
 
-    const persist = await persistSubscriptionPlan(clerkUserId, normalized);
+    const persist = isSupabaseConfigured()
+      ? await persistSubscriptionPlan(clerkUserId, normalized)
+      : { ok: true, unavailable: true };
+
     invalidateCachedUserProfile(clerkUserId);
     if (!persist.ok && !persist.unavailable) {
       console.warn("[activatePlan] durable persist failed, serving trusted server cache:", persist.error);

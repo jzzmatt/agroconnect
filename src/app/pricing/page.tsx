@@ -8,7 +8,7 @@ import { Footer } from "@/components/layout";
 import { SectionHeader, Button } from "@/components/ui";
 import { Check, Lock, HelpCircle, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
-import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { useAuthoritativePlan, notifySubscriptionChanged } from "@/lib/subscription/use-authoritative-plan";
 import { setOptimisticPlan } from "@/lib/subscription/optimistic";
 import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
 import { useI18n } from "@/i18n/provider";
@@ -23,6 +23,10 @@ function friendlyActivateError(dict: ReturnType<typeof useI18n>["dict"], raw?: s
   const fallback = dict.dash.planUpdateFailed || dict.pricing.activateError;
   const message = String(raw || "");
   if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) return message;
+  // If the server returns a specific config or database error, show it so the user knows what is missing
+  if (message.includes("base de dados") || message.includes("SUPABASE") || message.includes("CLERK")) {
+    return message;
+  }
   return sanitizeActivationError(raw, fallback);
 }
 
@@ -78,6 +82,7 @@ export default function PricingPage() {
       }
 
       setOptimisticPlan(result.plan || planId);
+      notifySubscriptionChanged();
       if (typeof window !== "undefined") {
         window.location.href = "/dashboard";
       } else {

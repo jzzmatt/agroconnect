@@ -39,7 +39,7 @@ export function useAuthoritativePlan() {
   const syncCached = typeof window !== "undefined" ? getSynchronousCachedProfile() : null;
   const initialPlan = syncCached?.subscription_plan
     ? normalizePlanSlug(syncCached.subscription_plan)
-    : "basic";
+    : (typeof window !== "undefined" ? getOptimisticPlan() : null) || "basic";
 
   const [plan, setPlan] = useState<SubscriptionPlan>(initialPlan);
   const [marketCountry, setMarketCountry] = useState<MarketCountry>(
@@ -51,11 +51,11 @@ export function useAuthoritativePlan() {
   const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(
     syncCached?.video_storage_used_bytes || 0
   );
-  const [loading, setLoading] = useState(!syncCached);
+  const [loading, setLoading] = useState(!syncCached && !getOptimisticPlan());
 
   const refresh = useCallback(async (force = false) => {
     const optimistic = getOptimisticPlan();
-    if (optimistic && loading) {
+    if (optimistic) {
       setPlan(optimistic);
     }
 
@@ -82,7 +82,7 @@ export function useAuthoritativePlan() {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, []);
 
   useEffect(() => {
     refresh();

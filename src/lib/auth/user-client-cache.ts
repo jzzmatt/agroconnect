@@ -26,15 +26,17 @@ export async function fetchClientProfileDetails(force = false): Promise<UserProf
     return cachedProfile;
   }
 
-  if (pendingPromise) {
+  if (!force && pendingPromise) {
     return pendingPromise;
   }
 
   pendingPromise = (async () => {
     try {
       const res = await getProfileDetailsAction();
-      cachedProfile = res;
-      cachedAt = Date.now();
+      if (res) {
+        cachedProfile = res;
+        cachedAt = Date.now();
+      }
       return res;
     } finally {
       pendingPromise = null;
