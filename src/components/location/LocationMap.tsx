@@ -120,11 +120,16 @@ export function LocationMap({
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
   const providerRef = useRef<IMapProvider | null>(null);
-  const isInitializedRef = useRef(false);
+  const initStartedRef = useRef(false);
 
   const filteredMarkers = markers.filter((m) =>
     activeCategory === "all" ? true : m.category === activeCategory
   );
+
+  const resolveLayerType = useCallback((): MapLayerType => {
+    if (currentLayer === "satellite") return "satellite";
+    return theme === "dark" ? "dark" : "map";
+  }, [currentLayer, theme]);
 
   const handleMarkerClick = useCallback(
     (marker: MapMarkerItem) => {
@@ -141,9 +146,11 @@ export function LocationMap({
     [onSelectMarker]
   );
 
-  // Initialize MapQuest Map
-  const initMap = useCallback(() => {
+  // Initialize map once per container mount
+  useEffect(() => {
     if (typeof window === "undefined" || !mapContainerRef.current) return;
+    if (initStartedRef.current) return;
+    initStartedRef.current = true;
 
     setMapError(null);
     setMapLoaded(false);
@@ -152,42 +159,45 @@ export function LocationMap({
       mapProvider ||
       new MapQuestProvider(
         process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
-        currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
+        resolveLayerType()
       );
 
     providerRef.current = provider;
 
-    provider.initialize({
-      container: mapContainerRef.current,
-      center,
-      zoom,
-      layerType: currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map",
-      onLoad: () => {
-        setMapLoaded(true);
-        setMapError(null);
-      },
-      onError: (err) => {
-        console.error("[MapQuest Map] Error:", err);
-        setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
-      },
+    let cancelled = false;
+
+    void Promise.resolve(
+      provider.initialize({
+        container: mapContainerRef.current,
+        center,
+        zoom,
+        layerType: resolveLayerType(),
+        onLoad: () => {
+          if (!cancelled) {
+            setMapLoaded(true);
+            setMapError(null);
+          }
+        },
+        onError: (err: Error) => {
+          if (!cancelled) {
+            console.error("[MapQuest Map] Error:", err);
+            setMapError("Não foi possível carregar o mapa.");
+          }
+        },
+      })
+    ).catch((err: unknown) => {
+      if (!cancelled) {
+        console.error("[MapQuest Map] Init failed:", err);
+        setMapError("Não foi possível carregar o mapa.");
+      }
     });
 
-    // Fallback timer to confirm load state
-    const timer = setTimeout(() => {
-      setMapLoaded(true);
-      if (providerRef.current) {
+    const fallbackTimer = setTimeout(() => {
+      if (!cancelled && providerRef.current) {
+        setMapLoaded(true);
         providerRef.current.resize();
       }
     }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [center, zoom, currentLayer, theme, mapProvider]);
-
-  useEffect(() => {
-    if (isInitializedRef.current) return;
-    isInitializedRef.current = true;
-
-    const cleanup = initMap();
 
     let observer: ResizeObserver | null = null;
     if (mapContainerRef.current && typeof ResizeObserver !== "undefined") {
@@ -200,26 +210,30 @@ export function LocationMap({
     }
 
     return () => {
-      if (cleanup) cleanup();
+      cancelled = true;
+      clearTimeout(fallbackTimer);
       if (observer) observer.disconnect();
       if (providerRef.current) {
         providerRef.current.destroy();
         providerRef.current = null;
       }
-      isInitializedRef.current = false;
+      initStartedRef.current = false;
     };
-  }, [initMap]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- init runs once per mount
+  }, [mapProvider]);
+
+  // Update center/zoom without re-initializing
+  useEffect(() => {
+    if (!providerRef.current || !mapLoaded) return;
+    providerRef.current.setCenter(center, zoom, 0);
+  }, [center.latitude, center.longitude, zoom, mapLoaded]);
 
   // Sync theme or layer changes
   useEffect(() => {
     if (providerRef.current && mapLoaded) {
-      if (currentLayer === "satellite") {
-        providerRef.current.setLayerType("satellite");
-      } else {
-        providerRef.current.setLayerType(theme === "dark" ? "dark" : "map");
-      }
+      providerRef.current.setLayerType(resolveLayerType());
     }
-  }, [theme, currentLayer, mapLoaded]);
+  }, [resolveLayerType, mapLoaded]);
 
   // Sync markers
   useEffect(() => {
@@ -270,7 +284,45 @@ export function LocationMap({
     }
   }, [selectedMarkerId, markers, handleMarkerClick]);
 
-  // Toggle Standard Map vs Satellite View
+  const handleRetryMap = useCallback(() => {
+    if (!mapContainerRef.current) return;
+    setMapError(null);
+    setMapLoaded(false);
+    initStartedRef.current = false;
+
+    if (providerRef.current) {
+      providerRef.current.destroy();
+      providerRef.current = null;
+    }
+
+    const provider =
+      mapProvider ||
+      new MapQuestProvider(
+        process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
+        resolveLayerType()
+      );
+    providerRef.current = provider;
+    initStartedRef.current = true;
+
+    void Promise.resolve(
+      provider.initialize({
+        container: mapContainerRef.current,
+        center,
+        zoom,
+        layerType: resolveLayerType(),
+        onLoad: () => {
+          setMapLoaded(true);
+          setMapError(null);
+        },
+        onError: () => {
+          setMapError("Não foi possível carregar o mapa.");
+        },
+      })
+    ).catch(() => {
+      setMapError("Não foi possível carregar o mapa.");
+    });
+  }, [center, zoom, mapProvider, resolveLayerType]);
+
   const handleToggleLayer = () => {
     const nextLayer: MapLayerType = currentLayer === "satellite" ? "map" : "satellite";
     setCurrentLayer(nextLayer);
@@ -439,7 +491,7 @@ export function LocationMap({
             </div>
             <button
               type="button"
-              onClick={initMap}
+              onClick={handleRetryMap}
               className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow-xs hover:bg-primary-hover transition-colors"
             >
               Tentar novamente

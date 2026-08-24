@@ -122,16 +122,20 @@ export function ShoppingProductCard({
         </div>
 
         {/* Product Visual Area */}
-        <div className="relative h-36 w-full rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted p-3 flex items-center justify-center overflow-hidden border border-border mb-3 group-hover:border-primary/40 transition-colors">
+        <div className="relative w-full aspect-[4/3] rounded-2xl bg-linear-to-br from-secondary/60 via-surface to-muted overflow-hidden border border-border mb-3 group-hover:border-primary/40 transition-colors">
           {product.image_url ? (
             // eslint-disable-next-line @next/next/no-img-element
             <img
               src={product.image_url}
               alt={`${product.title} — AgriConnect`}
-              className="absolute inset-0 w-full h-full object-cover"
+              className="absolute inset-0 w-full h-full object-cover object-center"
+              loading="lazy"
+              sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
             />
           ) : (
-            <Package className="w-14 h-14 text-amber-700/50 dark:text-amber-400/50 group-hover:scale-110 transition-transform duration-300" aria-hidden />
+            <div className="absolute inset-0 flex items-center justify-center">
+              <Package className="w-14 h-14 text-amber-700/50 dark:text-amber-400/50 group-hover:scale-110 transition-transform duration-300" aria-hidden />
+            </div>
           )}
           <div className="absolute bottom-2 left-2">
             {getAvailabilityBadge(product.availability_status)}
@@ -177,13 +181,19 @@ export function ShoppingProductCard({
 
         {/* Location & Distance */}
         <div className="mt-3 flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground font-medium">
-          <div className="flex items-center gap-1 text-primary font-semibold">
+          <Link
+            href={`/agrilocalizacao?vendorId=${product.seller_id}`}
+            onClick={(e) => e.stopPropagation()}
+            className="flex items-center gap-1 text-primary font-semibold hover:underline"
+            title={dict.products.viewLocation}
+            aria-label={dict.products.viewLocation}
+          >
             <MapPin className="w-3.5 h-3.5 shrink-0" />
             <span>
               {product.municipality_name ? `${product.municipality_name}, ` : ""}
               {product.province_name || "Angola"}
             </span>
-          </div>
+          </Link>
 
           {product.distance_km !== null && product.distance_km !== undefined && (
             <div className="flex items-center gap-1 bg-secondary text-secondary-foreground px-2 py-0.5 rounded-md font-bold text-[10px]">
