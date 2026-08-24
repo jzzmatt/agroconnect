@@ -1,11 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { mapBunnyStatus, verifyBunnyWebhook } from "@/lib/video/bunny";
 import { AcademyVideoService } from "@/lib/services/academy-video-service";
-import { ProductVideoService } from "@/lib/services/product-video-service";
-import { createAdminServerSupabaseClient } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 
+/**
+ * Bunny Stream webhook. Phase 4 narrowed Bunny to AgriAcademy training video
+ * only, so this only ever touches `academy_videos` — product video moved to
+ * ImageKit and is confirmed synchronously by the browser instead
+ * (see /api/products/video/complete).
+ */
 export async function POST(request: NextRequest) {
   const raw = await request.text();
   const headers: Record<string, string> = {};
@@ -13,7 +17,7 @@ export async function POST(request: NextRequest) {
     headers[key.toLowerCase()] = value;
   });
 
-  if (!verifyBunnyWebhook(headers)) {
+  if (!verifyBunnyWebhook(raw, headers)) {
     return NextResponse.json({ error: "Webhook Bunny inválido." }, { status: 401 });
   }
 
@@ -32,27 +36,13 @@ export async function POST(request: NextRequest) {
   const duration = Number(payload.Length || payload.duration || 0) || undefined;
 
   if (bunnyVideoId) {
-    AcademyVideoService.markStatus(bunnyVideoId, status, {
-      duration_seconds: duration,
-      thumbnail_url: thumbnail,
-    });
-    ProductVideoService.markStatusByBunnyId(bunnyVideoId, status, {
-      duration_seconds: duration,
-      thumbnail_url: thumbnail,
-    });
-
     try {
-      const supabase = createAdminServerSupabaseClient();
-      await (supabase.from("product_videos") as any)
-        .update({
-          status,
-          thumbnail_url: thumbnail,
-          duration_seconds: duration,
-          updated_at: new Date().toISOString(),
-        })
-        .eq("bunny_video_id", bunnyVideoId);
+      await AcademyVideoService.markStatusByBunnyId(bunnyVideoId, status, {
+        duration_seconds: duration,
+        thumbnail_url: thumbnail,
+      });
     } catch (error) {
-      console.warn("[bunny webhook] product_videos persist:", error instanceof Error ? error.message : error);
+      console.warn("[bunny webhook] academy_videos persist:", error instanceof Error ? error.message : error);
     }
   }
 

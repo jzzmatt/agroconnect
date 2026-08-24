@@ -30,6 +30,13 @@ export async function GET() {
     BUNNY_STREAM_API_KEY: present("BUNNY_STREAM_API_KEY"),
     BUNNY_STREAM_LIBRARY_ID: present("BUNNY_STREAM_LIBRARY_ID"),
     BUNNY_STREAM_CDN_HOSTNAME: present("BUNNY_STREAM_CDN_HOSTNAME"),
+    BUNNY_STREAM_WEBHOOK_SECRET: present("BUNNY_STREAM_WEBHOOK_SECRET"),
+  };
+
+  const imagekit = {
+    IMAGEKIT_PUBLIC_KEY: present("IMAGEKIT_PUBLIC_KEY"),
+    IMAGEKIT_PRIVATE_KEY: present("IMAGEKIT_PRIVATE_KEY"),
+    IMAGEKIT_URL_ENDPOINT: present("IMAGEKIT_URL_ENDPOINT"),
   };
 
   const canPublishProducts = supabase.configured && clerk.CLERK_SECRET_KEY;
@@ -38,9 +45,12 @@ export async function GET() {
     {
       environment: process.env.NODE_ENV,
       canPublishProducts,
-      canUploadProductVideo: bunny.BUNNY_STREAM_API_KEY && bunny.BUNNY_STREAM_LIBRARY_ID,
+      canUploadProductVideo: imagekit.IMAGEKIT_PRIVATE_KEY && imagekit.IMAGEKIT_URL_ENDPOINT,
+      canUploadProductImages: imagekit.IMAGEKIT_PRIVATE_KEY && imagekit.IMAGEKIT_URL_ENDPOINT,
+      canUploadAcademyVideo: bunny.BUNNY_STREAM_API_KEY && bunny.BUNNY_STREAM_LIBRARY_ID,
       supabase,
       clerk,
+      imagekit,
       bunny,
     },
     { status: canPublishProducts ? 200 : 503 }
