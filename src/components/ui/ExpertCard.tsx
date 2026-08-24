@@ -51,7 +51,7 @@ export function ExpertCard({
       <div>
         {/* Top Header: Avatar, Name/Title, and Pillar Badge */}
         <div className="flex items-start justify-between gap-3">
-          <div className="flex items-start gap-3.5 min-w-0 flex-1">
+          <div className="flex items-center gap-3.5 min-w-0 flex-1">
             <div className="relative shrink-0">
               <Avatar
                 src={avatarUrl}
@@ -70,12 +70,10 @@ export function ExpertCard({
             </div>
 
             <div className="min-w-0 flex-1">
-              <div className="flex items-center gap-1.5 flex-wrap">
-                <h3 className="font-bold text-base sm:text-lg text-foreground group-hover:text-primary transition-colors leading-snug truncate">
-                  {name}
-                </h3>
-              </div>
-              <p className="text-xs font-semibold text-primary/90 dark:text-primary mt-0.5 line-clamp-1">
+              <h3 className="font-bold text-base sm:text-lg text-foreground group-hover:text-primary transition-colors leading-snug">
+                {name}
+              </h3>
+              <p className="text-xs font-semibold text-primary/90 dark:text-primary mt-0.5 line-clamp-2">
                 {title}
               </p>
             </div>

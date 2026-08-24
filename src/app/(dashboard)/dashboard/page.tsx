@@ -27,7 +27,7 @@ import { getLocalizedPlanCopy } from "@/i18n/plan-copy";
 import { useUser } from "@clerk/nextjs";
 import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
-import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
@@ -45,7 +45,7 @@ export default function DashboardPage() {
     professionalTitle: "none" as ProfessionalTitle,
     email: "",
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: "basic" as string,
+    subscriptionPlan: "" as string,
     roles: ["student"] as const,
     activeProductsCount: 0,
   });
@@ -56,7 +56,7 @@ export default function DashboardPage() {
   const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
 
   const loadServerProfile = useCallback(async () => {
-    const serverProfile = await getProfileDetailsAction();
+    const serverProfile = await fetchClientProfileDetails();
     if (!serverProfile) return;
 
     setProfile((prev) => ({
@@ -75,9 +75,10 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadServerProfile();
+    // Non-blocking fetch of active products count
     getMyProductStatsAction().then((stats) => {
       setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
-    });
+    }).catch(() => undefined);
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";

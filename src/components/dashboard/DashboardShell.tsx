@@ -5,7 +5,8 @@ import { DashboardSidebar } from "./Sidebar";
 import { DashboardHeader } from "./Header";
 import { MobileBottomNav } from "@/components/navigation";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
-import { switchActiveProfileTypeAction, getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { switchActiveProfileTypeAction } from "@/lib/auth/profile-actions";
+import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener, notifyProfileChanged } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useUser } from "@clerk/nextjs";
@@ -31,7 +32,7 @@ export function DashboardShell({
   const [displayName, setDisplayName] = useState("Utilizador");
 
   const loadServerProfile = useCallback(async () => {
-    const serverProfile = await getProfileDetailsAction();
+    const serverProfile = await fetchClientProfileDetails();
     if (!serverProfile) return;
 
     if (serverProfile.display_name) setDisplayName(serverProfile.display_name);

@@ -30,16 +30,19 @@ export default function MyProductsDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const { entitlements } = useAuthoritativePlan();
+  const { entitlements, loading } = useAuthoritativePlan();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
-    getMyProductStatsAction()
-      .then((stats) => setProducts(stats.products))
-      .catch(() => setProducts([]));
-  }, []);
+    // Only load seller products if the user has entitlement
+    if (!loading && entitlements.can_access_agriproduct) {
+      getMyProductStatsAction()
+        .then((stats) => setProducts(stats.products))
+        .catch(() => setProducts([]));
+    }
+  }, [loading, entitlements.can_access_agriproduct]);
 
-  const isBasic = !entitlements.can_access_agriproduct;
+  const isBasic = !loading && !entitlements.can_access_agriproduct;
   const activeCount = countActiveProducts(products);
   const isLimitReached =
     entitlements.product_limit !== null && activeCount >= entitlements.product_limit;

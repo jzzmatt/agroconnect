@@ -9,8 +9,8 @@ import { ArrowLeft, Save, Check, AlertCircle, ShieldCheck, User, Sparkles, Lock 
 import {
   updateProfileDetailsAction,
   updateProfileTypesAction,
-  getProfileDetailsAction,
 } from "@/lib/auth/profile-actions";
+import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { notifyProfileChanged } from "@/lib/auth/profile-events";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
@@ -42,7 +42,7 @@ export default function EditProfilePage() {
 
   useEffect(() => {
     // 1. Fetch authoritative server profile details
-    getProfileDetailsAction().then((serverProfile) => {
+    fetchClientProfileDetails().then((serverProfile) => {
       if (serverProfile) {
         if (serverProfile.display_name) setDisplayName(serverProfile.display_name);
         if (serverProfile.first_name) setFirstName(serverProfile.first_name);

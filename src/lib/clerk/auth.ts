@@ -5,6 +5,10 @@ import {
 } from "@/lib/supabase/server";
 import { getAuthoritativeSubscription } from "@/lib/subscription/store";
 import { parseStoredPlan } from "@/lib/services/pricing-service";
+import {
+  getCachedUserProfile,
+  setCachedUserProfile,
+} from "@/lib/auth/profile-cache";
 import type { UserProfileWithRoles } from "@/types/domain";
 import type { UserRoleType, Profile } from "@/types/database";
 
@@ -56,6 +60,12 @@ export async function getCurrentProfile(): Promise<UserProfileWithRoles | null> 
  * Gracefully handles the bootstrap situation (Clerk user exists, Supabase profile not yet synced).
  */
 export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+
+  const cached = getCachedUserProfile(userId);
+  if (cached) return cached;
+
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
 
@@ -145,7 +155,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   // "no subscription", never an implicit Basic plan.
   const subscriptionPlan = parseStoredPlan(dbPlan);
 
-  return {
+  const fullProfile: UserProfileWithRoles = {
     id: effectiveProfile?.id || clerkUser.id,
     clerk_user_id: clerkUser.id,
     display_name: effectiveProfile?.display_name || clerkUser.fullName,
@@ -172,4 +182,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     created_at: effectiveProfile?.created_at || new Date().toISOString(),
     updated_at: memory?.updatedAt || effectiveProfile?.updated_at || new Date().toISOString(),
   };
+
+  setCachedUserProfile(clerkUser.id, fullProfile);
+  return fullProfile;
 }

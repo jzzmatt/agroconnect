@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { useUser } from "@clerk/nextjs";
-import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useI18n } from "@/i18n/provider";
 import { isLocale, LOCALE_STORAGE_KEY } from "@/i18n/config";
 
@@ -20,7 +20,7 @@ export function LocaleHydrator() {
     }
     if (isLocale(stored)) return;
 
-    getProfileDetailsAction().then((profile) => {
+    fetchClientProfileDetails().then((profile) => {
       const preferred = profile?.preferred_language;
       if (isLocale(preferred) && preferred !== locale) {
         setLocale(preferred);

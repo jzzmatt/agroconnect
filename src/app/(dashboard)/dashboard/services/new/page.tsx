@@ -23,8 +23,8 @@ import type { PricingType, ServiceLocationType } from "@/types/database";
 
 export default function NewServicePage() {
   const router = useRouter();
-  const { entitlements } = useAuthoritativePlan();
-  const isBasic = !entitlements.can_manage_services;
+  const { entitlements, loading } = useAuthoritativePlan();
+  const isBasic = !loading && !entitlements.can_manage_services;
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState("agricultura-e-solos");

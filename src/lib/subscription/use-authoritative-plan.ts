@@ -5,6 +5,7 @@ import { useUser } from "@clerk/nextjs";
 import { getAuthoritativeSubscriptionAction } from "@/lib/auth/profile-actions";
 import { getUserEntitlements, parseStoredPlan } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
+import { invalidateClientProfileCache } from "@/lib/auth/user-client-cache";
 import { getMarketCountry, DEFAULT_MARKET_COUNTRY, type MarketCountry } from "@/config/markets";
 import type { UserEntitlements } from "@/types/domain";
 import type { SubscriptionPlan } from "@/types/database";
@@ -29,8 +30,8 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  * Client representation of the subscription stored in the database.
  *
  * React state here is a temporary copy of that database result. It is never
- * seeded from localStorage, sessionStorage, URL parameters, or a previously
- * selected plan. `currentPlan = null` means the user is not subscribed.
+ * seeded from localStorage, sessionStorage, URL parameters, optimistic overlays,
+ * or a previously selected plan. `currentPlan = null` means the user is not subscribed.
  */
 export function useAuthoritativePlan() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -105,6 +106,7 @@ export function useAuthoritativePlan() {
     if (typeof window === "undefined") return;
 
     const onChange = () => {
+      invalidateClientProfileCache();
       void refresh();
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
@@ -140,5 +142,6 @@ export function useAuthoritativePlan() {
 
 export function notifySubscriptionChanged() {
   if (typeof window === "undefined") return;
+  invalidateClientProfileCache();
   window.dispatchEvent(new Event(SUBSCRIPTION_CHANGED_EVENT));
 }

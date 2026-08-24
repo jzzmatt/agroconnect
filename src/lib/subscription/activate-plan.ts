@@ -1,4 +1,5 @@
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
+import { invalidateCachedUserProfile } from "@/lib/auth/profile-cache";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
@@ -22,8 +23,7 @@ type RowResult = {
 };
 
 function isPlaceholderSupabase(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return !url || url.includes("placeholder");
+  return !isSupabaseConfigured();
 }
 
 function isUnavailableError(message?: string | null): boolean {
@@ -312,6 +312,8 @@ export async function activateUserSubscriptionPlan(
       );
       return fail("PLAN_NOT_PERSISTED", persist.error || "persist_failed");
     }
+
+    invalidateCachedUserProfile(clerkUserId);
 
     // Re-read the row after the write. Application state may only update from
     // the database result, not from the requested plan slug.
