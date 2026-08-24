@@ -140,7 +140,7 @@ function mapMarketplaceServiceRow(item: {
     longitude: item.longitude ? Number(item.longitude) : null,
     service_radius_km: item.service_radius_km ? Number(item.service_radius_km) : null,
     distance_km: item.distance_km ? Number(Number(item.distance_km).toFixed(1)) : null,
-    is_within_service_area: item.is_within_service_area,
+    is_within_service_area: item.is_within_service_area ?? undefined,
     status: item.status as ServiceStatus,
     is_featured: Boolean(item.is_featured),
     created_at: item.created_at,
@@ -397,7 +397,7 @@ export class MarketplaceService {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
       try {
         const supabase = createPublicServerSupabaseClient();
-        const { data, error } = await supabase.rpc("search_marketplace_services", {
+        const { data, error } = await (supabase.rpc as any)("search_marketplace_services", {
           p_query: params.query || null,
           p_category_id: params.categoryId || null,
           p_province_id: params.provinceId || null,
@@ -424,7 +424,7 @@ export class MarketplaceService {
         } else if (Array.isArray(data)) {
           const total = data[0]?.total_count ? Number(data[0].total_count) : data.length;
           return {
-            services: data.map((item) => mapMarketplaceServiceRow(item)),
+            services: data.map((item: Parameters<typeof mapMarketplaceServiceRow>[0]) => mapMarketplaceServiceRow(item)),
             total,
           };
         }

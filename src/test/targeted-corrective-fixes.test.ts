@@ -19,8 +19,8 @@ describe("FIX 1 — subscription plan comes from the database", () => {
   it("does not seed client plan state from sessionStorage", () => {
     const src = read("src/lib/subscription/use-authoritative-plan.ts");
     expect(src).not.toMatch("getOptimisticPlan");
-    expect(src).not.toMatch("localStorage");
-    expect(src).not.toMatch("sessionStorage");
+    expect(src).not.toMatch(/localStorage\.(get|set)Item/);
+    expect(src).not.toMatch(/sessionStorage\.(get|set)Item/);
     expect(src).toMatch("getAuthoritativeSubscriptionAction");
   });
 

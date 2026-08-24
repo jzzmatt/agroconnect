@@ -25,7 +25,7 @@ describe("plan activation reports the real outcome", () => {
   it("caches the plan only after the write succeeds", () => {
     const src = read(ACTIVATE);
     const persistAt = src.indexOf("const persist = await persistSubscriptionPlan");
-    const cacheAt = src.indexOf("cachePlan(clerkUserId, normalized)");
+    const cacheAt = src.indexOf("cachePlan(clerkUserId, confirmed)");
     expect(persistAt).toBeGreaterThan(-1);
     expect(cacheAt).toBeGreaterThan(-1);
     // Caching before persisting is what made a failed write look applied.

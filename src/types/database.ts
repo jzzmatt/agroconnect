@@ -2010,19 +2010,19 @@ export interface Database {
       };
       search_marketplace_services: {
         Args: {
-          p_query?: string | null;
-          p_category_id?: string | null;
-          p_province_id?: string | null;
-          p_municipality_id?: string | null;
-          p_pricing_type?: string | null;
-          p_min_price?: number | null;
-          p_max_price?: number | null;
-          p_latitude?: number | null;
-          p_longitude?: number | null;
-          p_radius_km?: number | null;
-          p_sort_by?: string | null;
-          p_limit?: number | null;
-          p_offset?: number | null;
+          p_query: string | null;
+          p_category_id: string | null;
+          p_province_id: string | null;
+          p_municipality_id: string | null;
+          p_pricing_type: string | null;
+          p_min_price: number | null;
+          p_max_price: number | null;
+          p_latitude: number | null;
+          p_longitude: number | null;
+          p_radius_km: number | null;
+          p_sort_by: string;
+          p_limit: number;
+          p_offset: number;
         };
         Returns: {
           id: string;
