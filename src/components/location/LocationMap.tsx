@@ -5,7 +5,6 @@ import {
   MapPin,
   Navigation,
   Compass,
-  Layers,
   RotateCcw,
   Loader2,
   AlertCircle,
@@ -17,6 +16,11 @@ import { MapQuestProvider } from "@/lib/location/providers/mapquest-map";
 import type { IMapProvider, MapLayerType } from "@/lib/location/providers/types";
 import { useTheme } from "@/lib/theme";
 import { useGeolocation } from "@/lib/location/use-geolocation";
+import {
+  DEFAULT_ANGOLA_CENTER,
+  MapLifecycleManager,
+  coordinatesEqual,
+} from "@/lib/location/map-lifecycle";
 
 export interface MapMarkerItem {
   id: string;
@@ -34,7 +38,9 @@ interface LocationMapProps {
   center?: GeoCoordinate;
   zoom?: number;
   selectedMarkerId?: string | null;
+  selectedLocation?: string | null;
   onSelectMarker?: (marker: MapMarkerItem | null) => void;
+  onLocationSelect?: (marker: MapMarkerItem | null) => void;
   className?: string;
   height?: string;
   showControls?: boolean;
@@ -95,12 +101,18 @@ const CATEGORY_CONFIG: Record<
  * Powered by MapQuest platform for standard road/street maps & satellite layers,
  * with full integration into Supabase PostGIS spatial data and Angola location engine.
  */
+/**
+ * Reusable GeoMap: one Leaflet/MapQuest instance per mounted container.
+ * Marker, filter, and location updates reuse the existing map.
+ */
 export function LocationMap({
   markers = [],
-  center = { latitude: -12.5, longitude: 17.5 }, // Default Angola center
+  center = DEFAULT_ANGOLA_CENTER,
   zoom = 6,
   selectedMarkerId,
+  selectedLocation,
   onSelectMarker,
+  onLocationSelect,
   className,
   height = "h-[480px]",
   showControls = true,
@@ -109,122 +121,141 @@ export function LocationMap({
 }: LocationMapProps) {
   const { theme } = useTheme();
   const { requestLocation, isLoading: isGpsLoading } = useGeolocation();
+  const resolvedSelectedId = selectedLocation ?? selectedMarkerId ?? null;
+  const handleSelect = onLocationSelect ?? onSelectMarker;
 
   const [activeCategory, setActiveCategory] = useState<string>("all");
   const [currentLayer, setCurrentLayer] = useState<MapLayerType>(initialLayer);
   const [activeMarker, setActiveMarker] = useState<MapMarkerItem | null>(
-    markers.find((m) => m.id === selectedMarkerId) || null
+    markers.find((m) => m.id === resolvedSelectedId) || null
   );
   const [mapLoaded, setMapLoaded] = useState(false);
   const [mapError, setMapError] = useState<string | null>(null);
+  const [initNonce, setInitNonce] = useState(0);
 
   const mapContainerRef = useRef<HTMLDivElement>(null);
-  const providerRef = useRef<IMapProvider | null>(null);
-  const isInitializedRef = useRef(false);
+  const lifecycleRef = useRef<MapLifecycleManager | null>(null);
+  const mapProviderRef = useRef(mapProvider);
+  mapProviderRef.current = mapProvider;
+  const initialCenterRef = useRef(center);
+  const initialZoomRef = useRef(zoom);
+  const initialLayerRef = useRef(currentLayer);
+  const themeRef = useRef(theme);
+  themeRef.current = theme;
 
-  const filteredMarkers = markers.filter((m) =>
-    activeCategory === "all" ? true : m.category === activeCategory
+  const filteredMarkers = React.useMemo(
+    () => markers.filter((m) => (activeCategory === "all" ? true : m.category === activeCategory)),
+    [markers, activeCategory]
   );
 
   const handleMarkerClick = useCallback(
     (marker: MapMarkerItem) => {
       setActiveMarker(marker);
-      if (onSelectMarker) onSelectMarker(marker);
-      if (providerRef.current) {
-        providerRef.current.setCenter(
+      if (handleSelect) handleSelect(marker);
+      const provider = lifecycleRef.current?.instance;
+      if (provider) {
+        provider.setCenter(
           { latitude: marker.latitude, longitude: marker.longitude },
-          Math.max(providerRef.current.getZoom(), 12),
+          Math.max(provider.getZoom(), 12),
           800
         );
       }
     },
-    [onSelectMarker]
+    [handleSelect]
   );
 
-  // Initialize MapQuest Map
-  const initMap = useCallback(() => {
-    if (typeof window === "undefined" || !mapContainerRef.current) return;
+  // Initialization only. Marker/filter/location changes must not recreate the map.
+  useEffect(() => {
+    const container = mapContainerRef.current;
+    if (!container) return;
 
-    setMapError(null);
-    setMapLoaded(false);
+    const manager = new MapLifecycleManager(
+      () =>
+        mapProviderRef.current ||
+        new MapQuestProvider(
+          process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
+          initialLayerRef.current === "satellite"
+            ? "satellite"
+            : themeRef.current === "dark"
+              ? "dark"
+              : "map"
+        )
+    );
+    lifecycleRef.current = manager;
+    let cancelled = false;
 
-    const provider =
-      mapProvider ||
-      new MapQuestProvider(
-        process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
-        currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
-      );
-
-    providerRef.current = provider;
-
-    provider.initialize({
-      container: mapContainerRef.current,
-      center,
-      zoom,
-      layerType: currentLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map",
-      onLoad: () => {
-        setMapLoaded(true);
-        setMapError(null);
-      },
-      onError: (err) => {
+    void manager
+      .mount(container, {
+        center: initialCenterRef.current,
+        zoom: initialZoomRef.current,
+        layerType:
+          initialLayerRef.current === "satellite"
+            ? "satellite"
+            : themeRef.current === "dark"
+              ? "dark"
+              : "map",
+        onLoad: () => {
+          if (cancelled) return;
+          setMapLoaded(true);
+          setMapError(null);
+        },
+        onError: (err) => {
+          if (cancelled) return;
+          console.error("[MapQuest Map] Error:", err);
+          setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
+        },
+      })
+      .then((provider) => {
+        if (cancelled || !provider) return;
+        provider.resize();
+      })
+      .catch((err) => {
+        if (cancelled) return;
         console.error("[MapQuest Map] Error:", err);
         setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
-      },
-    });
-
-    // Fallback timer to confirm load state
-    const timer = setTimeout(() => {
-      setMapLoaded(true);
-      if (providerRef.current) {
-        providerRef.current.resize();
-      }
-    }, 1200);
-
-    return () => clearTimeout(timer);
-  }, [center, zoom, currentLayer, theme, mapProvider]);
-
-  useEffect(() => {
-    if (isInitializedRef.current) return;
-    isInitializedRef.current = true;
-
-    const cleanup = initMap();
+      });
 
     let observer: ResizeObserver | null = null;
-    if (mapContainerRef.current && typeof ResizeObserver !== "undefined") {
+    if (typeof ResizeObserver !== "undefined") {
       observer = new ResizeObserver(() => {
-        if (providerRef.current) {
-          providerRef.current.resize();
-        }
+        lifecycleRef.current?.instance?.resize();
       });
-      observer.observe(mapContainerRef.current);
+      observer.observe(container);
     }
 
     return () => {
-      if (cleanup) cleanup();
-      if (observer) observer.disconnect();
-      if (providerRef.current) {
-        providerRef.current.destroy();
-        providerRef.current = null;
+      cancelled = true;
+      observer?.disconnect();
+      manager.unmount();
+      if (lifecycleRef.current === manager) {
+        lifecycleRef.current = null;
       }
-      isInitializedRef.current = false;
+      setMapLoaded(false);
     };
-  }, [initMap]);
+  }, [initNonce]);
 
-  // Sync theme or layer changes
   useEffect(() => {
-    if (providerRef.current && mapLoaded) {
-      if (currentLayer === "satellite") {
-        providerRef.current.setLayerType("satellite");
-      } else {
-        providerRef.current.setLayerType(theme === "dark" ? "dark" : "map");
-      }
+    const provider = lifecycleRef.current?.instance;
+    if (!provider || !mapLoaded) return;
+    if (currentLayer === "satellite") {
+      provider.setLayerType("satellite");
+    } else {
+      provider.setLayerType(theme === "dark" ? "dark" : "map");
     }
   }, [theme, currentLayer, mapLoaded]);
 
-  // Sync markers
   useEffect(() => {
-    if (!providerRef.current) return;
-    const provider = providerRef.current;
+    const provider = lifecycleRef.current?.instance;
+    if (!provider || !mapLoaded) return;
+    const current = provider.getCenter();
+    if (!coordinatesEqual(current, center) || provider.getZoom() !== zoom) {
+      provider.setCenter(center, zoom, 0);
+    }
+  }, [center, zoom, mapLoaded]);
+
+  useEffect(() => {
+    const provider = lifecycleRef.current?.instance;
+    if (!provider || !mapLoaded) return;
     provider.clearMarkers();
 
     filteredMarkers.forEach((marker) => {
@@ -258,44 +289,49 @@ export function LocationMap({
         `,
       });
     });
-  }, [filteredMarkers, handleMarkerClick, theme]);
+  }, [filteredMarkers, handleMarkerClick, theme, mapLoaded]);
 
-  // Center camera when selectedMarkerId changes externally
   useEffect(() => {
-    if (selectedMarkerId) {
-      const match = markers.find((m) => m.id === selectedMarkerId);
-      if (match) {
-        handleMarkerClick(match);
-      }
+    if (!resolvedSelectedId) return;
+    const match = markers.find((m) => m.id === resolvedSelectedId);
+    if (match && match.id !== activeMarker?.id) {
+      handleMarkerClick(match);
     }
-  }, [selectedMarkerId, markers, handleMarkerClick]);
+  }, [resolvedSelectedId, markers, handleMarkerClick, activeMarker?.id]);
 
   // Toggle Standard Map vs Satellite View
   const handleToggleLayer = () => {
     const nextLayer: MapLayerType = currentLayer === "satellite" ? "map" : "satellite";
     setCurrentLayer(nextLayer);
-    if (providerRef.current) {
-      providerRef.current.setLayerType(
+    const provider = lifecycleRef.current?.instance;
+    if (provider) {
+      provider.setLayerType(
         nextLayer === "satellite" ? "satellite" : theme === "dark" ? "dark" : "map"
       );
     }
   };
 
-  // Center on user GPS position
   const handleCenterOnUser = async () => {
     const coords = await requestLocation();
-    if (coords && providerRef.current) {
-      providerRef.current.setCenter(coords, 14, 1200);
-      providerRef.current.addUserLocationMarker(coords);
+    const provider = lifecycleRef.current?.instance;
+    if (coords && provider) {
+      provider.setCenter(coords, 14, 1200);
+      provider.addUserLocationMarker(coords);
     }
   };
 
-  // Reset to default Angola overview
   const handleResetAngola = () => {
-    if (providerRef.current) {
-      providerRef.current.setCenter({ latitude: -12.5, longitude: 17.5 }, 6, 1000);
+    const provider = lifecycleRef.current?.instance;
+    if (provider) {
+      provider.setCenter(DEFAULT_ANGOLA_CENTER, 6, 1000);
       setActiveMarker(null);
     }
+  };
+
+  const handleRetry = () => {
+    setMapError(null);
+    setMapLoaded(false);
+    setInitNonce((value) => value + 1);
   };
 
   return (
@@ -439,7 +475,7 @@ export function LocationMap({
             </div>
             <button
               type="button"
-              onClick={initMap}
+              onClick={handleRetry}
               className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow-xs hover:bg-primary-hover transition-colors"
             >
               Tentar novamente
@@ -502,3 +538,5 @@ export function LocationMap({
     </div>
   );
 }
+
+export { LocationMap as GeoMap };

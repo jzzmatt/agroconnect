@@ -2008,6 +2008,58 @@ export interface Database {
         Args: Record<PropertyKey, never>;
         Returns: string | null;
       };
+      search_marketplace_services: {
+        Args: {
+          p_query?: string | null;
+          p_category_id?: string | null;
+          p_province_id?: string | null;
+          p_municipality_id?: string | null;
+          p_pricing_type?: string | null;
+          p_min_price?: number | null;
+          p_max_price?: number | null;
+          p_latitude?: number | null;
+          p_longitude?: number | null;
+          p_radius_km?: number | null;
+          p_sort_by?: string | null;
+          p_limit?: number | null;
+          p_offset?: number | null;
+        };
+        Returns: {
+          id: string;
+          provider_id: string;
+          provider_name: string | null;
+          provider_slug: string | null;
+          provider_rating: number | null;
+          provider_verified: string | null;
+          category_id: string | null;
+          category_name: string | null;
+          title: string;
+          slug: string;
+          short_description: string | null;
+          description: string | null;
+          pricing_type: string;
+          price: number;
+          currency: string | null;
+          location_type: string | null;
+          province_id: string | null;
+          province_name: string | null;
+          municipality_id: string | null;
+          municipality_name: string | null;
+          latitude: number | null;
+          longitude: number | null;
+          service_radius_km: number | null;
+          distance_km: number | null;
+          is_within_service_area: boolean | null;
+          status: string;
+          is_featured: boolean | null;
+          created_at: string;
+          total_count: number;
+        }[];
+      };
+      activate_user_subscription_plan: {
+        Args: { p_plan: string } | { p_clerk_user_id: string; p_plan: string };
+        Returns: string;
+      };
     };
     Enums: {
       user_role: UserRoleType;

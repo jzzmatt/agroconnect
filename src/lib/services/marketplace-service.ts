@@ -74,6 +74,79 @@ export function slugify(text: string): string {
     .replace(/-+/g, "-"); // Collapse dashes
 }
 
+function isMissingRpcError(error: { message?: string; code?: string } | null | undefined): boolean {
+  if (!error) return false;
+  const haystack = `${error.code || ""} ${error.message || ""}`.toLowerCase();
+  return (
+    error.code === "PGRST202" ||
+    error.code === "42883" ||
+    /could not find the function|does not exist|schema cache/.test(haystack)
+  );
+}
+
+function mapMarketplaceServiceRow(item: {
+  id: string;
+  provider_id: string;
+  provider_name?: string | null;
+  provider_slug?: string | null;
+  provider_rating?: number | string | null;
+  provider_verified?: string | boolean | null;
+  category_id?: string | null;
+  category_name?: string | null;
+  title: string;
+  slug: string;
+  short_description?: string | null;
+  description?: string | null;
+  pricing_type: string;
+  price: number | string;
+  currency?: string | null;
+  location_type?: string | null;
+  province_id?: string | null;
+  province_name?: string | null;
+  municipality_id?: string | null;
+  municipality_name?: string | null;
+  latitude?: number | string | null;
+  longitude?: number | string | null;
+  service_radius_km?: number | string | null;
+  distance_km?: number | string | null;
+  is_within_service_area?: boolean | null;
+  status: string;
+  is_featured?: boolean | null;
+  created_at: string;
+  total_count?: number | string | null;
+}): ServiceListItem {
+  return {
+    id: item.id,
+    provider_id: item.provider_id,
+    provider_name: item.provider_name || "",
+    provider_slug: item.provider_slug || "",
+    provider_rating: item.provider_rating ? Number(item.provider_rating) : null,
+    provider_verified: item.provider_verified === "verified" || item.provider_verified === true,
+    category_id: item.category_id || "",
+    category_name: item.category_name || "",
+    title: item.title,
+    slug: item.slug,
+    short_description: item.short_description,
+    description: item.description,
+    pricing_type: item.pricing_type as PricingType,
+    price: Number(item.price),
+    currency: item.currency || "AOA",
+    location_type: (item.location_type as ServiceLocationType) || "service_area",
+    province_id: item.province_id || "",
+    province_name: item.province_name,
+    municipality_id: item.municipality_id,
+    municipality_name: item.municipality_name,
+    latitude: item.latitude ? Number(item.latitude) : null,
+    longitude: item.longitude ? Number(item.longitude) : null,
+    service_radius_km: item.service_radius_km ? Number(item.service_radius_km) : null,
+    distance_km: item.distance_km ? Number(Number(item.distance_km).toFixed(1)) : null,
+    is_within_service_area: item.is_within_service_area,
+    status: item.status as ServiceStatus,
+    is_featured: Boolean(item.is_featured),
+    created_at: item.created_at,
+  };
+}
+
 export const INITIAL_SERVICES: ServiceListItem[] = [
   {
     id: "srv-seed-1",
@@ -324,7 +397,7 @@ export class MarketplaceService {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
       try {
         const supabase = createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.rpc as any)("search_marketplace_services", {
+        const { data, error } = await supabase.rpc("search_marketplace_services", {
           p_query: params.query || null,
           p_category_id: params.categoryId || null,
           p_province_id: params.provinceId || null,
@@ -340,39 +413,18 @@ export class MarketplaceService {
           p_offset: params.offset || 0,
         });
 
-        if (!error && data && Array.isArray(data) && data.length > 0) {
+        if (error) {
+          const missing = isMissingRpcError(error);
+          console.warn(
+            missing
+              ? "[MarketplaceService.searchServices] RPC is not available on this database:"
+              : "[MarketplaceService.searchServices] RPC error:",
+            error.message || error
+          );
+        } else if (Array.isArray(data)) {
           const total = data[0]?.total_count ? Number(data[0].total_count) : data.length;
           return {
-            services: data.map((item: any) => ({
-              id: item.id,
-              provider_id: item.provider_id,
-              provider_name: item.provider_name,
-              provider_slug: item.provider_slug,
-              provider_rating: item.provider_rating ? Number(item.provider_rating) : null,
-              provider_verified: item.provider_verified === "verified",
-              category_id: item.category_id,
-              category_name: item.category_name,
-              title: item.title,
-              slug: item.slug,
-              short_description: item.short_description,
-              description: item.description,
-              pricing_type: item.pricing_type,
-              price: Number(item.price),
-              currency: item.currency || "AOA",
-              location_type: item.location_type || "service_area",
-              province_id: item.province_id,
-              province_name: item.province_name,
-              municipality_id: item.municipality_id,
-              municipality_name: item.municipality_name,
-              latitude: item.latitude ? Number(item.latitude) : null,
-              longitude: item.longitude ? Number(item.longitude) : null,
-              service_radius_km: item.service_radius_km ? Number(item.service_radius_km) : null,
-              distance_km: item.distance_km ? Number(item.distance_km.toFixed(1)) : null,
-              is_within_service_area: item.is_within_service_area,
-              status: item.status,
-              is_featured: item.is_featured,
-              created_at: item.created_at,
-            })),
+            services: data.map((item) => mapMarketplaceServiceRow(item)),
             total,
           };
         }

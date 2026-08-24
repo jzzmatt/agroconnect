@@ -108,6 +108,14 @@ export const SUBSCRIPTION_PLANS: Record<"basic" | "professional" | "business" | 
   },
 };
 
+const PLAN_ORDER = ["basic", "professional", "business", "enterprise"] as const;
+
+export function getSelectablePlans(currentPlan: SubscriptionPlan | null) {
+  const all = PLAN_ORDER.map((id) => SUBSCRIPTION_PLANS[id]);
+  if (!currentPlan) return all;
+  return all.filter((plan) => plan.id !== currentPlan);
+}
+
 export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" {
   if (!plan) return "basic";
   const normalized = plan

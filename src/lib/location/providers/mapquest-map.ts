@@ -71,6 +71,10 @@ export class MapQuestProvider implements IMapProvider {
   private currentLayerType: MapLayerType;
   private isMapLoaded = false;
   private pendingMarkers: MapMarkerDescriptor[] = [];
+  private initGeneration = 0;
+  private containerEl: HTMLElement | null = null;
+  private leafletModule: any = null;
+  private moveHandler: (() => void) | null = null;
 
   constructor(apiKey?: string, initialLayer: MapLayerType = "map") {
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
@@ -83,8 +87,22 @@ export class MapQuestProvider implements IMapProvider {
   public async initialize(options: MapOptions): Promise<void> {
     if (typeof window === "undefined") return;
 
-    // Dynamically import Leaflet
+    const generation = ++this.initGeneration;
+
+    const container =
+      typeof options.container === "string"
+        ? (document.getElementById(options.container) as HTMLElement | null)
+        : options.container;
+
+    if (!container) return;
+
+    this.containerEl = container;
+
     const L = (await import("leaflet")).default;
+    this.leafletModule = L;
+
+    // A Strict Mode unmount increments initGeneration. Discard this attempt.
+    if (generation !== this.initGeneration) return;
 
     if (options.center) {
       this.currentCenter = options.center;
@@ -96,20 +114,11 @@ export class MapQuestProvider implements IMapProvider {
       this.currentLayerType = options.layerType;
     }
 
-    const container =
-      typeof options.container === "string"
-        ? (document.getElementById(options.container) as HTMLElement)
-        : options.container;
+    this.releaseContainer(L);
 
-    if (!container) return;
-
-    if (this.mapInstance) {
-      this.destroy();
-    }
+    if (generation !== this.initGeneration) return;
 
     try {
-      // Initialize Leaflet Map instance
-      // Leaflet uses [latitude, longitude]
       this.mapInstance = L.map(container, {
         center: [this.currentCenter.latitude, this.currentCenter.longitude],
         zoom: this.currentZoom,
@@ -119,45 +128,65 @@ export class MapQuestProvider implements IMapProvider {
         attributionControl: true,
       });
 
-      // Apply initial tile layer
+      if (generation !== this.initGeneration) {
+        this.releaseContainer(L);
+        return;
+      }
+
       this.applyTileLayer(L);
 
-      // Invalidate size across multiple ticks to guarantee layout stabilization in React/Next.js
-      setTimeout(() => {
-        if (this.mapInstance) this.mapInstance.invalidateSize();
-      }, 50);
-      setTimeout(() => {
-        if (this.mapInstance) this.mapInstance.invalidateSize();
-      }, 300);
-      setTimeout(() => {
-        if (this.mapInstance) this.mapInstance.invalidateSize();
-      }, 800);
-
-      // Track camera changes
-      this.mapInstance.on("moveend", () => {
+      this.moveHandler = () => {
         if (!this.mapInstance) return;
         const center = this.mapInstance.getCenter();
         this.currentCenter = { latitude: center.lat, longitude: center.lng };
         this.currentZoom = this.mapInstance.getZoom();
-      });
+      };
+      this.mapInstance.on("moveend", this.moveHandler);
 
       this.isMapLoaded = true;
-
-      // Flush queued markers
       this.flushPendingMarkers();
-
-      // Ensure dimensions fit
       this.resize();
 
       if (options.onLoad) {
         options.onLoad();
       }
     } catch (err: any) {
+      if (generation !== this.initGeneration) return;
       console.error("[MapQuest Init Exception]", err);
+      this.releaseContainer(L);
       if (options.onError) {
         options.onError(err);
       }
     }
+  }
+
+  /**
+   * Leaflet stamps `_leaflet_id` on the container. Destroy must clear that
+   * even when initialize was aborted before `mapInstance` was assigned.
+   */
+  private releaseContainer(L?: any): void {
+    if (this.moveHandler && this.mapInstance) {
+      this.mapInstance.off("moveend", this.moveHandler);
+      this.moveHandler = null;
+    }
+    this.clearMarkers();
+    this.removeUserLocationMarker();
+    if (this.mapInstance) {
+      this.mapInstance.remove();
+      this.mapInstance = null;
+    }
+    const el = this.containerEl;
+    if (el) {
+      const leafletId = (el as { _leaflet_id?: number })._leaflet_id;
+      if (leafletId && L?.Map) {
+        delete (el as { _leaflet_id?: number })._leaflet_id;
+      } else if (leafletId) {
+        delete (el as { _leaflet_id?: number })._leaflet_id;
+      }
+      el.replaceChildren();
+    }
+    this.currentTileLayer = null;
+    this.isMapLoaded = false;
   }
 
   private applyTileLayer(L: any): void {
@@ -367,12 +396,9 @@ export class MapQuestProvider implements IMapProvider {
   }
 
   public destroy(): void {
-    this.clearMarkers();
-    this.removeUserLocationMarker();
-    if (this.mapInstance) {
-      this.mapInstance.remove();
-      this.mapInstance = null;
-    }
-    this.isMapLoaded = false;
+    this.initGeneration += 1;
+    this.releaseContainer(this.leafletModule);
+    this.containerEl = null;
+    this.leafletModule = null;
   }
 }

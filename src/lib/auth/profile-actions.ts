@@ -1,7 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
+import { requireAuth, getCurrentUserProfile, getCurrentUserId } from "@/lib/clerk/auth";
 import {
   createServerSupabaseClient,
   tryCreateAdminServerSupabaseClient,
@@ -281,6 +281,58 @@ export async function getProfileDetailsAction(): Promise<UserProfileWithRoles | 
   }
 }
 
+export type AuthoritativeSubscriptionResult = {
+  authenticated: boolean;
+  plan: SubscriptionPlan | null;
+  source: "database" | null;
+  error: string | null;
+  marketCountryCode?: string | null;
+  preferredLanguage?: string | null;
+  videoStorageUsedBytes?: number;
+};
+
+/**
+ * Load the current subscription plan from the database for the signed-in user.
+ * Browser storage, URL parameters, and process-local caches are not consulted.
+ */
+export async function getAuthoritativeSubscriptionAction(): Promise<AuthoritativeSubscriptionResult> {
+  try {
+    const current = await getCurrentUserProfile();
+    if (!current) {
+      const userId = await getCurrentUserId();
+      if (!userId) {
+        return { authenticated: false, plan: null, source: null, error: null };
+      }
+      return {
+        authenticated: true,
+        plan: null,
+        source: null,
+        error: "Não foi possível carregar a subscrição a partir da base de dados.",
+      };
+    }
+    return {
+      authenticated: true,
+      plan: normalizePlanSlug(current.subscription_plan),
+      source: "database",
+      error: null,
+      marketCountryCode: current.market_country_code,
+      preferredLanguage: current.preferred_language,
+      videoStorageUsedBytes: current.video_storage_used_bytes || 0,
+    };
+  } catch (e) {
+    const userId = await getCurrentUserId().catch(() => null);
+    if (!userId) {
+      return { authenticated: false, plan: null, source: null, error: null };
+    }
+    return {
+      authenticated: true,
+      plan: null,
+      source: null,
+      error: e instanceof Error ? e.message : "Erro ao carregar o plano.",
+    };
+  }
+}
+
 /**
  * Server Action: Activate or Update Subscription Plan.
  * Prefer POST /api/subscription/activate from the browser — server actions can
@@ -301,6 +353,7 @@ export async function activateSubscriptionPlanAction(
     try {
       revalidatePath("/dashboard");
       revalidatePath("/pricing");
+      revalidatePath("/planos");
       revalidatePath("/profile");
       revalidatePath("/settings");
     } catch {

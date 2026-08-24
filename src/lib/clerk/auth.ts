@@ -62,12 +62,18 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   const writer =
     tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 
-  // 1. Fetch profile
-  const { data: profile } = await writer
+  // 1. Fetch profile from the database. A failed read must not be treated as
+  // "no row" (which would bootstrap a fake basic plan) or fall back to any
+  // process-local cache.
+  const { data: profile, error: profileReadError } = await writer
     .from("profiles")
     .select("*")
     .eq("clerk_user_id", clerkUser.id)
     .maybeSingle();
+
+  if (profileReadError) {
+    throw new Error(profileReadError.message || "Falha ao ler o perfil na base de dados.");
+  }
 
   // If profile doesn't exist yet, gracefully bootstrap profile
   let effectiveProfile = profile as Profile | null;
@@ -119,6 +125,12 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     }
   }
 
+  // Without a database row there is no authoritative plan. Do not invent one
+  // from memory, React state, or a hardcoded fallback presented as current.
+  if (!effectiveProfile) {
+    return null;
+  }
+
   // 2. Fetch roles
   const { data: rolesData } = await writer
     .from("user_roles")
@@ -130,10 +142,10 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
 
   const memory = getAuthoritativeSubscription(clerkUser.id);
   const dbPlan = (effectiveProfile as any)?.subscription_plan;
-  // Trusted server cache (set only after Clerk-authenticated activation) is
-  // preferred when present so the dashboard updates without a relogin even if
-  // the database replica is briefly behind. The client cannot write this store.
-  const subscriptionPlan = normalizePlanSlug(memory?.plan || dbPlan || "basic");
+  // The database row is the only source of truth for the current plan.
+  // The process-local cache may lag a replica but must never override a
+  // successful database read.
+  const subscriptionPlan = normalizePlanSlug(dbPlan || "basic");
 
   return {
     id: effectiveProfile?.id || clerkUser.id,
@@ -150,10 +162,10 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     professional_title_custom: (effectiveProfile as any)?.professional_title_custom || null,
     active_profile_type: (effectiveProfile as any)?.active_profile_type || roles[0] || "personal",
     subscription_plan: subscriptionPlan,
-    preferred_language: memory?.preferredLanguage || effectiveProfile?.preferred_language || "pt",
-    market_country_code: memory?.marketCountryCode || (effectiveProfile as any)?.market_country_code || "AO",
+    preferred_language: effectiveProfile?.preferred_language || memory?.preferredLanguage || "pt",
+    market_country_code: (effectiveProfile as any)?.market_country_code || memory?.marketCountryCode || "AO",
     video_storage_used_bytes:
-      memory?.videoStorageUsedBytes ?? (effectiveProfile as any)?.video_storage_used_bytes ?? 0,
+      (effectiveProfile as any)?.video_storage_used_bytes ?? memory?.videoStorageUsedBytes ?? 0,
     account_type: effectiveProfile?.account_type || "customer",
     status: effectiveProfile?.status || "active",
     theme_preference: effectiveProfile?.theme_preference || "light",

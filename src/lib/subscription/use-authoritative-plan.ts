@@ -1,10 +1,10 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { useUser } from "@clerk/nextjs";
+import { getAuthoritativeSubscriptionAction } from "@/lib/auth/profile-actions";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
-import { clearOptimisticPlan, getOptimisticPlan } from "@/lib/subscription/optimistic";
 import { getMarketCountry, DEFAULT_MARKET_COUNTRY, type MarketCountry } from "@/config/markets";
 import type { UserEntitlements } from "@/types/domain";
 import type { SubscriptionPlan } from "@/types/database";
@@ -26,61 +26,81 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
 }
 
 /**
- * Client representation of the authoritative backend subscription.
- * Optimistic session values are used only while the first server fetch is
- * in flight after a confirmed activation — they never override a returned
- * server plan.
+ * Client representation of the subscription stored in the database.
+ *
+ * React state here is a temporary copy of that database result. It is never
+ * seeded from localStorage, sessionStorage, URL parameters, or a previously
+ * selected plan.
  */
 export function useAuthoritativePlan() {
-  const [plan, setPlan] = useState<SubscriptionPlan>("basic");
+  const { isLoaded, isSignedIn, user } = useUser();
+  const [plan, setPlan] = useState<SubscriptionPlan | null>(null);
   const [marketCountry, setMarketCountry] = useState<MarketCountry>(
     getMarketCountry(DEFAULT_MARKET_COUNTRY)
   );
   const [locale, setLocale] = useState<"pt" | "en" | "fr">("pt");
   const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [fromDatabase, setFromDatabase] = useState(false);
 
   const refresh = useCallback(async () => {
-    const optimistic = getOptimisticPlan();
-    if (optimistic && loading) {
-      setPlan(optimistic);
+    if (!isLoaded) return;
+
+    if (!isSignedIn) {
+      setPlan(null);
+      setError(null);
+      setFromDatabase(false);
+      setLoading(false);
+      return;
     }
 
+    setLoading(true);
+    setError(null);
+
     try {
-      const profile = await withTimeout(getProfileDetailsAction(), 8000);
-      if (profile) {
-        const nextPlan = normalizePlanSlug(profile.subscription_plan);
-        setPlan(nextPlan);
-        if (optimistic && nextPlan === optimistic) {
-          clearOptimisticPlan();
-        } else if (optimistic && nextPlan !== optimistic) {
-          // Server won. Do not keep a competing client plan.
-          clearOptimisticPlan();
-        }
-        setMarketCountry(getMarketCountry(profile.market_country_code || DEFAULT_MARKET_COUNTRY));
-        const lang = profile.preferred_language;
-        if (lang === "pt" || lang === "en" || lang === "fr") {
-          setLocale(lang);
-        }
-        setVideoStorageUsedBytes(profile.video_storage_used_bytes || 0);
-      } else if (optimistic) {
-        setPlan(optimistic);
+      const result = await withTimeout(getAuthoritativeSubscriptionAction(), 8000);
+      if (!result) {
+        setPlan(null);
+        setFromDatabase(false);
+        setError("Não foi possível carregar a subscrição a partir da base de dados.");
+        return;
       }
+      if (!result.authenticated) {
+        setPlan(null);
+        setFromDatabase(false);
+        setError(null);
+        return;
+      }
+      if (result.error || !result.plan || result.source !== "database") {
+        setPlan(null);
+        setFromDatabase(false);
+        setError(result.error || "Não foi possível carregar a subscrição a partir da base de dados.");
+        return;
+      }
+      setPlan(normalizePlanSlug(result.plan));
+      setFromDatabase(true);
+      setError(null);
+      setMarketCountry(getMarketCountry(result.marketCountryCode || DEFAULT_MARKET_COUNTRY));
+      const lang = result.preferredLanguage;
+      if (lang === "pt" || lang === "en" || lang === "fr") {
+        setLocale(lang);
+      }
+      setVideoStorageUsedBytes(result.videoStorageUsedBytes || 0);
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, [isLoaded, isSignedIn, user?.id]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
     if (typeof window === "undefined") return;
 
     const onChange = () => {
-      refresh();
+      void refresh();
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
     window.addEventListener("focus", onChange);
-    // visibilitychange fires on document, so listening on window never fired.
     document.addEventListener("visibilitychange", onChange);
     return () => {
       window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
@@ -89,15 +109,22 @@ export function useAuthoritativePlan() {
     };
   }, [refresh]);
 
-  const entitlements: UserEntitlements = getUserEntitlements({ subscriptionPlan: plan });
+  // Entitlements are derived only after a database plan is present. While
+  // loading, treat the user as basic so paid UI is not shown from stale state.
+  const entitlements: UserEntitlements = getUserEntitlements({
+    subscriptionPlan: fromDatabase && plan ? plan : "basic",
+  });
 
   return {
-    plan,
+    plan: (fromDatabase && plan ? plan : "basic") as SubscriptionPlan,
+    currentPlan: fromDatabase ? plan : null,
     entitlements,
     marketCountry,
     locale,
     videoStorageUsedBytes,
-    loading,
+    loading: !isLoaded || loading,
+    error,
+    fromDatabase,
     refresh,
   };
 }

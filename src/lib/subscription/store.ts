@@ -3,8 +3,8 @@ import type { MarketCountryCode } from "@/config/markets";
 import { DEFAULT_MARKET_COUNTRY } from "@/config/markets";
 
 /**
- * Process-local authoritative fallback used when Supabase is unavailable.
- * The database remains the durable source of truth.
+ * Process-local read-through cache used only after a confirmed database write.
+ * It is never the source of truth for the current subscription plan.
  */
 type SubscriptionRecord = {
   plan: SubscriptionPlan;

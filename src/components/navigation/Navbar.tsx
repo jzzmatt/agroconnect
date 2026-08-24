@@ -32,13 +32,12 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
-    { href: "/services", label: dict.navigation.services, icon: Users, badge: dict.navigation.servicesBadge },
     { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users, badge: dict.navigation.expertsBadge },
     { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: dict.navigation.coursesBadge },
     { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: dict.navigation.productsBadge },
     { href: "/agrilocalizacao", label: dict.navigation.agriLocalizacao, icon: MapPin },
     { href: "/about", label: dict.navigation.aboutUs },
-    { href: "/pricing", label: dict.navigation.pricing },
+    { href: "/planos", label: dict.navigation.pricing },
   ];
 
   return (

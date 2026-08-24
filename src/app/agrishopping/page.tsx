@@ -35,6 +35,8 @@ export default function AgriShoppingPage() {
 
   const [isPending, startTransition] = useTransition();
   const { coordinates: userCoords } = useGeolocation();
+  const userLatitude = userCoords?.latitude ?? null;
+  const userLongitude = userCoords?.longitude ?? null;
 
   const loadProducts = useCallback(async () => {
     const res = await ShoppingService.searchProducts({
@@ -45,8 +47,8 @@ export default function AgriShoppingPage() {
       availabilityStatus: (selectedAvailability as ProductAvailabilityStatus) || undefined,
       minPrice: minPrice ? Number(minPrice) : undefined,
       maxPrice: maxPrice ? Number(maxPrice) : undefined,
-      latitude: userCoords?.latitude,
-      longitude: userCoords?.longitude,
+      latitude: userLatitude ?? undefined,
+      longitude: userLongitude ?? undefined,
       radiusKm: selectedRadius,
       sortBy: sortBy as any,
     });
@@ -63,7 +65,8 @@ export default function AgriShoppingPage() {
     maxPrice,
     selectedRadius,
     sortBy,
-    userCoords,
+    userLatitude,
+    userLongitude,
   ]);
 
   useEffect(() => {
@@ -101,6 +104,20 @@ export default function AgriShoppingPage() {
     setMaxPrice("");
     setSortBy("relevance");
   };
+
+  const handleSelectMarker = useCallback(
+    (marker: MapMarkerItem | null) => {
+      if (!marker) {
+        setSelectedProduct(null);
+        return;
+      }
+      setSelectedProduct((current) => {
+        if (current?.id === marker.id) return current;
+        return products.find((p) => p.id === marker.id) || null;
+      });
+    },
+    [products]
+  );
 
   const mapMarkers: MapMarkerItem[] = products
     .filter((p) => p.latitude && p.longitude)
@@ -244,10 +261,7 @@ export default function AgriShoppingPage() {
                   markers={mapMarkers}
                   height={viewMode === "map" ? "h-[640px]" : "h-[540px]"}
                   selectedMarkerId={selectedProduct?.id}
-                  onSelectMarker={(m) => {
-                    const match = products.find((p) => p.id === m?.id);
-                    setSelectedProduct(match || null);
-                  }}
+                  onSelectMarker={handleSelectMarker}
                 />
               </div>
             </div>

@@ -9,7 +9,7 @@ function read(relativePath: string): string {
 
 const ACTIVATE = "src/lib/subscription/activate-plan.ts";
 const ROUTE = "src/app/api/subscription/activate/route.ts";
-const PRICING = "src/app/pricing/page.tsx";
+const PRICING = "src/components/subscription/PlanCatalog.tsx";
 const HEALTH = "src/app/api/health/config/route.ts";
 
 describe("plan activation reports the real outcome", () => {

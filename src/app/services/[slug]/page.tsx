@@ -116,7 +116,7 @@ export default function ServiceDetailPage() {
         {/* Navigation Breadcrumb */}
         <div className="flex items-center justify-between gap-2">
           <Link
-            href="/services"
+            href="/agriexpert?view=servicos"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />

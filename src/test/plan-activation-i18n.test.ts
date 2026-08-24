@@ -41,7 +41,7 @@ describe("Plan copy and optimistic activation", () => {
     expect(formatVideoStorageLabel(en, 100)).toBe("100 GB of AgriAcademy video");
   });
 
-  it("stores an optimistic plan so the dashboard can update immediately", () => {
+  it("does not use sessionStorage as the subscription authority", () => {
     expect(getOptimisticPlan()).toBeNull();
     setOptimisticPlan("professional");
     expect(getOptimisticPlan()).toBe("professional");

@@ -253,7 +253,7 @@ export default function LandingPage() {
                   </div>
 
                   <div className="pt-6">
-                    <Link href="/pricing" className="block">
+                    <Link href="/planos" className="block">
                       <Button
                         variant={plan.isPopular ? "primary" : "outline"}
                         size="sm"
@@ -361,7 +361,7 @@ export default function LandingPage() {
               <p className="text-xs text-muted-foreground leading-relaxed">
                 {dict.landing.pillarExpertDesc}
               </p>
-              <Link href="/services" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline pt-1">
+              <Link href="/agriexpert" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline pt-1">
                 <span>{dict.landing.seeExperts}</span> →
               </Link>
             </div>

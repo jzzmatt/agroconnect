@@ -7,7 +7,7 @@ import { SectionHeader } from "@/components/ui";
 import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
 
-export default function PricingPage() {
+export default function PlanosPage() {
   const { dict } = useI18n();
 
   return (

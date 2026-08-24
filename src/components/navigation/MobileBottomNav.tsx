@@ -23,7 +23,7 @@ export function MobileBottomNav({ variant = "marketing" }: MobileBottomNavProps)
 
   const items = [
     { href: variant === "dashboard" ? "/dashboard" : "/", label: dict.navigation.home, icon: Home },
-    { href: "/services", label: dict.navigation.services, icon: Users },
+    { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users },
     { href: "/agriacademy", label: dict.common.courses, icon: GraduationCap },
     { href: "/agrishopping", label: dict.common.products, icon: ShoppingBag },
     { href: "/agrilocalizacao", label: dict.common.more, icon: MoreHorizontal },

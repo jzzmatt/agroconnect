@@ -2,6 +2,7 @@ import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
+  tryCreateAdminServerSupabaseClient,
   isSupabaseConfigured,
   missingSupabaseEnvVars,
 } from "@/lib/supabase/server";
@@ -61,7 +62,25 @@ function remainingMs(deadline: number): number {
 function cachePlan(clerkUserId: string, plan: SubscriptionPlan) {
   // Only the plan. Passing a market or language here would overwrite whatever
   // the user had chosen, because the cache treats a supplied value as intent.
+  // This cache is a read-through hint, never the authority for UI or APIs.
   return setAuthoritativeSubscription(clerkUserId, { plan });
+}
+
+async function readPersistedPlan(clerkUserId: string): Promise<SubscriptionPlan | null> {
+  try {
+    const client = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+    const result = (await withTimeout(
+      (client.from("profiles") as any)
+        .select("subscription_plan")
+        .eq("clerk_user_id", clerkUserId)
+        .maybeSingle(),
+      4_000
+    )) as RowResult;
+    if (result.error || !result.data?.subscription_plan) return null;
+    return normalizePlanSlug(result.data.subscription_plan);
+  } catch {
+    return null;
+  }
 }
 
 function persistPayload(plan: SubscriptionPlan) {
@@ -289,16 +308,21 @@ export async function activateUserSubscriptionPlan(
       return fail("PLAN_NOT_PERSISTED", persist.error || "persist_failed");
     }
 
-    // Cached only after the row is durably written, so the dashboard can read
-    // the new plan immediately even if a read replica is briefly behind.
-    cachePlan(clerkUserId, normalized);
+    // Re-read the row after the write. Application state may only update from
+    // the database result, not from the requested plan slug.
+    const confirmed = await readPersistedPlan(clerkUserId);
+    if (!confirmed) {
+      return fail("PLAN_NOT_PERSISTED", "re-read failed after persist");
+    }
+
+    cachePlan(clerkUserId, confirmed);
 
     return {
       success: true,
-      plan: normalized,
+      plan: confirmed,
       persisted: true,
       code: "ACTIVATED",
-      entitlements: getUserEntitlements({ subscriptionPlan: normalized }),
+      entitlements: getUserEntitlements({ subscriptionPlan: confirmed }),
     };
   } catch (err: unknown) {
     const message = asErrorMessage(err);
