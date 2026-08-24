@@ -1,6 +1,6 @@
 "use server";
 
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import {
   MarketplaceService,
@@ -60,11 +60,12 @@ export async function getOrCreateCurrentProviderProfileAction(
     throw new Error("Perfil de utilizador não encontrado.");
   }
 
-  const supabase = await createServerSupabaseClient();
+  const supabase =
+    tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
   const { data: existing } = await (supabase.from("provider_profiles") as any)
     .select("*")
     .eq("profile_id", userProfile.id)
-    .single();
+    .maybeSingle();
 
   if (existing) {
     return {

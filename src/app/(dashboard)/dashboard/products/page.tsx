@@ -34,10 +34,13 @@ export default function MyProductsDashboardPage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
   useEffect(() => {
-    getMyProductStatsAction()
-      .then((stats) => setProducts(stats.products))
-      .catch(() => setProducts([]));
-  }, []);
+    // Only load seller products if the user has entitlement
+    if (entitlements.can_access_agriproduct) {
+      getMyProductStatsAction()
+        .then((stats) => setProducts(stats.products))
+        .catch(() => setProducts([]));
+    }
+  }, [entitlements.can_access_agriproduct]);
 
   const isBasic = !entitlements.can_access_agriproduct;
   const activeCount = countActiveProducts(products);

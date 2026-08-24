@@ -1,4 +1,5 @@
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
+import { invalidateCachedUserProfile } from "@/lib/auth/profile-cache";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
@@ -266,6 +267,7 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     await getCurrentUserProfile().catch(() => null);
 
     const persist = await persistSubscriptionPlan(clerkUserId, normalized);
+    invalidateCachedUserProfile(clerkUserId);
     if (!persist.ok && !persist.unavailable) {
       console.warn("[activatePlan] durable persist failed, serving trusted server cache:", persist.error);
     }

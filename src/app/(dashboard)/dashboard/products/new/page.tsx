@@ -43,17 +43,23 @@ export default function NewProductPage() {
 
   const [statsLoaded, setStatsLoaded] = useState(false);
 
+  // Limit check is non-blocking: the form renders immediately without waiting
   useEffect(() => {
-    fetch("/api/products/stats", { credentials: "same-origin", cache: "no-store" })
-      .then((res) => res.json())
-      .then((data) => {
-        if (typeof data?.activeCount === "number") {
-          setActiveCount(data.activeCount);
-        }
-      })
-      .catch(() => undefined)
-      .finally(() => setStatsLoaded(true));
-  }, []);
+    // Only check product stats if plan actually has a product limit
+    if (entitlements.product_limit !== null) {
+      fetch("/api/products/stats", { credentials: "same-origin" })
+        .then((res) => res.json())
+        .then((data) => {
+          if (typeof data?.activeCount === "number") {
+            setActiveCount(data.activeCount);
+          }
+        })
+        .catch(() => undefined)
+        .finally(() => setStatsLoaded(true));
+    } else {
+      setStatsLoaded(true);
+    }
+  }, [entitlements.product_limit]);
 
   const [title, setTitle] = useState("");
   const [category, setCategory] = useState<ProductCategorySlug>("sementes-e-fertilizantes");
