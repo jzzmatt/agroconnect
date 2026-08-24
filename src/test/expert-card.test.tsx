@@ -1,5 +1,7 @@
 import React from "react";
 import { describe, it, expect } from "vitest";
+import { readFileSync } from "node:fs";
+import { resolve } from "node:path";
 import { render, screen } from "@testing-library/react";
 import { ExpertCard } from "@/components/ui/ExpertCard";
 
@@ -37,5 +39,11 @@ describe("ExpertCard UI Presentation", () => {
     render(<ExpertCard {...sampleExpert} />);
     const link = screen.getByRole("link");
     expect(link).toHaveAttribute("href", "/agriexpert?expert=dr-joao-silva");
+  });
+
+  it("does not squeeze desktop cards into four columns", () => {
+    const src = readFileSync(resolve(process.cwd(), "src/app/agriexpert/page.tsx"), "utf8");
+    expect(src).toMatch("grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6");
+    expect(src).not.toMatch("xl:grid-cols-4");
   });
 });
