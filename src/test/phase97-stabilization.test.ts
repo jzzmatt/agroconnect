@@ -199,7 +199,11 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(src).toMatch("getCurrentUserProfile");
     expect(src).toMatch(".upsert(");
     expect(src).toMatch('onConflict: "clerk_user_id"');
-    expect(src).toMatch("persisted: persist.ok");
+    // The result must reflect the real write outcome. This previously asserted
+    // `persisted: persist.ok` alongside an unconditional `success: true`; the
+    // contract is now stronger, so a failed write fails the whole activation.
+    expect(src).toMatch('return fail("PLAN_NOT_PERSISTED"');
+    expect(src).toMatch("persisted: true");
   });
 
   it("classifies a dropped Supabase connection as a network fault, not a plan fault", async () => {
