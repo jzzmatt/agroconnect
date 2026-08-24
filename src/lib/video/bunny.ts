@@ -1,15 +1,19 @@
 /**
- * Bunny Stream integration for AgriAcademy and AgriProduct videos.
+ * Bunny Stream integration for AgriAcademy training video only (Phase 4
+ * narrowed Bunny off AgriShopping product video, which now uses ImageKit).
  * Credentials stay on the server. The browser never receives private API keys.
  *
  * Required environment variables:
  * - BUNNY_STREAM_API_KEY        Stream *library* API key (not the account key)
  * - BUNNY_STREAM_LIBRARY_ID     Numeric Stream library ID
  * - BUNNY_STREAM_CDN_HOSTNAME   Pull zone host, e.g. vz-xxxxx.b-cdn.net
- * - BUNNY_STREAM_WEBHOOK_SECRET Optional shared secret for /api/webhooks/bunny
+ * - BUNNY_STREAM_WEBHOOK_SECRET Required to accept /api/webhooks/bunny deliveries.
+ *   Set this to the library's webhook signing secret (Bunny dashboard → Stream
+ *   → your library → Webhooks). Without it every webhook delivery is rejected
+ *   with 401 — there is no unsigned fallback.
  */
 
-import { createHash } from "node:crypto";
+import { createHash, createHmac, timingSafeEqual } from "node:crypto";
 import {
   BUNNY_EMBED_HOST,
   BUNNY_STREAM_API,
@@ -240,13 +244,26 @@ export function mapBunnyStatus(statusCode?: number): BunnyVideoStatus {
   }
 }
 
-export function verifyBunnyWebhook(headers: Record<string, string>): boolean {
+/**
+ * Verifies a Bunny Stream webhook per Bunny's documented `v1` scheme:
+ * lowercase hex HMAC-SHA256 of the exact raw request body, keyed with the
+ * library's webhook signing secret, delivered in `X-BunnyStream-Signature`.
+ *
+ * Deliberately fails closed: a missing secret or signature is rejected
+ * rather than treated as "trust this request because Bunny is configured".
+ * Comparison is timing-safe so response time cannot leak the secret.
+ */
+export function verifyBunnyWebhook(rawBody: string, headers: Record<string, string>): boolean {
   const config = getBunnyConfig();
-  if (!config.webhookSecret) return isBunnyConfigured();
-  const provided =
-    headers["x-bunny-signature"] ||
-    headers["bunny-signature"] ||
-    headers["authorization"] ||
-    "";
-  return provided === config.webhookSecret;
+  if (!config.webhookSecret) return false;
+
+  const provided = (headers["x-bunnystream-signature"] || "").trim().toLowerCase();
+  if (!/^[0-9a-f]{64}$/.test(provided)) return false;
+
+  const expected = createHmac("sha256", config.webhookSecret).update(rawBody, "utf8").digest("hex");
+
+  const providedBuffer = Buffer.from(provided, "hex");
+  const expectedBuffer = Buffer.from(expected, "hex");
+  if (providedBuffer.length !== expectedBuffer.length) return false;
+  return timingSafeEqual(providedBuffer, expectedBuffer);
 }
