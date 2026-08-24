@@ -4,34 +4,17 @@ import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useUser } from "@clerk/nextjs";
 import { Button } from "@/components/ui";
-import { Check, Lock, HelpCircle, Loader2, AlertCircle } from "lucide-react";
+import { Check, Lock, HelpCircle, AlertCircle } from "lucide-react";
 import { getSelectablePlans } from "@/lib/services/pricing-service";
-import { useAuthoritativePlan, notifySubscriptionChanged } from "@/lib/subscription/use-authoritative-plan";
-import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useI18n } from "@/i18n/provider";
 import {
   formatProductLimitLabel,
   formatVideoStorageLabel,
   getLocalizedPlanCopy,
 } from "@/i18n/plan-copy";
+import { SubscriptionSyncModal } from "./SubscriptionSyncModal";
 import type { SubscriptionPlan } from "@/types/database";
-
-function friendlyActivateError(dict: ReturnType<typeof useI18n>["dict"], raw?: string | null) {
-  const fallback = dict.dash.planUpdateFailed || dict.pricing.activateError;
-  const message = String(raw || "");
-  if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) return message;
-  return sanitizeActivationError(raw, fallback);
-}
-
-/**
- * A generic "could not update your plan" hides whether the environment has the
- * feature switched off, the database is unreachable, or the write was rejected.
- * The code is appended so the cause is identifiable from the screen alone.
- */
-function withDiagnosticCode(message: string, code?: string | null): string {
-  if (!code || code === "ACTIVATED" || code === "AUTH_REQUIRED") return message;
-  return `${message} (${code})`;
-}
 
 function PlanCardSkeleton() {
   return (
@@ -54,57 +37,16 @@ export function PlanCatalog({ embedded = false }: { embedded?: boolean }) {
   const { dict } = useI18n();
   const { isSignedIn, isLoaded } = useUser();
   const { currentPlan, loading, error: planError, refresh, fromDatabase } = useAuthoritativePlan();
-  const [activating, setActivating] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [syncPlan, setSyncPlan] = useState<SubscriptionPlan | null>(null);
 
-  const handleSelectPlan = async (planId: SubscriptionPlan) => {
+  const handleSelectPlan = (planId: SubscriptionPlan) => {
     if (!isLoaded) return;
     if (!isSignedIn) {
       router.push(`/sign-up?plan=${planId}`);
       return;
     }
 
-    setActivating(planId);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/subscription/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        redirect: "manual",
-        body: JSON.stringify({ plan: planId }),
-      });
-
-      if (response.type === "opaqueredirect" || [301, 302, 303, 307, 308].includes(response.status)) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
-        return;
-      }
-      const result = await response.json().catch(() => null);
-
-      if (response.status === 401 || /autorizado|iniciar sessão|sign in|unauthor/i.test(result?.error || "")) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
-        return;
-      }
-
-      if (!response.ok || !result?.success) {
-        if (result?.detail) {
-          console.warn("[planos] activation failed:", result.code, result.detail);
-        }
-        setError(withDiagnosticCode(friendlyActivateError(dict, result?.error), result?.code));
-        return;
-      }
-
-      // Database write succeeded. Re-fetch the current plan before updating UI.
-      await refresh();
-      notifySubscriptionChanged();
-      router.push("/dashboard");
-    } catch (err: any) {
-      setError(friendlyActivateError(dict, err?.message));
-    } finally {
-      setActivating(null);
-    }
+    setSyncPlan(planId);
   };
 
   const waitingForCurrentPlan = Boolean(isSignedIn) && (loading || (!fromDatabase && !planError));
@@ -112,17 +54,15 @@ export function PlanCatalog({ embedded = false }: { embedded?: boolean }) {
 
   return (
     <>
-      {(error || (isSignedIn && planError)) && (
+      {isSignedIn && planError && (
         <div className="max-w-xl mx-auto p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold text-center space-y-3">
           <div className="flex items-center justify-center gap-2">
             <AlertCircle className="w-4 h-4" />
-            <span>{error || planError}</span>
+            <span>{planError}</span>
           </div>
-          {isSignedIn && planError && (
-            <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>
-              {dict.pricing.retryLoad}
-            </Button>
-          )}
+          <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>
+            {dict.pricing.retryLoad}
+          </Button>
         </div>
       )}
 
@@ -209,20 +149,13 @@ export function PlanCatalog({ embedded = false }: { embedded?: boolean }) {
                     type="button"
                     variant={plan.isPopular ? "primary" : "outline"}
                     size="sm"
-                    disabled={activating !== null || !isLoaded}
-                    onClick={() => void handleSelectPlan(plan.id)}
+                    disabled={syncPlan !== null || !isLoaded}
+                    onClick={() => handleSelectPlan(plan.id)}
                     className={`w-full font-bold text-xs h-11 ${
                       plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
                     }`}
                   >
-                    {activating === plan.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{dict.pricing.activating}</span>
-                      </>
-                    ) : (
-                      <span>{copy.cta}</span>
-                    )}
+                    <span>{copy.cta}</span>
                   </Button>
                 </div>
               </div>
@@ -243,6 +176,14 @@ export function PlanCatalog({ embedded = false }: { embedded?: boolean }) {
             </div>
           </div>
         </div>
+      )}
+
+      {syncPlan && (
+        <SubscriptionSyncModal
+          isOpen
+          targetPlan={syncPlan}
+          onClose={() => setSyncPlan(null)}
+        />
       )}
     </>
   );

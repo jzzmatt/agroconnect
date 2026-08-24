@@ -774,8 +774,10 @@ export const pt = {
     readyTitle: "O seu plano {plan} está pronto!",
     readyMessage: "O seu novo plano foi ativado com sucesso. Termine a sessão e volte a entrar para carregar o novo painel e permissões de forma limpa.",
     logoutButton: "Terminar Sessão e Entrar",
+    signingOut: "A terminar sessão...",
     retryButton: "Tentar novamente",
     errorMessage: "Não foi possível concluir a sincronização. Por favor, tente novamente.",
+    planMismatch: "O plano gravado na base de dados não corresponde ao plano selecionado.",
     waitingMessage: "A aguardar confirmação da subscrição...",
   },
 };

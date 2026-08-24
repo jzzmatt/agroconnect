@@ -9,7 +9,7 @@ function read(relativePath: string): string {
 
 const ACTIVATE = "src/lib/subscription/activate-plan.ts";
 const ROUTE = "src/app/api/subscription/activate/route.ts";
-const PRICING = "src/components/subscription/PlanCatalog.tsx";
+const SYNC_MODAL = "src/components/subscription/SubscriptionSyncModal.tsx";
 const HEALTH = "src/app/api/health/config/route.ts";
 
 describe("plan activation reports the real outcome", () => {
@@ -57,7 +57,9 @@ describe("plan activation reports the real outcome", () => {
   });
 
   it("surfaces the diagnostic code to the user instead of a bare generic message", () => {
-    const src = read(PRICING);
+    const errors = read("src/lib/subscription/activation-errors.ts");
+    const src = read(SYNC_MODAL);
+    expect(errors).toMatch("export function withDiagnosticCode");
     expect(src).toMatch("withDiagnosticCode");
     expect(src).toMatch("result?.code");
   });

@@ -30,4 +30,6 @@ The database is the only source of truth. Never determine the current plan from 
 
 Hide the user's current subscribed plan from plan-selection cards everywhere, including `/planos` and the homepage. Unsubscribed users see every purchasable plan, including Basic.
 
+After a signed-in user selects a plan, open the non-dismissible `SubscriptionSyncModal`. Activation writes to the database, the modal verifies that the stored plan equals the selected plan, then the user must sign out and sign back in. Do not redirect to the dashboard on success. Do not treat sessionStorage or an optimistic overlay as the current plan.
+
 Do not create a Basic (or any) subscription row for new users. Existing legitimate subscribers must keep their stored plan.

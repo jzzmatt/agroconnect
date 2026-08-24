@@ -776,8 +776,10 @@ export const fr: Dictionary = {
     readyTitle: "Votre plan {plan} est prêt !",
     readyMessage: "Votre nouveau plan a été activé avec succès. Veuillez vous déconnecter et vous reconnecter pour charger votre nouveau tableau de bord et vos autorisations.",
     logoutButton: "Se déconnecter et se reconnecter",
+    signingOut: "Déconnexion...",
     retryButton: "Réessayer",
     errorMessage: "Impossible de terminer la mise à jour du compte. Veuillez réessayer.",
+    planMismatch: "Le plan enregistré dans la base de données ne correspond pas au plan sélectionné.",
     waitingMessage: "En attente de confirmation de l'abonnement...",
   },
 };

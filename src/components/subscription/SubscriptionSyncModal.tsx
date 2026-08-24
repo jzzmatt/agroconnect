@@ -1,13 +1,17 @@
 "use client";
 
 import React, { useState, useEffect, useCallback } from "react";
+import { useRouter } from "next/navigation";
 import { Check, Loader2, Sparkles, AlertCircle, LogOut, RefreshCw } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
-import { setOptimisticPlan } from "@/lib/subscription/optimistic";
 import { notifySubscriptionChanged } from "@/lib/subscription/use-authoritative-plan";
 import { invalidateClientProfileCache } from "@/lib/auth/user-client-cache";
+import {
+  sanitizeActivationError,
+  withDiagnosticCode,
+} from "@/lib/subscription/activation-errors";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import type { SubscriptionPlan } from "@/types/database";
 
@@ -40,11 +44,19 @@ const STAGE_PERCENTAGES: Record<SyncStage, number> = {
   error: 100,
 };
 
+function isAuthFailure(status: number, error?: string | null) {
+  return (
+    status === 401 ||
+    /autorizado|iniciar sessão|sign in|unauthor/i.test(error || "")
+  );
+}
+
 export function SubscriptionSyncModal({
   isOpen,
   targetPlan,
   onClose,
 }: SubscriptionSyncModalProps) {
+  const router = useRouter();
   const { dict } = useI18n();
   const { handleSignOut, pending: isSigningOut } = useSignOut();
   const [currentStage, setCurrentStage] = useState<SyncStage>("confirming");
@@ -59,56 +71,70 @@ export function SubscriptionSyncModal({
     setErrorDetails(null);
 
     try {
-      // Stage 1: Call server activation endpoint
       const response = await fetch("/api/subscription/activate", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "same-origin",
         cache: "no-store",
+        redirect: "manual",
         body: JSON.stringify({ plan: targetPlan }),
       });
 
       setCurrentStage("updating_plan");
 
-      const result = await response.json().catch(() => null);
-      if (!response.ok || !result?.success) {
-        throw new Error(result?.error || dict.sync.errorMessage);
+      if (
+        response.type === "opaqueredirect" ||
+        [301, 302, 303, 307, 308].includes(response.status)
+      ) {
+        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
+        return;
       }
 
-      // Stage 2 & 3: Permissions & Local synchronization
+      const result = await response.json().catch(() => null);
+
+      if (isAuthFailure(response.status, result?.error)) {
+        router.push(`/sign-in?redirect_url=${encodeURIComponent("/planos")}`);
+        return;
+      }
+
+      if (!response.ok || !result?.success) {
+        if (result?.detail) {
+          console.warn("[SubscriptionSync] activation failed:", result.code, result.detail);
+        }
+        throw new Error(
+          withDiagnosticCode(
+            sanitizeActivationError(result?.error, dict.sync.errorMessage),
+            result?.code
+          )
+        );
+      }
+
       setCurrentStage("updating_permissions");
-      setOptimisticPlan(result.plan || targetPlan);
       invalidateClientProfileCache();
       notifySubscriptionChanged();
 
-      // Stage 4: Dashboard revalidation
       setCurrentStage("revalidating_dashboard");
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // Stage 5: Products revalidation
       setCurrentStage("revalidating_products");
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // Stage 6: Courses revalidation
       setCurrentStage("revalidating_courses");
       await new Promise((resolve) => setTimeout(resolve, 350));
 
-      // Stage 7: Authoritative verification
       setCurrentStage("verifying");
-      if (result.plan !== targetPlan && result.plan !== "basic") {
-        // Plan divergence check
-        console.warn("[SubscriptionSync] Plan verified as:", result.plan);
+      if (result.plan !== targetPlan) {
+        throw new Error(dict.sync.planMismatch);
       }
       await new Promise((resolve) => setTimeout(resolve, 300));
 
-      // Stage 8: 100% completed
       setCurrentStage("completed");
     } catch (err: unknown) {
       console.error("[SubscriptionSync] Sync error:", err);
       setErrorDetails(err instanceof Error ? err.message : dict.sync.errorMessage);
       setCurrentStage("error");
     }
-  }, [targetPlan, dict]);
+  }, [targetPlan, dict, router]);
 
   useEffect(() => {
     if (isOpen) {
@@ -170,7 +196,6 @@ export function SubscriptionSyncModal({
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-md animate-in fade-in duration-200 select-none">
       <div className="bg-surface-elevated w-full max-w-lg rounded-3xl border border-border shadow-2xl p-6 sm:p-8 relative flex flex-col space-y-6">
-        {/* Header */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 rounded-2xl bg-amber-500/15 text-amber-600 dark:text-amber-400 flex items-center justify-center mx-auto shadow-inner ring-1 ring-amber-500/30">
             {isCompleted ? (
@@ -199,7 +224,6 @@ export function SubscriptionSyncModal({
           </p>
         </div>
 
-        {/* Progress Bar */}
         {!isError && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-bold">
@@ -218,7 +242,6 @@ export function SubscriptionSyncModal({
           </div>
         )}
 
-        {/* Real Task Progression Steps */}
         {!isError && (
           <div className="bg-surface p-4 rounded-2xl border border-border space-y-2.5 max-h-56 overflow-y-auto">
             {stageItems.map((item) => (
@@ -249,7 +272,6 @@ export function SubscriptionSyncModal({
           </div>
         )}
 
-        {/* Final State / Action Area */}
         {isCompleted ? (
           <div className="space-y-3 pt-2">
             <Button
@@ -263,7 +285,7 @@ export function SubscriptionSyncModal({
               {isSigningOut ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>A terminar sessão...</span>
+                  <span>{dict.sync.signingOut}</span>
                 </>
               ) : (
                 <>

@@ -776,8 +776,10 @@ export const en: Dictionary = {
     readyTitle: "Your {plan} plan is ready!",
     readyMessage: "Your new plan has been activated successfully. Please log out and log back in to load your updated dashboard and permissions cleanly.",
     logoutButton: "Log Out & Sign In",
+    signingOut: "Signing out...",
     retryButton: "Try again",
     errorMessage: "We couldn't finish updating your account. Please try again.",
+    planMismatch: "The plan saved in the database does not match the selected plan.",
     waitingMessage: "Waiting for subscription confirmation...",
   },
 };

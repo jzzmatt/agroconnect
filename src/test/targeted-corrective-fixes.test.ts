@@ -37,9 +37,23 @@ describe("FIX 1 — subscription plan comes from the database", () => {
   });
 
   it("plan cards do not write an optimistic browser plan", () => {
-    const src = read("src/components/subscription/PlanCatalog.tsx");
-    expect(src).not.toMatch("setOptimisticPlan");
-    expect(src).toMatch("await refresh()");
+    const catalog = read("src/components/subscription/PlanCatalog.tsx");
+    const modal = read("src/components/subscription/SubscriptionSyncModal.tsx");
+    expect(catalog).not.toMatch("setOptimisticPlan");
+    expect(modal).not.toMatch("setOptimisticPlan");
+    expect(catalog).toMatch("SubscriptionSyncModal");
+  });
+
+  it("opens the controlled sync modal instead of redirecting to the dashboard", () => {
+    const catalog = read("src/components/subscription/PlanCatalog.tsx");
+    const modal = read("src/components/subscription/SubscriptionSyncModal.tsx");
+    expect(catalog).toMatch("SubscriptionSyncModal");
+    expect(catalog).not.toMatch('router.push("/dashboard")');
+    expect(catalog).not.toMatch("/api/subscription/activate");
+    expect(modal).toMatch("/api/subscription/activate");
+    expect(modal).toMatch("handleSignOut");
+    expect(modal).toMatch("result.plan !== targetPlan");
+    expect(modal).not.toMatch('result.plan !== "basic"');
   });
 });
 
