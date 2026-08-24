@@ -520,6 +520,8 @@ export const en: Dictionary = {
     MEDIA_UPLOAD_FAILED: "We couldn't upload the media file.",
     BUNNY_NOT_CONFIGURED: "Video upload is not configured. Add the Bunny Stream keys.",
     BUNNY_UPLOAD_FAILED: "We couldn't upload the video to Bunny Stream. Please try again.",
+    IMAGEKIT_NOT_CONFIGURED: "Media upload is not configured. Add the ImageKit keys.",
+    IMAGEKIT_UPLOAD_FAILED: "We couldn't upload the file to ImageKit. Please try again.",
     PRODUCT_PUBLISH_TIMEOUT: "We couldn't finish publishing. Please try again.",
     VIDEO_OPTIMIZE_FAILED: "We couldn't optimize this video.",
     PRODUCT_LIMIT_REACHED: "You have reached your plan’s product limit.",
