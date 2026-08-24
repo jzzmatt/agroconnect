@@ -136,16 +136,6 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         icon: Package,
       },
       {
-        title: dict.navDash.editProduct,
-        href: "/dashboard/products",
-        icon: Store,
-      },
-      {
-        title: dict.navDash.publishProduct,
-        href: "/dashboard/products/new",
-        icon: Package,
-      },
-      {
         title: dict.navDash.receivedOrders,
         href: "/dashboard/orders",
         icon: Package,

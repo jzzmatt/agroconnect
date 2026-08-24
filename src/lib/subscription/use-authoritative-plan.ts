@@ -1,7 +1,11 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import {
+  fetchClientProfileDetails,
+  getSynchronousCachedProfile,
+  invalidateClientProfileCache,
+} from "@/lib/auth/user-client-cache";
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
 import { clearOptimisticPlan, getOptimisticPlan } from "@/lib/subscription/optimistic";
@@ -32,22 +36,31 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  * server plan.
  */
 export function useAuthoritativePlan() {
-  const [plan, setPlan] = useState<SubscriptionPlan>("basic");
-  const [marketCountry, setMarketCountry] = useState<MarketCountry>(
-    getMarketCountry(DEFAULT_MARKET_COUNTRY)
-  );
-  const [locale, setLocale] = useState<"pt" | "en" | "fr">("pt");
-  const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(0);
-  const [loading, setLoading] = useState(true);
+  const syncCached = typeof window !== "undefined" ? getSynchronousCachedProfile() : null;
+  const initialPlan = syncCached?.subscription_plan
+    ? normalizePlanSlug(syncCached.subscription_plan)
+    : (typeof window !== "undefined" ? getOptimisticPlan() : null) || "basic";
 
-  const refresh = useCallback(async () => {
+  const [plan, setPlan] = useState<SubscriptionPlan>(initialPlan);
+  const [marketCountry, setMarketCountry] = useState<MarketCountry>(
+    getMarketCountry(syncCached?.market_country_code || DEFAULT_MARKET_COUNTRY)
+  );
+  const [locale, setLocale] = useState<"pt" | "en" | "fr">(
+    (syncCached?.preferred_language as "pt" | "en" | "fr") || "pt"
+  );
+  const [videoStorageUsedBytes, setVideoStorageUsedBytes] = useState(
+    syncCached?.video_storage_used_bytes || 0
+  );
+  const [loading, setLoading] = useState(!syncCached && !getOptimisticPlan());
+
+  const refresh = useCallback(async (force = false) => {
     const optimistic = getOptimisticPlan();
-    if (optimistic && loading) {
+    if (optimistic) {
       setPlan(optimistic);
     }
 
     try {
-      const profile = await withTimeout(getProfileDetailsAction(), 8000);
+      const profile = await withTimeout(fetchClientProfileDetails(force), 8000);
       if (profile) {
         const nextPlan = normalizePlanSlug(profile.subscription_plan);
         setPlan(nextPlan);
@@ -69,14 +82,15 @@ export function useAuthoritativePlan() {
     } finally {
       setLoading(false);
     }
-  }, [loading]);
+  }, []);
 
   useEffect(() => {
     refresh();
     if (typeof window === "undefined") return;
 
     const onChange = () => {
-      refresh();
+      invalidateClientProfileCache();
+      refresh(true);
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
     window.addEventListener("focus", onChange);
@@ -104,5 +118,6 @@ export function useAuthoritativePlan() {
 
 export function notifySubscriptionChanged() {
   if (typeof window === "undefined") return;
+  invalidateClientProfileCache();
   window.dispatchEvent(new Event(SUBSCRIPTION_CHANGED_EVENT));
 }

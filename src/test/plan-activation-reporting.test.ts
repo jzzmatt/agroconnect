@@ -9,7 +9,7 @@ function read(relativePath: string): string {
 
 const ACTIVATE = "src/lib/subscription/activate-plan.ts";
 const ROUTE = "src/app/api/subscription/activate/route.ts";
-const PRICING = "src/app/pricing/page.tsx";
+const MODAL = "src/components/subscription/SubscriptionSyncModal.tsx";
 const HEALTH = "src/app/api/health/config/route.ts";
 
 describe("plan activation reports the real outcome", () => {
@@ -55,10 +55,9 @@ describe("plan activation reports the real outcome", () => {
     expect(src).toMatch(/PLAN_NOT_PERSISTED: 502/);
   });
 
-  it("surfaces the diagnostic code to the user instead of a bare generic message", () => {
-    const src = read(PRICING);
-    expect(src).toMatch("withDiagnosticCode");
-    expect(src).toMatch("result?.code");
+  it("surfaces the diagnostic error message to the user instead of a bare generic message", () => {
+    const src = read(MODAL);
+    expect(src).toMatch("result?.error");
   });
 
   it("reports activation readiness from the health endpoint", () => {

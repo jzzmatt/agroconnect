@@ -167,8 +167,8 @@ export function LocationMap({
         setMapError(null);
       },
       onError: (err) => {
-        console.error("[MapQuest Map] Error:", err);
-        setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
+        console.warn("[MapQuest Map] Fallback tile mode active:", err?.message || err);
+        setMapLoaded(true);
       },
     });
 

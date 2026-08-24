@@ -1,4 +1,5 @@
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
+import { invalidateCachedUserProfile } from "@/lib/auth/profile-cache";
 import {
   createAdminServerSupabaseClient,
   createServerSupabaseClient,
@@ -21,8 +22,7 @@ type RowResult = {
 };
 
 function isPlaceholderSupabase(): boolean {
-  const url = process.env.NEXT_PUBLIC_SUPABASE_URL || "";
-  return !url || url.includes("placeholder");
+  return !isSupabaseConfigured();
 }
 
 function isUnavailableError(message?: string | null): boolean {
@@ -288,6 +288,8 @@ export async function activateUserSubscriptionPlan(
       );
       return fail("PLAN_NOT_PERSISTED", persist.error || "persist_failed");
     }
+
+    invalidateCachedUserProfile(clerkUserId);
 
     // Cached only after the row is durably written, so the dashboard can read
     // the new plan immediately even if a read replica is briefly behind.

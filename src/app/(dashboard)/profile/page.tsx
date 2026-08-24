@@ -8,7 +8,7 @@ import { Button, Badge, Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { PROFILE_TYPE_CONFIG, getUserGreeting } from "@/lib/auth/identity-resolvers";
 import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
-import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
+import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
@@ -38,7 +38,7 @@ export default function ProfilePage() {
   });
 
   const loadServerProfile = useCallback(async () => {
-    const serverProfile = await getProfileDetailsAction();
+    const serverProfile = await fetchClientProfileDetails();
     if (!serverProfile) return;
 
     setProfileData((prev) => ({

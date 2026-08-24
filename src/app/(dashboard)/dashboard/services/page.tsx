@@ -32,8 +32,8 @@ export default function MyServicesDashboardPage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
-  const { entitlements } = useAuthoritativePlan();
-  const isBasic = !entitlements.can_manage_services;
+  const { entitlements, loading } = useAuthoritativePlan();
+  const isBasic = !loading && !entitlements.can_manage_services;
 
   if (isBasic) {
     return (

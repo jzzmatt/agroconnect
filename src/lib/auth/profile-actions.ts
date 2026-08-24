@@ -2,6 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
+import { invalidateCachedUserProfile } from "@/lib/auth/profile-cache";
 import {
   createServerSupabaseClient,
   tryCreateAdminServerSupabaseClient,
@@ -89,6 +90,8 @@ export async function updateProfileDetailsAction(
       console.warn("[updateProfileDetailsAction] DB error, fallback:", error);
     }
 
+    invalidateCachedUserProfile(current.clerk_user_id);
+
     if (updates.preferred_language || updates.market_country_code) {
       setAuthoritativeSubscription(current.clerk_user_id, {
         plan: normalizePlanSlug(current.subscription_plan),
@@ -148,6 +151,8 @@ export async function switchActiveProfileTypeAction(
       console.warn("[switchActiveProfileType] persist failed:", error.message);
       return { success: false, activeProfileType: profileType, error: error.message };
     }
+
+    invalidateCachedUserProfile(current.clerk_user_id);
 
     revalidatePath("/profile");
     return { success: true, activeProfileType: profileType };
@@ -251,6 +256,8 @@ export async function updateProfileTypesAction(
       }
     }
 
+    invalidateCachedUserProfile(current.clerk_user_id);
+
     // An active profile the user no longer holds would otherwise persist and
     // read back as a type that is not in their list.
     if (!(desired as string[]).includes(current.active_profile_type as string)) {
@@ -350,6 +357,8 @@ export async function updateMarketCountryAction(
       preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
     });
 
+    invalidateCachedUserProfile(current.clerk_user_id);
+
     revalidatePath("/dashboard");
     revalidatePath("/profile");
     revalidatePath("/settings");
@@ -385,6 +394,8 @@ export async function updatePreferredLanguageAction(
       preferredLanguage: locale,
       marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
     });
+
+    invalidateCachedUserProfile(current.clerk_user_id);
 
     return { success: true, locale };
   } catch (err: any) {

@@ -14,6 +14,7 @@ export const PROFILE_CHANGED_EVENT = "agroconnect:profile-changed";
 
 export function notifyProfileChanged() {
   if (typeof window === "undefined") return;
+  import("@/lib/auth/user-client-cache").then((m) => m.invalidateClientProfileCache()).catch(() => undefined);
   window.dispatchEvent(new Event(PROFILE_CHANGED_EVENT));
 }
 
