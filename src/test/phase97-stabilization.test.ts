@@ -50,7 +50,7 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
   it("activates plans through a JSON API instead of a Next.js server action", async () => {
     const { readFile } = await import("node:fs/promises");
     const { resolve } = await import("node:path");
-    const src = await readFile(resolve(process.cwd(), "src/app/pricing/page.tsx"), "utf8");
+    const src = await readFile(resolve(process.cwd(), "src/components/subscription/SubscriptionSyncModal.tsx"), "utf8");
     expect(src).not.toMatch("activateSubscriptionPlanAction");
     expect(src).not.toMatch("withTimeout(");
     expect(src).toMatch("/api/subscription/activate");

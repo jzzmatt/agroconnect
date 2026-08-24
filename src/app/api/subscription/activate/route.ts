@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { revalidatePath } from "next/cache";
 import { activateUserSubscriptionPlan } from "@/lib/subscription/activate-plan";
 import { normalizePlanSlug } from "@/lib/services/pricing-service";
 
@@ -14,6 +15,24 @@ export async function POST(request: Request) {
     const body = await request.json().catch(() => ({}));
     const plan = normalizePlanSlug(body?.plan);
     const result = await activateUserSubscriptionPlan(plan);
+
+    if (result.success) {
+      // Invalidate Next.js route caches on the server for plan-dependent views
+      try {
+        revalidatePath("/dashboard");
+        revalidatePath("/dashboard/products");
+        revalidatePath("/dashboard/products/new");
+        revalidatePath("/dashboard/academy");
+        revalidatePath("/dashboard/academy/my-courses");
+        revalidatePath("/dashboard/services");
+        revalidatePath("/dashboard/orders");
+        revalidatePath("/profile");
+        revalidatePath("/pricing");
+      } catch {
+        // Cache revalidation failure must never break response
+      }
+    }
+
     const status = result.success ? 200 : isAuthError(result.error) ? 401 : 400;
     return NextResponse.json(result, { status });
   } catch (error: unknown) {

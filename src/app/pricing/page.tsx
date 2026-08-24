@@ -6,11 +6,10 @@ import { useUser } from "@clerk/nextjs";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { SectionHeader, Button } from "@/components/ui";
+import { SubscriptionSyncModal } from "@/components/subscription";
 import { Check, Lock, HelpCircle, Loader2 } from "lucide-react";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
-import { useAuthoritativePlan, notifySubscriptionChanged } from "@/lib/subscription/use-authoritative-plan";
-import { setOptimisticPlan } from "@/lib/subscription/optimistic";
-import { sanitizeActivationError } from "@/lib/subscription/activation-errors";
+import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useI18n } from "@/i18n/provider";
 import {
   formatProductLimitLabel,
@@ -19,24 +18,12 @@ import {
 } from "@/i18n/plan-copy";
 import type { SubscriptionPlan } from "@/types/database";
 
-function friendlyActivateError(dict: ReturnType<typeof useI18n>["dict"], raw?: string | null) {
-  const fallback = dict.dash.planUpdateFailed || dict.pricing.activateError;
-  const message = String(raw || "");
-  if (/autorizado|iniciar sessão|sign in|unauthor/i.test(message)) return message;
-  // If the server returns a specific config or database error, show it so the user knows what is missing
-  if (message.includes("base de dados") || message.includes("SUPABASE") || message.includes("CLERK")) {
-    return message;
-  }
-  return sanitizeActivationError(raw, fallback);
-}
-
 export default function PricingPage() {
   const router = useRouter();
   const { dict } = useI18n();
   const { isSignedIn, isLoaded } = useUser();
   const { plan: currentPlan } = useAuthoritativePlan();
-  const [activating, setActivating] = useState<string | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const [syncPlan, setSyncPlan] = useState<SubscriptionPlan | null>(null);
 
   const plans = [
     SUBSCRIPTION_PLANS.basic,
@@ -45,59 +32,27 @@ export default function PricingPage() {
     SUBSCRIPTION_PLANS.enterprise,
   ];
 
-  const handleSelectPlan = async (planId: SubscriptionPlan) => {
+  const handleSelectPlan = (planId: SubscriptionPlan) => {
     if (!isLoaded) return;
     if (!isSignedIn) {
       router.push(`/sign-up?plan=${planId}`);
       return;
     }
 
-    setActivating(planId);
-    setError(null);
-
-    try {
-      const response = await fetch("/api/subscription/activate", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        redirect: "manual",
-        body: JSON.stringify({ plan: planId }),
-      });
-
-      if (response.type === "opaqueredirect" || [301, 302, 303, 307, 308].includes(response.status)) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
-        return;
-      }
-      const result = await response.json().catch(() => null);
-
-      if (response.status === 401 || /autorizado|iniciar sessão|sign in|unauthor/i.test(result?.error || "")) {
-        router.push(`/sign-in?redirect_url=${encodeURIComponent("/pricing")}`);
-        return;
-      }
-
-      if (!response.ok || !result?.success) {
-        setError(friendlyActivateError(dict, result?.error));
-        return;
-      }
-
-      setOptimisticPlan(result.plan || planId);
-      notifySubscriptionChanged();
-      if (typeof window !== "undefined") {
-        window.location.href = "/dashboard";
-      } else {
-        router.push("/dashboard");
-      }
-    } catch (err: any) {
-      setError(friendlyActivateError(dict, err?.message));
-    } finally {
-      setActivating(null);
-    }
+    setSyncPlan(planId);
   };
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors overflow-x-hidden">
       <Navbar />
+
+      {syncPlan && (
+        <SubscriptionSyncModal
+          isOpen={Boolean(syncPlan)}
+          targetPlan={syncPlan}
+          onClose={() => setSyncPlan(null)}
+        />
+      )}
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 sm:py-20 w-full space-y-12">
         <SectionHeader
@@ -106,12 +61,6 @@ export default function PricingPage() {
           subtitle={dict.pricing.subtitle}
           align="center"
         />
-
-        {error && (
-          <div className="max-w-xl mx-auto p-3 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold text-center">
-            {error}
-          </div>
-        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 max-w-7xl mx-auto items-stretch">
           {plans.map((plan) => {
@@ -186,18 +135,13 @@ export default function PricingPage() {
                     type="button"
                     variant={plan.isPopular ? "primary" : "outline"}
                     size="sm"
-                    disabled={activating !== null || isCurrent || !isLoaded}
-                    onClick={() => void handleSelectPlan(plan.id)}
+                    disabled={isCurrent || !isLoaded}
+                    onClick={() => handleSelectPlan(plan.id)}
                     className={`w-full font-bold text-xs h-11 ${
                       plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
                     }`}
                   >
-                    {activating === plan.id ? (
-                      <>
-                        <Loader2 className="w-4 h-4 animate-spin" />
-                        <span>{dict.pricing.activating}</span>
-                      </>
-                    ) : isCurrent ? (
+                    {isCurrent ? (
                       <span>{dict.pricing.currentPlan}</span>
                     ) : (
                       <span>{copy.cta}</span>

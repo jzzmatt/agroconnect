@@ -751,6 +751,25 @@ export const pt = {
     confirmDelete: "Tem a certeza de que pretende eliminar?",
     confirmPublish: "Publicar este produto?",
   },
+  sync: {
+    title: "A sincronizar o seu plano {plan}",
+    subtitle: "A preparar a sua conta e permissões para o novo plano.",
+    doNotClose: "Por favor, não feche esta janela.",
+    stageConfirmed: "Subscrição confirmada",
+    stageUpdatingPlan: "A atualizar plano da conta",
+    stageUpdatingPermissions: "A atualizar permissões e limites",
+    stageRevalidatingDashboard: "A atualizar dados do painel",
+    stageRevalidatingProducts: "A atualizar produtos",
+    stageRevalidatingCourses: "A atualizar cursos e multimédia",
+    stageVerifying: "A verificar integridade da conta",
+    stageCompleted: "Sincronização concluída com sucesso",
+    readyTitle: "O seu plano {plan} está pronto!",
+    readyMessage: "O seu novo plano foi ativado com sucesso. Termine a sessão e volte a entrar para carregar o novo painel e permissões de forma limpa.",
+    logoutButton: "Terminar Sessão e Entrar",
+    retryButton: "Tentar novamente",
+    errorMessage: "Não foi possível concluir a sincronização. Por favor, tente novamente.",
+    waitingMessage: "A aguardar confirmação da subscrição...",
+  },
 };
 
 export type Dictionary = typeof pt;
