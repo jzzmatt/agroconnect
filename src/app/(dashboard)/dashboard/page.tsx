@@ -37,7 +37,6 @@ export default function DashboardPage() {
   const { user } = useUser();
   const { dict, locale } = useI18n();
   const { plan, loading, fromDatabase, error, refresh, marketCountry } = useAuthoritativePlan();
-  const planCopy = getLocalizedPlanCopy(dict, plan);
 
   const [profile, setProfile] = useState({
     displayName: "",

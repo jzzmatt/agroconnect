@@ -9,6 +9,7 @@ import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
 import { can, subjectFromProfile, type Permission } from "@/lib/authorization";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
+import { parseStoredPlan } from "@/lib/services/pricing-service";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { cn } from "@/lib/utils";
@@ -47,7 +48,7 @@ export function DashboardSidebar({
     clerk_user_id: "",
     roles: userRoles,
     account_type: "customer",
-    subscription_plan: subscriptionPlan ?? null,
+    subscription_plan: parseStoredPlan(subscriptionPlan),
   });
 
   /**

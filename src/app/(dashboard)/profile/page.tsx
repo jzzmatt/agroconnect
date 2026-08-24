@@ -11,10 +11,12 @@ import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS } from "@/lib/services/pric
 import { getProfileDetailsAction } from "@/lib/auth/profile-actions";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { useI18n } from "@/i18n/provider";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
 
 export default function ProfilePage() {
   const { user } = useUser();
+  const { dict } = useI18n();
   const { plan } = useAuthoritativePlan();
 
   const [profileData, setProfileData] = useState({
