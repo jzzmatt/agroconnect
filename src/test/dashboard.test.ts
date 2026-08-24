@@ -28,4 +28,16 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     const enNav = getDashboardNavigation(en);
     expect(enNav.find((s) => s.pillar === "agriShopping")?.title).toBe(en.navDash.shoppingSales);
   });
+
+  it("keeps product creation on the Produtos page instead of a sidebar duplicate", () => {
+    const pt = getDictionary("pt");
+    const shopping = getDashboardNavigation(pt).find((s) => s.pillar === "agriShopping");
+    const hrefs = shopping?.items.map((item) => item.href) ?? [];
+    const titles = shopping?.items.map((item) => item.title) ?? [];
+
+    expect(hrefs).toContain("/dashboard/products");
+    expect(titles).toContain(pt.navDash.myProducts);
+    expect(hrefs).not.toContain("/dashboard/products/new");
+    expect(titles).not.toContain(pt.navDash.addProduct);
+  });
 });
