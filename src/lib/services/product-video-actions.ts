@@ -4,7 +4,6 @@ import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { ProductVideoService } from "@/lib/services/product-video-service";
 import { validateProductVideo } from "@/lib/products/video-validation";
-import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { PRODUCT_ERROR_CODES, createRequestId, logProductOperation } from "@/lib/products/errors";
 import { isUuid, normalizeVideoUploadMeta } from "@/lib/products/ids";
 import {
@@ -93,29 +92,6 @@ export async function createProductVideoUploadAction(params: {
       durationSeconds: params.durationSeconds,
     });
 
-    try {
-      const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
-      await (supabase.from("product_videos") as any).insert({
-        id: created.video.id,
-        product_id: params.productId,
-        owner_id: profile.id,
-        bunny_video_id: created.video.bunny_video_id,
-        bunny_library_id: created.video.bunny_library_id,
-        filename: created.video.filename,
-        mime_type: created.video.mime_type,
-        file_size: created.video.file_size,
-        duration_seconds: created.video.duration_seconds,
-        status: created.video.status,
-        thumbnail_url: created.video.thumbnail_url,
-        playback_url: created.video.playback_url,
-      });
-      await (supabase.from("products") as any)
-        .update({ product_video_id: created.video.id })
-        .eq("id", params.productId);
-    } catch (persistError: any) {
-      console.warn("[createProductVideoUploadAction] persistence warning:", persistError?.message);
-    }
-
     logProductOperation({
       requestId,
       operation: "product_video_upload",
@@ -144,6 +120,46 @@ export async function createProductVideoUploadAction(params: {
   }
 }
 
+export async function confirmProductVideoUploadAction(params: {
+  videoId: string;
+  productId: string;
+  fileId: string;
+  url: string;
+  thumbnailUrl?: string | null;
+  fileSize?: number;
+}) {
+  const requestId = createRequestId();
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };
+  }
+
+  try {
+    await requireProductOwnership(params.productId, subjectFromProfile(profile));
+  } catch (ownershipError) {
+    if (ownershipError instanceof AuthorizationError) {
+      return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_FORBIDDEN, requestId };
+    }
+    throw ownershipError;
+  }
+
+  const video = await ProductVideoService.confirmUpload({
+    videoId: params.videoId,
+    ownerId: profile.id,
+    externalId: params.fileId,
+    url: params.url,
+    thumbnailUrl: params.thumbnailUrl,
+    fileSize: params.fileSize,
+  });
+
+  if (!video) {
+    return { success: false, code: PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED, requestId };
+  }
+
+  return { success: true, requestId, video };
+}
+
 export async function deleteProductVideoAction(videoId: string) {
   await requireAuth();
   const profile = await getCurrentUserProfile();
@@ -152,5 +168,5 @@ export async function deleteProductVideoAction(videoId: string) {
   if (!entitlements.can_upload_product_video) {
     return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_FORBIDDEN };
   }
-  return { success: ProductVideoService.markDeleted(videoId, profile.id) };
+  return { success: await ProductVideoService.markDeleted(videoId, profile.id) };
 }

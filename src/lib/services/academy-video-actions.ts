@@ -17,7 +17,7 @@ export async function getAcademyStorageAction() {
     };
   }
   const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
-  const usedBytes = profile.video_storage_used_bytes || AcademyVideoService.getUsageBytes(profile.id);
+  const usedBytes = profile.video_storage_used_bytes || (await AcademyVideoService.getUsageBytes(profile.id));
   const limitBytes = entitlements.video_storage_limit_bytes;
   return {
     usedBytes,
@@ -25,7 +25,7 @@ export async function getAcademyStorageAction() {
     usedLabel: formatVideoStorage(usedBytes),
     limitLabel: formatVideoStorage(limitBytes),
     percent: limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0,
-    videos: AcademyVideoService.listByOwner(profile.id),
+    videos: await AcademyVideoService.listByOwner(profile.id),
   };
 }
 
