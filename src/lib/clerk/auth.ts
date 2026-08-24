@@ -60,11 +60,14 @@ export async function getCurrentProfile(): Promise<UserProfileWithRoles | null> 
  * Gracefully handles the bootstrap situation (Clerk user exists, Supabase profile not yet synced).
  */
 export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | null> {
+  const { userId } = await auth();
+  if (!userId) return null;
+
+  const cached = getCachedUserProfile(userId);
+  if (cached) return cached;
+
   const clerkUser = await currentUser();
   if (!clerkUser) return null;
-
-  const cached = getCachedUserProfile(clerkUser.id);
-  if (cached) return cached;
 
   const writer =
     tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());

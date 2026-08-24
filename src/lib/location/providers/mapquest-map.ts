@@ -16,40 +16,60 @@ export function getMapTileUrl(
   layer: MapLayerType = "map"
 ): { url: string; attribution: string; subdomains: string[] } {
   const attribution =
-    '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
-  const subdomains = ["a", "b", "c", "d"];
+    '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors';
+  const subdomains = ["a", "b", "c"];
   const key = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
   const keyQuery = key ? `?key=${key}` : "";
 
-  switch (layer) {
-    case "satellite":
-    case "hybrid":
-      return {
-        url: `https://{s}.tiles.mapquest.com/render/latest/satellite/{z}/{x}/{y}/256/png${keyQuery}`,
-        attribution:
-          '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; DigitalGlobe &copy; USDA &copy; USGS',
-        subdomains,
-      };
-    case "dark":
-      return {
-        url: `https://{s}.tiles.mapquest.com/render/latest/night/{z}/{x}/{y}/256/png${keyQuery}`,
-        attribution,
-        subdomains,
-      };
-    case "light":
-      return {
-        url: `https://{s}.tiles.mapquest.com/render/latest/grayscale/{z}/{x}/{y}/256/png${keyQuery}`,
-        attribution,
-        subdomains,
-      };
-    case "map":
-    default:
-      return {
-        url: `https://{s}.tiles.mapquest.com/render/latest/vivid/{z}/{x}/{y}/256/png${keyQuery}`,
-        attribution,
-        subdomains,
-      };
+  // If a valid MapQuest API key is configured, use official MapQuest raster tiles.
+  // Otherwise, gracefully fallback to high-availability OpenStreetMap tiles so the map
+  // never fails or loops with 401/403 network tile exceptions.
+  if (key && key !== "your_mapquest_api_key_here") {
+    switch (layer) {
+      case "satellite":
+      case "hybrid":
+        return {
+          url: `https://{s}.tiles.mapquest.com/render/latest/satellite/{z}/{x}/{y}/256/png${keyQuery}`,
+          attribution:
+            '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; DigitalGlobe &copy; USDA &copy; USGS',
+          subdomains: ["a", "b", "c", "d"],
+        };
+      case "dark":
+        return {
+          url: `https://{s}.tiles.mapquest.com/render/latest/night/{z}/{x}/{y}/256/png${keyQuery}`,
+          attribution: '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; OpenStreetMap',
+          subdomains: ["a", "b", "c", "d"],
+        };
+      case "light":
+        return {
+          url: `https://{s}.tiles.mapquest.com/render/latest/grayscale/{z}/{x}/{y}/256/png${keyQuery}`,
+          attribution: '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; OpenStreetMap',
+          subdomains: ["a", "b", "c", "d"],
+        };
+      case "map":
+      default:
+        return {
+          url: `https://{s}.tiles.mapquest.com/render/latest/vivid/{z}/{x}/{y}/256/png${keyQuery}`,
+          attribution: '&copy; <a href="https://www.mapquest.com" target="_blank">MapQuest</a> &copy; OpenStreetMap',
+          subdomains: ["a", "b", "c", "d"],
+        };
+    }
   }
+
+  // Fallback to standard OpenStreetMap Carto tiles
+  if (layer === "dark") {
+    return {
+      url: "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png",
+      attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors &copy; <a href="https://carto.com/attributions">CARTO</a>',
+      subdomains,
+    };
+  }
+
+  return {
+    url: "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
+    attribution,
+    subdomains,
+  };
 }
 
 /**
@@ -153,7 +173,7 @@ export class MapQuestProvider implements IMapProvider {
         options.onLoad();
       }
     } catch (err: any) {
-      console.error("[MapQuest Init Exception]", err);
+      console.warn("[MapQuest Init Notice] Fallback map mode:", err?.message || err);
       if (options.onError) {
         options.onError(err);
       }
