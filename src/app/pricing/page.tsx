@@ -78,7 +78,11 @@ export default function PricingPage() {
       }
 
       setOptimisticPlan(result.plan || planId);
-      router.push("/dashboard");
+      if (typeof window !== "undefined") {
+        window.location.href = "/dashboard";
+      } else {
+        router.push("/dashboard");
+      }
     } catch (err: any) {
       setError(friendlyActivateError(dict, err?.message));
     } finally {
