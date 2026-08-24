@@ -36,7 +36,7 @@ import type { ProfileType, ProfessionalTitle } from "@/types/database";
 export default function DashboardPage() {
   const { user } = useUser();
   const { dict, locale } = useI18n();
-  const { plan, marketCountry } = useAuthoritativePlan();
+  const { plan, loading, fromDatabase, error, refresh, marketCountry } = useAuthoritativePlan();
   const planCopy = getLocalizedPlanCopy(dict, plan);
 
   const [profile, setProfile] = useState({
@@ -68,7 +68,7 @@ export default function DashboardPage() {
       email: serverProfile.email || prev.email,
       professionalTitle: serverProfile.professional_title || prev.professionalTitle,
       activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-      subscriptionPlan: serverProfile.subscription_plan || "basic",
+      subscriptionPlan: serverProfile.subscription_plan ?? "",
     }));
   }, []);
 
@@ -135,10 +135,10 @@ export default function DashboardPage() {
   });
 
   const activeProfileConfig = PROFILE_TYPE_CONFIG[profile.activeProfile] || PROFILE_TYPE_CONFIG.personal;
-  const planKey = plan;
-  const currentPlanDef = SUBSCRIPTION_PLANS[planKey];
+  const currentPlanDef = plan ? SUBSCRIPTION_PLANS[plan] : null;
+  const planCopy = plan ? getLocalizedPlanCopy(dict, plan) : null;
 
-  const isBasic = planKey === "basic";
+  const isBasic = plan === "basic";
 
   const isLimitReached = entitlements.product_limit_reached || (
     entitlements.product_limit !== null &&
@@ -169,6 +169,28 @@ export default function DashboardPage() {
       triggerLockedModule("Criar e Publicar Cursos no AgriAcademy", "professional");
     }
   };
+
+  if (loading || !fromDatabase) {
+    return (
+      <div className="space-y-4" aria-busy="true">
+        <div className="h-32 rounded-3xl bg-muted animate-pulse" />
+        <div className="h-48 rounded-3xl bg-muted animate-pulse" />
+      </div>
+    );
+  }
+
+  if (error || !plan || !currentPlanDef || !planCopy) {
+    return (
+      <div className="rounded-3xl border border-destructive/20 bg-destructive/10 p-6 text-center space-y-3">
+        <p className="text-sm font-semibold text-destructive">
+          {error || dict.dash.planUpdateFailed}
+        </p>
+        <Button type="button" variant="outline" size="sm" onClick={() => void refresh()}>
+          {dict.pricing.retryLoad}
+        </Button>
+      </div>
+    );
+  }
 
   // KPIs
   const kpiCards = [
@@ -245,7 +267,7 @@ export default function DashboardPage() {
         {/* Dynamic Context Actions */}
         <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
           {isBasic ? (
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-5 shadow-md">
                 <Sparkles className="w-4 h-4" />
                 <span>{dict.dash.upgradePlan}</span>
@@ -381,7 +403,7 @@ export default function DashboardPage() {
                 {dict.dash.lockedHint}
               </p>
             </div>
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="outline" size="sm" className="text-xs font-bold">
                 {dict.dash.seePlans}
               </Button>

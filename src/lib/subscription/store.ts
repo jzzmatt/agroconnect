@@ -7,7 +7,7 @@ import { DEFAULT_MARKET_COUNTRY } from "@/config/markets";
  * It is never the source of truth for the current subscription plan.
  */
 type SubscriptionRecord = {
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
   marketCountryCode: MarketCountryCode;
   preferredLanguage: "pt" | "en" | "fr";
   videoStorageUsedBytes: number;
@@ -24,11 +24,11 @@ export function getAuthoritativeSubscription(clerkUserId: string): SubscriptionR
 
 export function setAuthoritativeSubscription(
   clerkUserId: string,
-  patch: Partial<SubscriptionRecord> & { plan?: SubscriptionPlan }
+  patch: Partial<SubscriptionRecord> & { plan?: SubscriptionPlan | null }
 ): SubscriptionRecord {
   const current = records.get(clerkUserId);
   const next: SubscriptionRecord = {
-    plan: patch.plan || current?.plan || "basic",
+    plan: patch.plan !== undefined ? patch.plan : current?.plan ?? null,
     marketCountryCode: patch.marketCountryCode || current?.marketCountryCode || DEFAULT_MARKET_COUNTRY,
     preferredLanguage: patch.preferredLanguage || current?.preferredLanguage || "pt",
     videoStorageUsedBytes: patch.videoStorageUsedBytes ?? current?.videoStorageUsedBytes ?? 0,
@@ -36,6 +36,10 @@ export function setAuthoritativeSubscription(
   };
   records.set(clerkUserId, next);
   return next;
+}
+
+export function clearAuthoritativeSubscription(clerkUserId: string) {
+  records.delete(clerkUserId);
 }
 
 export function resetAuthoritativeSubscriptions() {

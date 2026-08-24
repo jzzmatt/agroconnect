@@ -1,9 +1,9 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { useUser } from "@clerk/nextjs";
 import { getAuthoritativeSubscriptionAction } from "@/lib/auth/profile-actions";
-import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { getUserEntitlements, parseStoredPlan } from "@/lib/services/pricing-service";
 import { SUBSCRIPTION_CHANGED_EVENT } from "@/lib/subscription/store";
 import { getMarketCountry, DEFAULT_MARKET_COUNTRY, type MarketCountry } from "@/config/markets";
 import type { UserEntitlements } from "@/types/domain";
@@ -30,7 +30,7 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
  *
  * React state here is a temporary copy of that database result. It is never
  * seeded from localStorage, sessionStorage, URL parameters, or a previously
- * selected plan.
+ * selected plan. `currentPlan = null` means the user is not subscribed.
  */
 export function useAuthoritativePlan() {
   const { isLoaded, isSignedIn, user } = useUser();
@@ -43,6 +43,7 @@ export function useAuthoritativePlan() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [fromDatabase, setFromDatabase] = useState(false);
+  const previousUserIdRef = useRef<string | null>(null);
 
   const refresh = useCallback(async () => {
     if (!isLoaded) return;
@@ -52,6 +53,7 @@ export function useAuthoritativePlan() {
       setError(null);
       setFromDatabase(false);
       setLoading(false);
+      previousUserIdRef.current = null;
       return;
     }
 
@@ -72,13 +74,13 @@ export function useAuthoritativePlan() {
         setError(null);
         return;
       }
-      if (result.error || !result.plan || result.source !== "database") {
+      if (result.error || result.source !== "database") {
         setPlan(null);
         setFromDatabase(false);
         setError(result.error || "Não foi possível carregar a subscrição a partir da base de dados.");
         return;
       }
-      setPlan(normalizePlanSlug(result.plan));
+      setPlan(parseStoredPlan(result.plan));
       setFromDatabase(true);
       setError(null);
       setMarketCountry(getMarketCountry(result.marketCountryCode || DEFAULT_MARKET_COUNTRY));
@@ -93,6 +95,12 @@ export function useAuthoritativePlan() {
   }, [isLoaded, isSignedIn, user?.id]);
 
   useEffect(() => {
+    if (user?.id !== previousUserIdRef.current) {
+      setPlan(null);
+      setFromDatabase(false);
+      setError(null);
+      previousUserIdRef.current = user?.id ?? null;
+    }
     void refresh();
     if (typeof window === "undefined") return;
 
@@ -107,17 +115,18 @@ export function useAuthoritativePlan() {
       window.removeEventListener("focus", onChange);
       document.removeEventListener("visibilitychange", onChange);
     };
-  }, [refresh]);
+  }, [refresh, user?.id]);
 
-  // Entitlements are derived only after a database plan is present. While
-  // loading, treat the user as basic so paid UI is not shown from stale state.
+  const resolvedPlan = fromDatabase ? plan : null;
   const entitlements: UserEntitlements = getUserEntitlements({
-    subscriptionPlan: fromDatabase && plan ? plan : "basic",
+    subscriptionPlan: resolvedPlan,
   });
 
   return {
-    plan: (fromDatabase && plan ? plan : "basic") as SubscriptionPlan,
-    currentPlan: fromDatabase ? plan : null,
+    plan: resolvedPlan,
+    currentPlan: resolvedPlan,
+    hasSubscription: entitlements.has_subscription,
+    canAccessControlPanel: entitlements.can_access_control_panel,
     entitlements,
     marketCountry,
     locale,

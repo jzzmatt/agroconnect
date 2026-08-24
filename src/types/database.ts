@@ -240,7 +240,7 @@ export interface Database {
           professional_title: ProfessionalTitle;
           professional_title_custom: string | null;
           active_profile_type: ProfileType;
-          subscription_plan: SubscriptionPlan;
+          subscription_plan: SubscriptionPlan | null;
           preferred_language: string;
           market_country_code: string;
           video_storage_used_bytes: number;
@@ -267,7 +267,7 @@ export interface Database {
           professional_title?: ProfessionalTitle;
           professional_title_custom?: string | null;
           active_profile_type?: ProfileType;
-          subscription_plan?: SubscriptionPlan;
+          subscription_plan?: SubscriptionPlan | null;
           preferred_language?: string;
           market_country_code?: string;
           video_storage_used_bytes?: number;
@@ -294,7 +294,7 @@ export interface Database {
           professional_title?: ProfessionalTitle;
           professional_title_custom?: string | null;
           active_profile_type?: ProfileType;
-          subscription_plan?: SubscriptionPlan;
+          subscription_plan?: SubscriptionPlan | null;
           preferred_language?: string;
           market_country_code?: string;
           video_storage_used_bytes?: number;

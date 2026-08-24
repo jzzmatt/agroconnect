@@ -33,6 +33,9 @@ export function isSelfServicePaidActivationEnabled(): boolean {
  */
 export function requirePlanActivationAllowed(requestedPlan: string): void {
   const plan = normalizePlanSlug(requestedPlan);
+  if (!plan) {
+    throw new AuthorizationError("PERMISSION_DENIED", "PERMISSION_DENIED: invalid subscription plan");
+  }
   if (plan === "basic") return;
   if (isSelfServicePaidActivationEnabled()) return;
 

@@ -74,7 +74,7 @@ export function Footer() {
                 </Link>
               </li>
               <li>
-                <Link href="/pricing" className="hover:text-white transition-colors">
+                <Link href="/planos" className="hover:text-white transition-colors">
                   {dict.footer.terms}
                 </Link>
               </li>

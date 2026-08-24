@@ -13,7 +13,6 @@ import {
   Menu,
   X,
   ChevronRight,
-  User,
   LogOut,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -21,6 +20,7 @@ import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
+import { ControlPanelLink } from "./ControlPanelLink";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -89,12 +89,7 @@ export function Navbar() {
 
             {isSignedIn ? (
               <>
-                <Link href="/dashboard">
-                  <Button variant="outline" size="sm" className="gap-1.5 font-bold">
-                    <User className="w-3.5 h-3.5 text-primary" />
-                    <span>{dict.navigation.dashboard}</span>
-                  </Button>
-                </Link>
+                <ControlPanelLink />
 
                 <Button
                   type="button"
@@ -182,11 +177,7 @@ export function Navbar() {
           <div className="pt-3 border-t border-border flex flex-col gap-2">
             {isSignedIn ? (
               <>
-                <Link href="/dashboard" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" className="w-full justify-center font-bold">
-                    {dict.navigation.dashboard}
-                  </Button>
-                </Link>
+                <ControlPanelLink fullWidth onNavigate={() => setMobileMenuOpen(false)} />
                 <Button
                   type="button"
                   variant="outline"

@@ -489,7 +489,7 @@ export default function EditProfilePage() {
                 )}
               </div>
 
-              <Link href="/pricing" className="shrink-0">
+              <Link href="/planos" className="shrink-0">
                 <Button variant="outline" size="sm" className="font-bold text-xs">
                   <span>{subscriptionPlan ? "Alterar Plano" : "Escolher Plano"}</span>
                 </Button>

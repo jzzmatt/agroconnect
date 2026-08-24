@@ -32,7 +32,7 @@ export default function ProfilePage() {
     bio: "",
     roles: ["student"] as ProfileType[],
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: "basic" as string,
+    subscriptionPlan: "" as string,
     activeSince: "Agosto 2026",
     isVerified: false,
   });
@@ -53,7 +53,7 @@ export default function ProfilePage() {
       professionalTitle: serverProfile.professional_title || prev.professionalTitle,
       professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
       activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-      subscriptionPlan: serverProfile.subscription_plan || "basic",
+    subscriptionPlan: serverProfile.subscription_plan ?? "",
       // Replaced outright rather than merged: a removed area of activity must
       // disappear from the card, not linger from the previous render.
       roles:
@@ -121,7 +121,7 @@ export default function ProfilePage() {
   const wa = normalizeWhatsAppNumber(profileData.whatsappPhone);
 
   const planSlug = plan;
-  const planDef = SUBSCRIPTION_PLANS[planSlug];
+  const planDef = planSlug ? SUBSCRIPTION_PLANS[planSlug] : null;
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">
@@ -162,7 +162,7 @@ export default function ProfilePage() {
                 <span className="text-muted-foreground italic">Localização não definida</span>
               )}
               <span>
-                • Plano: <strong className="text-foreground font-bold">{planDef.name} ({planDef.priceFormatted}/mês)</strong>
+                • Plano: <strong className="text-foreground font-bold">{planDef ? `${planDef.name} (${planDef.priceFormatted}/mês)` : dict.dash.noSubscription}</strong>
               </span>
               <span>• Membro desde {profileData.activeSince}</span>
             </div>

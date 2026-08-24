@@ -49,7 +49,7 @@ function PlanCardSkeleton() {
   );
 }
 
-export function PlanCatalog() {
+export function PlanCatalog({ embedded = false }: { embedded?: boolean }) {
   const router = useRouter();
   const { dict } = useI18n();
   const { isSignedIn, isLoaded } = useUser();
@@ -231,17 +231,19 @@ export function PlanCatalog() {
         </div>
       )}
 
-      <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 max-w-4xl mx-auto space-y-4 text-center md:text-left">
-        <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
-          <div className="w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-bold shrink-0">
-            <HelpCircle className="w-5 h-5 text-primary" />
-          </div>
-          <div>
-            <h4 className="font-bold text-sm text-foreground">{dict.pricing.faqTitle}</h4>
-            <p className="text-xs text-muted-foreground">{dict.pricing.faqBody}</p>
+      {!embedded && (
+        <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 max-w-4xl mx-auto space-y-4 text-center md:text-left">
+          <div className="flex flex-col sm:flex-row items-center sm:items-start gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-bold shrink-0">
+              <HelpCircle className="w-5 h-5 text-primary" />
+            </div>
+            <div>
+              <h4 className="font-bold text-sm text-foreground">{dict.pricing.faqTitle}</h4>
+              <p className="text-xs text-muted-foreground">{dict.pricing.faqBody}</p>
+            </div>
           </div>
         </div>
-      </div>
+      )}
     </>
   );
 }

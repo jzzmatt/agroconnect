@@ -56,7 +56,7 @@ export default function EnterpriseServicesPage() {
             <p className="text-xs text-muted-foreground">
               Plano atual: {plan}. Atualize para Empresarial (80.000 Kz/mês) para solicitar este serviço.
             </p>
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="primary" size="sm" className="font-bold text-xs">
                 <Sparkles className="w-4 h-4 mr-1.5" />
                 Atualizar plano

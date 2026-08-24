@@ -6,7 +6,7 @@ import {
   createServerSupabaseClient,
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
-import { normalizePlanSlug, getUserEntitlements } from "@/lib/services/pricing-service";
+import { parseStoredPlan, getUserEntitlements } from "@/lib/services/pricing-service";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
 import { getMarketCountry, isMarketCountryCode, DEFAULT_MARKET_COUNTRY } from "@/config/markets";
 import type { ProfessionalTitle, ProfileType, SubscriptionPlan } from "@/types/database";
@@ -91,7 +91,7 @@ export async function updateProfileDetailsAction(
 
     if (updates.preferred_language || updates.market_country_code) {
       setAuthoritativeSubscription(current.clerk_user_id, {
-        plan: normalizePlanSlug(current.subscription_plan),
+        plan: parseStoredPlan(current.subscription_plan),
         preferredLanguage: updates.preferred_language,
         marketCountryCode: updates.market_country_code,
       });
@@ -312,7 +312,7 @@ export async function getAuthoritativeSubscriptionAction(): Promise<Authoritativ
     }
     return {
       authenticated: true,
-      plan: normalizePlanSlug(current.subscription_plan),
+      plan: parseStoredPlan(current.subscription_plan),
       source: "database",
       error: null,
       marketCountryCode: current.market_country_code,
@@ -343,7 +343,7 @@ export async function activateSubscriptionPlanAction(
   plan: "basic" | "professional" | "business" | "enterprise"
 ): Promise<{
   success: boolean;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
   entitlements: UserEntitlements;
   error?: string;
 }> {
@@ -398,7 +398,7 @@ export async function updateMarketCountryAction(
       .eq("clerk_user_id", current.clerk_user_id);
 
     setAuthoritativeSubscription(current.clerk_user_id, {
-      plan: normalizePlanSlug(current.subscription_plan),
+      plan: parseStoredPlan(current.subscription_plan),
       marketCountryCode: market.code,
       preferredLanguage: (current.preferred_language as "pt" | "en" | "fr") || "pt",
     });
@@ -434,7 +434,7 @@ export async function updatePreferredLanguageAction(
       .eq("clerk_user_id", current.clerk_user_id);
 
     setAuthoritativeSubscription(current.clerk_user_id, {
-      plan: normalizePlanSlug(current.subscription_plan),
+      plan: parseStoredPlan(current.subscription_plan),
       preferredLanguage: locale,
       marketCountryCode: (current.market_country_code as any) || DEFAULT_MARKET_COUNTRY,
     });

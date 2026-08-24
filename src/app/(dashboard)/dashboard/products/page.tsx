@@ -65,7 +65,7 @@ export default function MyProductsDashboardPage() {
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
                 <Sparkles className="w-4 h-4" />
                 <span>Ver Planos e Desbloquear</span>
@@ -166,7 +166,7 @@ export default function MyProductsDashboardPage() {
           </p>
         </div>
 
-        <Link href={isLimitReached ? "/pricing" : "/dashboard/products/new"}>
+        <Link href={isLimitReached ? "/planos" : "/dashboard/products/new"}>
           <Button variant="primary" className="gap-2 font-bold shadow-md h-11 px-6">
             <Plus className="w-4 h-4" />
             <span>{isLimitReached ? dict.dash.upgradePlan : dict.products.add}</span>

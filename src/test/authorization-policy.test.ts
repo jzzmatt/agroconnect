@@ -20,7 +20,7 @@ import {
 import type { AccountType, SubscriptionPlan, UserRoleType } from "@/types/database";
 
 function subject(options: {
-  plan?: SubscriptionPlan;
+  plan?: SubscriptionPlan | null;
   roles?: UserRoleType[];
   accountType?: AccountType;
   profileId?: string;
@@ -33,7 +33,7 @@ function subject(options: {
       clerk_user_id: "clerk-1",
       roles: options.roles ?? ["student"],
       account_type: options.accountType ?? "customer",
-      subscription_plan: options.plan ?? "basic",
+      subscription_plan: options.plan === undefined ? "basic" : options.plan,
       subscription_status: options.subscriptionStatus ?? "active",
     },
     { activeProductCount: options.activeProductCount }
@@ -105,6 +105,34 @@ describe("authorization matrix: the eight required cases", () => {
     expect(can(PAID(), "product.publish")).toBe(true);
     expect(can(PAID(), "academy.course.create")).toBe(true);
     expect(() => requireEntitlement(PAID(), "can_create_products")).not.toThrow();
+  });
+});
+
+describe("subscription status is distinct from Basic feature restrictions", () => {
+  const unsubscribed = () => subject({ plan: null });
+
+  it("denies Control Panel access when there is no stored plan", () => {
+    expect(can(unsubscribed(), "control_panel.access")).toBe(false);
+    expect(unsubscribed().entitlements.has_subscription).toBe(false);
+    expect(unsubscribed().entitlements.can_access_control_panel).toBe(false);
+    expect(unsubscribed().plan).toBeNull();
+  });
+
+  it("unlocks the Control Panel for a stored Basic plan while keeping creation locked", () => {
+    expect(can(FREE(), "control_panel.access")).toBe(true);
+    expect(FREE().entitlements.has_subscription).toBe(true);
+    expect(can(FREE(), "product.create")).toBe(false);
+    expect(can(FREE(), "academy.course.create")).toBe(false);
+    expect(can(FREE(), "service.manage")).toBe(false);
+    expect(FREE().entitlements.can_access_agriexpert).toBe(false);
+    expect(FREE().entitlements.can_access_agriacademy).toBe(false);
+    expect(FREE().entitlements.can_access_agriproduct).toBe(false);
+  });
+
+  it("unlocks the Control Panel for every stored paid plan", () => {
+    for (const plan of ["professional", "business", "enterprise"] as const) {
+      expect(can(subject({ plan }), "control_panel.access")).toBe(true);
+    }
   });
 });
 

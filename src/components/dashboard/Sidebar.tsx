@@ -28,7 +28,7 @@ export function DashboardSidebar({
   userRoles = ["student"],
   availableProfiles = ["personal"],
   activeProfile = "personal",
-  subscriptionPlan = "basic",
+  subscriptionPlan = null,
   onSwitchProfile,
   isOpen,
   onClose,
@@ -47,7 +47,7 @@ export function DashboardSidebar({
     clerk_user_id: "",
     roles: userRoles,
     account_type: "customer",
-    subscription_plan: (subscriptionPlan || "basic") as SubscriptionPlan,
+    subscription_plan: subscriptionPlan ?? null,
   });
 
   /**
@@ -127,7 +127,7 @@ export function DashboardSidebar({
                 const agriLocked = managePermission
                   ? !can(subject, managePermission)
                   : false;
-                const href = agriLocked ? "/pricing" : item.href;
+                const href = agriLocked ? "/planos" : item.href;
                 return (
                   <Link
                     key={`${item.href}-${item.title}`}
@@ -175,7 +175,7 @@ export function DashboardSidebar({
       <div className="p-4 border-t border-sidebar-border bg-surface-muted/50 space-y-3">
         {!can(subject, "product.create") && (
           <Link
-            href="/pricing"
+            href="/planos"
             onClick={() => onClose && onClose()}
             className="block rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/40 px-3 py-2"
           >

@@ -4,7 +4,7 @@ import {
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
 import { getAuthoritativeSubscription } from "@/lib/subscription/store";
-import { normalizePlanSlug } from "@/lib/services/pricing-service";
+import { parseStoredPlan } from "@/lib/services/pricing-service";
 import type { UserProfileWithRoles } from "@/types/domain";
 import type { UserRoleType, Profile } from "@/types/database";
 
@@ -105,7 +105,6 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
         account_type: "customer",
         professional_title: "none",
         active_profile_type: "personal",
-        subscription_plan: "basic", // Default plan for all new users: Basic (0 Kz/mês)
         status: "active",
         theme_preference: "light",
         is_active: true,
@@ -142,10 +141,9 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
 
   const memory = getAuthoritativeSubscription(clerkUser.id);
   const dbPlan = (effectiveProfile as any)?.subscription_plan;
-  // The database row is the only source of truth for the current plan.
-  // The process-local cache may lag a replica but must never override a
-  // successful database read.
-  const subscriptionPlan = normalizePlanSlug(dbPlan || "basic");
+  // The database row is the only source of truth. A missing value is
+  // "no subscription", never an implicit Basic plan.
+  const subscriptionPlan = parseStoredPlan(dbPlan);
 
   return {
     id: effectiveProfile?.id || clerkUser.id,

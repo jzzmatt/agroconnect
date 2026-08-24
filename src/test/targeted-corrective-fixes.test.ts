@@ -13,7 +13,8 @@ describe("FIX 1 — subscription plan comes from the database", () => {
   it("prefers the database plan over the process-local cache", () => {
     const src = read("src/lib/clerk/auth.ts");
     expect(src).not.toMatch(/normalizePlanSlug\(memory\?\.plan \|\| dbPlan/);
-    expect(src).toMatch("const subscriptionPlan = normalizePlanSlug(dbPlan || \"basic\")");
+    expect(src).not.toMatch(/dbPlan \|\| ["']basic["']/);
+    expect(src).toMatch("const subscriptionPlan = parseStoredPlan(dbPlan)");
   });
 
   it("does not seed client plan state from sessionStorage", () => {
@@ -179,5 +180,62 @@ describe("FIX 10 — subscription column protection", () => {
     expect(src).toMatch("protect_subscription_plan_column");
     expect(src).toMatch("subscription_plan can only be changed via server activation");
     expect(src).toMatch("agriconnect.allow_subscription_change");
+  });
+});
+
+describe("no implicit Basic subscription", () => {
+  it("does not insert a Basic plan when bootstrapping a profile", () => {
+    const src = read("src/lib/clerk/auth.ts");
+    expect(src).not.toMatch(/subscription_plan:\s*["']basic["']/);
+    expect(src).toMatch("parseStoredPlan(dbPlan)");
+  });
+
+  it("omits subscription_plan from the Clerk webhook upsert", () => {
+    const src = read("src/app/api/webhooks/clerk/route.ts");
+    expect(src).not.toMatch(/subscription_plan:\s*["']basic["']/);
+    expect(src).toMatch("Omit subscription_plan");
+  });
+
+  it("makes subscription_plan nullable without converting existing subscribers", () => {
+    const src = read("supabase/migrations/20260824000004_028_nullable_subscription_plan.sql");
+    expect(src).toMatch("DROP DEFAULT");
+    expect(src).toMatch("DROP NOT NULL");
+    expect(src).toMatch("subscription_plan IS NULL OR");
+    expect(src).not.toMatch(/SET subscription_plan = NULL/);
+    expect(src).toMatch("NEW.subscription_plan IS NOT NULL");
+  });
+
+  it("locks the Control Panel route behind a stored subscription", () => {
+    const src = read("src/app/(dashboard)/layout.tsx");
+    expect(src).toMatch("requireControlPanelAccess");
+    const server = read("src/lib/authorization/server.ts");
+    expect(server).toMatch('redirect("/planos")');
+    expect(server).toMatch("control_panel.access");
+  });
+
+  it("sends unsubscribed Control Panel clicks to /planos", () => {
+    const src = read("src/components/navigation/ControlPanelLink.tsx");
+    expect(src).toMatch('href = unlocked ? "/dashboard" : "/planos"');
+    expect(src).toMatch("canAccessControlPanel");
+  });
+
+  it("filters the current plan on the homepage catalog as well as /planos", () => {
+    const home = read("src/app/page.tsx");
+    expect(home).toMatch("PlanCatalog");
+    expect(home).not.toMatch("SUBSCRIPTION_PLANS.basic");
+    expect(getSelectablePlans(null).map((p) => p.id)).toContain("basic");
+    expect(getSelectablePlans("basic").map((p) => p.id)).not.toContain("basic");
+  });
+
+  it("does not invent Basic in the process-local subscription cache", () => {
+    const src = read("src/lib/subscription/store.ts");
+    expect(src).not.toMatch(/plan \|\| current\?\.plan \|\| ["']basic["']/);
+  });
+
+  it("does not treat a missing database plan as an error", () => {
+    const src = read("src/lib/subscription/use-authoritative-plan.ts");
+    expect(src).not.toMatch("!result.plan || result.source");
+    expect(src).toMatch("result.source !== \"database\"");
+    expect(src).toMatch("parseStoredPlan(result.plan)");
   });
 });

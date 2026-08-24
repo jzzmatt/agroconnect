@@ -10,7 +10,7 @@ function read(relativePath: string): string {
 const PROFILE_ACTIONS = "src/lib/auth/profile-actions.ts";
 const EDIT_PAGE = "src/app/(dashboard)/profile/edit/page.tsx";
 const PROFILE_PAGE = "src/app/(dashboard)/profile/page.tsx";
-const DASHBOARD_LAYOUT = "src/app/(dashboard)/layout.tsx";
+const DASHBOARD_LAYOUT = "src/components/dashboard/DashboardShell.tsx";
 
 describe("profile types are persisted to the database", () => {
   it("exposes a server action that writes the selection", () => {

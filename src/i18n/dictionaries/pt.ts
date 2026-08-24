@@ -667,6 +667,9 @@ export const pt = {
   },
   dash: {
     controlPanel: "Painel de controlo",
+    controlPanelLocked: "Subscrição necessária",
+    controlPanelLockedHint: "Escolha um plano para aceder ao painel de controlo.",
+    noSubscription: "Sem subscrição",
     welcomePaid: "Bem-vindo ao seu espaço profissional no ecossistema agrícola de Angola.",
     welcomeBasic: "Plano Básico ativo (navegação do ecossistema e gestão do perfil).",
     activeProfile: "Perfil ativo",

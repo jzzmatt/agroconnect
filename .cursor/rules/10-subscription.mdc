@@ -1,0 +1,33 @@
+---
+description: Subscription model — no implicit plan
+alwaysApply: true
+---
+# Subscription Model
+
+These rules take precedence over any earlier assumption that every user has a Basic/free/default plan.
+
+A user has **no subscription until a plan is explicitly saved in the database**.
+
+```
+Authenticated user → user id → database → subscription (null | plan)
+```
+
+`currentPlan = null` is a valid state. Never coerce `null` into `basic`, `free`, `default`, or any other plan.
+
+Distinguish:
+
+- **NOT SUBSCRIBED** (`currentPlan = null`) — Control Panel locked, redirect to `/planos`
+- **SUBSCRIBED TO BASIC** — Control Panel unlocked; AgriExpert, AgriAcademy, and AgriProduct stay locked
+- **SUBSCRIBED TO A HIGHER PLAN** — Control Panel unlocked; apply that plan's existing feature permissions
+
+Do not use a single flag such as `isPremium` for all access. Separate:
+
+- `hasSubscription` — can the user open the Control Panel?
+- `currentPlan` — which plan-specific restrictions apply?
+- feature entitlements — which modules are unlocked?
+
+The database is the only source of truth. Never determine the current plan from localStorage, sessionStorage, URL parameters, selected-plan UI state, or hardcoded defaults.
+
+Hide the user's current subscribed plan from plan-selection cards everywhere, including `/planos` and the homepage. Unsubscribed users see every purchasable plan, including Basic.
+
+Do not create a Basic (or any) subscription row for new users. Existing legitimate subscribers must keep their stored plan.

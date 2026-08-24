@@ -6,11 +6,18 @@ alwaysApply: true
 
 Role != subscription != entitlement.
 
-Never hardcode subscription names inside UI/business logic.
+A user may be authenticated and still have no subscription (`currentPlan = null`).
+That is distinct from being subscribed to Basic.
+
 Use capability checks such as:
 - can(user, permission)
 - requirePermission(user, permission)
 - requireEntitlement(user, entitlement)
 
+`control_panel.access` requires a stored subscription.
+Plan-specific feature flags (AgriExpert, AgriAcademy, AgriProduct, …) stay separate.
+
+Never hardcode subscription names inside UI/business logic.
+Never treat a missing plan as Basic.
 Server-side authorization is mandatory.
 UI permission checks only control presentation.

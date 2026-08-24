@@ -41,6 +41,7 @@ export const PERMISSIONS = [
   "location.manage",
 
   // Account and commercial
+  "control_panel.access",
   "market.country.change",
   "payment_gateway.request",
   "subscription.activate_paid",
@@ -161,6 +162,11 @@ export const PERMISSION_POLICY: Record<Permission, PermissionRule> = {
   "location.manage": {
     entitlement: "can_manage_locations",
     describe: "Manage locations",
+  },
+
+  "control_panel.access": {
+    entitlement: "can_access_control_panel",
+    describe: "Access the Control Panel",
   },
 
   "market.country.change": {

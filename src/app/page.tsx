@@ -10,28 +10,16 @@ import {
   ArrowRight,
   ShieldCheck,
   CheckCircle2,
-  Lock,
   CreditCard,
-  Check,
 } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
-import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
+import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
-import {
-  formatProductLimitLabel,
-  getLocalizedPlanCopy,
-} from "@/i18n/plan-copy";
 
 export default function LandingPage() {
   const { dict } = useI18n();
-  const plans = [
-    SUBSCRIPTION_PLANS.basic,
-    SUBSCRIPTION_PLANS.professional,
-    SUBSCRIPTION_PLANS.business,
-    SUBSCRIPTION_PLANS.enterprise,
-  ];
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors overflow-x-hidden">
@@ -188,86 +176,8 @@ export default function LandingPage() {
             align="center"
           />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-14">
-            {plans.map((plan) => {
-              const copy = getLocalizedPlanCopy(dict, plan.id);
-              return (
-                <div
-                  key={plan.id}
-                  className={`w-full max-w-sm mx-auto md:max-w-none rounded-3xl p-6 sm:p-7 border flex flex-col justify-between relative transition-all duration-300 ${
-                    plan.isPopular
-                      ? "border-amber-500 bg-gradient-to-b from-amber-500/10 via-surface-card to-surface-card shadow-xl ring-2 ring-amber-500/30 md:scale-102"
-                      : "border-border bg-surface-card shadow-xs hover:shadow-md"
-                  }`}
-                >
-                  {(copy.highlightBadge || plan.highlightBadge) && (
-                    <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 px-3 py-0.5 rounded-full bg-amber-500 text-white text-[9px] font-black uppercase tracking-wider shadow-md whitespace-nowrap">
-                      {copy.highlightBadge || plan.highlightBadge}
-                    </div>
-                  )}
-
-                  <div className="space-y-4 text-center md:text-left">
-                    <div>
-                      <h3 className="text-lg font-black text-foreground">{copy.name}</h3>
-                      <p className="text-[11px] text-muted-foreground mt-1 leading-relaxed min-h-[32px]">
-                        {copy.tagline}
-                      </p>
-                    </div>
-
-                    <div className="py-2 border-y border-border">
-                      <div className="flex items-baseline justify-center md:justify-start gap-1">
-                        <span className="text-3xl font-black text-foreground">{plan.priceFormatted}</span>
-                        <span className="text-xs text-muted-foreground font-semibold">/{plan.period}</span>
-                      </div>
-                      <span className="text-[10px] font-bold text-primary block mt-1">
-                        {formatProductLimitLabel(dict, plan.productLimit)}
-                      </span>
-                    </div>
-
-                    <div className="space-y-2 text-xs">
-                      <span className="text-[10px] font-black uppercase text-muted-foreground block">
-                        {dict.pricing.includedFeatures}
-                      </span>
-                      <ul className="space-y-2 text-left">
-                        {copy.features.map((feature, i) => (
-                          <li key={i} className="flex items-start gap-2 text-foreground/90">
-                            <Check className="w-3.5 h-3.5 text-primary shrink-0 mt-0.5" />
-                            <span className="text-[11px] leading-snug">{feature}</span>
-                          </li>
-                        ))}
-                      </ul>
-
-                      {copy.lockedFeatures.length > 0 && (
-                        <div className="pt-2 border-t border-border/60">
-                          <ul className="space-y-1.5 opacity-60 text-left">
-                            {copy.lockedFeatures.map((locked, i) => (
-                              <li key={i} className="flex items-start gap-2 text-muted-foreground">
-                                <Lock className="w-3.5 h-3.5 text-muted-foreground shrink-0 mt-0.5" />
-                                <span className="text-[11px] leading-snug line-through">{locked}</span>
-                              </li>
-                            ))}
-                          </ul>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="pt-6">
-                    <Link href="/planos" className="block">
-                      <Button
-                        variant={plan.isPopular ? "primary" : "outline"}
-                        size="sm"
-                        className={`w-full font-bold text-xs h-10 ${
-                          plan.isPopular ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : ""
-                        }`}
-                      >
-                        <span>{copy.cta}</span>
-                      </Button>
-                    </Link>
-                  </div>
-                </div>
-              );
-            })}
+          <div className="mt-14">
+            <PlanCatalog embedded />
           </div>
         </section>
 

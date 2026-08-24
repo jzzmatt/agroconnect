@@ -1,6 +1,7 @@
 import { getCurrentUserContext } from "@/lib/auth/user-context";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
-import { AuthorizationError, requirePermission, type CapabilitySubject } from "./policy";
+import { redirect } from "next/navigation";
+import { AuthorizationError, can, requirePermission, type CapabilitySubject } from "./policy";
 import type { Permission } from "./permissions";
 
 /**
@@ -60,5 +61,20 @@ export async function authorize(permission: Permission): Promise<CapabilitySubje
     throw new AuthorizationError("AUTH_REQUIRED", "AUTH_REQUIRED: no authenticated subject");
   }
   requirePermission(subject, permission);
+  return subject;
+}
+
+/**
+ * Control Panel routes require a subscription saved in the database.
+ * Unauthenticated visitors sign in first; unsubscribed users go to /planos.
+ */
+export async function requireControlPanelAccess(): Promise<CapabilitySubject> {
+  const subject = await getCurrentSubject();
+  if (!subject) {
+    redirect("/sign-in?redirect_url=/dashboard");
+  }
+  if (!can(subject, "control_panel.access")) {
+    redirect("/planos");
+  }
   return subject;
 }

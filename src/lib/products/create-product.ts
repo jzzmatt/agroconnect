@@ -142,7 +142,7 @@ export async function createPublishedProduct(
       };
     }
 
-    if (context.plan !== "basic") {
+    if (context.plan && context.plan !== "basic") {
       await syncSubscriptionPlanRow(currentUser.clerk_user_id, context.plan).catch(() => undefined);
     }
 

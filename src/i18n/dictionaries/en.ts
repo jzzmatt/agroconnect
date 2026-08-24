@@ -669,6 +669,9 @@ export const en: Dictionary = {
   },
   dash: {
     controlPanel: "Control panel",
+    controlPanelLocked: "Subscription required",
+    controlPanelLockedHint: "Choose a plan to access the control panel.",
+    noSubscription: "No subscription",
     welcomePaid: "Welcome to your professional space in Angola’s agricultural ecosystem.",
     welcomeBasic: "Basic plan active (browse the ecosystem and manage your profile).",
     activeProfile: "Active profile",

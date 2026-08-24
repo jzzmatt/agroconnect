@@ -116,19 +116,36 @@ export function getSelectablePlans(currentPlan: SubscriptionPlan | null) {
   return all.filter((plan) => plan.id !== currentPlan);
 }
 
-export function normalizePlanSlug(plan?: string | null): "basic" | "professional" | "business" | "enterprise" {
-  if (!plan) return "basic";
+/**
+ * Read a stored or requested plan slug.
+ *
+ * Empty, missing, and unknown values return `null`. That means "no subscription",
+ * never an implicit Basic plan. Known aliases still map onto the four catalog slugs,
+ * including `basic` when the user actually subscribed to Basic.
+ */
+export function parseStoredPlan(plan?: string | null): SubscriptionPlan | null {
+  if (!plan) return null;
   const normalized = plan
     .toLowerCase()
     .trim()
     .normalize("NFD")
     .replace(/[\u0300-\u036f]/g, "");
 
+  if (!normalized) return null;
   if (normalized === "free" || normalized === "basic" || normalized === "basico") return "basic";
   if (normalized === "professional" || normalized === "profissional" || normalized === "pro") return "professional";
-  if (normalized === "business") return "business";
+  if (normalized === "business" || normalized === "create") return "business";
   if (normalized === "enterprise" || normalized === "empresarial" || normalized === "premium") return "enterprise";
-  return "basic";
+  return null;
+}
+
+/** Alias mapper that never invents Basic. Prefer this name at activation call sites. */
+export function normalizePlanSlug(plan?: string | null): SubscriptionPlan | null {
+  return parseStoredPlan(plan);
+}
+
+export function hasSubscription(plan?: string | null): boolean {
+  return parseStoredPlan(plan) !== null;
 }
 
 export type SubscriptionLifecycleStatus = "active" | "pending" | "cancelled" | "expired";
@@ -149,8 +166,8 @@ export function isPaidSubscriptionActive(
   plan?: string | null,
   status?: string | null
 ): boolean {
-  const planSlug = normalizePlanSlug(plan);
-  if (planSlug === "basic") return false;
+  const planSlug = parseStoredPlan(plan);
+  if (!planSlug || planSlug === "basic") return false;
   return normalizeSubscriptionStatus(status) === "active";
 }
 
@@ -183,17 +200,48 @@ export function countActiveProducts<T extends { status?: string | null }>(produc
 }
 
 export function isProductLimitReached(plan?: string | null, activeCount = 0): boolean {
-  const limit = SUBSCRIPTION_PLANS[normalizePlanSlug(plan)].productLimit;
+  const planSlug = parseStoredPlan(plan);
+  if (!planSlug) return true;
+  const limit = SUBSCRIPTION_PLANS[planSlug].productLimit;
   return limit !== null && activeCount >= limit;
 }
 
+const LOCKED_CREATION_FLAGS = {
+  can_access_agrishopping: false,
+  can_access_agriproduct: false,
+  can_access_agriacademy: false,
+  can_access_agrilocalizacao: false,
+  can_access_agrilocalization: false,
+  can_access_agriexpert: false,
+  can_access_business_dashboard: false,
+  can_sell_products: false,
+  can_create_products: false,
+  can_edit_products: false,
+  can_publish_products: false,
+  can_manage_inventory: false,
+  can_upload_product_images: false,
+  can_upload_product_video: false,
+  product_limit_reached: false,
+  can_manage_services: false,
+  can_teach_courses: false,
+  can_create_courses: false,
+  can_publish_courses: false,
+  can_manage_locations: false,
+  can_change_market_country: false,
+  can_request_custom_payment_gateway: false,
+  product_limit: 0 as number | null,
+  max_products: 0 as number | null,
+  max_services: 0 as number | null,
+  video_storage_limit_bytes: 0,
+  video_storage_limit_gb: 0,
+};
+
 /**
- * Computes user entitlements strictly based on subscription plan.
- * FAILS CLOSED: missing or invalid plan defaults safely to Basic.
+ * Computes user entitlements from the stored subscription plan.
  *
- * can_create_products is a plan capability (Professional+). The 10-product
- * Professional cap is exposed separately as product_limit / product_limit_reached
- * and must be enforced in the product API — never conflated with "Basic locked".
+ * Missing or invalid plan is "no subscription": Control Panel stays locked.
+ * Subscribed Basic still unlocks the Control Panel while keeping AgriExpert,
+ * AgriAcademy, and AgriProduct locked. Paid plans keep their existing flags.
  */
 export function getUserEntitlements(params: {
   subscriptionPlan?: SubscriptionPlan | string | null;
@@ -202,10 +250,20 @@ export function getUserEntitlements(params: {
   accountType?: string;
   activeProductCount?: number;
 }): UserEntitlements {
-  const planSlug = normalizePlanSlug(params.subscriptionPlan);
-  const planDef = SUBSCRIPTION_PLANS[planSlug];
+  const planSlug = parseStoredPlan(params.subscriptionPlan);
   const subscriptionStatus = normalizeSubscriptionStatus(params.subscriptionStatus);
 
+  if (!planSlug) {
+    return {
+      plan: null,
+      subscription_status: subscriptionStatus,
+      has_subscription: false,
+      can_access_control_panel: false,
+      ...LOCKED_CREATION_FLAGS,
+    };
+  }
+
+  const planDef = SUBSCRIPTION_PLANS[planSlug];
   const isBasic = planSlug === "basic";
   const isProfessional = planSlug === "professional";
   const isBusiness = planSlug === "business";
@@ -219,6 +277,8 @@ export function getUserEntitlements(params: {
   return {
     plan: planSlug,
     subscription_status: subscriptionStatus,
+    has_subscription: true,
+    can_access_control_panel: true,
     can_access_agrishopping: isPaid,
     can_access_agriproduct: isPaid,
     can_access_agriacademy: isPaid,

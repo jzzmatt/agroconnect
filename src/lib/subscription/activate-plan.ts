@@ -6,7 +6,7 @@ import {
   isSupabaseConfigured,
   missingSupabaseEnvVars,
 } from "@/lib/supabase/server";
-import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
+import { getUserEntitlements, parseStoredPlan } from "@/lib/services/pricing-service";
 import { AuthorizationError, requirePlanActivationAllowed } from "@/lib/authorization";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
 import type { SubscriptionPlan } from "@/types/database";
@@ -76,8 +76,8 @@ async function readPersistedPlan(clerkUserId: string): Promise<SubscriptionPlan 
         .maybeSingle(),
       4_000
     )) as RowResult;
-    if (result.error || !result.data?.subscription_plan) return null;
-    return normalizePlanSlug(result.data.subscription_plan);
+    if (result.error || !result.data) return null;
+    return parseStoredPlan(result.data.subscription_plan);
   } catch {
     return null;
   }
@@ -117,7 +117,7 @@ async function persistSubscriptionPlan(
     if (
       !updated.error &&
       updated.data &&
-      normalizePlanSlug(updated.data.subscription_plan) === plan
+      parseStoredPlan(updated.data.subscription_plan) === plan
     ) {
       return { ok: true };
     }
@@ -145,7 +145,7 @@ async function persistSubscriptionPlan(
       if (
         !upserted.error &&
         upserted.data &&
-        normalizePlanSlug(upserted.data.subscription_plan) === plan
+        parseStoredPlan(upserted.data.subscription_plan) === plan
       ) {
         return { ok: true };
       }
@@ -204,7 +204,7 @@ async function persistSubscriptionPlan(
     if (
       !last.error &&
       last.data &&
-      normalizePlanSlug(last.data.subscription_plan) === plan
+      parseStoredPlan(last.data.subscription_plan) === plan
     ) {
       return { ok: true };
     }
@@ -227,11 +227,12 @@ export type PlanActivationCode =
   | "ACTIVATION_DISABLED"
   | "SUPABASE_NOT_CONFIGURED"
   | "PLAN_NOT_PERSISTED"
+  | "INVALID_PLAN"
   | "UNEXPECTED_ERROR";
 
 export interface PlanActivationResult {
   success: boolean;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
   entitlements: UserEntitlements;
   persisted?: boolean;
   code: PlanActivationCode;
@@ -243,20 +244,24 @@ export interface PlanActivationResult {
 export async function activateUserSubscriptionPlan(
   plan: string
 ): Promise<PlanActivationResult> {
-  const normalized = normalizePlanSlug(plan);
+  const normalized = parseStoredPlan(plan);
   const fail = (
     code: PlanActivationCode,
     detail?: string,
     error: string = PLAN_ERROR
   ): PlanActivationResult => ({
     success: false,
-    plan: "basic",
+    plan: null,
     persisted: false,
-    entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
+    entitlements: getUserEntitlements({ subscriptionPlan: null }),
     code,
     error,
     detail,
   });
+
+  if (!normalized) {
+    return fail("INVALID_PLAN", "invalid plan", "Plano de subscrição inválido.");
+  }
 
   try {
     const clerkUserId = await requireAuth();

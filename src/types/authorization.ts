@@ -1,8 +1,13 @@
 import type { SubscriptionPlan } from "./database";
 
 export interface UserEntitlements {
-  plan: "basic" | "professional" | "business" | "enterprise";
+  /** Null means the user has no subscription saved in the database. */
+  plan: SubscriptionPlan | null;
   subscription_status: "active" | "pending" | "cancelled" | "expired";
+  /** True only when a plan row is stored. Distinct from plan-specific feature flags. */
+  has_subscription: boolean;
+  /** Any stored plan (including Basic) unlocks the Control Panel. No plan keeps it locked. */
+  can_access_control_panel: boolean;
   can_access_agrishopping: boolean;
   can_access_agriproduct: boolean;
   can_access_agriacademy: boolean;

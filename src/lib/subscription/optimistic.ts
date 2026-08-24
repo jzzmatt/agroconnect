@@ -1,4 +1,4 @@
-import { normalizePlanSlug } from "@/lib/services/pricing-service";
+import { parseStoredPlan } from "@/lib/services/pricing-service";
 import type { SubscriptionPlan } from "@/types/database";
 
 const OPTIMISTIC_PLAN_KEY = "agroconnect_optimistic_plan";
@@ -11,8 +11,10 @@ type OptimisticRecord = {
 
 export function setOptimisticPlan(plan: SubscriptionPlan) {
   if (typeof window === "undefined") return;
+  const parsed = parseStoredPlan(plan);
+  if (!parsed) return;
   const record: OptimisticRecord = {
-    plan: normalizePlanSlug(plan),
+    plan: parsed,
     at: Date.now(),
   };
   try {
@@ -33,7 +35,7 @@ export function getOptimisticPlan(): SubscriptionPlan | null {
       sessionStorage.removeItem(OPTIMISTIC_PLAN_KEY);
       return null;
     }
-    return normalizePlanSlug(parsed.plan);
+    return parseStoredPlan(parsed.plan);
   } catch {
     return null;
   }

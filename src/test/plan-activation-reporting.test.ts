@@ -40,6 +40,7 @@ describe("plan activation reports the real outcome", () => {
       "ACTIVATION_DISABLED",
       "SUPABASE_NOT_CONFIGURED",
       "PLAN_NOT_PERSISTED",
+      "INVALID_PLAN",
       "UNEXPECTED_ERROR",
     ]) {
       expect(src).toMatch(`"${code}"`);

@@ -3,7 +3,7 @@ import {
   activateUserSubscriptionPlan,
   type PlanActivationCode,
 } from "@/lib/subscription/activate-plan";
-import { normalizePlanSlug } from "@/lib/services/pricing-service";
+import { parseStoredPlan } from "@/lib/services/pricing-service";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -22,13 +22,25 @@ const STATUS_BY_CODE: Record<PlanActivationCode, number> = {
   ACTIVATION_DISABLED: 403,
   SUPABASE_NOT_CONFIGURED: 503,
   PLAN_NOT_PERSISTED: 502,
+  INVALID_PLAN: 400,
   UNEXPECTED_ERROR: 500,
 };
 
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
-    const plan = normalizePlanSlug(body?.plan);
+    const plan = parseStoredPlan(body?.plan);
+    if (!plan) {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Plano de subscrição inválido.",
+          plan: null,
+          code: "INVALID_PLAN",
+        },
+        { status: 400 }
+      );
+    }
     const result = await activateUserSubscriptionPlan(plan);
     const status = STATUS_BY_CODE[result.code] ?? (result.success ? 200 : 400);
     return NextResponse.json(result, { status });
@@ -36,7 +48,7 @@ export async function POST(request: Request) {
     const message = error instanceof Error ? error.message : String(error || "");
     if (isAuthError(message)) {
       return NextResponse.json(
-        { success: false, error: message, plan: "basic", code: "AUTH_REQUIRED" },
+        { success: false, error: message, plan: null, code: "AUTH_REQUIRED" },
         { status: 401 }
       );
     }
@@ -45,7 +57,7 @@ export async function POST(request: Request) {
       {
         success: false,
         error: "Não foi possível atualizar o seu plano.",
-        plan: "basic",
+        plan: null,
         code: "UNEXPECTED_ERROR",
         detail: message,
       },

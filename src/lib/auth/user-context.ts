@@ -2,7 +2,7 @@ import { currentUser } from "@clerk/nextjs/server";
 import { getCurrentUserProfile } from "@/lib/clerk/auth";
 import {
   getUserEntitlements,
-  normalizePlanSlug,
+  parseStoredPlan,
   normalizeSubscriptionStatus,
 } from "@/lib/services/pricing-service";
 import { getMarketCountry, DEFAULT_MARKET_COUNTRY } from "@/config/markets";
@@ -13,7 +13,7 @@ export type SubscriptionStatus = "active" | "pending" | "cancelled" | "expired";
 
 export interface AuthoritativeSubscription {
   id: string;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
   status: SubscriptionStatus;
 }
 
@@ -24,7 +24,7 @@ export interface CurrentUserContext {
   };
   profile: UserProfileWithRoles;
   subscription: AuthoritativeSubscription;
-  plan: SubscriptionPlan;
+  plan: SubscriptionPlan | null;
   entitlements: UserEntitlements;
   locale: "pt" | "en" | "fr";
   country: string;
@@ -46,7 +46,7 @@ export async function getCurrentUserContext(): Promise<CurrentUserContext | null
   const profile = await getCurrentUserProfile();
   if (!profile) return null;
 
-  const plan = normalizePlanSlug(profile.subscription_plan);
+  const plan = parseStoredPlan(profile.subscription_plan);
   const status = normalizeSubscriptionStatus((profile as { subscription_status?: string }).subscription_status);
   const entitlements = getUserEntitlements({
     subscriptionPlan: plan,

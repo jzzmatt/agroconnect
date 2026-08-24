@@ -2,7 +2,6 @@ import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   SUBSCRIPTION_PLANS,
   getUserEntitlements,
-  normalizePlanSlug,
   VIDEO_STORAGE_QUOTA_BYTES,
   GB,
   getStorageWarningLevel,

@@ -94,7 +94,7 @@ export default function AgriAcademyDashboardPage() {
             Pode explorar a AgriAcademy no plano Básico. A criação de cursos e o armazenamento
             de vídeo estão disponíveis a partir do plano Profissional.
           </p>
-          <Link href="/pricing">
+          <Link href="/planos">
             <Button variant="primary" className="font-bold">
               <Sparkles className="w-4 h-4 mr-1.5" />
               Atualizar plano

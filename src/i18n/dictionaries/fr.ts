@@ -669,6 +669,9 @@ export const fr: Dictionary = {
   },
   dash: {
     controlPanel: "Tableau de bord",
+    controlPanelLocked: "Abonnement requis",
+    controlPanelLockedHint: "Choisissez un plan pour accéder au tableau de bord.",
+    noSubscription: "Aucun abonnement",
     welcomePaid: "Bienvenue dans votre espace professionnel de l'écosystème agricole angolais.",
     welcomeBasic: "Plan Basique actif (navigation de l'écosystème et gestion du profil).",
     activeProfile: "Profil actif",

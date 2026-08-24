@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import {
   SUBSCRIPTION_PLANS,
   getUserEntitlements,
+  parseStoredPlan,
   normalizePlanSlug,
   normalizeWhatsAppNumber,
 } from "@/lib/services/pricing-service";
@@ -68,17 +69,20 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(invalid.isValid).toBe(false);
   });
 
-  it("6. Plan slug normalizer handles aliases gracefully and defaults safely to basic on null/undefined", () => {
-    expect(normalizePlanSlug(null)).toBe("basic");
-    expect(normalizePlanSlug(undefined)).toBe("basic");
-    expect(normalizePlanSlug("")).toBe("basic");
-    expect(normalizePlanSlug("free")).toBe("basic");
-    expect(normalizePlanSlug("básico")).toBe("basic");
-    expect(normalizePlanSlug("pro")).toBe("professional");
-    expect(normalizePlanSlug("profissional")).toBe("professional");
-    expect(normalizePlanSlug("business")).toBe("business");
-    expect(normalizePlanSlug("premium")).toBe("enterprise");
-    expect(normalizePlanSlug("empresarial")).toBe("enterprise");
+  it("6. Plan slug parser never invents Basic for a missing stored plan", () => {
+    expect(parseStoredPlan(null)).toBeNull();
+    expect(parseStoredPlan(undefined)).toBeNull();
+    expect(parseStoredPlan("")).toBeNull();
+    expect(parseStoredPlan("not-a-plan")).toBeNull();
+    expect(normalizePlanSlug(null)).toBeNull();
+    expect(parseStoredPlan("free")).toBe("basic");
+    expect(parseStoredPlan("básico")).toBe("basic");
+    expect(parseStoredPlan("pro")).toBe("professional");
+    expect(parseStoredPlan("profissional")).toBe("professional");
+    expect(parseStoredPlan("business")).toBe("business");
+    expect(parseStoredPlan("create")).toBe("business");
+    expect(parseStoredPlan("premium")).toBe("enterprise");
+    expect(parseStoredPlan("empresarial")).toBe("enterprise");
   });
 
   it("7. Validates that Basic plan has all 4 ecosystem creation modules locked", () => {
@@ -104,12 +108,23 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(proEntitlements.product_limit).toBe(10);
   });
 
-  it("9. Fails closed when subscriptionPlan is null/invalid, applying Basic restrictions", () => {
+  it("9. Null plan is not subscribed; Basic is subscribed with the same creation locks", () => {
     const nullEntitlements = getUserEntitlements({ subscriptionPlan: null });
+    expect(nullEntitlements.plan).toBeNull();
+    expect(nullEntitlements.has_subscription).toBe(false);
+    expect(nullEntitlements.can_access_control_panel).toBe(false);
     expect(nullEntitlements.can_create_products).toBe(false);
     expect(nullEntitlements.can_create_courses).toBe(false);
     expect(nullEntitlements.can_access_agrishopping).toBe(false);
     expect(nullEntitlements.product_limit).toBe(0);
+
+    const basicEntitlements = getUserEntitlements({ subscriptionPlan: "basic" });
+    expect(basicEntitlements.plan).toBe("basic");
+    expect(basicEntitlements.has_subscription).toBe(true);
+    expect(basicEntitlements.can_access_control_panel).toBe(true);
+    expect(basicEntitlements.can_access_agriexpert).toBe(false);
+    expect(basicEntitlements.can_access_agriacademy).toBe(false);
+    expect(basicEntitlements.can_access_agriproduct).toBe(false);
   });
 
   it("10. Fails closed on server action when a Basic plan user attempts to create a product", async () => {

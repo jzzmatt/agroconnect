@@ -93,7 +93,7 @@ export function UpgradePlanModal({
           >
             Agora não
           </Button>
-          <Link href="/pricing" className="w-full sm:w-2/3" onClick={onClose}>
+          <Link href="/planos" className="w-full sm:w-2/3" onClick={onClose}>
             <Button
               variant="primary"
               size="sm"

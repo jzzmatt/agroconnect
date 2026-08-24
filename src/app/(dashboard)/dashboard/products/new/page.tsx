@@ -122,7 +122,7 @@ export default function NewProductPage() {
             <p className="text-xs text-muted-foreground leading-relaxed">{dict.products.lockedBody}</p>
           </div>
           <div className="pt-2 flex flex-col sm:flex-row items-center justify-center gap-3">
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="primary" size="lg" className="w-full sm:w-auto gap-2 font-bold shadow-md">
                 <Sparkles className="w-4 h-4" />
                 <span>{dict.products.unlock}</span>
@@ -151,7 +151,7 @@ export default function NewProductPage() {
             <Link href="/dashboard/products">
               <Button variant="outline">{dict.products.manageProducts}</Button>
             </Link>
-            <Link href="/pricing">
+            <Link href="/planos">
               <Button variant="primary">{dict.dash.upgradePlan}</Button>
             </Link>
           </div>

@@ -47,7 +47,7 @@ export async function createAcademyVideoUploadAction(params: {
 
   return AcademyVideoService.createUpload({
     ownerId: profile.id,
-    plan: profile.subscription_plan || "basic",
+    plan: profile.subscription_plan ?? null,
     title: params.title,
     filename: params.filename,
     mimeType: params.mimeType,

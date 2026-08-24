@@ -67,7 +67,7 @@ export async function ensureSellerProfile(profile: UserProfileWithRoles) {
                 phone: profile.phone,
                 avatar_url: profile.avatar_url,
                 preferred_language: profile.preferred_language || "pt",
-                subscription_plan: profile.subscription_plan || "basic",
+                subscription_plan: profile.subscription_plan ?? null,
                 status: "active",
                 account_type: "customer",
                 is_active: true,
