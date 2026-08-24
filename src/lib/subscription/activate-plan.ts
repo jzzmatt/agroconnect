@@ -8,7 +8,6 @@ import {
 import { getUserEntitlements, normalizePlanSlug } from "@/lib/services/pricing-service";
 import { AuthorizationError, requirePlanActivationAllowed } from "@/lib/authorization";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
-import { DEFAULT_MARKET_COUNTRY } from "@/config/markets";
 import type { SubscriptionPlan } from "@/types/database";
 import type { UserEntitlements } from "@/types/domain";
 
@@ -60,11 +59,9 @@ function remainingMs(deadline: number): number {
 }
 
 function cachePlan(clerkUserId: string, plan: SubscriptionPlan) {
-  return setAuthoritativeSubscription(clerkUserId, {
-    plan,
-    marketCountryCode: DEFAULT_MARKET_COUNTRY,
-    preferredLanguage: "pt",
-  });
+  // Only the plan. Passing a market or language here would overwrite whatever
+  // the user had chosen, because the cache treats a supplied value as intent.
+  return setAuthoritativeSubscription(clerkUserId, { plan });
 }
 
 function persistPayload(plan: SubscriptionPlan) {
@@ -205,19 +202,41 @@ async function persistSubscriptionPlan(
   }
 }
 
-export async function activateUserSubscriptionPlan(plan: string): Promise<{
+export type PlanActivationCode =
+  | "ACTIVATED"
+  | "AUTH_REQUIRED"
+  | "ACTIVATION_DISABLED"
+  | "SUPABASE_NOT_CONFIGURED"
+  | "PLAN_NOT_PERSISTED"
+  | "UNEXPECTED_ERROR";
+
+export interface PlanActivationResult {
   success: boolean;
   plan: SubscriptionPlan;
   entitlements: UserEntitlements;
   persisted?: boolean;
+  code: PlanActivationCode;
   error?: string;
-}> {
+  /** Safe diagnostic describing why activation failed. Never contains secrets. */
+  detail?: string;
+}
+
+export async function activateUserSubscriptionPlan(
+  plan: string
+): Promise<PlanActivationResult> {
   const normalized = normalizePlanSlug(plan);
-  const fail = () => ({
-    success: false as const,
-    plan: "basic" as SubscriptionPlan,
+  const fail = (
+    code: PlanActivationCode,
+    detail?: string,
+    error: string = PLAN_ERROR
+  ): PlanActivationResult => ({
+    success: false,
+    plan: "basic",
+    persisted: false,
     entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-    error: PLAN_ERROR,
+    code,
+    error,
+    detail,
   });
 
   try {
@@ -230,35 +249,25 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     } catch (denied) {
       if (denied instanceof AuthorizationError) {
         console.warn("[activatePlan] denied:", denied.code, normalized);
-        return {
-          success: false,
-          plan: "basic",
-          persisted: false,
-          entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-          error: PLAN_ERROR,
-        };
+        return fail(
+          "ACTIVATION_DISABLED",
+          "ALLOW_SELF_SERVICE_PLAN_ACTIVATION is set to false in this environment."
+        );
       }
       throw denied;
     }
 
     // Without database credentials the plan can only live in this process, so a
-    // later request reads "basic" again. Reporting success here is what made the
-    // plan appear to revert moments after being selected.
+    // later request reads "basic" again.
     if (!isSupabaseConfigured()) {
       const missing = missingSupabaseEnvVars().join(", ");
       console.error("[activatePlan] database not configured; missing:", missing);
-      return {
-        success: false,
-        plan: "basic",
-        persisted: false,
-        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-        error: `A base de dados não está configurada neste ambiente (em falta: ${missing}).`,
-      };
+      return fail(
+        "SUPABASE_NOT_CONFIGURED",
+        `Missing: ${missing}`,
+        `A base de dados não está configurada neste ambiente (em falta: ${missing}).`
+      );
     }
-
-    // Authenticated cache first so the dashboard can read the new plan even if
-    // durable persist is briefly behind or unreachable.
-    cachePlan(clerkUserId, normalized);
 
     // The plan lives on the profile row. Bootstrap it first, otherwise the
     // update below matches zero rows and the plan only exists in memory —
@@ -266,27 +275,37 @@ export async function activateUserSubscriptionPlan(plan: string): Promise<{
     await getCurrentUserProfile().catch(() => null);
 
     const persist = await persistSubscriptionPlan(clerkUserId, normalized);
-    if (!persist.ok && !persist.unavailable) {
-      console.warn("[activatePlan] durable persist failed, serving trusted server cache:", persist.error);
+
+    if (!persist.ok) {
+      // Reporting success for a write that did not happen is what made the plan
+      // appear to change and then revert: the process cache served the new value
+      // until the next restart, while the database still held the old one.
+      console.error(
+        "[activatePlan] durable persist failed:",
+        persist.error || "unknown",
+        "plan:",
+        normalized
+      );
+      return fail("PLAN_NOT_PERSISTED", persist.error || "persist_failed");
     }
+
+    // Cached only after the row is durably written, so the dashboard can read
+    // the new plan immediately even if a read replica is briefly behind.
+    cachePlan(clerkUserId, normalized);
 
     return {
       success: true,
       plan: normalized,
-      persisted: persist.ok,
+      persisted: true,
+      code: "ACTIVATED",
       entitlements: getUserEntitlements({ subscriptionPlan: normalized }),
     };
   } catch (err: unknown) {
     const message = asErrorMessage(err);
     if (/autorizado|iniciar sessão|unauthor|sign in/i.test(message)) {
-      return {
-        success: false,
-        plan: "basic",
-        entitlements: getUserEntitlements({ subscriptionPlan: "basic" }),
-        error: message,
-      };
+      return fail("AUTH_REQUIRED", undefined, message);
     }
     console.warn("[activatePlan] unexpected error:", message);
-    return fail();
+    return fail("UNEXPECTED_ERROR", message);
   }
 }

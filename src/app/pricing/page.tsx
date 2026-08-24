@@ -26,6 +26,16 @@ function friendlyActivateError(dict: ReturnType<typeof useI18n>["dict"], raw?: s
   return sanitizeActivationError(raw, fallback);
 }
 
+/**
+ * A generic "could not update your plan" hides whether the environment has the
+ * feature switched off, the database is unreachable, or the write was rejected.
+ * The code is appended so the cause is identifiable from the screen alone.
+ */
+function withDiagnosticCode(message: string, code?: string | null): string {
+  if (!code || code === "ACTIVATED" || code === "AUTH_REQUIRED") return message;
+  return `${message} (${code})`;
+}
+
 export default function PricingPage() {
   const router = useRouter();
   const { dict } = useI18n();
@@ -73,10 +83,15 @@ export default function PricingPage() {
       }
 
       if (!response.ok || !result?.success) {
-        setError(friendlyActivateError(dict, result?.error));
+        if (result?.detail) {
+          console.warn("[pricing] activation failed:", result.code, result.detail);
+        }
+        setError(withDiagnosticCode(friendlyActivateError(dict, result?.error), result?.code));
         return;
       }
 
+      // Only trust the optimistic value once the server confirms the row was
+      // written; otherwise the plan appears to change and then reverts.
       setOptimisticPlan(result.plan || planId);
       router.push("/dashboard");
     } catch (err: any) {
