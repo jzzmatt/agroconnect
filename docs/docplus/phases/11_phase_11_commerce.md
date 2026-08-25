@@ -1,21 +1,81 @@
-# Phase 11 — Commerce Stabilization Prompt
+PHASE 11 — COMMERCE
 
-@00-master
+@10-commerce is the lead agent.
+
+Supporting:
 @06-agrishopping
-@10-commerce
+@07-agriacademy
 @03-authorization
 @11-qa
 
-Stabilize:
+GOAL
+
+Create the centralized Commerce domain.
+
+Commerce owns financial/transactional state.
+
+RESPONSIBILITIES
+
 - cart
 - checkout
 - orders
 - payments
-- delivery
-- tracking
-- notifications
+- transaction state
+- seller/provider transaction records
+- commissions
+- earnings
+- financial reporting
 
-Treat Commerce as shared infrastructure.
-Do not move cart business logic into AgriProfile.
-Do not redefine Product ownership.
-Preserve existing working flows unless concrete defects are found.
+IMPORTANT DOMAIN BOUNDARY
+
+AgriService does NOT own:
+- earnings
+- payments
+- checkout
+- financial records
+
+Transport Phase 10 only creates transport requests.
+
+Commerce may later convert an accepted/requestable offering into a transaction.
+
+TRANSPORT
+
+Support the transport request lifecycle established in Phase 10 without duplicating the Transport Service domain.
+
+PRODUCTS
+
+Integrate with AgriShopping product ownership.
+
+ACADEMY
+
+Integrate with Academy enrollment/purchase requirements where applicable.
+
+AUTHORIZATION
+
+Financial operations require strict server-side authorization.
+
+Never trust client-side prices, provider IDs, product IDs, subscription values or transaction totals.
+
+Use database/RLS/server-side validation.
+
+EARNINGS
+
+Financial information should live under Commerce, not the general AgriService workspace.
+
+Update navigation accordingly.
+
+VALIDATION
+
+Test:
+- cart
+- price integrity
+- order ownership
+- payment state
+- seller/provider ownership
+- transport transaction boundaries
+- course purchase/enrollment boundaries
+- authorization
+- RLS
+- financial calculations
+
+Run typecheck, lint, tests and build.
