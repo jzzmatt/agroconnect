@@ -1,0 +1,40 @@
+AGROCONNECT DEVELOPMENT RULES
+
+1. Work only on the assigned phase and its explicitly required dependencies.
+2. Before modifying anything, inspect the current repository state.
+3. Treat the current main branch as the source baseline.
+4. Do not revert or overwrite existing working functionality.
+5. Do not introduce a new architecture when an existing project abstraction already provides the capability.
+6. Respect the existing architecture:
+   - Next.js App Router
+   - TypeScript strict mode
+   - Clerk authentication
+   - Supabase PostgreSQL
+   - Supabase RLS
+   - PostGIS
+   - Portuguese-first i18n
+   - Existing design system
+   - Existing media architecture
+7. Database state is authoritative for persistent business data.
+8. Do not use browser/local cache as the source of truth for subscription or authorization.
+9. Do not create duplicate domain models when an existing model can be extended safely.
+10. Preserve existing subscription semantics:
+    - no implicit Basic plan
+    - subscription_plan may be null
+    - Control Panel requires an eligible stored subscription
+    - Pro/Business/Enterprise are eligible for provider publishing functionality
+11. All new user-facing functionality must support Portuguese first and English where the existing application requires it.
+12. Respect existing RLS and authorization boundaries.
+13. Add/update automated tests for important business rules.
+14. Run typecheck, lint and relevant tests before considering the phase complete.
+15. Do not modify unrelated domains simply because improvements are possible.
+16. Do not create future-phase functionality prematurely.
+17. If an architectural or business requirement is ambiguous, STOP and ask for clarification. Never assume.
+18. At the end, report:
+    - what was changed
+    - files changed
+    - database changes
+    - routes/components added
+    - tests added/updated
+    - validation performed
+    - remaining limitations
