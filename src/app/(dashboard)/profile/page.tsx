@@ -69,11 +69,12 @@ export default function ProfilePage() {
       }));
     }
     const publication = await getOwnProviderPublicationAction().catch(() => null);
-    if (publication?.publication) {
+    const ownPublication = publication?.publication;
+    if (ownPublication) {
       setProfileData((prev) => ({
         ...prev,
-        publicationState: publication.publication.publication_state,
-        publicSlug: publication.publication.slug,
+        publicationState: ownPublication.publication_state,
+        publicSlug: ownPublication.slug,
       }));
     }
   }, []);

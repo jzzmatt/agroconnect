@@ -116,7 +116,7 @@ export function toPublicProviderIdentity(
 
   for (const key of PRIVATE_PUBLIC_PROVIDER_KEYS) {
     if (key in identity) {
-      delete (identity as Record<string, unknown>)[key];
+      delete (identity as unknown as Record<string, unknown>)[key];
     }
   }
 

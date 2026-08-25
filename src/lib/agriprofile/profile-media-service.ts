@@ -52,8 +52,7 @@ export class ProfileMediaService {
     }
 
     const supabase = getMediaSupabaseClient();
-    const { data: existing } = await supabase
-      .from("media_assets")
+    const { data: existing } = await (supabase.from("media_assets") as any)
       .select("*")
       .eq("owner_profile_id", params.profileId)
       .eq("entity_type", "profile_avatar")
@@ -103,8 +102,7 @@ export class ProfileMediaService {
 
   public static async remove(profileId: string): Promise<void> {
     const supabase = getMediaSupabaseClient();
-    const { data: existing } = await supabase
-      .from("media_assets")
+    const { data: existing } = await (supabase.from("media_assets") as any)
       .select("*")
       .eq("owner_profile_id", profileId)
       .eq("entity_type", "profile_avatar");
