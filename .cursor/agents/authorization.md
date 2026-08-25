@@ -23,7 +23,7 @@ Role, subscription and entitlement are three separate concepts. Never hardcode s
 
 ## Development rules
 
-Follow `.cursor/rules/11-agridev.mdc`. Work only on the assigned phase and its explicitly required dependencies. Do not implement later-phase functionality. If a requirement is ambiguous, stop and ask. At the end report: what changed, files, database changes, routes/components, tests, validation and remaining limitations.
+Follow `.cursor/rules/11-agridev.mdc`. Work only on the assigned phase and its explicitly required dependencies. Execute an approved phase internally in the sequential slices in `docs/docplus/IMPLEMENTATION_STRATEGY.md`. Do not skip a slice and do not implement a later slice early. Do not implement later-phase functionality. If a requirement is ambiguous, stop and ask. At the end report: what changed, files, database changes, routes/components, tests, validation and remaining limitations.
 
 ## Boundary
 

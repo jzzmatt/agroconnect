@@ -44,6 +44,31 @@ Each step is the same five moves:
 5. **Gate before continuing.** Only move to the next step when validation passes and
    you have reviewed the diff. Do not batch two phases into one chat.
 
+### Internal slices (one phase, sequential NA → NG)
+
+A numbered phase remains one project phase. Internally execute it in the lettered
+slices in `docs/docplus/IMPLEMENTATION_STRATEGY.md`. Phase 10 is the canonical
+example:
+
+```
+10A — AgriService architecture + Expert
+       ↓
+10B — Services discovery
+       ↓
+10C — Transport Service
+       ↓
+10D — Transport Request lifecycle
+       ↓
+10E — /providers/[slug]
+       ↓
+10F — Sharing + navigation + localization
+       ↓
+10G — Integration + regression
+```
+
+Do not skip a slice. Do not implement a later slice early. Completing a slice does
+not start the next numbered phase.
+
 ### The prompt template
 
 Every step below uses this shape. Replace the four bracketed parts:
@@ -57,6 +82,7 @@ Read docs/docplus/phases/[phase-file] and execute it.
 Load only these contexts from docs/docplus/CONTEXT_MAP.md: [contexts].
 
 Inspect the existing implementation before editing. Follow .cursor/rules/11-agridev.mdc.
+Execute internally in the slice order in docs/docplus/IMPLEMENTATION_STRATEGY.md.
 Make the smallest safe change. Do not do anything the phase file does not ask for —
 stop and report instead.
 
@@ -418,8 +444,12 @@ Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master, @08-agrie
 @09-localization, @05-agriprofile, @03-authorization, @04-media, @11-qa.
 Follow .cursor/rules/11-agridev.mdc.
 
-Replace the old AgriExpert concept with AgriService: a public discovery layer for
-Expert, Services and Transport. This is not a simple rename.
+Replace the old AgriExpert concept with AgriService using the internal slice order
+in docs/docplus/IMPLEMENTATION_STRATEGY.md:
+
+10A architecture + Expert → 10B Services → 10C Transport Service →
+10D Transport Request → 10E /providers/[slug] → 10F sharing/navigation/localization →
+10G integration + regression.
 
 Public discovery is available to all users. Publishing and management require Pro,
 Business or Enterprise. Implement Transport as a distinct domain (origin, destination,

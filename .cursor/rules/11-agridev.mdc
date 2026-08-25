@@ -37,7 +37,8 @@ These rules govern every numbered-phase implementation. They operationalize `00-
 15. Do not modify unrelated domains simply because improvements are possible.
 16. Do not create future-phase functionality prematurely.
 17. If an architectural or business requirement is ambiguous, STOP and ask for clarification. Never assume.
-18. At the end, report:
+18. Execute each approved phase as one project phase, internally in named sequential slices (NA → NB → …). Do not skip a slice. Do not implement a later slice early. Completing a slice does not start the next numbered phase.
+19. At the end, report:
     - what was changed
     - files changed
     - database changes
@@ -45,6 +46,25 @@ These rules govern every numbered-phase implementation. They operationalize `00-
     - tests added/updated
     - validation performed
     - remaining limitations
+
+## Internal slice protocol
+
+A numbered phase in `docs/docplus/phases/` remains **one project phase**. Approval of Phase N is approval to execute that phase. It is not approval to start Phase N+1.
+
+Inside an approved phase, execute in the order defined in `docs/docplus/IMPLEMENTATION_STRATEGY.md`:
+
+```
+NA → NB → NC → … → last slice (integration + regression)
+```
+
+Rules:
+
+- Slices are an internal execution order, not separate project phases and not a new architecture.
+- Do not skip a slice. Do not start NB while NA is incomplete.
+- A slice may only implement work already required by that phase file. It must not pull in a later phase or a later slice.
+- Later slices in the same phase may consume earlier slices of that phase.
+- After each slice: validate the slice. After the last slice: run the full phase validation and the end-of-work report.
+- Phase 10 uses the canonical sequence 10A–10G. Other phases follow the same method.
 
 ## Cross-phase invariants (Phases 5–12)
 

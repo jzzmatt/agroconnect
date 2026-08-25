@@ -9,6 +9,7 @@ specialized agent contracts, and implementation prompts for Phases 0–12.
 - `/.cursor/agents/` — the twelve domain contracts, registered as live Cursor subagents.
 - `docs/docplus/docs/` — the Phase 1 architecture artifacts.
 - `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
+- `docs/docplus/IMPLEMENTATION_STRATEGY.md` — internal slice order inside each numbered phase.
 - `docs/docplus/CONTEXT_MAP.md` — which files to load for each `@context`.
 - `docs/docplus/EXECUTION_GUIDE.md` — the step-by-step runbook for executing the phases.
 

@@ -9,6 +9,7 @@ for example `/authorization`.
 @00-master
 - .cursor/rules/00-master.mdc
 - .cursor/rules/11-agridev.mdc
+- docs/docplus/IMPLEMENTATION_STRATEGY.md
 - docs/docplus/docs/architecture-v2.md
 
 @01-foundation
