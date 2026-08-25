@@ -1,25 +1,83 @@
-# Phase 7 — AgriAcademy Foundation Prompt
+PHASE 7 — AGRIACADEMY FOUNDATION
 
-@00-master
+@07-agriacademy is the lead agent.
+
+Supporting:
 @03-authorization
 @04-media
-@07-agriacademy
+@02-identity
 @11-qa
 
-Replace Academy prototype/mock-course flows with a durable LMS foundation.
+GOAL
 
-Create/evolve:
+Establish the LMS/domain architecture for AgriAcademy.
+
+Create the foundational domain model for:
 - courses
-- sections
+- instructors
+- modules/sections
 - lessons
-- enrollments
-- progress
-- course video assets
-- reviews/certificates as appropriate
+- course media
+- publication state
+- enrollment foundation
+- course ownership
 
-Bunny Stream is the only training-video provider.
+COURSE LIFECYCLE
 
-Define student and instructor capabilities independently.
-A user may be both student and instructor.
+Design a clear lifecycle:
 
-Do not implement every UI feature yet; establish reliable domain/data/service contracts first.
+Draft
+Published
+Paused/Unpublished
+Archived
+
+Only published courses are publicly discoverable.
+
+INSTRUCTOR
+
+Instructor identity must reference the existing user/profile identity.
+
+Do not create a duplicate user identity model.
+
+PUBLIC PROVIDER COMPATIBILITY
+
+The future:
+
+/providers/[slug]
+
+must be able to display courses published by that provider.
+
+Therefore expose a clean domain relationship:
+
+Provider/User
+    -> Published Courses
+
+Do not implement the complete Provider page yet.
+
+MEDIA
+
+Prepare the Academy domain for Bunny/approved media infrastructure.
+
+Do not create an independent video architecture.
+
+DO NOT IMPLEMENT YET
+
+- complete student experience
+- instructor authoring UI
+- payments
+- certificates
+- full Commerce
+
+Those belong to later phases.
+
+VALIDATION
+
+Test:
+- course ownership
+- publication state
+- instructor authorization
+- public visibility
+- media references
+- RLS
+
+Run typecheck, lint and tests.
