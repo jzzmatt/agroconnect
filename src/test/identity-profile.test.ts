@@ -97,6 +97,7 @@ describe("AGROCONNECT Phase 8.5 — User Profile, Identity & Active Context", ()
     expect(basicUser.can_create_products).toBe(false);
     expect(basicUser.can_publish_products).toBe(false);
     expect(basicUser.can_create_courses).toBe(false);
+    expect(basicUser.can_publish_public_provider).toBe(false);
 
     // Professional subscription user has unlocked capabilities with 10-product limit
     const proUser = calculateEntitlements({
@@ -106,6 +107,7 @@ describe("AGROCONNECT Phase 8.5 — User Profile, Identity & Active Context", ()
     expect(proUser.can_create_products).toBe(true);
     expect(proUser.can_publish_products).toBe(true);
     expect(proUser.can_create_courses).toBe(true);
+    expect(proUser.can_publish_public_provider).toBe(true);
     expect(proUser.can_teach_courses).toBe(true);
     expect(proUser.product_limit).toBe(10);
 

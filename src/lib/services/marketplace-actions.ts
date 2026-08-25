@@ -106,6 +106,8 @@ export async function getOrCreateCurrentProviderProfileAction(
       website: input?.website || null,
       verification_status: "unverified",
       status: "active",
+      publication_state: "draft",
+      avatar_url: userProfile.avatar_url,
       province_id: input?.provinceId || null,
       municipality_id: input?.municipalityId || null,
       latitude: input?.latitude || -12.5,

@@ -2,6 +2,7 @@ import { Webhook } from "svix";
 import { headers } from "next/headers";
 import { NextRequest, NextResponse } from "next/server";
 import { createAdminServerSupabaseClient } from "@/lib/supabase/server";
+import { isManagedProfileImageUrl } from "@/lib/agriprofile/publication";
 
 interface ClerkUserWebhookData {
   id: string;
@@ -174,15 +175,24 @@ export async function POST(req: NextRequest) {
           ? `${firstName} ${lastName}`.trim()
           : firstName || user.username || primaryEmail;
 
+      const { data: current } = await (supabase.from("profiles") as any)
+        .select("id, avatar_url")
+        .eq("clerk_user_id", user.id)
+        .maybeSingle();
+
+      const updates: Record<string, unknown> = {
+        email: primaryEmail,
+        phone: primaryPhone,
+        first_name: firstName,
+        last_name: lastName,
+        display_name: displayName,
+      };
+      if (!isManagedProfileImageUrl(current?.avatar_url)) {
+        updates.avatar_url = user.image_url;
+      }
+
       const { data: profile, error: updateError } = await (supabase.from("profiles") as any)
-        .update({
-          email: primaryEmail,
-          phone: primaryPhone,
-          first_name: firstName,
-          last_name: lastName,
-          display_name: displayName,
-          avatar_url: user.image_url,
-        })
+        .update(updates)
         .eq("clerk_user_id", user.id)
         .select("id")
         .single();

@@ -11,8 +11,11 @@ import { normalizeWhatsAppNumber, SUBSCRIPTION_PLANS } from "@/lib/services/pric
 import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { getOwnProviderPublicationAction } from "@/lib/agriprofile/actions";
+import { publicationStateLabel } from "@/lib/agriprofile/publication";
 import { useI18n } from "@/i18n/provider";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
+import type { ProviderPublicationState } from "@/types/database";
 
 export default function ProfilePage() {
   const { user } = useUser();
@@ -37,32 +40,42 @@ export default function ProfilePage() {
     subscriptionPlan: "" as string,
     activeSince: "Agosto 2026",
     isVerified: false,
+    avatarUrl: null as string | null,
+    publicationState: null as ProviderPublicationState | null,
+    publicSlug: null as string | null,
   });
 
   const loadServerProfile = useCallback(async () => {
     const serverProfile = await fetchClientProfileDetails();
-    if (!serverProfile) return;
-
-    setProfileData((prev) => ({
-      ...prev,
-      displayName: serverProfile.display_name || prev.displayName,
-      firstName: serverProfile.first_name || prev.firstName,
-      lastName: serverProfile.last_name || prev.lastName,
-      email: serverProfile.email || prev.email,
-      phone: serverProfile.phone || prev.phone,
-      whatsappPhone: serverProfile.whatsapp_phone || prev.whatsappPhone,
-      bio: serverProfile.bio || prev.bio,
-      professionalTitle: serverProfile.professional_title || prev.professionalTitle,
-      professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
-      activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-    subscriptionPlan: serverProfile.subscription_plan ?? "",
-      // Replaced outright rather than merged: a removed area of activity must
-      // disappear from the card, not linger from the previous render.
-      roles:
-        serverProfile.roles && serverProfile.roles.length > 0
-          ? (serverProfile.roles as ProfileType[])
-          : prev.roles,
-    }));
+    if (serverProfile) {
+      setProfileData((prev) => ({
+        ...prev,
+        displayName: serverProfile.display_name || prev.displayName,
+        firstName: serverProfile.first_name || prev.firstName,
+        lastName: serverProfile.last_name || prev.lastName,
+        email: serverProfile.email || prev.email,
+        phone: serverProfile.phone || prev.phone,
+        whatsappPhone: serverProfile.whatsapp_phone || prev.whatsappPhone,
+        bio: serverProfile.bio || prev.bio,
+        professionalTitle: serverProfile.professional_title || prev.professionalTitle,
+        professionalTitleCustom: serverProfile.professional_title_custom || prev.professionalTitleCustom,
+        activeProfile: serverProfile.active_profile_type || prev.activeProfile,
+        subscriptionPlan: serverProfile.subscription_plan ?? "",
+        avatarUrl: serverProfile.avatar_url || prev.avatarUrl,
+        roles:
+          serverProfile.roles && serverProfile.roles.length > 0
+            ? (serverProfile.roles as ProfileType[])
+            : prev.roles,
+      }));
+    }
+    const publication = await getOwnProviderPublicationAction().catch(() => null);
+    if (publication?.publication) {
+      setProfileData((prev) => ({
+        ...prev,
+        publicationState: publication.publication.publication_state,
+        publicSlug: publication.publication.slug,
+      }));
+    }
   }, []);
 
   useProfileChangeListener(loadServerProfile);
@@ -131,6 +144,7 @@ export default function ProfilePage() {
       <div className="bg-surface-card rounded-3xl p-6 sm:p-8 border border-border shadow-xs relative overflow-hidden">
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-6">
           <Avatar
+            src={profileData.avatarUrl}
             fallbackText={greeting.displayName}
             size="xl"
             className="w-20 h-20 text-2xl"
@@ -147,6 +161,16 @@ export default function ProfilePage() {
                   ✓ Verificado
                 </span>
               )}
+              {profileData.publicationState ? (
+                <span className="text-xs font-bold text-muted-foreground">
+                  Perfil público: {publicationStateLabel(profileData.publicationState)}
+                </span>
+              ) : null}
+              {profileData.publicationState === "published" && profileData.publicSlug ? (
+                <Link href={`/providers/${profileData.publicSlug}`} className="text-xs font-bold text-primary hover:underline">
+                  Ver página pública
+                </Link>
+              ) : null}
             </div>
 
             {profileData.title ? (

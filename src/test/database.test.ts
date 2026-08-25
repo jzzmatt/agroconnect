@@ -166,6 +166,10 @@ describe("AGROCONNECT Phase 3 — Supabase Database Architecture & Domain Models
       longitude: 15.7333,
       location: null,
       service_radius_km: 100,
+      publication_state: "draft",
+      published_at: null,
+      paused_at: null,
+      avatar_url: null,
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
     };

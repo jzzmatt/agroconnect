@@ -18,6 +18,9 @@ export * from "./localization";
 // AgriExpert Domain
 export * from "./agriexpert";
 
+// AgriProfile public provider identity
+export * from "./agriprofile";
+
 // AgriShopping Domain
 export * from "./agrishopping";
 

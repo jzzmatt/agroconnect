@@ -97,6 +97,8 @@ describe("authorization matrix: the eight required cases", () => {
     expect(can(FREE(), "product.create")).toBe(false);
     expect(decide(FREE(), "product.create").code).toBe("ENTITLEMENT_REQUIRED");
     expect(can(FREE(), "academy.course.create")).toBe(false);
+    expect(can(FREE(), "profile.publish")).toBe(false);
+    expect(decide(FREE(), "profile.publish").code).toBe("ENTITLEMENT_REQUIRED");
     expect(() => requireEntitlement(FREE(), "can_create_products")).toThrow(AuthorizationError);
   });
 
@@ -104,7 +106,11 @@ describe("authorization matrix: the eight required cases", () => {
     expect(can(PAID(), "product.create")).toBe(true);
     expect(can(PAID(), "product.publish")).toBe(true);
     expect(can(PAID(), "academy.course.create")).toBe(true);
+    expect(can(PAID(), "profile.publish")).toBe(true);
+    expect(can(PAID(), "profile.pause")).toBe(true);
+    expect(can(PAID(), "profile.resume")).toBe(true);
     expect(() => requireEntitlement(PAID(), "can_create_products")).not.toThrow();
+    expect(() => requireEntitlement(PAID(), "can_publish_public_provider")).not.toThrow();
   });
 });
 
@@ -113,8 +119,10 @@ describe("subscription status is distinct from Basic feature restrictions", () =
 
   it("denies Control Panel access when there is no stored plan", () => {
     expect(can(unsubscribed(), "control_panel.access")).toBe(false);
+    expect(can(unsubscribed(), "profile.publish")).toBe(false);
     expect(unsubscribed().entitlements.has_subscription).toBe(false);
     expect(unsubscribed().entitlements.can_access_control_panel).toBe(false);
+    expect(unsubscribed().entitlements.can_publish_public_provider).toBe(false);
     expect(unsubscribed().plan).toBeNull();
   });
 
@@ -161,6 +169,9 @@ describe("locked decision: Free may view all five major modules", () => {
       "academy.course.update",
       "academy.course.delete",
       "academy.course.publish",
+      "profile.publish",
+      "profile.pause",
+      "profile.resume",
     ] as Permission[]) {
       expect(can(FREE(), permission)).toBe(false);
     }
