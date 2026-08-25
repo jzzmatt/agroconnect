@@ -1,31 +1,38 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState, useTransition } from "react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { SectionHeader, CourseCard, SearchBar, EmptyState } from "@/components/ui";
 import { LocationSelector } from "@/components/location";
 import { useI18n } from "@/i18n/provider";
-import { MOCK_COURSES } from "@/config/mock-data";
+import {
+  CourseService,
+  INITIAL_COURSES,
+  mapCourseToCardProps,
+} from "@/lib/services/course-service";
+import type { CourseListItem } from "@/types/agriacademy";
 import { GraduationCap } from "lucide-react";
 
 export default function AgriAcademyPage() {
   const { dict } = useI18n();
+  const [courses, setCourses] = useState<CourseListItem[]>(INITIAL_COURSES.filter((c) => c.status === "published"));
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedProvince, setSelectedProvince] = useState("");
+  const [isPending, startTransition] = useTransition();
 
-  const filteredCourses = MOCK_COURSES.filter((crs) => {
-    const matchesSearch =
-      crs.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      crs.instructorName.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      (crs.category && crs.category.toLowerCase().includes(searchQuery.toLowerCase()));
+  useEffect(() => {
+    startTransition(() => {
+      void CourseService.searchPublishedCourses({
+        query: searchQuery || undefined,
+        provinceName: selectedProvince || undefined,
+      }).then((result) => {
+        setCourses(result.courses);
+      });
+    });
+  }, [searchQuery, selectedProvince]);
 
-    const matchesProvince = selectedProvince
-      ? crs.provinceName?.toLowerCase() === selectedProvince.toLowerCase()
-      : true;
-
-    return matchesSearch && matchesProvince;
-  });
+  const filteredCourses = courses;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
@@ -56,10 +63,12 @@ export default function AgriAcademyPage() {
           </div>
         </div>
 
-        {filteredCourses.length > 0 ? (
+        {isPending && filteredCourses.length === 0 ? (
+          <p className="text-sm text-muted-foreground text-center py-12">A carregar cursos...</p>
+        ) : filteredCourses.length > 0 ? (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
             {filteredCourses.map((course) => (
-              <CourseCard key={course.id} {...course} />
+              <CourseCard key={course.id} {...mapCourseToCardProps(course)} />
             ))}
           </div>
         ) : (

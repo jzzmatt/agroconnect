@@ -40,6 +40,8 @@ describe("Phase 2 — Foundation Architecture Contracts", () => {
     expect(Services.ProductMediaService).toBeDefined();
     expect(Services.ProductVideoService).toBeDefined();
     expect(Services.AcademyVideoService).toBeDefined();
+    expect(Services.CourseService).toBeDefined();
+    expect(Services.EnrollmentService).toBeDefined();
     expect(Services.SUBSCRIPTION_PLANS).toBeDefined();
     expect(Services.getUserEntitlements).toBeDefined();
   });
