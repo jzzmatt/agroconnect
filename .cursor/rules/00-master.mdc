@@ -6,6 +6,8 @@ alwaysApply: true
 
 Treat AgriConnect as an existing production-oriented codebase under controlled evolution.
 
+Every implementation follows `.cursor/rules/11-agridev.mdc` in addition to this file.
+
 Before modifying code:
 1. Inspect the existing implementation.
 2. Identify the owning domain.
@@ -31,6 +33,14 @@ Figma = approved UI source of truth.
 Portuguese is the primary language.
 Angola is the primary market.
 
+AgriService is a public discovery layer (Expert, Services, Transport), not the owner of products, courses, profiles, commerce or payments.
+AgriProfile owns public provider identity and publication state. `/providers/[slug]` aggregates published content only.
+Database state is the source of truth for subscriptions and authorization. Browser/local cache is not.
+
 Do not modify unrelated domains.
+Do not implement future-phase functionality.
+If a requirement is ambiguous, stop and ask. Never assume.
 
 Never start, resume or execute a numbered phase from docs/docplus/phases/ without explicit human approval for that specific phase.
+
+At the end of assigned work, report: what changed, files, database changes, routes/components, tests, validation and remaining limitations.

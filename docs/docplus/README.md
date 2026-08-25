@@ -5,7 +5,7 @@ specialized agent contracts, and implementation prompts for Phases 0–12.
 
 ## Layout
 
-- `/.cursor/rules/` — the ten `.mdc` rules, at the repository root so they apply repository-wide.
+- `/.cursor/rules/` — the eleven `.mdc` rules (including `11-agridev.mdc`), at the repository root so they apply repository-wide.
 - `/.cursor/agents/` — the twelve domain contracts, registered as live Cursor subagents.
 - `docs/docplus/docs/` — the Phase 1 architecture artifacts.
 - `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
@@ -39,12 +39,15 @@ specific phase.
 
 ## Locked architectural decisions
 
-- AgriProfile: `/[userId]/agriprofile`
+- AgriProfile: `/[userId]/agriprofile` and public provider identity (Phases 5+)
 - Existing internal `basic` subscription slug is preserved; UI can display `Free`.
 - Roles, subscriptions and entitlements are separate.
+- Public publishing/management requires a stored Pro/Business/Enterprise plan.
 - Product images: ImageKit.
 - Product short videos: ImageKit.
 - AgriAcademy training videos: Bunny Stream.
+- AgriService (Phases 10+): public discovery for Expert, Services and Transport; replaces AgriExpert.
+- `/providers/[slug]`: read-only aggregation of published content.
 - Supabase: durable metadata/application state.
 - Clerk: identity.
 - PostGIS: geographic infrastructure.

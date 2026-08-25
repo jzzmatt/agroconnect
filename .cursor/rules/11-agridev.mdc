@@ -1,4 +1,10 @@
-AGROCONNECT DEVELOPMENT RULES
+---
+description: Phase development operating procedure for AgriConnect
+alwaysApply: true
+---
+# AgriConnect Development Rules
+
+These rules govern every numbered-phase implementation. They operationalize `00-master`; they do not replace it.
 
 1. Work only on the assigned phase and its explicitly required dependencies.
 2. Before modifying anything, inspect the current repository state.
@@ -23,10 +29,11 @@ AGROCONNECT DEVELOPMENT RULES
     - subscription_plan may be null
     - Control Panel requires an eligible stored subscription
     - Pro/Business/Enterprise are eligible for provider publishing functionality
+    - express eligibility through entitlements; do not scatter plan-name checks in UI or business logic
 11. All new user-facing functionality must support Portuguese first and English where the existing application requires it.
 12. Respect existing RLS and authorization boundaries.
 13. Add/update automated tests for important business rules.
-14. Run typecheck, lint and relevant tests before considering the phase complete.
+14. Run typecheck, lint and relevant tests before considering the phase complete. Run build when the phase file requires it.
 15. Do not modify unrelated domains simply because improvements are possible.
 16. Do not create future-phase functionality prematurely.
 17. If an architectural or business requirement is ambiguous, STOP and ask for clarification. Never assume.
@@ -38,3 +45,17 @@ AGROCONNECT DEVELOPMENT RULES
     - tests added/updated
     - validation performed
     - remaining limitations
+
+## Cross-phase invariants (Phases 5–12)
+
+These constraints apply whenever the assigned phase touches the related surface. They are not permission to implement a later phase.
+
+- **Publication:** draft / published / paused (and archived/deleted where the owning domain defines it). Only published content is publicly discoverable. Unpublished, draft and paused content stays available to the owner and must never leak publicly. Nothing auto-publishes.
+- **Eligible publishing:** only a stored Pro, Business or Enterprise subscription may publish or manage public provider, marketplace, AgriService and instructor-publishing functionality. Users without an eligible plan may keep private data and browse public discovery. Internal plan slug `professional` is Pro. `currentPlan = null` is valid and is not Basic.
+- **AgriProfile** owns the public provider identity, publication state and stable public slug. A profile exists independently of publication. Do not duplicate user identity in other domains.
+- **`/providers/[slug]`** is a read-only aggregation of that provider's published content. It does not own products, courses, transport, services or commerce. Each domain remains responsible for its own data.
+- **AgriService** is a public discovery layer for Expert, Services and Transport. It does not own products, courses, profiles, commerce, payments or earnings. Transport is a distinct offering domain, not a category inside Services. Do not implement live GPS tracking; vehicle location is base location only.
+- **Transport requests** (pending / accepted / rejected / cancelled) are not financial orders. Commerce owns cart, checkout, orders, payments, commissions, earnings and financial reporting.
+- **Media:** reuse ImageKit for product/application/profile media and Bunny Stream for AgriAcademy training videos only. Do not create a parallel upload architecture.
+- **Navigation:** product creation stays on the Products page; do not reintroduce a duplicate "Adicionar produto" sidebar entry. Remove or replace "Logística e Entregas" when Transport exists. Do not put earnings under AgriService.
+- **Phase 12** hardens and reviews; it does not add product features.

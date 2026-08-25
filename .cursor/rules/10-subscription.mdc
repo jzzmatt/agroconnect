@@ -17,16 +17,18 @@ Authenticated user → user id → database → subscription (null | plan)
 Distinguish:
 
 - **NOT SUBSCRIBED** (`currentPlan = null`) — Control Panel locked, redirect to `/planos`
-- **SUBSCRIBED TO BASIC** — Control Panel unlocked; AgriExpert, AgriAcademy, and AgriProduct stay locked
-- **SUBSCRIBED TO A HIGHER PLAN** — Control Panel unlocked; apply that plan's existing feature permissions
+- **SUBSCRIBED TO BASIC** — Control Panel unlocked; public provider publishing, AgriService offering management, AgriAcademy instructor publishing, and AgriProduct marketplace publishing stay locked
+- **SUBSCRIBED TO PRO / BUSINESS / ENTERPRISE** — Control Panel unlocked; apply that plan's existing feature permissions, including eligible public publishing/management
+
+Public discovery does not require a publishing plan. Users without an eligible subscription may still maintain a private profile and browse published content.
 
 Do not use a single flag such as `isPremium` for all access. Separate:
 
 - `hasSubscription` — can the user open the Control Panel?
 - `currentPlan` — which plan-specific restrictions apply?
-- feature entitlements — which modules are unlocked?
+- feature entitlements — which modules are unlocked, including publish/manage
 
-The database is the only source of truth. Never determine the current plan from localStorage, sessionStorage, URL parameters, selected-plan UI state, or hardcoded defaults.
+The database is the only source of truth. Never determine the current plan from localStorage, sessionStorage, URL parameters, selected-plan UI state, or hardcoded defaults. Do not use browser/local cache as the source of truth for subscription or authorization.
 
 Hide the user's current subscribed plan from plan-selection cards everywhere, including `/planos` and the homepage. Unsubscribed users see every purchasable plan, including Basic.
 

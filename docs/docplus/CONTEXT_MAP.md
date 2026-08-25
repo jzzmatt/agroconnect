@@ -2,11 +2,13 @@
 
 Use only the contexts relevant to the current task.
 
-The rules in `.cursor/rules/` apply automatically. The agents in `.cursor/agents/`
-are live Cursor subagents and can be invoked by name, for example `/authorization`.
+The rules in `.cursor/rules/` apply automatically, including `11-agridev.mdc`.
+The agents in `.cursor/agents/` are live Cursor subagents and can be invoked by name,
+for example `/authorization`.
 
 @00-master
 - .cursor/rules/00-master.mdc
+- .cursor/rules/11-agridev.mdc
 - docs/docplus/docs/architecture-v2.md
 
 @01-foundation
@@ -20,6 +22,7 @@ are live Cursor subagents and can be invoked by name, for example `/authorizatio
 @03-authorization
 - .cursor/agents/authorization.md
 - .cursor/rules/04-authorization.mdc
+- .cursor/rules/10-subscription.mdc
 - docs/docplus/docs/authorization-model.md
 
 @04-media
@@ -42,9 +45,11 @@ are live Cursor subagents and can be invoked by name, for example `/authorizatio
 
 @08-agriexpert
 - .cursor/agents/agriexpert.md
+- AgriService discovery: Expert, Services and Transport (not a rename-only of AgriExpert)
 
 @09-localization
 - .cursor/agents/localization.md
+- Lead agent for Phase 10 AgriService
 
 @10-commerce
 - .cursor/agents/commerce.md
