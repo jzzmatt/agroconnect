@@ -249,3 +249,15 @@ export function getAvailableProfileTypes(profile: UserProfileWithRoles): Profile
 
   return available;
 }
+
+/** Public labels for a user's selected areas of work. Omits internal admin. */
+export function publicAreasOfWorkFromRoles(
+  roles: Array<UserRoleType | string> | null | undefined
+): Array<{ slug: string; label: string }> {
+  const filtered = (roles || []).filter((role) => role !== "admin") as UserRoleType[];
+  const types = getAvailableProfileTypes({ roles: filtered } as UserProfileWithRoles);
+  return types.map((slug) => ({
+    slug,
+    label: PROFILE_TYPE_CONFIG[slug]?.label || slug,
+  }));
+}

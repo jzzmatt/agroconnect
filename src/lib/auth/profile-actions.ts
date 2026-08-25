@@ -10,6 +10,7 @@ import {
 import { parseStoredPlan, getUserEntitlements } from "@/lib/services/pricing-service";
 import { setAuthoritativeSubscription } from "@/lib/subscription/store";
 import { getMarketCountry, isMarketCountryCode, DEFAULT_MARKET_COUNTRY } from "@/config/markets";
+import { PublicProviderIdentityService } from "@/lib/agriprofile/provider-identity-service";
 import type { ProfessionalTitle, ProfileType, SubscriptionPlan } from "@/types/database";
 import type { UserEntitlements, UserProfileWithRoles } from "@/types/domain";
 
@@ -25,6 +26,8 @@ export interface UpdateProfileInput {
   activeProfileType?: ProfileType;
   preferredLanguage?: "pt" | "en" | "fr";
   marketCountryCode?: string;
+  provinceName?: string;
+  municipalityName?: string;
 }
 
 /**
@@ -115,8 +118,14 @@ export async function updateProfileDetailsAction(
       market_country_code: updates.market_country_code !== undefined ? updates.market_country_code : current.market_country_code,
     };
 
+    await PublicProviderIdentityService.syncFromPrivateProfile(updatedProfile, {
+      provinceName: input.provinceName,
+      municipalityName: input.municipalityName,
+    }).catch(() => undefined);
+
     revalidatePath("/dashboard");
     revalidatePath("/profile");
+    revalidatePath("/profile/edit");
     revalidatePath("/settings");
 
     return { success: true, profile: updatedProfile };

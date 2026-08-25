@@ -7,6 +7,9 @@ export * from "./identity";
 export * from "./authorization";
 export * from "./localization";
 export * from "./agriexpert";
+
+// AgriProfile public provider identity
+export * from "./agriprofile";
 export * from "./agrishopping";
 export * from "./agriacademy";
 export * from "./commerce";

@@ -9,6 +9,9 @@ export const PERMISSIONS = [
   // Module access. Every authenticated user may view the five major modules,
   // including Free/basic. Viewing is not a paid capability.
   "profile.view",
+  "profile.publish",
+  "profile.pause",
+  "profile.resume",
   "shopping.view",
   "academy.view",
   "expert.view",
@@ -88,6 +91,18 @@ export interface PermissionRule {
  */
 export const PERMISSION_POLICY: Record<Permission, PermissionRule> = {
   "profile.view": { describe: "View own profile workspace" },
+  "profile.publish": {
+    entitlement: "can_publish_public_provider",
+    describe: "Publish a public provider profile",
+  },
+  "profile.pause": {
+    entitlement: "can_publish_public_provider",
+    describe: "Pause a public provider profile",
+  },
+  "profile.resume": {
+    entitlement: "can_publish_public_provider",
+    describe: "Resume a public provider profile",
+  },
   "shopping.view": { describe: "Browse AgriShopping" },
   "academy.view": { describe: "Browse AgriAcademy" },
   "expert.view": { describe: "Browse AgriExpert" },

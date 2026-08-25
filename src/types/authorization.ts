@@ -26,6 +26,7 @@ export interface UserEntitlements {
   can_upload_product_video: boolean;
   product_limit_reached: boolean;
   can_manage_services: boolean;
+  can_publish_public_provider: boolean;
   can_teach_courses: boolean;
   can_create_courses: boolean;
   can_publish_courses: boolean;

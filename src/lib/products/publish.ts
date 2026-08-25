@@ -110,6 +110,8 @@ export async function ensureSellerProfile(profile: UserProfileWithRoles) {
         email: profile.email,
         verification_status: "unverified",
         status: "active",
+        publication_state: "draft",
+        avatar_url: profile.avatar_url,
         latitude: -12.5,
         longitude: 17.5,
         service_radius_km: 50,

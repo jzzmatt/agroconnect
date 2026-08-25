@@ -14,6 +14,8 @@ import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { notifyProfileChanged } from "@/lib/auth/profile-events";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS, normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
+import { ProfileAvatarField } from "@/components/profile/ProfileAvatarField";
+import { ProfilePublicationPanel } from "@/components/profile/ProfilePublicationPanel";
 import type { ProfessionalTitle, ProfileType } from "@/types/database";
 
 export default function EditProfilePage() {
@@ -29,6 +31,7 @@ export default function EditProfilePage() {
   const [province, setProvince] = useState("");
   const [municipality, setMunicipality] = useState("");
   const [bio, setBio] = useState("");
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [subscriptionPlan, setSubscriptionPlan] = useState<string | null>(null);
 
   // Multiple Profile Types Selection
@@ -50,6 +53,7 @@ export default function EditProfilePage() {
         if (serverProfile.phone) setPhone(serverProfile.phone);
         if (serverProfile.whatsapp_phone) setWhatsappPhone(serverProfile.whatsapp_phone);
         if (serverProfile.bio) setBio(serverProfile.bio);
+        if (serverProfile.avatar_url) setAvatarUrl(serverProfile.avatar_url);
         if (serverProfile.professional_title) setProfessionalTitle(serverProfile.professional_title);
         if (serverProfile.professional_title_custom) setProfessionalTitleCustom(serverProfile.professional_title_custom);
         if (serverProfile.subscription_plan) setSubscriptionPlan(serverProfile.subscription_plan);
@@ -120,6 +124,8 @@ export default function EditProfilePage() {
         phone,
         whatsappPhone: waNormalized.normalized || whatsappPhone,
         bio,
+        provinceName: province,
+        municipalityName: municipality,
       });
 
       // Profile types are durable state, so they go to the database rather than
@@ -215,6 +221,12 @@ export default function EditProfilePage() {
             <h3 className="text-xs font-black uppercase tracking-wider text-primary flex items-center gap-2">
               <span>1. IDENTIDADE</span>
             </h3>
+
+            <ProfileAvatarField
+              displayName={displayName || firstName || "AC"}
+              avatarUrl={avatarUrl}
+              onAvatarUrlChange={setAvatarUrl}
+            />
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
@@ -496,6 +508,8 @@ export default function EditProfilePage() {
               </Link>
             </div>
           </div>
+
+          <ProfilePublicationPanel />
 
           {/* Save Action Bar */}
           <div className="pt-4 border-t border-border flex items-center justify-between">

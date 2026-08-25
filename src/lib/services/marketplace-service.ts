@@ -617,11 +617,11 @@ export class MarketplaceService {
             headline,
             description,
             provider_type,
-            phone,
-            email,
+            avatar_url,
             website,
             verification_status,
             status,
+            publication_state,
             rating,
             reviews_count,
             latitude,
@@ -633,6 +633,7 @@ export class MarketplaceService {
           `)
           .eq("slug", slug)
           .eq("status", "active")
+          .eq("publication_state", "published")
           .single();
 
         if (!error && data) {
@@ -645,10 +646,8 @@ export class MarketplaceService {
             headline: item.headline,
             description: item.description,
             provider_type: item.provider_type,
-            avatar_url: null,
+            avatar_url: item.avatar_url || null,
             banner_url: null,
-            phone: item.phone,
-            email: item.email,
             website: item.website,
             verification_status: item.verification_status,
             status: item.status,
@@ -660,6 +659,8 @@ export class MarketplaceService {
             longitude: item.longitude ? Number(item.longitude) : null,
             service_radius_km: Number(item.service_radius_km || 50),
             created_at: item.created_at,
+            phone: null,
+            email: null,
           };
         }
       } catch {
@@ -667,7 +668,9 @@ export class MarketplaceService {
       }
     }
 
-    return seedMatch || null;
+    return seedMatch
+      ? { ...seedMatch, phone: null, email: null }
+      : null;
   }
 
   /**

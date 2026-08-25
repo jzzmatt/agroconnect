@@ -1,6 +1,6 @@
 /**
  * ImageKit integration — canonical provider for product images, product short
- * videos, and (in a later phase) profile/application images and thumbnails.
+ * videos, profile/application images and thumbnails.
  *
  * Implemented with raw fetch + node:crypto (no vendor SDK), consistent with
  * how @/lib/video/bunny.ts talks to Bunny Stream. The private key never
@@ -190,4 +190,35 @@ export async function deleteImageKitFile(fileId: string): Promise<boolean> {
 /** Deterministic, collision-resistant folder path for a product's media. */
 export function productMediaFolder(productId: string, kind: "images" | "videos"): string {
   return `/agriconnect/products/${productId}/${kind}`;
+}
+
+/** Deterministic folder for a user's profile avatar. */
+export function profileMediaFolder(profileId: string): string {
+  return `/agriconnect/profiles/${profileId}/avatar`;
+}
+
+/**
+ * Prefer an ImageKit transformation when the stored URL is already on ImageKit.
+ * Clerk or other remote URLs are returned unchanged.
+ */
+export function optimizedProfileImageUrl(
+  url: string | null | undefined,
+  transform = "tr:w-400,h-400,c-at_max,fo-face,q-80"
+): string | null {
+  if (!url) return null;
+  try {
+    const parsed = new URL(url);
+    if (!parsed.hostname.includes("imagekit.io")) return url;
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parts.length === 0) return url;
+    if (parts[0]?.startsWith("tr:")) {
+      parts[0] = transform;
+    } else {
+      parts.unshift(transform);
+    }
+    parsed.pathname = `/${parts.join("/")}`;
+    return parsed.toString();
+  } catch {
+    return url;
+  }
 }

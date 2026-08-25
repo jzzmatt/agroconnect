@@ -71,6 +71,7 @@ export type PricingType =
   | "free";
 
 export type ServiceStatus = "draft" | "published" | "active" | "paused" | "archived";
+export type ProviderPublicationState = "draft" | "published" | "paused";
 export type ServiceLocationType = "physical_location" | "service_area" | "remote";
 export type ServiceContactPreference = "platform" | "phone" | "whatsapp" | "email";
 
@@ -701,6 +702,10 @@ export interface Database {
           longitude: number | null;
           location: unknown | null;
           service_radius_km: number | null;
+          publication_state: ProviderPublicationState;
+          published_at: string | null;
+          paused_at: string | null;
+          avatar_url: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -727,6 +732,10 @@ export interface Database {
           longitude?: number | null;
           location?: unknown | null;
           service_radius_km?: number | null;
+          publication_state?: ProviderPublicationState;
+          published_at?: string | null;
+          paused_at?: string | null;
+          avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -753,6 +762,10 @@ export interface Database {
           longitude?: number | null;
           location?: unknown | null;
           service_radius_km?: number | null;
+          publication_state?: ProviderPublicationState;
+          published_at?: string | null;
+          paused_at?: string | null;
+          avatar_url?: string | null;
           created_at?: string;
           updated_at?: string;
         };

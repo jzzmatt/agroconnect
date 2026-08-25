@@ -5,6 +5,7 @@ const isPublicRoute = createRouteMatcher([
   "/",
   "/agriexpert(.*)",
   "/services(.*)",
+  "/providers(.*)",
   "/agriacademy(.*)",
   "/agrishopping(.*)",
   "/agrilocalizacao(.*)",
@@ -19,6 +20,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/subscription(.*)",
   // JSON product create — handler enforces Clerk auth so fetch is not redirected.
   "/api/products(.*)",
+  // JSON profile avatar upload — handler enforces Clerk auth so fetch is not redirected.
+  "/api/profile(.*)",
   // Reports which env vars a deployment can see. Never returns values.
   "/api/health(.*)",
 ]);

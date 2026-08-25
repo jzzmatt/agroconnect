@@ -94,6 +94,7 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(basicEntitlements.can_create_products).toBe(false);
     expect(basicEntitlements.can_create_courses).toBe(false);
     expect(basicEntitlements.can_manage_services).toBe(false);
+    expect(basicEntitlements.can_publish_public_provider).toBe(false);
     expect(basicEntitlements.can_manage_locations).toBe(false);
   });
 
