@@ -23,8 +23,11 @@ import { LocationMap } from "@/components/location";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { getProviderBySlugAction, getProviderServicesAction } from "@/lib/services/marketplace-actions";
+import { getSellerProductsAction } from "@/lib/services/shopping-actions";
 import { INITIAL_PROVIDERS, INITIAL_SERVICES } from "@/lib/services/marketplace-service";
+import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import type { ProviderPublicProfile, ServiceListItem } from "@/types/domain";
+import type { ProductListItem } from "@/types/domain";
 
 export default function ProviderProfilePage() {
   const params = useParams();
@@ -32,6 +35,7 @@ export default function ProviderProfilePage() {
 
   const [provider, setProvider] = useState<ProviderPublicProfile | null>(null);
   const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [products, setProducts] = useState<ProductListItem[]>([]);
 
   useEffect(() => {
     if (!slug) return;
@@ -40,6 +44,9 @@ export default function ProviderProfilePage() {
         setProvider(res);
         getProviderServicesAction(res.id).then((srvs) => {
           setServices(srvs);
+        });
+        getSellerProductsAction(res.id, true).then((items) => {
+          setProducts(items);
         });
       }
     });
@@ -179,6 +186,30 @@ export default function ProviderProfilePage() {
           ) : (
             <div className="bg-surface-card rounded-3xl p-8 text-center border border-border text-muted-foreground text-sm">
               Nenhum serviço publicado no momento por este prestador.
+            </div>
+          )}
+        </div>
+
+        {/* Provider Products Section */}
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              Produtos Publicados ({products.length})
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Produtos agrícolas publicados por {provider.business_name}
+            </p>
+          </div>
+
+          {products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map((product) => (
+                <ShoppingProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-surface-card rounded-3xl p-8 text-center border border-border text-muted-foreground text-sm">
+              Nenhum produto publicado no momento por este prestador.
             </div>
           )}
         </div>
