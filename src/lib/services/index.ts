@@ -27,8 +27,13 @@ export * from "./enterprise-service-actions";
 export * from "./product-media-service";
 export * from "./product-video-service";
 export * from "./product-video-actions";
+
+// AgriAcademy
 export * from "./academy-video-service";
 export * from "./academy-video-actions";
+export * from "./course-service";
+export * from "./enrollment-service";
+export * from "./course-actions";
 
 // Notifications
 export * from "./notification-service";
