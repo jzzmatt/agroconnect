@@ -124,6 +124,8 @@ export default function EditProfilePage() {
         phone,
         whatsappPhone: waNormalized.normalized || whatsappPhone,
         bio,
+        provinceName: province,
+        municipalityName: municipality,
       });
 
       // Profile types are durable state, so they go to the database rather than

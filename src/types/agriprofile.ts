@@ -1,8 +1,14 @@
 import type { ProviderPublicationState, ProviderType, ProfessionalTitle } from "./database";
 
+export interface PublicProviderAreaOfWork {
+  slug: string;
+  label: string;
+}
+
 /**
- * Sanitized public provider identity. Safe to return to unauthenticated callers.
- * Does not include profile_id, clerk ids, subscription, email, phone, or tax_id.
+ * Public provider identity. Safe to return to unauthenticated callers.
+ * Includes contact and work fields intended for public display.
+ * Does not include profile_id, clerk ids, subscription, tax_id, or account_type.
  */
 export interface PublicProviderIdentity {
   id: string;
@@ -14,9 +20,12 @@ export interface PublicProviderIdentity {
   description: string | null;
   avatar_url: string | null;
   website: string | null;
-  verification_status: string;
+  email: string | null;
+  whatsapp_phone: string | null;
   province_name: string | null;
   municipality_name: string | null;
+  areas_of_work: PublicProviderAreaOfWork[];
+  verification_status: string;
   published_at: string | null;
 }
 

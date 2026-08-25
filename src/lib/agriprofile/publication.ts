@@ -49,9 +49,7 @@ export function publicationStateLabel(state: ProviderPublicationState): string {
 const PRIVATE_PUBLIC_PROVIDER_KEYS = [
   "profile_id",
   "clerk_user_id",
-  "email",
   "phone",
-  "whatsapp_phone",
   "tax_id",
   "subscription_plan",
   "subscription_status",
@@ -79,6 +77,8 @@ export type PublicProviderSource = {
   profile_id?: string | null;
   email?: string | null;
   phone?: string | null;
+  whatsapp_phone?: string | null;
+  areas_of_work?: PublicProviderIdentity["areas_of_work"];
   tax_id?: string | null;
   subscription_plan?: string | null;
 };
@@ -108,9 +108,12 @@ export function toPublicProviderIdentity(
     description: source.description || null,
     avatar_url: source.avatar_url || null,
     website: source.website || null,
+    email: (source.email || "").trim() || null,
+    whatsapp_phone: (source.whatsapp_phone || source.phone || "").trim() || null,
     verification_status: source.verification_status || "unverified",
     province_name: source.province_name || null,
     municipality_name: source.municipality_name || null,
+    areas_of_work: source.areas_of_work || [],
     published_at: source.published_at || null,
   };
 

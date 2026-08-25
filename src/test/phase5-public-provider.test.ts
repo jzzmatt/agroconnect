@@ -40,8 +40,10 @@ const draftSource = {
   municipality_name: "Caála",
   published_at: null,
   profile_id: "secret-profile-id",
-  email: "private@example.com",
+  email: "joao@agroconnect.ao",
   phone: "+244923000000",
+  whatsapp_phone: "+244923000000",
+  areas_of_work: [{ slug: "veterinarian", label: "Veterinário" }],
   tax_id: "540123456",
   subscription_plan: "professional",
 };
@@ -55,7 +57,7 @@ describe("Phase 5 — public provider publication", () => {
     expect(toPublicProviderIdentity({ ...draftSource, publication_state: "paused" })).toBeNull();
   });
 
-  it("exposes a published profile without private fields", () => {
+  it("exposes a published profile with intended public contact fields", () => {
     const publicProfile = toPublicProviderIdentity({
       ...draftSource,
       publication_state: "published",
@@ -65,12 +67,15 @@ describe("Phase 5 — public provider publication", () => {
     expect(publicProfile?.slug).toBe("dr-joao-silva");
     expect(publicProfile?.display_name).toBe("Dr. João Silva");
     expect(publicProfile?.avatar_url).toContain("imagekit.io");
-    expect(publicProfile).not.toHaveProperty("email");
-    expect(publicProfile).not.toHaveProperty("phone");
+    expect(publicProfile?.email).toBe("joao@agroconnect.ao");
+    expect(publicProfile?.whatsapp_phone).toBe("+244923000000");
+    expect(publicProfile?.province_name).toBe("Huambo");
+    expect(publicProfile?.municipality_name).toBe("Caála");
+    expect(publicProfile?.areas_of_work).toEqual([{ slug: "veterinarian", label: "Veterinário" }]);
     expect(publicProfile).not.toHaveProperty("profile_id");
     expect(publicProfile).not.toHaveProperty("subscription_plan");
     expect(publicProfile).not.toHaveProperty("tax_id");
-    expect(JSON.stringify(publicProfile)).not.toContain("private@example.com");
+    expect(publicProfile).not.toHaveProperty("phone");
     expect(JSON.stringify(publicProfile)).not.toContain("secret-profile-id");
     expect(JSON.stringify(publicProfile)).not.toContain("540123456");
   });

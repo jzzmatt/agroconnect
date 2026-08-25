@@ -5,6 +5,7 @@ import {
   getUserGreeting,
   calculateEntitlements,
   getAvailableProfileTypes,
+  publicAreasOfWorkFromRoles,
   PROFILE_TYPE_CONFIG,
 } from "@/lib/auth/identity-resolvers";
 import type { UserProfileWithRoles } from "@/types/domain";
@@ -155,5 +156,9 @@ describe("AGROCONNECT Phase 8.5 — User Profile, Identity & Active Context", ()
     expect(PROFILE_TYPE_CONFIG.student.label).toBe("Estudante");
     expect(PROFILE_TYPE_CONFIG.seller.label).toBe("Vendedor");
     expect(PROFILE_TYPE_CONFIG.farmer.label).toBe("Produtor Agrícola");
+    expect(publicAreasOfWorkFromRoles(["veterinarian", "farmer", "admin"])).toEqual([
+      { slug: "veterinarian", label: "Veterinário" },
+      { slug: "farmer", label: "Produtor Agrícola" },
+    ]);
   });
 });

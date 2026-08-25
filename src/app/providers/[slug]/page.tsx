@@ -3,16 +3,20 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, MapPin, Globe, ChevronLeft, Share2 } from "lucide-react";
+import { ShieldCheck, MapPin, Globe, ChevronLeft, Share2, Mail } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { ServiceCard } from "@/components/marketplace/ServiceCard";
 import { Button } from "@/components/ui/Button";
-import { Avatar } from "@/components/ui/Avatar";
+import { Avatar, WhatsAppBrandIcon } from "@/components/ui";
+import { LocationBadge } from "@/components/location";
 import { getPublishedProviderBySlugAction } from "@/lib/agriprofile/actions";
 import { getProviderServicesAction } from "@/lib/services/marketplace-actions";
+import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
+import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import type { PublicProviderIdentity } from "@/types/agriprofile";
 import type { ServiceListItem } from "@/types/domain";
+import type { ProfileType } from "@/types/database";
 
 export default function ProviderProfilePage() {
   const params = useParams();
@@ -67,6 +71,11 @@ export default function ProviderProfilePage() {
     );
   }
 
+  const wa = normalizeWhatsAppNumber(provider.whatsapp_phone || "");
+  const locationLabel = provider.municipality_name
+    ? `${provider.municipality_name}, ${provider.province_name || "Angola"}`
+    : provider.province_name || "Angola";
+
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
@@ -114,10 +123,7 @@ export default function ProviderProfilePage() {
                 <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
                   <div className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-primary" />
-                    <span>
-                      {provider.municipality_name ? `${provider.municipality_name}, ` : ""}
-                      {provider.province_name || "Angola"}
-                    </span>
+                    <span>{locationLabel}</span>
                   </div>
                   {provider.website ? (
                     <a
@@ -157,6 +163,77 @@ export default function ProviderProfilePage() {
               </p>
             </div>
           ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Contactos e localização
+              </h3>
+              {provider.province_name ? (
+                <LocationBadge
+                  provinceName={provider.province_name}
+                  municipalityName={provider.municipality_name}
+                  size="sm"
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  Angola
+                </p>
+              )}
+              {provider.email ? (
+                <a
+                  href={`mailto:${provider.email}`}
+                  className="flex items-center gap-2.5 text-sm text-foreground hover:text-primary"
+                >
+                  <Mail className="w-4 h-4 text-primary shrink-0" />
+                  <span className="truncate">{provider.email}</span>
+                </a>
+              ) : null}
+              {wa.isValid ? (
+                <a
+                  href={wa.waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:underline"
+                >
+                  <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
+                  <span>{wa.formatted}</span>
+                </a>
+              ) : provider.whatsapp_phone ? (
+                <p className="flex items-center gap-2.5 text-sm text-foreground">
+                  <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
+                  <span>{provider.whatsapp_phone}</span>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Áreas de atuação
+              </h3>
+              {provider.areas_of_work.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {provider.areas_of_work.map((area) => {
+                    const config = PROFILE_TYPE_CONFIG[area.slug as ProfileType];
+                    return (
+                      <span
+                        key={area.slug}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border text-xs font-bold text-foreground"
+                      >
+                        <span>{config?.icon || "•"}</span>
+                        <span>{area.label}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {provider.headline || provider.professional_category || "Prestador AgriConnect"}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
         <div className="space-y-4">
