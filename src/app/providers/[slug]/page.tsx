@@ -3,49 +3,48 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import {
-  ShieldCheck,
-  Star,
-  MapPin,
-  Phone,
-  Mail,
-  Globe,
-  Briefcase,
-  ChevronLeft,
-  Calendar,
-  Sparkles,
-  Share2,
-} from "lucide-react";
+import { ShieldCheck, MapPin, Globe, ChevronLeft, Share2, Mail } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { ServiceCard } from "@/components/marketplace/ServiceCard";
-import { LocationMap } from "@/components/location";
 import { Button } from "@/components/ui/Button";
-import { Badge } from "@/components/ui/Badge";
-import { getProviderBySlugAction, getProviderServicesAction } from "@/lib/services/marketplace-actions";
-import { INITIAL_PROVIDERS, INITIAL_SERVICES } from "@/lib/services/marketplace-service";
-import type { ProviderPublicProfile, ServiceListItem } from "@/types/domain";
+import { Avatar, WhatsAppBrandIcon } from "@/components/ui";
+import { LocationBadge } from "@/components/location";
+import { getPublishedProviderBySlugAction } from "@/lib/agriprofile/actions";
+import { getProviderServicesAction } from "@/lib/services/marketplace-actions";
+import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
+import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import type { PublicProviderIdentity } from "@/types/agriprofile";
+import type { ServiceListItem } from "@/types/domain";
+import type { ProfileType } from "@/types/database";
 
 export default function ProviderProfilePage() {
   const params = useParams();
   const slug = params?.slug as string;
 
-  const [provider, setProvider] = useState<ProviderPublicProfile | null>(null);
+  const [provider, setProvider] = useState<PublicProviderIdentity | null>(null);
   const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
-    getProviderBySlugAction(slug).then((res) => {
+    let cancelled = false;
+    getPublishedProviderBySlugAction(slug).then((res) => {
+      if (cancelled) return;
+      setProvider(res);
+      setLoaded(true);
       if (res) {
-        setProvider(res);
         getProviderServicesAction(res.id).then((srvs) => {
-          setServices(srvs);
+          if (!cancelled) setServices(srvs);
         });
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
 
-  if (!provider) {
+  if (!loaded) {
     return (
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <Navbar />
@@ -57,23 +56,31 @@ export default function ProviderProfilePage() {
     );
   }
 
-  const mapMarkers = provider.latitude && provider.longitude ? [{
-    id: provider.id,
-    title: provider.business_name,
-    category: "expert" as const,
-    latitude: provider.latitude,
-    longitude: provider.longitude,
-    provinceName: provider.province_name || "Angola",
-    municipalityName: provider.municipality_name || undefined,
-    description: provider.headline || undefined,
-  }] : [];
+  if (!provider) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Navbar />
+        <main className="flex-1 max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+          <h2 className="text-2xl font-bold">Perfil público não encontrado</h2>
+          <p className="text-sm text-muted-foreground">
+            Este prestador não está publicado ou o endereço é inválido.
+          </p>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
+
+  const wa = normalizeWhatsAppNumber(provider.whatsapp_phone || "");
+  const locationLabel = provider.municipality_name
+    ? `${provider.municipality_name}, ${provider.province_name || "Angola"}`
+    : provider.province_name || "Angola";
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
       <Navbar />
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-8">
-        {/* Breadcrumb */}
         <div>
           <Link
             href="/agriexpert?view=servicos"
@@ -84,18 +91,22 @@ export default function ProviderProfilePage() {
           </Link>
         </div>
 
-        {/* Provider Profile Header Card */}
         <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-10 shadow-sm space-y-6">
           <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-6">
             <div className="flex items-start gap-5">
-              <div className="w-20 h-20 rounded-3xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-3xl shrink-0 border border-border shadow-xs">
-                {provider.business_name.charAt(0)}
-              </div>
+              <Avatar
+                src={provider.avatar_url}
+                fallbackText={provider.display_name}
+                size="xl"
+                className="w-20 h-20 rounded-3xl text-3xl"
+              />
 
               <div className="space-y-1.5">
                 <div className="flex items-center gap-2 flex-wrap">
                   <h1 className="text-2xl sm:text-3xl font-black text-foreground">
-                    {provider.business_name}
+                    {provider.professional_title && provider.professional_title !== "none"
+                      ? `${provider.professional_title} ${provider.display_name}`
+                      : provider.display_name}
                   </h1>
                   {provider.verification_status === "verified" && (
                     <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800">
@@ -105,47 +116,44 @@ export default function ProviderProfilePage() {
                   )}
                 </div>
 
-                <p className="text-sm font-semibold text-primary">{provider.headline}</p>
+                <p className="text-sm font-semibold text-primary">
+                  {provider.headline || provider.professional_category}
+                </p>
 
                 <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">
                   <div className="flex items-center gap-1">
                     <MapPin className="w-3.5 h-3.5 text-primary" />
-                    <span>
-                      {provider.municipality_name ? `${provider.municipality_name}, ` : ""}
-                      {provider.province_name || "Angola"}
-                    </span>
+                    <span>{locationLabel}</span>
                   </div>
-
-                  <div className="flex items-center gap-1 text-amber-600 font-bold">
-                    <Star className="w-3.5 h-3.5 fill-amber-500 text-amber-500" />
-                    <span>{provider.rating.toFixed(1)}</span>
-                    <span className="text-muted-foreground font-normal">
-                      ({provider.reviews_count} avaliações)
-                    </span>
-                  </div>
-
-                  <span>• Cobertura: {provider.service_radius_km} km</span>
+                  {provider.website ? (
+                    <a
+                      href={provider.website}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-bold text-primary"
+                    >
+                      <Globe className="w-3.5 h-3.5" />
+                      Website
+                    </a>
+                  ) : null}
                 </div>
               </div>
             </div>
 
-            <div className="flex items-center gap-2 self-start sm:self-auto">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  if (navigator.clipboard) navigator.clipboard.writeText(window.location.href);
-                }}
-                className="gap-1.5 text-xs font-bold"
-              >
-                <Share2 className="w-3.5 h-3.5" />
-                <span>Partilhar</span>
-              </Button>
-            </div>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                if (navigator.clipboard) navigator.clipboard.writeText(window.location.href);
+              }}
+              className="gap-1.5 text-xs font-bold"
+            >
+              <Share2 className="w-3.5 h-3.5" />
+              <span>Partilhar</span>
+            </Button>
           </div>
 
-          {/* Description */}
-          {provider.description && (
+          {provider.description ? (
             <div className="pt-4 border-t border-border">
               <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground mb-2">
                 Sobre o Profissional
@@ -154,20 +162,88 @@ export default function ProviderProfilePage() {
                 {provider.description}
               </p>
             </div>
-          )}
+          ) : null}
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Contactos e localização
+              </h3>
+              {provider.province_name ? (
+                <LocationBadge
+                  provinceName={provider.province_name}
+                  municipalityName={provider.municipality_name}
+                  size="sm"
+                />
+              ) : (
+                <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                  <MapPin className="w-3.5 h-3.5 text-primary" />
+                  Angola
+                </p>
+              )}
+              {provider.email ? (
+                <a
+                  href={`mailto:${provider.email}`}
+                  className="flex items-center gap-2.5 text-sm text-foreground hover:text-primary"
+                >
+                  <Mail className="w-4 h-4 text-primary shrink-0" />
+                  <span className="truncate">{provider.email}</span>
+                </a>
+              ) : null}
+              {wa.isValid ? (
+                <a
+                  href={wa.waLink}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center gap-2.5 text-sm font-semibold text-emerald-700 dark:text-emerald-300 hover:underline"
+                >
+                  <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
+                  <span>{wa.formatted}</span>
+                </a>
+              ) : provider.whatsapp_phone ? (
+                <p className="flex items-center gap-2.5 text-sm text-foreground">
+                  <WhatsAppBrandIcon className="w-4 h-4 fill-current shrink-0" />
+                  <span>{provider.whatsapp_phone}</span>
+                </p>
+              ) : null}
+            </div>
+
+            <div className="space-y-3">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-muted-foreground">
+                Áreas de atuação
+              </h3>
+              {provider.areas_of_work.length > 0 ? (
+                <div className="flex flex-wrap gap-2">
+                  {provider.areas_of_work.map((area) => {
+                    const config = PROFILE_TYPE_CONFIG[area.slug as ProfileType];
+                    return (
+                      <span
+                        key={area.slug}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-surface border border-border text-xs font-bold text-foreground"
+                      >
+                        <span>{config?.icon || "•"}</span>
+                        <span>{area.label}</span>
+                      </span>
+                    );
+                  })}
+                </div>
+              ) : (
+                <p className="text-xs text-muted-foreground">
+                  {provider.headline || provider.professional_category || "Prestador AgriConnect"}
+                </p>
+              )}
+            </div>
+          </div>
         </div>
 
-        {/* Provider Services Section */}
         <div className="space-y-4">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-foreground">
-                Serviços Publicados ({services.length})
-              </h2>
-              <p className="text-xs text-muted-foreground">
-                Serviços e consultorias prestados diretamente por {provider.business_name}
-              </p>
-            </div>
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              Serviços Publicados ({services.length})
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Serviços e consultorias prestados diretamente por {provider.display_name}
+            </p>
           </div>
 
           {services.length > 0 ? (
@@ -181,23 +257,6 @@ export default function ProviderProfilePage() {
               Nenhum serviço publicado no momento por este prestador.
             </div>
           )}
-        </div>
-
-        {/* Service Base Location Map */}
-        <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
-          <h3 className="text-base font-bold text-foreground">Base Operacional e Raio de Cobertura</h3>
-          <div className="rounded-2xl overflow-hidden border border-border">
-            <LocationMap
-              markers={mapMarkers}
-              height="h-[320px]"
-              center={
-                provider.latitude && provider.longitude
-                  ? { latitude: provider.latitude, longitude: provider.longitude }
-                  : undefined
-              }
-              zoom={10}
-            />
-          </div>
         </div>
       </main>
 

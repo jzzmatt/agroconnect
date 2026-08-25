@@ -27,28 +27,50 @@ export default function SellerProfilePage() {
 
   const [seller, setSeller] = useState<SellerPublicProfile | null>(null);
   const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
+    let cancelled = false;
     getProviderBySlugAction(slug).then((res) => {
+      if (cancelled) return;
+      setLoaded(true);
       if (res) {
         setSeller({
           ...res,
           selling_radius_km: res.service_radius_km || 50,
         });
         getSellerProductsAction(res.id).then((prds) => {
-          setProducts(prds);
+          if (!cancelled) setProducts(prds);
         });
       }
     });
+    return () => {
+      cancelled = true;
+    };
   }, [slug]);
+
+  if (!loaded) {
+    return (
+      <div className="min-h-screen flex flex-col bg-background text-foreground">
+        <Navbar />
+        <main className="flex-1 max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
+          <h2 className="text-2xl font-bold">A carregar perfil do vendedor...</h2>
+        </main>
+        <Footer />
+      </div>
+    );
+  }
 
   if (!seller) {
     return (
       <div className="min-h-screen flex flex-col bg-background text-foreground">
         <Navbar />
         <main className="flex-1 max-w-7xl mx-auto px-4 py-20 text-center space-y-4">
-          <h2 className="text-2xl font-bold">A carregar perfil do vendedor...</h2>
+          <h2 className="text-2xl font-bold">Perfil público não encontrado</h2>
+          <p className="text-sm text-muted-foreground">
+            Este vendedor não está publicado ou o endereço é inválido.
+          </p>
         </main>
         <Footer />
       </div>
