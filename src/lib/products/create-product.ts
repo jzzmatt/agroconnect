@@ -25,6 +25,8 @@ import {
   logProductOperation,
   type ProductActionResult,
 } from "@/lib/products/errors";
+import { normalizeProductStatus } from "@/lib/products/publication";
+import { requirePermission } from "@/lib/authorization/policy";
 import type { ProductListItem } from "@/types/domain";
 
 const publishedByIdempotencyKey = new Map<string, ProductListItem>();
@@ -87,7 +89,7 @@ export async function createPublishedProduct(
       return { success: false, code: PRODUCT_ERROR_CODES.PLAN_NOT_ACTIVE, requestId };
     }
 
-    if (!entitlements.can_create_products || !entitlements.can_publish_products || !entitlements.can_access_agriproduct) {
+    if (!entitlements.can_create_products || !entitlements.can_access_agriproduct) {
       logProductOperation({
         requestId,
         operation: "create_product",
@@ -173,9 +175,38 @@ export async function createPublishedProduct(
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_LIMIT_REACHED, requestId };
     }
 
+    const requestedStatus = normalizeProductStatus(
+      input.status,
+      input.status === "published" || input.status === "active" ? "published" : "draft"
+    );
+
+    const capabilitySubject = {
+      clerkUserId: currentUser.clerk_user_id,
+      profileId: currentUser.id,
+      roles: currentUser.roles,
+      accountType: currentUser.account_type,
+      plan: entitlements.plan,
+      subscriptionStatus: entitlements.subscription_status,
+      entitlements,
+    };
+
+    if (requestedStatus === "published" || requestedStatus === "active") {
+      try {
+        requirePermission(capabilitySubject, "product.publish");
+      } catch {
+        return { success: false, code: PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE, requestId };
+      }
+    }
+
     const data = await insertProductRow({
       sellerId: sellerRow.id,
-      input: { ...input, categorySlug, productType, metadata, status: "published" },
+      input: {
+        ...input,
+        categorySlug,
+        productType,
+        metadata,
+        status: requestedStatus,
+      },
       metadata,
       categorySlug,
     });

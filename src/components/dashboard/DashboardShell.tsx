@@ -110,6 +110,7 @@ export function DashboardShell({
         availableProfiles={availableProfiles}
         activeProfile={activeProfile}
         subscriptionPlan={subscriptionPlan}
+        clerkUserId={user?.id}
         onSwitchProfile={handleSwitchProfile}
         isOpen={mobileMenuOpen}
         onClose={() => setMobileMenuOpen(false)}

@@ -10,12 +10,14 @@ import { ServiceCard } from "@/components/marketplace/ServiceCard";
 import { Button } from "@/components/ui/Button";
 import { Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
+import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { getPublishedProviderBySlugAction } from "@/lib/agriprofile/actions";
 import { getProviderServicesAction } from "@/lib/services/marketplace-actions";
+import { getSellerProductsAction } from "@/lib/services/shopping-actions";
 import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import type { PublicProviderIdentity } from "@/types/agriprofile";
-import type { ServiceListItem } from "@/types/domain";
+import type { ProductListItem, ServiceListItem } from "@/types/domain";
 import type { ProfileType } from "@/types/database";
 
 export default function ProviderProfilePage() {
@@ -24,6 +26,7 @@ export default function ProviderProfilePage() {
 
   const [provider, setProvider] = useState<PublicProviderIdentity | null>(null);
   const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [products, setProducts] = useState<ProductListItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -36,6 +39,9 @@ export default function ProviderProfilePage() {
       if (res) {
         getProviderServicesAction(res.id).then((srvs) => {
           if (!cancelled) setServices(srvs);
+        });
+        getSellerProductsAction(res.id, true).then((items) => {
+          if (!cancelled) setProducts(items);
         });
       }
     });
@@ -255,6 +261,29 @@ export default function ProviderProfilePage() {
           ) : (
             <div className="bg-surface-card rounded-3xl p-8 text-center border border-border text-muted-foreground text-sm">
               Nenhum serviço publicado no momento por este prestador.
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-4">
+          <div>
+            <h2 className="text-xl font-bold text-foreground">
+              Produtos Publicados ({products.length})
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              Produtos agrícolas publicados por {provider.display_name}
+            </p>
+          </div>
+
+          {products.length > 0 ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {products.map((product) => (
+                <ShoppingProductCard key={product.id} product={product} />
+              ))}
+            </div>
+          ) : (
+            <div className="bg-surface-card rounded-3xl p-8 text-center border border-border text-muted-foreground text-sm">
+              Nenhum produto publicado no momento por este prestador.
             </div>
           )}
         </div>

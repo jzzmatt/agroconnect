@@ -1,5 +1,7 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isPublicProductStatus } from "@/lib/products/publication";
+import { buildInventoryPatch, type ProductInventoryUpdate } from "@/lib/products/inventory";
 import type { ProductListItem, SellerPublicProfile, ProductRequestItem } from "@/types/domain";
 import type { ProductCondition, ProductStatus, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
@@ -231,6 +233,62 @@ export const INITIAL_PRODUCTS: ProductListItem[] = [
     image_url: null,
     created_at: new Date().toISOString(),
   },
+  {
+    id: "prd-seed-draft",
+    seller_id: "prov-seed-1",
+    seller_name: "Dr. João Silva • Veterinária & Pecuária",
+    seller_slug: "dr-joao-silva",
+    seller_verified: true,
+    category_id: "cat-seed-sem",
+    category_slug: "sementes-e-fertilizantes",
+    title: "Rascunho — Semente de Feijão (não publicado)",
+    slug: "rascunho-semente-feijao-draft",
+    description: "Produto em rascunho para testes de visibilidade pública.",
+    condition: "new",
+    price: 12000,
+    currency: "AOA",
+    quantity: 5,
+    unit: "saco",
+    availability_status: "in_stock",
+    location_type: "physical_location",
+    province_id: "prov-hua",
+    province_name: "Huambo",
+    latitude: -12.8525,
+    longitude: 15.5606,
+    selling_radius_km: 50,
+    status: "draft",
+    is_featured: false,
+    image_url: null,
+    created_at: new Date().toISOString(),
+  },
+  {
+    id: "prd-seed-paused",
+    seller_id: "prov-seed-2",
+    seller_name: "Eng.ª Maria Santos • Solos & Irrigação",
+    seller_slug: "maria-santos-agronoma",
+    seller_verified: true,
+    category_id: "cat-seed-maq",
+    category_slug: "maquinas-e-irrigacao",
+    title: "Produto Pausado — Motobomba Diesel 5HP",
+    slug: "produto-pausado-motobomba-diesel-5hp",
+    description: "Produto pausado para testes de visibilidade pública.",
+    condition: "used",
+    price: 95000,
+    currency: "AOA",
+    quantity: 2,
+    unit: "unidade",
+    availability_status: "limited",
+    location_type: "physical_location",
+    province_id: "prov-bgu",
+    province_name: "Benguela",
+    latitude: -12.3500,
+    longitude: 13.5333,
+    selling_radius_km: 80,
+    status: "paused",
+    is_featured: false,
+    image_url: null,
+    created_at: new Date().toISOString(),
+  },
 ];
 
 export const INITIAL_SELLERS: SellerPublicProfile[] = [
@@ -441,7 +499,7 @@ export class ShoppingService {
     }
 
     // High performance fallback over verified seed data
-    let filtered = [...INITIAL_PRODUCTS];
+    let filtered = INITIAL_PRODUCTS.filter((p) => isPublicProductStatus(p.status));
 
     if (params.query) {
       const q = params.query.toLowerCase();
@@ -569,6 +627,9 @@ export class ShoppingService {
 
         if (!error && data) {
           const item: any = data;
+          if (!isPublicProductStatus(item.status)) {
+            return seedMatch && isPublicProductStatus(seedMatch.status) ? seedMatch : null;
+          }
           // Single product view: cheap enough to confirm the encoding state with
           // Bunny so a stuck "uploading" row starts playing without a webhook.
           const { reconcileProductVideoStatus } = await import("@/lib/products/video-status");
@@ -616,7 +677,7 @@ export class ShoppingService {
       }
     }
 
-    return seedMatch || null;
+    return seedMatch && isPublicProductStatus(seedMatch.status) ? seedMatch : null;
   }
 
   /**
@@ -704,7 +765,154 @@ export class ShoppingService {
       }
     }
 
-    return INITIAL_PRODUCTS.filter((p) => p.seller_id === sellerId);
+    return INITIAL_PRODUCTS.filter(
+      (p) =>
+        p.seller_id === sellerId &&
+        (onlyPublished ? isPublicProductStatus(p.status) : true)
+    );
+  }
+
+  /**
+   * Load a seller-owned product by id. Public callers should still enforce
+   * publication rules at the route layer.
+   */
+  public static async getProductById(
+    productId: string,
+    sellerId?: string
+  ): Promise<ProductListItem | null> {
+    const seedMatch = INITIAL_PRODUCTS.find(
+      (p) => p.id === productId && (sellerId ? p.seller_id === sellerId : true)
+    );
+
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+    ) {
+      try {
+        const supabase = createPublicServerSupabaseClient();
+        let query = supabase
+          .from("products")
+          .select(`
+            id,
+            seller_id,
+            category_id,
+            title,
+            slug,
+            description,
+            condition,
+            price,
+            currency,
+            quantity,
+            unit,
+            sku,
+            availability_status,
+            location_type,
+            province_id,
+            municipality_id,
+            latitude,
+            longitude,
+            selling_radius_km,
+            status,
+            is_featured,
+            created_at,
+            provider_profiles(id, business_name, slug, rating, verification_status),
+            categories(id, name, slug),
+            provinces(id, name),
+            municipalities(id, name)
+          `)
+          .eq("id", productId);
+
+        if (sellerId) {
+          query = query.eq("seller_id", sellerId);
+        }
+
+        const { data, error } = await query.maybeSingle();
+        if (!error && data) {
+          const item: any = data;
+          const mapped = {
+            id: item.id,
+            seller_id: item.seller_id,
+            seller_name: item.provider_profiles?.business_name || "Vendedor",
+            seller_slug: item.provider_profiles?.slug || "",
+            seller_rating: item.provider_profiles?.rating
+              ? Number(item.provider_profiles.rating)
+              : null,
+            seller_verified: item.provider_profiles?.verification_status === "verified",
+            category_id: item.category_id,
+            category_name: item.categories?.name || null,
+            category_slug: item.categories?.slug || null,
+            title: item.title,
+            slug: item.slug,
+            description: item.description,
+            condition: item.condition,
+            price: Number(item.price),
+            currency: item.currency || "AOA",
+            quantity: item.quantity,
+            unit: item.unit,
+            sku: item.sku,
+            availability_status: item.availability_status || "in_stock",
+            location_type: item.location_type || "physical_location",
+            province_id: item.province_id,
+            province_name: item.provinces?.name || null,
+            municipality_id: item.municipality_id,
+            municipality_name: item.municipalities?.name || null,
+            latitude: item.latitude ? Number(item.latitude) : null,
+            longitude: item.longitude ? Number(item.longitude) : null,
+            selling_radius_km: item.selling_radius_km
+              ? Number(item.selling_radius_km)
+              : null,
+            status: item.status,
+            is_featured: item.is_featured,
+            created_at: item.created_at,
+          };
+          const [withMedia] = await attachProductMedia(supabase, [mapped]);
+          return { ...mapped, ...withMedia };
+        }
+      } catch {
+        // fallback
+      }
+    }
+
+    return seedMatch || null;
+  }
+
+  /**
+   * Update inventory fields used by Commerce checkout (Phase 11).
+   */
+  public static async updateInventory(
+    productId: string,
+    sellerId: string,
+    patch: ProductInventoryUpdate
+  ): Promise<boolean> {
+    const updates = buildInventoryPatch(patch);
+    if (Object.keys(updates).length === 0) return true;
+
+    if (
+      process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+    ) {
+      try {
+        const admin = tryCreateAdminSupabaseClient();
+        const client = admin || createPublicServerSupabaseClient();
+        const { error } = await (client.from("products") as any)
+          .update(updates)
+          .eq("id", productId)
+          .eq("seller_id", sellerId);
+        return !error;
+      } catch {
+        return false;
+      }
+    }
+
+    const seed = INITIAL_PRODUCTS.find(
+      (p) => p.id === productId && p.seller_id === sellerId
+    );
+    if (!seed) return false;
+    if (updates.quantity !== undefined) seed.quantity = updates.quantity as number;
+    if (updates.availability_status !== undefined) {
+      seed.availability_status = updates.availability_status as ProductAvailabilityStatus;
+    }
+    return true;
   }
 
   /**

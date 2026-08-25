@@ -1,7 +1,12 @@
 "use server";
 
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import {
+  authorize,
+  getCurrentSubject,
+  requireProductOwnership,
+} from "@/lib/authorization/server";
+import { AuthorizationError } from "@/lib/authorization/policy";
 import {
   ShoppingService,
   type CreateProductInput,
@@ -11,6 +16,8 @@ import {
 import { getOrCreateCurrentProviderProfileAction } from "@/lib/services/marketplace-actions";
 import { createPublishedProduct, type CreateProductResult } from "@/lib/products/create-product";
 import { countActiveProducts } from "@/lib/services/pricing-service";
+import { isPublishingTransition } from "@/lib/products/publication";
+import type { ProductInventoryUpdate } from "@/lib/products/inventory";
 import type { ProductListItem, ProductRequestItem } from "@/types/domain";
 
 /**
@@ -61,7 +68,7 @@ export async function getMyProductStatsAction(): Promise<{
   activeCount: number;
 }> {
   try {
-    await requireAuth();
+    await authorize("product.view");
     const seller = await getOrCreateCurrentProviderProfileAction();
     const products = await ShoppingService.getSellerProducts(seller.id, false);
     const ownProducts = products.filter((product) => product.seller_id === seller.id);
@@ -75,16 +82,40 @@ export async function getMyProductStatsAction(): Promise<{
 }
 
 /**
+ * Server Action: Load one owned product for workspace edit.
+ */
+export async function getOwnedProductAction(
+  productId: string
+): Promise<ProductListItem | null> {
+  const subject = await authorize("product.view");
+  await requireProductOwnership(productId, subject);
+  const seller = await getOrCreateCurrentProviderProfileAction();
+  return ShoppingService.getProductById(productId, seller.id);
+}
+
+/**
  * Server Action: Update product
  */
 export async function updateProductAction(
   input: UpdateProductInput
 ): Promise<boolean> {
-  await requireAuth();
+  const subject = await authorize("product.update");
+  await requireProductOwnership(input.id, subject);
+
   const seller = await getOrCreateCurrentProviderProfileAction();
+  const existing = await ShoppingService.getProductById(input.id, seller.id);
+  if (!existing) return false;
+
+  if (
+    input.status !== undefined &&
+    isPublishingTransition(existing.status, input.status)
+  ) {
+    await authorize("product.publish");
+  }
+
   const supabase = await createServerSupabaseClient();
 
-  const updates: Record<string, any> = {};
+  const updates: Record<string, unknown> = {};
   if (input.title !== undefined) updates.title = input.title;
   if (input.description !== undefined) updates.description = input.description;
   if (input.condition !== undefined) updates.condition = input.condition;
@@ -92,7 +123,9 @@ export async function updateProductAction(
   if (input.quantity !== undefined) updates.quantity = input.quantity;
   if (input.unit !== undefined) updates.unit = input.unit;
   if (input.sku !== undefined) updates.sku = input.sku;
-  if (input.availabilityStatus !== undefined) updates.availability_status = input.availabilityStatus;
+  if (input.availabilityStatus !== undefined) {
+    updates.availability_status = input.availabilityStatus;
+  }
   if (input.status !== undefined) updates.status = input.status;
   if (input.sellingRadiusKm !== undefined) updates.selling_radius_km = input.sellingRadiusKm;
   if (input.provinceId !== undefined) updates.province_id = input.provinceId;
@@ -100,12 +133,27 @@ export async function updateProductAction(
   if (input.latitude !== undefined) updates.latitude = input.latitude;
   if (input.longitude !== undefined) updates.longitude = input.longitude;
 
+  if (Object.keys(updates).length === 0) return true;
+
   const { error } = await (supabase.from("products") as any)
     .update(updates)
     .eq("id", input.id)
     .eq("seller_id", seller.id);
 
   return !error;
+}
+
+/**
+ * Server Action: Update inventory without changing merchandising copy.
+ */
+export async function updateProductInventoryAction(
+  productId: string,
+  patch: ProductInventoryUpdate
+): Promise<boolean> {
+  const subject = await authorize("product.inventory.manage");
+  await requireProductOwnership(productId, subject);
+  const seller = await getOrCreateCurrentProviderProfileAction();
+  return ShoppingService.updateInventory(productId, seller.id, patch);
 }
 
 /**
@@ -119,8 +167,14 @@ export async function createProductRequestAction(params: {
   message: string;
   deliveryLocationNotes?: string;
 }): Promise<{ success: boolean; message: string; requestId?: string }> {
-  await requireAuth();
-  const userProfile = await getCurrentUserProfile();
+  const subject = await getCurrentSubject();
+  if (!subject) {
+    throw new AuthorizationError("AUTH_REQUIRED", "AUTH_REQUIRED: no authenticated subject");
+  }
+
+  const userProfile = subject.profileId
+    ? { id: subject.profileId }
+    : null;
   if (!userProfile) {
     throw new Error("É necessário ter perfil ativo para solicitar produtos.");
   }
@@ -159,15 +213,14 @@ export async function createProductRequestAction(params: {
 export async function toggleProductFavoriteAction(
   productId: string
 ): Promise<{ isFavorited: boolean }> {
-  await requireAuth();
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Não autorizado");
+  const subject = await getCurrentSubject();
+  if (!subject) throw new Error("Não autorizado");
 
   const supabase = await createServerSupabaseClient();
 
   const { data: existing } = await (supabase.from("favorites") as any)
     .select("id")
-    .eq("profile_id", userProfile.id)
+    .eq("profile_id", subject.profileId)
     .eq("entity_type", "product")
     .eq("entity_id", productId)
     .single();
@@ -175,22 +228,22 @@ export async function toggleProductFavoriteAction(
   if (existing) {
     await (supabase.from("favorites") as any).delete().eq("id", existing.id);
     return { isFavorited: false };
-  } else {
-    await (supabase.from("favorites") as any).insert({
-      profile_id: userProfile.id,
-      entity_type: "product",
-      entity_id: productId,
-    });
-    return { isFavorited: true };
   }
+
+  await (supabase.from("favorites") as any).insert({
+    profile_id: subject.profileId,
+    entity_type: "product",
+    entity_id: productId,
+  });
+  return { isFavorited: true };
 }
 
 /**
  * Server Action: Get customer product requests
  */
 export async function getCustomerProductRequestsAction(): Promise<ProductRequestItem[]> {
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  const subject = await getCurrentSubject();
+  if (!subject) return [];
 
   try {
     const supabase = await createServerSupabaseClient();
@@ -213,7 +266,7 @@ export async function getCustomerProductRequestsAction(): Promise<ProductRequest
         products(title, slug),
         provider_profiles(business_name)
       `)
-      .eq("customer_id", userProfile.id)
+      .eq("customer_id", subject.profileId)
       .order("created_at", { ascending: false });
 
     if (!error && data && data.length > 0) {
@@ -247,8 +300,8 @@ export async function getCustomerProductRequestsAction(): Promise<ProductRequest
  * Server Action: Get seller incoming product requests
  */
 export async function getSellerProductRequestsAction(): Promise<ProductRequestItem[]> {
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  const subject = await getCurrentSubject();
+  if (!subject) return [];
 
   try {
     const seller = await getOrCreateCurrentProviderProfileAction();

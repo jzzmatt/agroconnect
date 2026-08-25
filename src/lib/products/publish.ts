@@ -4,6 +4,7 @@ import {
 } from "@/lib/supabase/server";
 import { withSupabaseRetry } from "@/lib/supabase/retry";
 import { isUuid } from "@/lib/products/ids";
+import { normalizeProductStatus } from "@/lib/products/publication";
 import { dbCondition, productTypeFromCategory } from "@/config/product-catalog";
 import type { UserProfileWithRoles } from "@/types/domain";
 import type { SubscriptionPlan } from "@/types/database";
@@ -178,7 +179,7 @@ export async function insertProductRow(params: {
         latitude: params.input.latitude || null,
         longitude: params.input.longitude || null,
         selling_radius_km: params.input.sellingRadiusKm || 50,
-        status: params.input.status === "paused" || params.input.status === "archived" ? params.input.status : "published",
+        status: normalizeProductStatus(params.input.status, "draft"),
         is_featured: params.input.isFeatured || false,
         metadata: params.metadata,
       })

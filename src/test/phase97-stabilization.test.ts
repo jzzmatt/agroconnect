@@ -188,7 +188,7 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
 
   it("publishes products through a JSON API instead of a raced server action", async () => {
     const { readFileSync } = await import("node:fs");
-    const page = readFileSync("src/app/(dashboard)/dashboard/products/new/page.tsx", "utf8");
+    const page = readFileSync("src/components/shopping/ProductCreateWorkspacePage.tsx", "utf8");
     const middleware = readFileSync("src/middleware.ts", "utf8");
     expect(page).toContain('fetch("/api/products/create"');
     expect(page).not.toContain("createProductAction(");

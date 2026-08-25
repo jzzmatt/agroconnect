@@ -11,6 +11,7 @@ import { can, subjectFromProfile, type Permission } from "@/lib/authorization";
 import type { UserRoleType, ProfileType, SubscriptionPlan } from "@/types/database";
 import { parseStoredPlan } from "@/lib/services/pricing-service";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import { resolveAgriprofileNavHref } from "@/lib/agriprofile/paths";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { cn } from "@/lib/utils";
 
@@ -19,6 +20,7 @@ interface DashboardSidebarProps {
   availableProfiles?: ProfileType[];
   activeProfile?: ProfileType;
   subscriptionPlan?: SubscriptionPlan | string | null;
+  clerkUserId?: string | null;
   onSwitchProfile?: (profile: ProfileType) => void;
   isOpen?: boolean;
   onClose?: () => void;
@@ -30,6 +32,7 @@ export function DashboardSidebar({
   availableProfiles = ["personal"],
   activeProfile = "personal",
   subscriptionPlan = null,
+  clerkUserId = null,
   onSwitchProfile,
   isOpen,
   onClose,
@@ -120,7 +123,10 @@ export function DashboardSidebar({
             </h4>
             <div className="space-y-0.5 pt-1">
               {section.items.map((item) => {
-                const isActive = pathname === item.href;
+                const resolvedHref = resolveAgriprofileNavHref(item.href, clerkUserId);
+                const isActive =
+                  pathname === resolvedHref ||
+                  (resolvedHref !== "/planos" && pathname?.startsWith(`${resolvedHref}/`));
                 const Icon = item.icon;
                 const managePermission = section.requiredModule
                   ? moduleManagePermission[section.requiredModule]
@@ -128,7 +134,7 @@ export function DashboardSidebar({
                 const agriLocked = managePermission
                   ? !can(subject, managePermission)
                   : false;
-                const href = agriLocked ? "/planos" : item.href;
+                const href = agriLocked ? "/planos" : resolvedHref;
                 return (
                   <Link
                     key={`${item.href}-${item.title}`}
