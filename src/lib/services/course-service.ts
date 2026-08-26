@@ -1,5 +1,6 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
 import {
   assertCourseStatusTransition,
   isPubliclyVisibleCourseStatus,
@@ -376,7 +377,7 @@ export class CourseService {
   public static async listByOwner(ownerId: string, includeDrafts = true): Promise<CourseListItem[]> {
     if (hasLiveSupabase()) {
       try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const supabase = await getAcademyWritableClient();
         let query = (supabase.from("courses") as any).select("*").eq("owner_id", ownerId);
         if (!includeDrafts) {
           query = query.eq("status", "published");
@@ -400,7 +401,7 @@ export class CourseService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const supabase = await getAcademyWritableClient();
         const { data, error } = await (supabase.from("courses") as any)
           .select("*")
           .in("id", courseIds);
@@ -467,33 +468,30 @@ export class CourseService {
     };
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.from("courses") as any)
-          .insert({
-            owner_id: ownerId,
-            provider_id: input.providerId ?? null,
-            category_id: input.categoryId ?? null,
-            title: input.title,
-            slug,
-            short_description: input.shortDescription ?? null,
-            description: input.description ?? null,
-            level: input.level ?? "all_levels",
-            price: input.price ?? 0,
-            currency: input.currency ?? "AOA",
-            status: "draft",
-            thumbnail_url: input.thumbnailUrl ?? null,
-            province_name: input.provinceName ?? null,
-            municipality_name: input.municipalityName ?? null,
-          })
-          .select()
-          .single();
-        if (!error && data) {
-          return data as CourseRecord;
-        }
-      } catch (err) {
-        console.warn("[CourseService.createCourse] Using in-memory record:", err);
+      const supabase = await getAcademyWritableClient();
+      const { data, error } = await (supabase.from("courses") as any)
+        .insert({
+          owner_id: ownerId,
+          provider_id: input.providerId ?? null,
+          category_id: input.categoryId ?? null,
+          title: input.title,
+          slug,
+          short_description: input.shortDescription ?? null,
+          description: input.description ?? null,
+          level: input.level ?? "all_levels",
+          price: input.price ?? 0,
+          currency: input.currency ?? "AOA",
+          status: "draft",
+          thumbnail_url: input.thumbnailUrl ?? null,
+          province_name: input.provinceName ?? null,
+          municipality_name: input.municipalityName ?? null,
+        })
+        .select()
+        .single();
+      if (!error && data) {
+        return data as CourseRecord;
       }
+      throw new Error(error?.message || "Não foi possível criar o curso na base de dados.");
     }
 
     return record;
@@ -544,7 +542,7 @@ export class CourseService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const supabase = await getAcademyWritableClient();
         const patch: Record<string, unknown> = {
           updated_at: updated.updated_at,
         };
@@ -587,7 +585,7 @@ export class CourseService {
   public static async getCourseWithSections(courseId: string): Promise<CourseWithSections | null> {
     if (hasLiveSupabase()) {
       try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const supabase = await getAcademyWritableClient();
         const { data: course, error } = await (supabase.from("courses") as any)
           .select("*")
           .eq("id", courseId)

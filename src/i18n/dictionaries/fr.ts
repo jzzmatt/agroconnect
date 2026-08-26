@@ -509,6 +509,8 @@ export const fr: Dictionary = {
     saving: "Enregistrement...",
     draftSaved: "Brouillon enregistré",
     unableToSave: "Impossible d'enregistrer",
+    unableToLoadCourse: "Impossible de charger le cours.",
+    unableToCreateCourse: "Impossible de créer le cours.",
     savedAt: "Enregistré à {time}",
     enrollToWatch: "Inscrivez-vous pour regarder cette vidéo",
     accessDenied: "Vous n'avez pas accès à cette vidéo",

@@ -37,6 +37,7 @@ export default function CourseCreatorPage() {
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
   const [, startRefresh] = useTransition();
   const [isCreating, startCreate] = useTransition();
+  const [createError, setCreateError] = useState<string | null>(null);
 
   const subject = subjectFromProfile({
     id: "",
@@ -64,12 +65,19 @@ export default function CourseCreatorPage() {
   }, [refresh, plan]);
 
   const handleCreate = () => {
+    setCreateError(null);
     startCreate(async () => {
-      const created = await createCourseAction({
-        title: "Novo curso AgriAcademy",
-        description: "Descrição do curso em preparação.",
-      });
-      router.push(`/dashboard/academy/courses/${created.id}/edit`);
+      try {
+        const created = await createCourseAction({
+          title: "Novo curso AgriAcademy",
+          description: "Descrição do curso em preparação.",
+        });
+        router.push(`/dashboard/academy/courses/${created.id}/edit`);
+      } catch (err: unknown) {
+        setCreateError(
+          err instanceof Error ? err.message : dict.agriacademy.unableToCreateCourse
+        );
+      }
     });
   };
 
@@ -106,6 +114,8 @@ export default function CourseCreatorPage() {
           {dict.agriacademy.createNewCourse}
         </Button>
       </div>
+
+      {createError && <p className="text-xs font-semibold text-destructive">{createError}</p>}
 
       {storage && (
         <AcademyStorageCard

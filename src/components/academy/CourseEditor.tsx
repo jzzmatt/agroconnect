@@ -36,6 +36,23 @@ import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
 import type { CourseEditorTree } from "@/lib/academy/authoring-service";
 
 type SaveState = "idle" | "saving" | "success" | "error";
+type LoadState = "loading" | "ready" | "not_found" | "error";
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error("LOAD_TIMEOUT")), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (error: unknown) => {
+        clearTimeout(timer);
+        reject(error);
+      }
+    );
+  });
+}
 
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
@@ -51,6 +68,8 @@ function formatSavedTime(date: Date, locale: string): string {
 export function CourseEditor({ courseId }: { courseId: string }) {
   const { dict, locale } = useI18n();
   const [course, setCourse] = useState<CourseEditorTree | null>(null);
+  const [loadState, setLoadState] = useState<LoadState>("loading");
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -74,31 +93,78 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const isDirty = Boolean(course && courseFingerprint !== savedSnapshot);
   const isSaving = saveState === "saving" || isPending;
 
-  const refresh = useCallback(() => {
-    startTransition(async () => {
-      const tree = await getCourseEditorAction(courseId);
-      setCourse(tree);
-      if (tree) {
-        setSavedSnapshot(
-          JSON.stringify({
-            title: tree.title,
-            description: tree.description ?? "",
-            short_description: tree.short_description ?? "",
-          })
-        );
+  const applyCourseTree = useCallback((tree: CourseEditorTree) => {
+    setCourse(tree);
+    setSavedSnapshot(
+      JSON.stringify({
+        title: tree.title,
+        description: tree.description ?? "",
+        short_description: tree.short_description ?? "",
+      })
+    );
+  }, []);
+
+  const loadCourse = useCallback(
+    async (options: { showLoading?: boolean } = {}) => {
+      const showLoading = options.showLoading ?? false;
+      if (showLoading) {
+        setLoadState("loading");
+        setLoadError(null);
       }
-    });
+
+      try {
+        const tree = await withTimeout(getCourseEditorAction(courseId), 15000);
+        if (!tree) {
+          setLoadState("not_found");
+          setCourse(null);
+          return;
+        }
+        applyCourseTree(tree);
+        setLoadState("ready");
+        setLoadError(null);
+      } catch (err: unknown) {
+        if (!showLoading) {
+          setError(
+            err instanceof Error && err.message === "LOAD_TIMEOUT"
+              ? dict.agriacademy.unableToLoadCourse
+              : err instanceof Error
+                ? err.message
+                : dict.agriacademy.unableToLoadCourse
+          );
+          return;
+        }
+        setLoadState("error");
+        setLoadError(
+          err instanceof Error && err.message === "LOAD_TIMEOUT"
+            ? dict.agriacademy.unableToLoadCourse
+            : err instanceof Error
+              ? err.message
+              : dict.agriacademy.unableToLoadCourse
+        );
+        setCourse(null);
+      }
+    },
+    [applyCourseTree, courseId, dict.agriacademy.unableToLoadCourse]
+  );
+
+  const refresh = useCallback(() => {
+    void loadCourse({ showLoading: false });
 
     void getAcademyStorageAction()
       .then((storage) => {
         setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
       })
       .catch(() => undefined);
-  }, [courseId]);
+  }, [loadCourse]);
 
   useEffect(() => {
-    refresh();
-  }, [refresh]);
+    void loadCourse({ showLoading: true });
+    void getAcademyStorageAction()
+      .then((storage) => {
+        setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
+      })
+      .catch(() => undefined);
+  }, [courseId, loadCourse]);
 
   useEffect(() => {
     return () => {
@@ -152,6 +218,34 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       }
     });
   };
+
+  if (loadState === "loading") {
+    return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;
+  }
+
+  if (loadState === "not_found") {
+    return (
+      <div className="space-y-3 rounded-3xl border border-border bg-surface-card p-6">
+        <p className="text-sm font-semibold text-destructive">{dict.agriacademy.courseNotFound}</p>
+        <Link href="/dashboard/academy" className="text-xs font-bold text-primary hover:underline">
+          ← {dict.agriacademy.courseCreatorTitle}
+        </Link>
+      </div>
+    );
+  }
+
+  if (loadState === "error") {
+    return (
+      <div className="space-y-3 rounded-3xl border border-border bg-surface-card p-6">
+        <p className="text-sm font-semibold text-destructive">
+          {loadError || dict.agriacademy.unableToLoadCourse}
+        </p>
+        <Button type="button" size="sm" variant="outline" onClick={() => void loadCourse({ showLoading: true })}>
+          {dict.common.retry}
+        </Button>
+      </div>
+    );
+  }
 
   if (!course) {
     return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;

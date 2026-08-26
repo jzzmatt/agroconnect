@@ -1,5 +1,4 @@
-import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
-import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
 import { nextSortOrder } from "@/lib/academy/lesson-numbering";
 import type {
   CourseLessonRecord,
@@ -46,14 +45,10 @@ function hasLiveSupabase(): boolean {
   );
 }
 
-function writableClient() {
-  return tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
-}
-
 async function assertCourseOwner(courseId: string, ownerId: string): Promise<boolean> {
   if (hasLiveSupabase()) {
     try {
-      const supabase = writableClient();
+      const supabase = await getAcademyWritableClient();
       const { data } = await (supabase.from(COURSES_TABLE) as any)
         .select("id")
         .eq("id", courseId)
@@ -114,7 +109,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: course } = await (supabase.from(COURSES_TABLE) as any)
           .select("*")
           .eq("id", courseId)
@@ -204,7 +199,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
           .insert({ course_id: courseId, title, sort_order })
           .select()
@@ -237,7 +232,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
           .select("course_id")
           .eq("id", sectionId)
@@ -267,7 +262,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
           .select("course_id")
           .eq("id", sectionId)
@@ -299,7 +294,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const updates = orderedSectionIds.map((id, index) =>
           (supabase.from(SECTIONS_TABLE) as any)
             .update({ sort_order: index + 1, updated_at: new Date().toISOString() })
@@ -341,7 +336,7 @@ export class AcademyAuthoringService {
       section?.course_id ||
       (hasLiveSupabase()
         ? (
-            await (writableClient().from(SECTIONS_TABLE) as any)
+            await ((await getAcademyWritableClient()).from(SECTIONS_TABLE) as any)
               .select("course_id")
               .eq("id", sectionId)
               .maybeSingle()
@@ -356,7 +351,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
           .insert({ course_id: courseId, section_id: sectionId, title, sort_order })
           .select()
@@ -394,7 +389,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
           .select("course_id")
           .eq("id", lessonId)
@@ -428,7 +423,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
           .select("course_id")
           .eq("id", lessonId)
@@ -474,7 +469,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
           .select("course_id")
           .eq("id", lessonId)
@@ -503,7 +498,7 @@ export class AcademyAuthoringService {
 
     if (hasLiveSupabase()) {
       try {
-        const supabase = writableClient();
+        const supabase = await getAcademyWritableClient();
         const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
           .select("course_id")
           .eq("id", sectionId)

@@ -507,6 +507,8 @@ export const pt = {
     saving: "A guardar...",
     draftSaved: "Rascunho guardado",
     unableToSave: "Não foi possível guardar",
+    unableToLoadCourse: "Não foi possível carregar o curso.",
+    unableToCreateCourse: "Não foi possível criar o curso.",
     savedAt: "Guardado às {time}",
     enrollToWatch: "Inscreva-se para ver este vídeo",
     accessDenied: "Não tem acesso a este vídeo",
