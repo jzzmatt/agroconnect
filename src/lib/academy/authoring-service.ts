@@ -94,10 +94,6 @@ function normalizeLesson(row: Record<string, unknown>): CourseLessonRecord {
   };
 }
 
-function databaseError(cause?: unknown): CoursePersistenceError {
-  return new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, cause);
-}
-
 async function assertCourseOwner(courseId: string, ownerId: string): Promise<boolean> {
   if (hasLiveSupabase()) {
     try {

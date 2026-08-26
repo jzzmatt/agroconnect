@@ -273,7 +273,6 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       }
 
       await loadCourse({ showLoading: false });
-      refreshStorage();
       setMessage(success);
       return true;
     } catch (err: unknown) {

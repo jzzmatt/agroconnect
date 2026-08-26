@@ -62,7 +62,7 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
     expect(extractYouTubeVideoId(`https://www.youtube.com/shorts/${YT_ID}`)).toBe(YT_ID);
     expect(extractYouTubeVideoId(`youtube.com/watch?v=${YT_ID}&t=12s`)).toBe(YT_ID);
     expect(extractYouTubeVideoId("https://vimeo.com/123")).toBeNull();
-    expect(extractYouTubeVideoId("not-a-video")).toBeNull();
+    expect(extractYouTubeVideoId("not-a-youtube-url")).toBeNull();
     expect(isYouTubeVideoId(YT_ID)).toBe(true);
   });
 
