@@ -11,6 +11,7 @@ export async function uploadToBunnyTus(params: {
   signature: string;
   expire: number;
   signal?: AbortSignal;
+  onProgress?: (percent: number) => void;
 }): Promise<boolean> {
   const endpoint = params.uploadUrl || BUNNY_TUS_ENDPOINT;
   const libraryId = String(params.libraryId || "");
@@ -36,6 +37,11 @@ export async function uploadToBunnyTus(params: {
       metadata: {
         filetype: params.file.type || "video/webm",
         title: params.file.name || "product-video",
+      },
+      onProgress(bytesUploaded, bytesTotal) {
+        if (bytesTotal > 0) {
+          params.onProgress?.(Math.round((bytesUploaded / bytesTotal) * 100));
+        }
       },
       onError(error) {
         console.warn("[bunny tus]", error?.message || error);
