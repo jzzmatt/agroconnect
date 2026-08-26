@@ -6,7 +6,7 @@ import {
   CoursePersistenceError,
   COURSE_MUTATION_MESSAGES,
 } from "@/lib/academy/course-errors";
-import { extractYouTubeVideoId } from "@/lib/academy/youtube";
+import { analyzeYouTubeInput } from "@/lib/academy/youtube";
 import { isMissingYoutubeColumnError } from "@/lib/academy/db-errors";
 import type {
   CourseEditorTree,
@@ -445,14 +445,15 @@ export class AcademyAuthoringService {
     let youtubeSourceUrl: string | null = null;
 
     if (urlOrId != null && urlOrId.trim() !== "") {
-      youtubeVideoId = extractYouTubeVideoId(urlOrId);
-      if (!youtubeVideoId) {
+      const analysis = analyzeYouTubeInput(urlOrId);
+      if (!analysis.ok) {
         throw new CoursePersistenceError(
           "YOUTUBE_URL_INVALID",
           COURSE_MUTATION_MESSAGES.YOUTUBE_URL_INVALID
         );
       }
-      youtubeSourceUrl = urlOrId.trim();
+      youtubeVideoId = analysis.videoId;
+      youtubeSourceUrl = analysis.normalizedUrl;
     }
 
     if (hasLiveSupabase()) {

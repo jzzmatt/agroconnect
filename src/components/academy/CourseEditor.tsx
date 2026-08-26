@@ -15,10 +15,19 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
 import { LessonYouTubeModal } from "@/components/academy/LessonYouTubeModal";
 import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
+import {
+  deriveAuthoringProgress,
+  type AuthoringNextAction,
+  type AuthoringStepId,
+} from "@/lib/academy/authoring-progress";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { courseEditorFingerprint } from "@/lib/academy/editor-snapshot";
+import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import { isYouTubeVideoId } from "@/lib/academy/youtube";
+import type { Dictionary } from "@/i18n";
 import {
   deleteDialogForStatus,
   type CourseDeleteDialogKind,
@@ -71,6 +80,61 @@ function isMutationResult(value: unknown): value is CourseMutationResult<unknown
   return Boolean(value) && typeof value === "object" && "success" in (value as object);
 }
 
+function authoringStepLabels(dict: Dictionary["agriacademy"]): Record<AuthoringStepId, string> {
+  return {
+    create_course: dict.authoringStepCreateCourse,
+    create_chapters: dict.authoringStepCreateChapters,
+    create_lessons: dict.authoringStepCreateLessons,
+    add_youtube: dict.authoringStepAddYouTube,
+    validate_preview: dict.authoringStepValidatePreview,
+    save_lessons: dict.authoringStepSaveLessons,
+    review_course: dict.authoringStepReviewCourse,
+    publish_course: dict.authoringStepPublishCourse,
+  };
+}
+
+function nextActionMessage(action: AuthoringNextAction, dict: Dictionary["agriacademy"]): string {
+  switch (action.kind) {
+    case "complete_course_info":
+      return dict.authoringNextCompleteInfo;
+    case "create_chapter":
+      return dict.authoringNextCreateChapter;
+    case "create_lesson":
+      return dict.authoringNextCreateLesson;
+    case "add_youtube":
+      return dict.authoringNextAddYouTube.replace("{lesson}", action.lessonNumber || "");
+    case "save_draft":
+      return dict.authoringNextSaveDraft;
+    case "review_course":
+      return dict.authoringNextReview;
+    case "publish":
+      return dict.authoringNextPublish;
+    case "none":
+      return dict.authoringNextNone;
+  }
+}
+
+function nextActionLabel(
+  action: AuthoringNextAction,
+  dict: Dictionary["agriacademy"],
+  publishLabel: string
+): string | null {
+  switch (action.kind) {
+    case "create_chapter":
+      return dict.addChapter;
+    case "create_lesson":
+      return dict.addLesson;
+    case "add_youtube":
+      return dict.selectVideo;
+    case "save_draft":
+      return dict.saveDraft;
+    case "publish":
+      return publishLabel;
+    default:
+      return null;
+  }
+}
+
 export function CourseEditor({ courseId }: { courseId: string }) {
   const { dict, locale } = useI18n();
   const router = useRouter();
@@ -104,6 +168,14 @@ export function CourseEditor({ courseId }: { courseId: string }) {
 
   const isDirty = Boolean(course && courseFingerprint !== savedSnapshot);
   const isSaving = saveState === "saving" || mutating || deleteBusy;
+  const authoringProgress = useMemo(
+    () => (course ? deriveAuthoringProgress(course, { isDirty }) : null),
+    [course, isDirty]
+  );
+  const publicationIssues = useMemo(
+    () => (course ? validateCourseForPublication(course).issues : []),
+    [course]
+  );
 
   const mutationMessage = useCallback(
     (code: CourseMutationCode | undefined, fallback: string) => {
@@ -124,6 +196,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           return dict.agriacademy.youtubeUrlInvalid;
         case "YOUTUBE_SCHEMA_MISSING":
           return dict.agriacademy.youtubeSchemaMissing;
+        case "VALIDATION_ERROR":
+          return fallback || dict.agriacademy.authoringPublishBlocked;
         default:
           return fallback || dict.agriacademy.unableToSave;
       }
@@ -383,6 +457,43 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         ? dict.agriacademy.draftSaved
         : dict.agriacademy.saveDraft;
 
+  const handleGuideAction = (action: AuthoringNextAction) => {
+    if (!course || isSaving) return;
+    switch (action.kind) {
+      case "create_chapter":
+        void runAction(
+          () => createSectionAction(course.id, dict.agriacademy.newChapter),
+          dict.agriacademy.chapterAdded
+        );
+        return;
+      case "create_lesson": {
+        const section = course.sections[0];
+        if (!section) return;
+        void runAction(
+          () => createLessonAction(section.id, dict.agriacademy.newLesson),
+          dict.agriacademy.lessonAdded
+        );
+        return;
+      }
+      case "add_youtube":
+        if (action.lessonId) setVideoLessonId(action.lessonId);
+        return;
+      case "save_draft":
+        void handleSaveDraft();
+        return;
+      case "publish":
+        if (!authoringProgress?.readyToPublish) return;
+        void runAction(
+          () => publishCourseAction(course.id),
+          dict.agriacademy.coursePublished,
+          { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
+        );
+        return;
+      default:
+        return;
+    }
+  };
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -445,7 +556,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
                 )
               }
-              disabled={isSaving}
+              disabled={isSaving || !authoringProgress?.readyToPublish}
             >
               <Eye className="w-3.5 h-3.5 mr-1" />
               {dict.common.publish}
@@ -526,6 +637,56 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         </p>
       )}
 
+      {authoringProgress ? (
+        <CourseAuthoringGuide
+          progress={authoringProgress}
+          title={dict.agriacademy.authoringGuideTitle}
+          nextStepLabel={dict.agriacademy.authoringNextStep}
+          stepLabels={authoringStepLabels(dict.agriacademy)}
+          nextActionMessage={nextActionMessage(authoringProgress.nextAction, dict.agriacademy)}
+          actionLabel={nextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
+          onAction={handleGuideAction}
+        />
+      ) : null}
+
+      {publicationIssues.length > 0 && (course.status === "draft" || course.status === "paused") ? (
+        <div className="rounded-3xl border border-amber-300 bg-amber-50 dark:bg-amber-950/40 dark:border-amber-800 p-4 space-y-2">
+          <p className="text-xs font-bold">{dict.agriacademy.authoringPublishBlocked}</p>
+          <ul className="space-y-1">
+            {publicationIssues.map((issue, index) => (
+              <li key={`${issue.code}-${issue.lessonId || index}`} className="text-xs">
+                {issue.code === "MISSING_YOUTUBE" && issue.lessonId ? (
+                  <button
+                    type="button"
+                    className="font-semibold text-primary hover:underline"
+                    onClick={() => setVideoLessonId(issue.lessonId!)}
+                  >
+                    {dict.agriacademy.authoringMissingYouTube.replace(
+                      "{lesson}",
+                      issue.lessonTitle
+                        ? `${issue.lessonNumber} (${issue.lessonTitle})`
+                        : issue.lessonNumber || ""
+                    )}
+                  </button>
+                ) : (
+                  <span>
+                    {issue.code === "MISSING_TITLE"
+                      ? dict.agriacademy.authoringMissingTitle
+                      : issue.code === "MISSING_DESCRIPTION"
+                        ? dict.agriacademy.authoringMissingDescription
+                        : issue.code === "MISSING_CHAPTER"
+                          ? dict.agriacademy.authoringMissingChapter
+                          : issue.code === "MISSING_LESSON"
+                            ? dict.agriacademy.authoringMissingLesson
+                            : dict.agriacademy.authoringPublishBlocked}
+                  </span>
+                )}
+              </li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+
       <div className="space-y-4">
         {course.sections.map((section) => (
           <div key={section.id} className="rounded-3xl border border-border p-4 space-y-3">
@@ -565,8 +726,16 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             </div>
 
             <div className="space-y-2 pl-4 border-l border-border">
-              {section.lessons.map((lesson) => (
-                <div key={lesson.id} className="flex flex-wrap items-center gap-2">
+              {section.lessons.map((lesson) => {
+                const missingYouTube = !isYouTubeVideoId(lesson.youtube_video_id);
+                return (
+                <div
+                  key={lesson.id}
+                  id={`lesson-${lesson.id}`}
+                  className={`flex flex-wrap items-center gap-2 ${
+                    missingYouTube ? "rounded-xl border border-amber-300 bg-amber-50/80 dark:bg-amber-950/30 dark:border-amber-800 p-2" : ""
+                  }`}
+                >
                   <span className="text-[11px] font-bold text-muted-foreground w-12">
                     {formatLessonNumber(section.sort_order, lesson.sort_order)}
                   </span>
@@ -602,11 +771,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                     disabled={isSaving}
                     onClick={() => setVideoLessonId(lesson.id)}
                   >
-                    {lesson.youtube_video_id
+                    {isYouTubeVideoId(lesson.youtube_video_id)
                       ? dict.agriacademy.replaceVideo
                       : dict.agriacademy.selectVideo}
                   </Button>
-                  {lesson.youtube_video_id ? (
+                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
                     <Button
                       type="button"
                       size="sm"
@@ -634,13 +803,21 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
-                  {lesson.youtube_video_id ? (
+                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
                     <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                      {lesson.youtube_video_id}
+                      {dict.agriacademy.youtubeVideoIdLabel}: {lesson.youtube_video_id}
                     </span>
-                  ) : null}
+                  ) : (
+                    <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
+                      {dict.agriacademy.authoringMissingYouTube.replace(
+                        "{lesson}",
+                        formatLessonNumber(section.sort_order, lesson.sort_order)
+                      )}
+                    </span>
+                  )}
                 </div>
-              ))}
+              );
+              })}
               <Button
                 type="button"
                 size="sm"

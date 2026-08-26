@@ -7,6 +7,7 @@ import {
   reorderItems,
 } from "@/lib/academy/lesson-numbering";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import { deriveAuthoringProgress } from "@/lib/academy/authoring-progress";
 import { canTransitionCourseStatus, isPubliclyVisibleCourseStatus } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
 import { can, type CapabilitySubject } from "@/lib/authorization/policy";
@@ -159,9 +160,34 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
       "https://youtu.be/dQw4w9WgXcQ"
     );
     expect(lesson?.youtube_video_id).toBe("dQw4w9WgXcQ");
+    expect(lesson?.youtube_source_url).toBe("https://www.youtube.com/watch?v=dQw4w9WgXcQ");
     await expect(
       AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "https://vimeo.com/1")
     ).rejects.toMatchObject({ code: "YOUTUBE_URL_INVALID" });
+    await expect(
+      AcademyAuthoringService.assignLessonYouTubeVideo(
+        OWNER,
+        "les-seed-1",
+        "https://www.youtube.com/playlist?list=PLtest"
+      )
+    ).rejects.toMatchObject({ code: "YOUTUBE_URL_INVALID" });
+    await expect(
+      AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "https://www.youtube.com/@canal")
+    ).rejects.toMatchObject({ code: "YOUTUBE_URL_INVALID" });
+  });
+
+  it("11b. Replaces and removes a lesson YouTube reference without deleting the video", async () => {
+    const assigned = await AcademyAuthoringService.assignLessonYouTubeVideo(
+      OWNER,
+      "les-seed-1",
+      "https://www.youtube.com/watch?v=dQw4w9WgXcQ"
+    );
+    expect(assigned?.youtube_video_id).toBe("dQw4w9WgXcQ");
+    const replaced = await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "oHg5SJYRHA0");
+    expect(replaced?.youtube_video_id).toBe("oHg5SJYRHA0");
+    const removed = await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", null);
+    expect(removed?.youtube_video_id).toBeNull();
+    expect(AcademyAuthoringService.countYouTubeReferences("dQw4w9WgXcQ")).toBe(0);
   });
 
   it("12. Tracks YouTube ID references in the memory model", async () => {
@@ -178,8 +204,81 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
     });
     expect(invalid.ok).toBe(false);
 
+    const missingVideo = validateCourseForPublication({
+      ...draftCourseTree(),
+      sections: [
+        {
+          ...draftCourseTree().sections[0],
+          lessons: [{ ...draftCourseTree().sections[0].lessons[0], youtube_video_id: null }],
+        },
+      ],
+    });
+    expect(missingVideo.ok).toBe(false);
+    expect(missingVideo.issues).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ code: "MISSING_YOUTUBE", lessonNumber: "01.01", lessonTitle: "Aula 1" }),
+      ])
+    );
+    expect(missingVideo.errors.some((error) => error.includes("01.01"))).toBe(true);
+
     const valid = validateCourseForPublication(draftCourseTree());
     expect(valid.ok).toBe(true);
+  });
+
+  it("13b. Derives guided authoring progress from persisted course data", () => {
+    const empty = deriveAuthoringProgress({ ...draftCourseTree(), title: "", sections: [] }, { isDirty: false });
+    expect(empty.currentStepId).toBe("create_course");
+    expect(empty.nextAction.kind).toBe("complete_course_info");
+    expect(empty.steps.find((step) => step.id === "create_course")?.state).toBe("current");
+
+    const noChapters = deriveAuthoringProgress({ ...draftCourseTree(), sections: [] }, { isDirty: false });
+    expect(noChapters.currentStepId).toBe("create_chapters");
+    expect(noChapters.nextAction.kind).toBe("create_chapter");
+
+    const noLessons = deriveAuthoringProgress(
+      { ...draftCourseTree(), sections: [{ ...draftCourseTree().sections[0], lessons: [] }] },
+      { isDirty: false }
+    );
+    expect(noLessons.currentStepId).toBe("create_lessons");
+
+    const noVideo = deriveAuthoringProgress(
+      {
+        ...draftCourseTree(),
+        sections: [
+          {
+            ...draftCourseTree().sections[0],
+            lessons: [{ ...draftCourseTree().sections[0].lessons[0], youtube_video_id: null }],
+          },
+        ],
+      },
+      { isDirty: false }
+    );
+    expect(noVideo.currentStepId).toBe("add_youtube");
+    expect(noVideo.nextAction).toMatchObject({ kind: "add_youtube", lessonNumber: "01.01" });
+    expect(noVideo.readyToPublish).toBe(false);
+
+    const unsaved = deriveAuthoringProgress(draftCourseTree(), { isDirty: true });
+    expect(unsaved.currentStepId).toBe("save_lessons");
+    expect(unsaved.nextAction.kind).toBe("save_draft");
+
+    const ready = deriveAuthoringProgress(draftCourseTree(), { isDirty: false });
+    expect(ready.currentStepId).toBe("publish_course");
+    expect(ready.readyToPublish).toBe(true);
+    expect(ready.nextAction.kind).toBe("publish");
+    expect(ready.steps.filter((step) => step.state === "completed").map((step) => step.id)).toEqual([
+      "create_course",
+      "create_chapters",
+      "create_lessons",
+      "add_youtube",
+      "validate_preview",
+      "save_lessons",
+      "review_course",
+    ]);
+
+    const published = deriveAuthoringProgress({ ...draftCourseTree(), status: "published" }, { isDirty: false });
+    expect(published.currentStepId).toBeNull();
+    expect(published.nextAction.kind).toBe("none");
+    expect(published.steps.every((step) => step.state === "completed")).toBe(true);
   });
 
   it("14. Supports pause transition from published", () => {
