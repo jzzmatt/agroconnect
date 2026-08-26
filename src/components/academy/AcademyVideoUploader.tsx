@@ -1,16 +1,25 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { AlertCircle, Loader2, Upload } from "lucide-react";
+import { AlertCircle, Check, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
+import { waitForAcademyVideoReady } from "@/lib/academy/poll-academy-video-upload";
+import type { UploadProgressPhase } from "@/lib/academy/upload-progress";
 import { uploadAcademyVideoWithProgress, shouldUseServerBunnyUpload } from "@/lib/academy/upload-academy-video";
 import { uploadToBunnyTus } from "@/lib/products/bunny-upload";
 
-type UploadPhase = "idle" | "authorizing" | "uploading" | "processing" | "success" | "error";
+type UploadPhase = "idle" | "authorizing" | "uploading" | "success" | "error";
 
 const ACCEPTED_VIDEO_TYPES = ["video/mp4", "video/webm", "video/quicktime"];
+
+function progressLabel(phase: UploadProgressPhase, dict: ReturnType<typeof useI18n>["dict"]): string {
+  if (phase === "transfer") return dict.agriacademy.uploadProgressTransfer;
+  if (phase === "bunny-receipt") return dict.agriacademy.uploadProgressBunnyReceipt;
+  if (phase === "encoding") return dict.agriacademy.uploadProgressEncoding;
+  return dict.agriacademy.uploadProgressReady;
+}
 
 export function AcademyVideoUploader({
   remainingBytes,
@@ -22,9 +31,11 @@ export function AcademyVideoUploader({
   const { dict } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
+  const transferRef = useRef(0);
   const [phase, setPhase] = useState<UploadPhase>("idle");
   const [error, setError] = useState<string | null>(null);
   const [progress, setProgress] = useState(0);
+  const [progressPhase, setProgressPhase] = useState<UploadProgressPhase>("transfer");
   const [title, setTitle] = useState("");
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
 
@@ -77,6 +88,8 @@ export function AcademyVideoUploader({
 
     setError(null);
     setProgress(0);
+    setProgressPhase("transfer");
+    transferRef.current = 0;
     setPhase("authorizing");
     abortRef.current?.abort();
     const controller = new AbortController();
@@ -115,14 +128,27 @@ export function AcademyVideoUploader({
         throw Object.assign(new Error("BUNNY_NOT_CONFIGURED"), { code: "BUNNY_NOT_CONFIGURED" });
       }
 
+      const videoId = createPayload.video.id as string;
       setPhase("uploading");
+
+      const bunnyReadyPromise = waitForAcademyVideoReady({
+        videoId,
+        getTransferPercent: () => transferRef.current,
+        signal: controller.signal,
+        onProgress: (percent, bunnyPhase) => {
+          setProgress(percent);
+          setProgressPhase(bunnyPhase);
+        },
+      });
 
       if (shouldUseServerBunnyUpload(selectedFile.size)) {
         const uploadResult = await uploadAcademyVideoWithProgress({
-          videoId: createPayload.video.id,
+          videoId,
           file: selectedFile,
           signal: controller.signal,
-          onProgress: setProgress,
+          onProgress: (percent, transferComplete) => {
+            transferRef.current = transferComplete ? 1 : percent / 100;
+          },
         });
         if (!uploadResult.success) {
           throw Object.assign(new Error(uploadResult.message || "BUNNY_UPLOAD_FAILED"), {
@@ -138,10 +164,11 @@ export function AcademyVideoUploader({
           signature: upload.authorizationSignature,
           expire: upload.authorizationExpire,
           signal: controller.signal,
-          onProgress: setProgress,
+          onProgress: (percent) => {
+            transferRef.current = percent / 100;
+          },
         });
 
-        setPhase("processing");
         const completeRes = await fetch("/api/academy/video/complete", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
@@ -149,7 +176,7 @@ export function AcademyVideoUploader({
           cache: "no-store",
           redirect: "manual",
           signal: controller.signal,
-          body: JSON.stringify({ videoId: createPayload.video.id }),
+          body: JSON.stringify({ videoId }),
         });
         const completePayload = await completeRes.json().catch(() => null);
         if (!completeRes.ok || !completePayload?.success) {
@@ -159,20 +186,26 @@ export function AcademyVideoUploader({
         }
       }
 
+      transferRef.current = 1;
+      await bunnyReadyPromise;
+
+      setProgress(100);
+      setProgressPhase("ready");
       setPhase("success");
       setSelectedFile(null);
       setTitle("");
       resetInput();
       onUploaded?.();
     } catch (err: any) {
-      if (controller.signal.aborted) return;
+      if (err?.code === "UPLOAD_ABORTED") return;
+      controller.abort();
       const code = err?.code || "BUNNY_UPLOAD_FAILED";
       setError(localizeError(dict, code, err?.message));
       setPhase("error");
     }
   };
 
-  const isBusy = phase === "authorizing" || phase === "uploading" || phase === "processing";
+  const isBusy = phase === "authorizing" || phase === "uploading";
 
   return (
     <div className="space-y-4">
@@ -204,7 +237,7 @@ export function AcademyVideoUploader({
           {isBusy ? (
             <>
               <Loader2 className="w-4 h-4 mr-1.5 animate-spin" />
-              A carregar...
+              {dict.agriacademy.videoUploading}
             </>
           ) : (
             <>
@@ -222,25 +255,28 @@ export function AcademyVideoUploader({
         </p>
       )}
 
-      {phase === "uploading" && (
+      {isBusy && (
         <div className="space-y-1">
           <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary transition-all" style={{ width: `${Math.max(progress, 8)}%` }} />
+            <div
+              className="h-full bg-primary transition-all duration-300"
+              style={{ width: `${Math.max(progress, 4)}%` }}
+            />
           </div>
-          <p className="text-[11px] text-muted-foreground">A enviar o vídeo diretamente para o Bunny Stream…</p>
+          <p className="text-[11px] text-muted-foreground flex items-center justify-between gap-2">
+            <span className="flex items-center gap-1.5">
+              <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" />
+              {progressLabel(progressPhase, dict)}
+            </span>
+            <span className="font-semibold tabular-nums">{progress}%</span>
+          </p>
         </div>
       )}
 
-      {phase === "processing" && (
-        <p className="text-xs text-muted-foreground flex items-center gap-1.5">
-          <Loader2 className="w-3.5 h-3.5 animate-spin" />
-          Vídeo recebido. A aguardar processamento…
-        </p>
-      )}
-
       {phase === "success" && (
-        <p className="text-xs font-semibold text-emerald-600">
-          Vídeo carregado com sucesso. O processamento pode demorar alguns minutos.
+        <p className="text-xs font-semibold text-emerald-600 flex items-center gap-1.5">
+          <Check className="w-3.5 h-3.5" />
+          {dict.agriacademy.videoUploadComplete}
         </p>
       )}
 

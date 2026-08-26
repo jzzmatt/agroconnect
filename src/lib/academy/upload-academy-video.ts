@@ -10,7 +10,7 @@ export function uploadAcademyVideoWithProgress(params: {
   videoId: string;
   file: File;
   signal?: AbortSignal;
-  onProgress?: (percent: number) => void;
+  onProgress?: (percent: number, transferComplete?: boolean) => void;
 }): Promise<{ success: boolean; code?: string; message?: string }> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
@@ -24,7 +24,8 @@ export function uploadAcademyVideoWithProgress(params: {
 
     xhr.upload.onprogress = (event) => {
       if (!event.lengthComputable) return;
-      params.onProgress?.(Math.round((event.loaded / event.total) * 100));
+      const fraction = event.loaded / event.total;
+      params.onProgress?.(Math.round(fraction * 100), fraction >= 1);
     };
 
     xhr.onload = () => {

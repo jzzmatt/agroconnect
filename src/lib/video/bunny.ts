@@ -30,6 +30,14 @@ export type BunnyVideoStatus =
   | "failed"
   | "deleted";
 
+export type BunnyVideoSnapshot = {
+  status: BunnyVideoStatus;
+  statusCode: number;
+  thumbnailUrl: string | null;
+  encodeProgress: number;
+  storageSize: number;
+};
+
 function trimEnv(value?: string | null): string {
   return String(value || "").trim();
 }
@@ -259,9 +267,7 @@ export async function uploadBunnyVideoBinary(params: {
  * environment would leave a row stuck at "uploading" forever, so playback must
  * not depend on it.
  */
-export async function fetchBunnyVideoStatus(
-  bunnyVideoId: string
-): Promise<{ status: BunnyVideoStatus; thumbnailUrl: string | null } | null> {
+export async function fetchBunnyVideoStatus(bunnyVideoId: string): Promise<BunnyVideoSnapshot | null> {
   const config = getBunnyConfig();
   if (!config.apiKey || !config.libraryId || !bunnyVideoId) return null;
 
@@ -271,17 +277,35 @@ export async function fetchBunnyVideoStatus(
       { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
     );
     if (response.status === 404) {
-      return { status: "deleted", thumbnailUrl: null };
+      return {
+        status: "deleted",
+        statusCode: -1,
+        thumbnailUrl: null,
+        encodeProgress: 0,
+        storageSize: 0,
+      };
     }
     if (!response.ok) return null;
 
-    const video = (await response.json()) as { status?: number; thumbnailFileName?: string };
-    const status = mapBunnyStatus(Number(video.status));
+    const video = (await response.json()) as {
+      status?: number;
+      thumbnailFileName?: string;
+      encodeProgress?: number;
+      storageSize?: number;
+    };
+    const statusCode = Number(video.status ?? 0);
+    const status = mapBunnyStatus(statusCode);
     const thumbnailUrl =
       video.thumbnailFileName && config.cdnHostname
         ? `https://${config.cdnHostname}/${bunnyVideoId}/${video.thumbnailFileName}`
         : null;
-    return { status, thumbnailUrl };
+    return {
+      status,
+      statusCode,
+      thumbnailUrl,
+      encodeProgress: Math.max(0, Math.min(100, Number(video.encodeProgress ?? 0))),
+      storageSize: Number(video.storageSize ?? 0),
+    };
   } catch (error) {
     console.warn(
       "[bunny] status lookup failed:",
@@ -395,10 +419,10 @@ export function isBunnyUploadReceived(status: BunnyVideoStatus): boolean {
 export async function pollBunnyUploadReceived(
   bunnyVideoId: string,
   options: { attempts?: number; delayMs?: number } = {}
-): Promise<{ status: BunnyVideoStatus; thumbnailUrl: string | null } | null> {
-  const attempts = options.attempts ?? 15;
+): Promise<BunnyVideoSnapshot | null> {
+  const attempts = options.attempts ?? 45;
   const delayMs = options.delayMs ?? 1000;
-  let last: { status: BunnyVideoStatus; thumbnailUrl: string | null } | null = null;
+  let last: BunnyVideoSnapshot | null = null;
 
   for (let attempt = 0; attempt < attempts; attempt += 1) {
     last = await fetchBunnyVideoStatus(bunnyVideoId);

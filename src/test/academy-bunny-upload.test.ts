@@ -30,6 +30,7 @@ describe("AgriAcademy Bunny upload flow", () => {
     expect(mediaLibrary).toContain("getAcademyVideoPreviewAction");
     expect(uploader).not.toContain("handleDemoUpload");
     expect(uploader).toContain('fetch("/api/academy/video/create"');
+    expect(uploader).toContain("waitForAcademyVideoReady");
     expect(uploader).toContain("uploadAcademyVideoWithProgress");
     expect(uploader).toContain("uploadToBunnyTus");
     expect(uploader).toContain('fetch("/api/academy/video/complete"');

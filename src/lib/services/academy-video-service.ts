@@ -382,6 +382,58 @@ export class AcademyVideoService {
     return this.syncStatusAfterUpload(params.videoId, params.ownerId);
   }
 
+  /** Poll Bunny and return upload/encoding progress for the owner UI. */
+  public static async syncUploadProgressFromBunny(
+    videoId: string,
+    ownerId: string
+  ): Promise<{
+    status: AcademyVideoRecord["status"];
+    bunnyStatusCode: number;
+    encodeProgress: number;
+    storageSize: number;
+    received: boolean;
+    ready: boolean;
+    failed: boolean;
+  } | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return null;
+
+    const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
+    if (!remote || remote.status === "deleted") {
+      return {
+        status: "failed",
+        bunnyStatusCode: remote?.statusCode ?? -1,
+        encodeProgress: 0,
+        storageSize: 0,
+        received: false,
+        ready: false,
+        failed: true,
+      };
+    }
+
+    const dbStatus = remote.status;
+    const synced = await this.markStatusByBunnyId(video.bunny_video_id, dbStatus, {
+      thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+    });
+
+    return {
+      status: synced?.status ?? dbStatus,
+      bunnyStatusCode: remote.statusCode,
+      encodeProgress: remote.encodeProgress,
+      storageSize: remote.storageSize,
+      received: isBunnyUploadReceived(remote.status),
+      ready: remote.status === "ready",
+      failed: remote.status === "failed",
+    };
+  }
+
   /** Instructor media-library preview — owner-only, resolves Bunny embed URLs server-side. */
   public static async resolveOwnerPreview(
     videoId: string,
@@ -394,21 +446,26 @@ export class AcademyVideoService {
       .eq("id", videoId)
       .eq("owner_id", ownerId)
       .maybeSingle();
-    const video = current as unknown as AcademyVideoRecord | null;
+    let video = current as unknown as AcademyVideoRecord | null;
     if (!video) return null;
 
-    const embedUrl = await resolvePlaybackEmbedUrl(video);
-    if (embedUrl && video.bunny_video_id && (video.status !== "ready" || !video.playback_url)) {
-      await this.markStatusByBunnyId(video.bunny_video_id, "ready", {
-        playback_url: embedUrl,
-        thumbnail_url: video.thumbnail_url ?? undefined,
-      });
+    if (video.bunny_video_id) {
+      const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
+      if (remote && remote.status !== "deleted") {
+        const synced = await this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+          thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+        });
+        if (synced) video = synced;
+      }
     }
+
+    const embedUrl =
+      video.status === "ready" ? await resolvePlaybackEmbedUrl(video) : null;
 
     return {
       embedUrl,
-      ready: Boolean(embedUrl),
-      status: embedUrl ? "ready" : video.status,
+      ready: video.status === "ready",
+      status: video.status,
     };
   }
 

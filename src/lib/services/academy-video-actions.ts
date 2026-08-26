@@ -128,3 +128,18 @@ export async function confirmAcademyVideoUploadAction(videoId: string) {
 
   return { success: true as const, video };
 }
+
+export async function getAcademyVideoUploadStatusAction(videoId: string) {
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    return { ok: false as const, code: "AUTH_REQUIRED" as const };
+  }
+
+  const status = await AcademyVideoService.syncUploadProgressFromBunny(videoId, profile.id);
+  if (!status) {
+    return { ok: false as const, code: "NOT_FOUND" as const };
+  }
+
+  return { ok: true as const, ...status };
+}
