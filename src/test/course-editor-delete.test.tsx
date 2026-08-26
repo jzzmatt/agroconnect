@@ -105,7 +105,7 @@ describe("CourseEditor deletion lifecycle", () => {
       </I18nProvider>
     );
 
-    await screen.findByText("Curso UI");
+    await screen.findByDisplayValue("Curso UI");
     fireEvent.click(screen.getByRole("button", { name: /Eliminar curso/i }));
     expect(await screen.findByText("Curso publicado")).toBeInTheDocument();
     expect(
@@ -132,7 +132,7 @@ describe("CourseEditor deletion lifecycle", () => {
       </I18nProvider>
     );
 
-    await screen.findByText("Curso UI");
+    await screen.findByDisplayValue("Curso UI");
     fireEvent.click(screen.getByRole("button", { name: /Eliminar curso/i }));
     fireEvent.click(await screen.findByRole("button", { name: /Retirar da publicação/i }));
 
@@ -156,7 +156,7 @@ describe("CourseEditor deletion lifecycle", () => {
       </I18nProvider>
     );
 
-    await screen.findByText("Curso UI");
+    await screen.findByDisplayValue("Curso UI");
     fireEvent.click(screen.getByRole("button", { name: /Eliminar curso/i }));
     expect(await screen.findByText("Eliminar curso?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /Cancelar/i }));
