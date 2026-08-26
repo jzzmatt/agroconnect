@@ -17,12 +17,14 @@ export function ProtectedLessonPlayer({
   const [embedUrl, setEmbedUrl] = useState<string | null>(null);
   const [ready, setReady] = useState(false);
   const [denied, setDenied] = useState(false);
+  const [deniedReason, setDeniedReason] = useState<string | null>(null);
 
   useEffect(() => {
     if (!enabled) {
       setEmbedUrl(null);
       setReady(false);
       setDenied(false);
+      setDeniedReason(null);
       return;
     }
 
@@ -36,6 +38,7 @@ export function ProtectedLessonPlayer({
         if (cancelled) return;
         if (!res.ok || !payload?.allowed) {
           setDenied(true);
+          setDeniedReason(payload?.code || "ACCESS_DENIED");
           setReady(false);
           setEmbedUrl(null);
           return;
@@ -43,6 +46,7 @@ export function ProtectedLessonPlayer({
         setEmbedUrl(payload.embedUrl);
         setReady(true);
         setDenied(false);
+        setDeniedReason(null);
       })
       .catch(() => {
         if (!cancelled) setDenied(true);
@@ -62,9 +66,13 @@ export function ProtectedLessonPlayer({
   }
 
   if (denied) {
+    const message =
+      deniedReason === "video_not_ready"
+        ? dict.agriacademy.processing
+        : dict.agriacademy.accessDenied;
     return (
       <div className="aspect-video rounded-2xl border border-border bg-muted/40 flex items-center justify-center text-xs text-muted-foreground px-4 text-center">
-        {dict.agriacademy.accessDenied}
+        {message}
       </div>
     );
   }

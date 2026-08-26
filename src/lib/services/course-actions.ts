@@ -201,7 +201,8 @@ export async function getCourseLearnContextAction(slug: string, lessonId?: strin
   }
 
   const enrolled = await EnrollmentService.isEnrolled(userProfile.id, course.id);
-  if (!enrolled) {
+  const isOwner = course.owner_id === userProfile.id;
+  if (!enrolled && !isOwner) {
     return { allowed: false as const, reason: "not_enrolled" as const, course };
   }
 

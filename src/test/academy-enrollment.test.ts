@@ -145,6 +145,18 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
     ).toBeNull();
   });
 
+  it("9. Reuses stored playback_url when present", () => {
+    const url = "https://iframe.mediadelivery.net/embed/123/abc";
+    expect(
+      buildAuthorizedEmbedUrl({
+        bunny_video_id: "abc",
+        bunny_library_id: null,
+        status: "processing",
+        playback_url: url,
+      })
+    ).toBe(url);
+  });
+
   it("9. Blocks publication when videos are still processing", () => {
     const tree = publishedCourseTree();
     tree.sections[0].lessons![0].video = { status: "processing" };
