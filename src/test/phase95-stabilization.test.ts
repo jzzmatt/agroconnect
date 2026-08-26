@@ -11,7 +11,7 @@ import { getMarketCountry, DEFAULT_MARKET_COUNTRY, MARKET_COUNTRIES } from "@/co
 import { getDictionary } from "@/i18n";
 import { defaultLocale, supportedLocales } from "@/i18n/config";
 import { validateProductImage, ProductMediaService, buildProductImageAlt } from "@/lib/services/product-media-service";
-import { AcademyVideoService } from "@/lib/services/academy-video-service";
+import { extractYouTubeVideoId } from "@/lib/academy/youtube";
 import { PaymentService, MulticaixaOnlineAdapter } from "@/lib/payments";
 import { canTransitionDeliveryStatus } from "@/lib/logistics/state-machine";
 
@@ -144,28 +144,9 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
     expect((await ProductMediaService.list("p1"))[0]?.id).toBe(image.id);
   });
 
-  it("enforces AgriAcademy video quota before upload", async () => {
-    const basic = await AcademyVideoService.canAcceptUpload({
-      ownerId: "u1",
-      plan: "basic",
-      incomingBytes: 1,
-    });
-    expect(basic.ok).toBe(false);
-
-    const proOk = await AcademyVideoService.canAcceptUpload({
-      ownerId: "u2",
-      plan: "professional",
-      incomingBytes: 10 * GB,
-    });
-    expect(proOk.ok).toBe(true);
-
-    const proOver = await AcademyVideoService.canAcceptUpload({
-      ownerId: "u3",
-      plan: "professional",
-      incomingBytes: 101 * GB,
-    });
-    expect(proOver.ok).toBe(false);
-    if (!proOver.ok) expect(proOver.error).toContain("Limite de armazenamento atingido");
+  it("does not gate AgriAcademy YouTube references on Bunny storage quota", () => {
+    expect(extractYouTubeVideoId("https://youtu.be/dQw4w9WgXcQ")).toBe("dQw4w9WgXcQ");
+    expect(VIDEO_STORAGE_QUOTA_BYTES.basic).toBe(0);
   });
 
   it("Multicaixa Online does not fake a paid transaction without credentials", async () => {

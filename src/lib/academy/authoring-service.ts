@@ -6,8 +6,9 @@ import {
   CoursePersistenceError,
   COURSE_MUTATION_MESSAGES,
 } from "@/lib/academy/course-errors";
+import { extractYouTubeVideoId } from "@/lib/academy/youtube";
+import { isMissingYoutubeColumnError } from "@/lib/academy/db-errors";
 import type {
-  AcademyVideoDescriptor,
   CourseEditorTree,
   CourseLessonRecord,
   CourseSectionRecord,
@@ -50,6 +51,8 @@ function seedMemoryStore(): void {
     description: null,
     sort_order: 1,
     academy_video_id: null,
+    youtube_video_id: null,
+    youtube_source_url: null,
     duration_seconds: null,
     is_free_preview: false,
     created_at: new Date().toISOString(),
@@ -60,6 +63,13 @@ function seedMemoryStore(): void {
 seedMemoryStore();
 
 function databaseError(cause?: unknown): CoursePersistenceError {
+  if (isMissingYoutubeColumnError(cause)) {
+    return new CoursePersistenceError(
+      "YOUTUBE_SCHEMA_MISSING",
+      COURSE_MUTATION_MESSAGES.YOUTUBE_SCHEMA_MISSING,
+      cause
+    );
+  }
   return new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, cause);
 }
 
@@ -83,31 +93,10 @@ function normalizeLesson(row: Record<string, unknown>): CourseLessonRecord {
     description: (row.description as string | null) ?? null,
     sort_order: Number(row.sort_order ?? 0),
     academy_video_id: (row.academy_video_id as string | null) ?? null,
+    youtube_video_id: (row.youtube_video_id as string | null) ?? null,
+    youtube_source_url: (row.youtube_source_url as string | null) ?? null,
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     is_free_preview: Boolean(row.is_free_preview),
-    created_at: String(row.created_at ?? new Date().toISOString()),
-    updated_at: String(row.updated_at ?? new Date().toISOString()),
-  };
-}
-
-function normalizeVideo(row: Record<string, unknown>): AcademyVideoDescriptor {
-  return {
-    id: String(row.id),
-    owner_id: String(row.owner_id),
-    title: String(row.title ?? ""),
-    file_size: Number(row.file_size ?? 0),
-    status: (row.status as AcademyVideoDescriptor["status"]) ?? "processing",
-    visibility: (row.visibility as AcademyVideoDescriptor["visibility"]) ?? "private",
-    bunny_video_id: (row.bunny_video_id as string | null) ?? null,
-    bunny_library_id: (row.bunny_library_id as string | null) ?? null,
-    description: (row.description as string | null) ?? null,
-    filename: (row.filename as string | null) ?? null,
-    mime_type: (row.mime_type as string | null) ?? null,
-    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
-    thumbnail_url: (row.thumbnail_url as string | null) ?? null,
-    playback_url: (row.playback_url as string | null) ?? null,
-    reference_count: row.reference_count != null ? Number(row.reference_count) : 0,
-    orphaned_at: (row.orphaned_at as string | null) ?? null,
     created_at: String(row.created_at ?? new Date().toISOString()),
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
@@ -199,28 +188,10 @@ export class AcademyAuthoringService {
       if (lessonsError) throw databaseError(lessonsError);
 
       const normalizedLessons = ((lessons || []) as Record<string, unknown>[]).map(normalizeLesson);
-      const videoIds = [
-        ...new Set(normalizedLessons.map((lesson) => lesson.academy_video_id).filter(Boolean)),
-      ] as string[];
-      const videoMap = new Map<string, AcademyVideoDescriptor>();
-      if (videoIds.length > 0) {
-        const { data: videos, error: videosError } = await (supabase.from("academy_videos") as any)
-          .select("*")
-          .in("id", videoIds);
-        if (videosError) throw databaseError(videosError);
-        for (const video of videos || []) {
-          const normalized = normalizeVideo(video as Record<string, unknown>);
-          videoMap.set(normalized.id, normalized);
-        }
-      }
-
       const lessonsBySection = new Map<string, LessonWithVideo[]>();
       for (const lesson of normalizedLessons) {
         const list = lessonsBySection.get(lesson.section_id) || [];
-        list.push({
-          ...lesson,
-          video: lesson.academy_video_id ? videoMap.get(lesson.academy_video_id) ?? null : null,
-        });
+        list.push(lesson);
         lessonsBySection.set(lesson.section_id, list);
       }
 
@@ -424,6 +395,8 @@ export class AcademyAuthoringService {
       description: null,
       sort_order: nextSortOrder(existing),
       academy_video_id: null,
+      youtube_video_id: null,
+      youtube_source_url: null,
       duration_seconds: null,
       is_free_preview: false,
       created_at: now,
@@ -463,11 +436,25 @@ export class AcademyAuthoringService {
     return memoryLessons[idx];
   }
 
-  public static async assignLessonVideo(
+  public static async assignLessonYouTubeVideo(
     ownerId: string,
     lessonId: string,
-    videoId: string | null
+    urlOrId: string | null
   ): Promise<CourseLessonRecord | null> {
+    let youtubeVideoId: string | null = null;
+    let youtubeSourceUrl: string | null = null;
+
+    if (urlOrId != null && urlOrId.trim() !== "") {
+      youtubeVideoId = extractYouTubeVideoId(urlOrId);
+      if (!youtubeVideoId) {
+        throw new CoursePersistenceError(
+          "YOUTUBE_URL_INVALID",
+          COURSE_MUTATION_MESSAGES.YOUTUBE_URL_INVALID
+        );
+      }
+      youtubeSourceUrl = urlOrId.trim();
+    }
+
     if (hasLiveSupabase()) {
       const supabase = await getAcademyWritableClient();
       const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
@@ -477,19 +464,10 @@ export class AcademyAuthoringService {
       if (readError) throw databaseError(readError);
       if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
 
-      if (videoId) {
-        const { data: video, error: videoError } = await (supabase.from("academy_videos") as any)
-          .select("id")
-          .eq("id", videoId)
-          .eq("owner_id", ownerId)
-          .maybeSingle();
-        if (videoError) throw databaseError(videoError);
-        if (!video) return null;
-      }
-
       const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
         .update({
-          academy_video_id: videoId,
+          youtube_video_id: youtubeVideoId,
+          youtube_source_url: youtubeSourceUrl,
           updated_at: new Date().toISOString(),
         })
         .eq("id", lessonId)
@@ -504,10 +482,21 @@ export class AcademyAuthoringService {
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
     memoryLessons[idx] = {
       ...memoryLessons[idx],
-      academy_video_id: videoId,
+      youtube_video_id: youtubeVideoId,
+      youtube_source_url: youtubeSourceUrl,
+      academy_video_id: null,
       updated_at: new Date().toISOString(),
     };
     return memoryLessons[idx];
+  }
+
+  /** @deprecated Use assignLessonYouTubeVideo. Kept as a YouTube ID/URL alias. */
+  public static async assignLessonVideo(
+    ownerId: string,
+    lessonId: string,
+    videoId: string | null
+  ): Promise<CourseLessonRecord | null> {
+    return this.assignLessonYouTubeVideo(ownerId, lessonId, videoId);
   }
 
   public static async deleteLesson(ownerId: string, lessonId: string): Promise<boolean> {
@@ -566,7 +555,11 @@ export class AcademyAuthoringService {
     return reordered;
   }
 
+  public static countYouTubeReferences(youtubeVideoId: string): number {
+    return memoryLessons.filter((lesson) => lesson.youtube_video_id === youtubeVideoId).length;
+  }
+
   public static countVideoReferences(videoId: string): number {
-    return memoryLessons.filter((lesson) => lesson.academy_video_id === videoId).length;
+    return this.countYouTubeReferences(videoId);
   }
 }

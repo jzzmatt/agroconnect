@@ -4,6 +4,8 @@ export type CourseMutationCode =
   | "COURSE_PUBLISHED"
   | "INVALID_STATE_TRANSITION"
   | "VALIDATION_ERROR"
+  | "YOUTUBE_URL_INVALID"
+  | "YOUTUBE_SCHEMA_MISSING"
   | "DATABASE_ERROR"
   | "DEPENDENCY_ERROR"
   | "UNKNOWN_ERROR";
@@ -40,6 +42,9 @@ export const COURSE_MUTATION_MESSAGES: Record<CourseMutationCode, string> = {
   COURSE_PUBLISHED: "Um curso publicado não pode ser eliminado. Retire-o da publicação primeiro.",
   INVALID_STATE_TRANSITION: "Esta alteração de estado não é permitida.",
   VALIDATION_ERROR: "O curso não está pronto para publicação.",
+  YOUTUBE_URL_INVALID: "URL ou ID do YouTube inválido.",
+  YOUTUBE_SCHEMA_MISSING:
+    "A base de dados ainda não está pronta para vídeos do YouTube. Aplique a migração da AgriAcademy.",
   DATABASE_ERROR: "Não foi possível concluir a operação. Tente novamente.",
   DEPENDENCY_ERROR: "Não foi possível concluir a operação porque o curso ainda tem dependências.",
   UNKNOWN_ERROR: "Ocorreu um erro inesperado. Tente novamente.",

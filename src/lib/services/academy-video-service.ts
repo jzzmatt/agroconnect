@@ -1,6 +1,5 @@
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { planLibraryReconcile } from "@/lib/academy/video-library-sync";
-import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
 import {
   createBunnyVideo,
   deleteBunnyVideo,
@@ -21,6 +20,15 @@ import type { AcademyVideoDescriptor } from "@/types/agriacademy";
 export type AcademyVideoRecord = AcademyVideoDescriptor;
 
 const TABLE = "academy_videos";
+
+function leftoverBunnyEmbedUrl(
+  video: Pick<AcademyVideoRecord, "bunny_video_id" | "bunny_library_id" | "playback_url">
+): string | null {
+  if (video.playback_url?.includes("iframe.mediadelivery.net")) return video.playback_url;
+  const libraryId = video.bunny_library_id || getBunnyConfig().libraryId || null;
+  if (!video.bunny_video_id || !libraryId) return null;
+  return getBunnyEmbedUrl(libraryId, video.bunny_video_id);
+}
 
 /**
  * Supabase-backed (`academy_videos`). No module-level array/Map — every
@@ -459,8 +467,7 @@ export class AcademyVideoService {
       }
     }
 
-    const embedUrl =
-      video.status === "ready" ? await resolvePlaybackEmbedUrl(video) : null;
+    const embedUrl = video.status === "ready" ? leftoverBunnyEmbedUrl(video) : null;
 
     return {
       embedUrl,

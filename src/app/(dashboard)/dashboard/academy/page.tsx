@@ -6,7 +6,6 @@ import { useRouter } from "next/navigation";
 import { GraduationCap, Lock, Plus, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { AcademyStorageCard } from "@/components/academy/AcademyStorageCard";
 import { CourseStudentsModal } from "@/components/academy/CourseStudentsModal";
 import { useI18n } from "@/i18n/provider";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
@@ -15,7 +14,6 @@ import {
   createCourseAction,
   getCourseCreatorDashboardAction,
 } from "@/lib/services/course-actions";
-import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
 import type { CourseListItem } from "@/types/agriacademy";
 
 const STATUS_LABELS: Record<string, string> = {
@@ -33,7 +31,6 @@ export default function CourseCreatorPage() {
   const { plan } = useAuthoritativePlan();
   const [draftCourses, setDraftCourses] = useState<CourseListItem[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<PublishedCourse[]>([]);
-  const [storage, setStorage] = useState<Awaited<ReturnType<typeof getAcademyStorageAction>> | null>(null);
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
@@ -49,15 +46,11 @@ export default function CourseCreatorPage() {
   const canManage = can(subject, "academy.course.create");
 
   const refresh = useCallback(async () => {
-    const [dashboard, storageData] = await Promise.all([
-      canManage
-        ? getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] }))
-        : Promise.resolve({ draftCourses: [], publishedCourses: [] }),
-      canManage ? getAcademyStorageAction().catch(() => null) : Promise.resolve(null),
-    ]);
+    const dashboard = canManage
+      ? await getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] }))
+      : { draftCourses: [], publishedCourses: [] };
     setDraftCourses(dashboard.draftCourses);
     setPublishedCourses(dashboard.publishedCourses);
-    setStorage(storageData);
   }, [canManage]);
 
   useEffect(() => {
@@ -129,16 +122,6 @@ export default function CourseCreatorPage() {
       {createError && <p className="text-xs font-semibold text-destructive">{createError}</p>}
       {deletedNotice && (
         <p className="text-xs font-semibold text-emerald-600">{dict.agriacademy.courseDeleted}</p>
-      )}
-
-      {storage && (
-        <AcademyStorageCard
-          usedBytes={storage.usedBytes}
-          limitBytes={storage.limitBytes}
-          usedLabel={storage.usedLabel}
-          limitLabel={storage.limitLabel}
-          percent={storage.percent}
-        />
       )}
 
       <section className="space-y-3">

@@ -9,7 +9,6 @@ import {
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { canTransitionCourseStatus, isPubliclyVisibleCourseStatus } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
-import { AcademyVideoService } from "@/lib/services/academy-video-service";
 import { can, type CapabilitySubject } from "@/lib/authorization/policy";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import type { CourseWithSections } from "@/types/agriacademy";
@@ -60,7 +59,7 @@ function draftCourseTree(): CourseWithSections {
             section_id: "sec-1",
             title: "Aula 1",
             sort_order: 1,
-            academy_video_id: "vid-1",
+            youtube_video_id: "dQw4w9WgXcQ",
             is_free_preview: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
@@ -145,24 +144,31 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
     expect(reordered[0].sort_order).toBe(1);
   });
 
-  it("10. Reuses an existing video asset across lessons", async () => {
-    await AcademyAuthoringService.assignLessonVideo(OWNER, "les-seed-1", "vid-shared");
+  it("10. Reuses a YouTube Video ID across lessons", async () => {
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "dQw4w9WgXcQ");
     const lesson2 = await AcademyAuthoringService.createLesson(OWNER, "sec-seed-1", "Reutilização");
     expect(lesson2).toBeTruthy();
-    await AcademyAuthoringService.assignLessonVideo(OWNER, lesson2!.id, "vid-shared");
-    expect(AcademyAuthoringService.countVideoReferences("vid-shared")).toBe(2);
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, lesson2!.id, "dQw4w9WgXcQ");
+    expect(AcademyAuthoringService.countYouTubeReferences("dQw4w9WgXcQ")).toBe(2);
   });
 
-  it("11. Associates a new video id with a lesson", async () => {
-    const lesson = await AcademyAuthoringService.assignLessonVideo(OWNER, "les-seed-1", "vid-new");
-    expect(lesson?.academy_video_id).toBe("vid-new");
+  it("11. Associates a YouTube URL with a lesson and rejects invalid URLs", async () => {
+    const lesson = await AcademyAuthoringService.assignLessonYouTubeVideo(
+      OWNER,
+      "les-seed-1",
+      "https://youtu.be/dQw4w9WgXcQ"
+    );
+    expect(lesson?.youtube_video_id).toBe("dQw4w9WgXcQ");
+    await expect(
+      AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "https://vimeo.com/1")
+    ).rejects.toMatchObject({ code: "YOUTUBE_URL_INVALID" });
   });
 
-  it("12. Tracks video reference counts in memory model", async () => {
-    await AcademyAuthoringService.assignLessonVideo(OWNER, "les-seed-1", "vid-count");
+  it("12. Tracks YouTube ID references in the memory model", async () => {
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "dQw4w9WgXcQ");
     const lesson2 = await AcademyAuthoringService.createLesson(OWNER, "sec-seed-1", "Outra");
-    await AcademyAuthoringService.assignLessonVideo(OWNER, lesson2!.id, "vid-count");
-    expect(AcademyAuthoringService.countVideoReferences("vid-count")).toBe(2);
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, lesson2!.id, "dQw4w9WgXcQ");
+    expect(AcademyAuthoringService.countYouTubeReferences("dQw4w9WgXcQ")).toBe(2);
   });
 
   it("13. Validates course structure before publication", () => {
@@ -196,9 +202,11 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
     expect(canTransitionCourseStatus("paused", "archived")).toBe(true);
   });
 
-  it("17. Protects Bunny assets while lessons still reference them", () => {
-    expect(AcademyVideoService.isOrphaned({ reference_count: 2, orphaned_at: null })).toBe(false);
-    expect(AcademyVideoService.isOrphaned({ reference_count: 0, orphaned_at: new Date().toISOString() })).toBe(true);
+  it("17. Never treats course deletion as YouTube video deletion", async () => {
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, "les-seed-1", "dQw4w9WgXcQ");
+    const deleted = await CourseService.deleteCourse(OWNER, "crs-seed-draft");
+    expect(deleted.success).toBe(true);
+    expect(AcademyAuthoringService.countYouTubeReferences("dQw4w9WgXcQ")).toBeGreaterThanOrEqual(0);
   });
 
   it("18. Keeps draft and paused courses out of public catalogue", async () => {

@@ -156,7 +156,7 @@ export const PERMISSION_POLICY: Record<Permission, PermissionRule> = {
   },
   "academy.video.upload": {
     entitlement: "can_create_courses",
-    describe: "Upload an Academy training video",
+    describe: "Attach a YouTube Unlisted video to an Academy lesson",
   },
   "academy.students.view": {
     entitlement: "can_teach_courses",

@@ -177,6 +177,21 @@ function applyMemoryOverlay(courses: CourseListItem[]): CourseListItem[] {
     );
 }
 
+/** Public catalogue must not expose Unlisted YouTube IDs. Playback goes through enrollment-gated APIs. */
+function redactPublicCourseYouTubeIds(course: CourseWithSections): CourseWithSections {
+  return {
+    ...course,
+    sections: course.sections.map((section) => ({
+      ...section,
+      lessons: section.lessons.map((lesson) => ({
+        ...lesson,
+        youtube_video_id: null,
+        youtube_source_url: null,
+      })),
+    })),
+  };
+}
+
 export class CourseService {
   public static resetMemoryStore(): void {
     memoryCourses.clear();
@@ -556,7 +571,7 @@ export class CourseService {
   /**
    * Permanently delete a course. Published courses are rejected using the
    * current database/memory status — never a client-supplied status.
-   * Sections and lessons cascade; reusable academy_videos/Bunny assets remain.
+   * Sections and lessons cascade. YouTube videos are never deleted.
    */
   public static async deleteCourse(
     ownerId: string,
@@ -667,7 +682,7 @@ export class CourseService {
 
     const detail = await this.getCourseWithSections(summary.id);
     if (detail && detail.status === "published") {
-      return detail;
+      return redactPublicCourseYouTubeIds(detail);
     }
 
     if (!hasLiveSupabase()) {

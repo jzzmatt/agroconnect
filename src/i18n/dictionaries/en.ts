@@ -571,6 +571,15 @@ export const en: Dictionary = {
     lessonUpdated: "Lesson updated.",
     lessonRemoved: "Lesson removed.",
     videoAssigned: "Video assigned to the lesson.",
+    youtubeUrlLabel: "YouTube video",
+    youtubeUrlPlaceholder: "Paste the Unlisted YouTube URL",
+    youtubeUrlInvalid: "Invalid YouTube URL or video ID.",
+    youtubeSchemaMissing:
+      "The database is not ready for YouTube videos yet. Apply the AgriAcademy YouTube migration.",
+    youtubeUnlistedHint:
+      "Upload the video on YouTube as Unlisted and paste the URL. Anyone with the URL can watch it outside AgroConnect.",
+    youtubePreviewPending: "Preview appears after you paste a valid URL.",
+    saveYouTubeUrl: "Save YouTube URL",
     videoRemoved: "Video removed from the lesson.",
     deleteUnauthorized: "You do not have permission to delete this course.",
     deletePublished: "This course is published. Remove it from publication before deleting it.",
@@ -639,6 +648,7 @@ export const en: Dictionary = {
     BUNNY_LIBRARY_ID_INVALID:
       "The Bunny Stream library ID is invalid. Use the numeric library ID (Stream → Library → API), not the account API key.",
     BUNNY_UPLOAD_FAILED: "We couldn't upload the video to Bunny Stream. Please try again.",
+    YOUTUBE_URL_INVALID: "Invalid YouTube URL or video ID.",
     IMAGEKIT_NOT_CONFIGURED: "Media upload is not configured. Add the ImageKit keys.",
     IMAGEKIT_UPLOAD_FAILED: "We couldn't upload the file to ImageKit. Please try again.",
     PRODUCT_PUBLISH_TIMEOUT: "We couldn't finish publishing. Please try again.",

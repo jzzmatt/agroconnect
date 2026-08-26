@@ -42,7 +42,7 @@ const tree: CourseEditorTree = {
           section_id: "sec-1",
           title: "Aula A",
           sort_order: 1,
-          academy_video_id: "vid-1",
+            youtube_video_id: "dQw4w9WgXcQ",
           is_free_preview: false,
           created_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
@@ -70,17 +70,7 @@ vi.mock("@/lib/services/course-actions", () => ({
   createLessonAction: vi.fn(),
   updateLessonAction: vi.fn(),
   deleteLessonAction: vi.fn(),
-  assignLessonVideoAction: vi.fn(),
-}));
-
-vi.mock("@/lib/services/academy-video-actions", () => ({
-  getAcademyStorageAction: vi.fn().mockResolvedValue({
-    usedBytes: 0,
-    limitBytes: 1000,
-    usedLabel: "0",
-    limitLabel: "1",
-    percent: 0,
-  }),
+  assignLessonYouTubeAction: vi.fn(),
 }));
 
 describe("CourseEditor deletion lifecycle", () => {
