@@ -36,7 +36,7 @@ export default function CourseCreatorPage() {
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getAcademyStorageAction>> | null>(null);
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
   const [, startRefresh] = useTransition();
-  const [isCreating, startCreate] = useTransition();
+  const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
 
   const subject = subjectFromProfile({
@@ -48,37 +48,39 @@ export default function CourseCreatorPage() {
   });
   const canManage = can(subject, "academy.course.create");
 
-  const refresh = useCallback(() => {
-    startRefresh(async () => {
-      const [dashboard, storageData] = await Promise.all([
-        canManage ? getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] })) : Promise.resolve({ draftCourses: [], publishedCourses: [] }),
-        canManage ? getAcademyStorageAction().catch(() => null) : Promise.resolve(null),
-      ]);
-      setDraftCourses(dashboard.draftCourses);
-      setPublishedCourses(dashboard.publishedCourses);
-      setStorage(storageData);
-    });
+  const refresh = useCallback(async () => {
+    const [dashboard, storageData] = await Promise.all([
+      canManage
+        ? getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] }))
+        : Promise.resolve({ draftCourses: [], publishedCourses: [] }),
+      canManage ? getAcademyStorageAction().catch(() => null) : Promise.resolve(null),
+    ]);
+    setDraftCourses(dashboard.draftCourses);
+    setPublishedCourses(dashboard.publishedCourses);
+    setStorage(storageData);
   }, [canManage]);
 
   useEffect(() => {
-    refresh();
+    void refresh();
   }, [refresh, plan]);
 
-  const handleCreate = () => {
+  const handleCreate = async () => {
+    if (isCreating) return;
     setCreateError(null);
-    startCreate(async () => {
-      try {
-        const created = await createCourseAction({
-          title: "Novo curso AgriAcademy",
-          description: "Descrição do curso em preparação.",
-        });
-        router.push(`/dashboard/academy/courses/${created.id}/edit`);
-      } catch (err: unknown) {
-        setCreateError(
-          err instanceof Error ? err.message : dict.agriacademy.unableToCreateCourse
-        );
-      }
-    });
+    setIsCreating(true);
+    try {
+      const created = await createCourseAction({
+        title: "Novo curso AgriAcademy",
+        description: "Descrição do curso em preparação.",
+      });
+      router.push(`/dashboard/academy/courses/${created.id}/edit`);
+    } catch (err: unknown) {
+      setCreateError(
+        err instanceof Error ? err.message : dict.agriacademy.unableToCreateCourse
+      );
+    } finally {
+      setIsCreating(false);
+    }
   };
 
   if (!canManage) {

@@ -41,11 +41,14 @@ export async function listMyCoursesAction(includeDrafts = true): Promise<CourseL
   return CourseService.listByOwner(userProfile.id, includeDrafts);
 }
 
-export async function createCourseAction(input: CreateCourseInput): Promise<CourseRecord> {
+export async function createCourseAction(
+  input: CreateCourseInput
+): Promise<{ id: string; slug: string }> {
   await authorize("academy.course.create");
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) throw new Error("Perfil não encontrado.");
-  return CourseService.createCourse(userProfile.id, input);
+  const course = await CourseService.createCourse(userProfile.id, input);
+  return { id: course.id, slug: course.slug };
 }
 
 export async function updateCourseAction(

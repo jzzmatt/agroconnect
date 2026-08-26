@@ -41,6 +41,38 @@ function hasLiveSupabase(): boolean {
   );
 }
 
+function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
+  return {
+    id: String(row.id),
+    owner_id: String(row.owner_id),
+    provider_id: (row.provider_id as string | null) ?? null,
+    category_id: (row.category_id as string | null) ?? null,
+    title: String(row.title),
+    slug: String(row.slug),
+    short_description: (row.short_description as string | null) ?? null,
+    description: (row.description as string | null) ?? null,
+    level: (row.level as CourseRecord["level"]) ?? "all_levels",
+    price: Number(row.price ?? 0),
+    currency: String(row.currency ?? "AOA"),
+    status: (row.status as CourseRecord["status"]) ?? "draft",
+    thumbnail_url: (row.thumbnail_url as string | null) ?? null,
+    duration_hours: row.duration_hours != null ? Number(row.duration_hours) : null,
+    lessons_count: Number(row.lessons_count ?? 0),
+    students_count: Number(row.students_count ?? 0),
+    rating: row.rating != null ? Number(row.rating) : null,
+    province_name: (row.province_name as string | null) ?? null,
+    municipality_name: (row.municipality_name as string | null) ?? null,
+    is_featured: Boolean(row.is_featured),
+    published_at: (row.published_at as string | null) ?? null,
+    metadata:
+      row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+        ? (row.metadata as Record<string, unknown>)
+        : {},
+    created_at: String(row.created_at ?? new Date().toISOString()),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
+  };
+}
+
 export class CourseService {
   /** Public catalogue — only published courses. */
   public static async searchPublishedCourses(
@@ -226,7 +258,13 @@ export class CourseService {
   }
 
   public static async createCourse(ownerId: string, input: CreateCourseInput): Promise<CourseRecord> {
-    const slug = input.slug || slugifyCourse(input.title);
+    const baseSlug = input.slug || slugifyCourse(input.title);
+    const slug =
+      input.slug
+        ? baseSlug
+        : hasLiveSupabase()
+          ? `${baseSlug}-${Date.now().toString(36)}`
+          : baseSlug;
     const now = new Date().toISOString();
 
     const record: CourseRecord = {
@@ -278,7 +316,7 @@ export class CourseService {
         .select()
         .single();
       if (!error && data) {
-        return data as CourseRecord;
+        return normalizeCourseRecord(data as Record<string, unknown>);
       }
       throw new Error(error?.message || "Não foi possível criar o curso na base de dados.");
     }
