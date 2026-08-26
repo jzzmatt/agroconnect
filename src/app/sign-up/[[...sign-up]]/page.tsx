@@ -3,8 +3,11 @@
 import { SignUp } from "@clerk/nextjs";
 import Link from "next/link";
 import { Sprout } from "lucide-react";
+import { useAuthRedirectUrl } from "@/hooks/useAuthRedirectUrl";
 
 export default function SignUpPage() {
+  const redirectUrl = useAuthRedirectUrl("/dashboard");
+
   return (
     <div className="min-h-screen bg-background flex flex-col justify-center items-center p-4 sm:p-6 transition-colors">
       <div className="mb-6 flex flex-col items-center text-center">
@@ -26,7 +29,8 @@ export default function SignUpPage() {
           routing="path"
           path="/sign-up"
           signInUrl="/sign-in"
-          fallbackRedirectUrl="/dashboard"
+          fallbackRedirectUrl={redirectUrl}
+          forceRedirectUrl={redirectUrl}
           appearance={{
             elements: {
               card: "shadow-xl border border-border bg-surface-card rounded-3xl p-6 sm:p-8",

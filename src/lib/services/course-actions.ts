@@ -14,6 +14,7 @@ import type {
   SearchCoursesFilterParams,
 } from "@/types/agriacademy";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
+import { CourseAccessService } from "@/lib/academy/course-access";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -46,11 +47,24 @@ export async function createCourseAction(input: CreateCourseInput): Promise<Cour
   return CourseService.createCourse(userProfile.id, input);
 }
 
-export async function updateCourseAction(input: UpdateCourseInput): Promise<CourseRecord | null> {
+export async function updateCourseAction(
+  input: UpdateCourseInput
+): Promise<{ success: boolean; course: CourseRecord | null; error?: string }> {
   await authorize("academy.course.update");
   const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
-  return CourseService.updateCourse(userProfile.id, input);
+  if (!userProfile) {
+    return { success: false, course: null, error: "Perfil não encontrado." };
+  }
+  try {
+    const course = await CourseService.updateCourse(userProfile.id, input);
+    if (!course) {
+      return { success: false, course: null, error: "Não foi possível guardar o curso." };
+    }
+    return { success: true, course };
+  } catch (err: unknown) {
+    const message = err instanceof Error ? err.message : "Não foi possível guardar o curso.";
+    return { success: false, course: null, error: message };
+  }
 }
 
 export async function getCourseEditorAction(courseId: string) {
@@ -161,6 +175,24 @@ export async function listMediaLibraryAction() {
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
   return AcademyVideoService.listByOwner(userProfile.id);
+}
+
+export async function getPublishedCourseDetailAction(slug: string) {
+  return CourseService.getPublishedCourseDetailBySlug(slug);
+}
+
+export async function getCourseEnrollmentStatusAction(courseId: string) {
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return { enrolled: false, authenticated: false };
+  const status = await CourseAccessService.getEnrollmentStatus(userProfile.id, courseId);
+  return { ...status, authenticated: true };
+}
+
+export async function listMyEnrolledCourseIdsAction(): Promise<string[]> {
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+  const enrollments = await EnrollmentService.listByStudent(userProfile.id);
+  return enrollments.map((item) => item.course_id);
 }
 
 export async function enrollInCourseAction(courseId: string) {

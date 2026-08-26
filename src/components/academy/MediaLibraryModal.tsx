@@ -1,11 +1,20 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
-import { Film, Upload, X } from "lucide-react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Film, Search, Upload, X } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { AcademyVideoUploader } from "@/components/academy/AcademyVideoUploader";
+import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
+import { formatVideoDuration } from "@/lib/academy/format-duration";
 import { listMediaLibraryAction } from "@/lib/services/course-actions";
+import { useI18n } from "@/i18n/provider";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
+
+function statusLabel(status: string, dict: ReturnType<typeof useI18n>["dict"]): string {
+  if (status === "ready") return dict.agriacademy.ready;
+  if (status === "processing" || status === "uploading") return dict.agriacademy.processing;
+  return status;
+}
 
 export function MediaLibraryModal({
   open,
@@ -18,13 +27,26 @@ export function MediaLibraryModal({
   onClose: () => void;
   onSelect: (videoId: string) => void;
 }) {
+  const { dict } = useI18n();
   const [videos, setVideos] = useState<AcademyVideoDescriptor[]>([]);
   const [tab, setTab] = useState<"library" | "upload">("library");
+  const [query, setQuery] = useState("");
+  const [previewId, setPreviewId] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     void listMediaLibraryAction().then(setVideos).catch(() => setVideos([]));
+    setQuery("");
+    setPreviewId(null);
   }, [open]);
+
+  const filteredVideos = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    if (!q) return videos;
+    return videos.filter((video) => video.title.toLowerCase().includes(q));
+  }, [videos, query]);
+
+  const previewVideo = previewId ? videos.find((video) => video.id === previewId) : null;
 
   if (!open) return null;
 
@@ -33,8 +55,8 @@ export function MediaLibraryModal({
       <div className="absolute inset-0 bg-black/50" onClick={onClose} />
       <div className="relative w-full max-w-lg bg-surface-elevated border border-border rounded-3xl p-5 space-y-4 shadow-xl max-h-[85vh] overflow-y-auto">
         <div className="flex items-center justify-between">
-          <h3 className="text-base font-black">Biblioteca de vídeos</h3>
-          <button type="button" onClick={onClose} aria-label="Fechar">
+          <h3 className="text-base font-black">{dict.agriacademy.mediaLibrary}</h3>
+          <button type="button" onClick={onClose} aria-label={dict.common.close}>
             <X className="w-4 h-4" />
           </button>
         </div>
@@ -46,7 +68,7 @@ export function MediaLibraryModal({
             variant={tab === "library" ? "primary" : "outline"}
             onClick={() => setTab("library")}
           >
-            Vídeos existentes
+            {dict.agriacademy.existingVideos}
           </Button>
           <Button
             type="button"
@@ -55,33 +77,94 @@ export function MediaLibraryModal({
             onClick={() => setTab("upload")}
           >
             <Upload className="w-3.5 h-3.5 mr-1" />
-            Novo vídeo
+            {dict.agriacademy.newVideo}
           </Button>
         </div>
 
         {tab === "library" ? (
-          <div className="space-y-2">
-            {videos.length === 0 ? (
-              <p className="text-xs text-muted-foreground">Ainda não tem vídeos na biblioteca.</p>
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+              <input
+                type="search"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={dict.agriacademy.searchVideos}
+                className="w-full pl-9 pr-3 py-2 text-sm rounded-xl border border-border bg-surface focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+
+            {previewVideo && (
+              <div className="space-y-2 rounded-2xl border border-border p-3">
+                <div className="flex items-center justify-between">
+                  <p className="text-xs font-bold truncate">{previewVideo.title}</p>
+                  <button
+                    type="button"
+                    className="text-[11px] font-bold text-primary"
+                    onClick={() => setPreviewId(null)}
+                  >
+                    {dict.agriacademy.closePreview}
+                  </button>
+                </div>
+                <BunnyPlayer
+                  playbackUrl={previewVideo.playback_url}
+                  title={previewVideo.title}
+                  ready={previewVideo.status === "ready"}
+                />
+              </div>
+            )}
+
+            {filteredVideos.length === 0 ? (
+              <p className="text-xs text-muted-foreground">{dict.agriacademy.noVideosYet}</p>
             ) : (
-              videos.map((video) => (
-                <button
+              filteredVideos.map((video) => (
+                <div
                   key={video.id}
-                  type="button"
-                  onClick={() => {
-                    onSelect(video.id);
-                    onClose();
-                  }}
-                  className="w-full text-left rounded-2xl border border-border p-3 hover:border-primary transition-colors"
+                  className="rounded-2xl border border-border p-3 hover:border-primary transition-colors space-y-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <Film className="w-4 h-4 text-primary" />
-                    <span className="text-sm font-bold truncate">{video.title}</span>
+                  <div className="flex items-start gap-2">
+                    {video.thumbnail_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img
+                        src={video.thumbnail_url}
+                        alt=""
+                        className="w-14 h-10 rounded-lg object-cover shrink-0"
+                      />
+                    ) : (
+                      <div className="w-14 h-10 rounded-lg bg-muted flex items-center justify-center shrink-0">
+                        <Film className="w-4 h-4 text-primary" />
+                      </div>
+                    )}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-bold truncate">{video.title}</p>
+                      <p className="text-[11px] text-muted-foreground mt-0.5">
+                        {statusLabel(video.status, dict)} · {dict.agriacademy.duration}:{" "}
+                        {formatVideoDuration(video.duration_seconds)} · {dict.agriacademy.references}:{" "}
+                        {video.reference_count ?? 0}
+                      </p>
+                    </div>
                   </div>
-                  <p className="text-[11px] text-muted-foreground mt-1">
-                    {video.status} · refs: {video.reference_count ?? 0}
-                  </p>
-                </button>
+                  <div className="flex gap-2">
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      onClick={() => setPreviewId(video.id)}
+                    >
+                      {dict.agriacademy.preview}
+                    </Button>
+                    <Button
+                      type="button"
+                      size="sm"
+                      onClick={() => {
+                        onSelect(video.id);
+                        onClose();
+                      }}
+                    >
+                      {dict.agriacademy.selectVideo}
+                    </Button>
+                  </div>
+                </div>
               ))
             )}
           </div>

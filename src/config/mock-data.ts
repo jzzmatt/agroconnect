@@ -65,6 +65,7 @@ export const MOCK_EXPERTS: ExpertCardProps[] = [
 export const MOCK_COURSES: CourseCardProps[] = [
   {
     id: "crs-1",
+    slug: "maneio-intensivo-nutricao-gado-bovino-angola",
     title: "Maneio Intensivo e Nutrição de Gado Bovino em Angola",
     instructorName: "Dr. João Silva",
     instructorRole: "Médico Veterinário",
@@ -75,9 +76,12 @@ export const MOCK_COURSES: CourseCardProps[] = [
     priceFormatted: "45.000 Kz",
     level: "Intermédio",
     category: "Pecuária Bovina",
+    ctaLabel: "Inscrever-se",
+    ctaHref: "/agriacademy/courses/maneio-intensivo-nutricao-gado-bovino-angola",
   },
   {
     id: "crs-2",
+    slug: "horticultura-comercial-rega-gota-a-gota",
     title: "Horticultura Comercial e Sistemas de Rega Gota-a-Gota",
     instructorName: "Eng.ª Maria Santos",
     instructorRole: "Engenheira Agrónoma",
@@ -88,9 +92,12 @@ export const MOCK_COURSES: CourseCardProps[] = [
     priceFormatted: "35.000 Kz",
     level: "Iniciante",
     category: "Horticultura",
+    ctaLabel: "Inscrever-se",
+    ctaHref: "/agriacademy/courses/horticultura-comercial-rega-gota-a-gota",
   },
   {
     id: "crs-3",
+    slug: "cultivo-gestao-milho-grande-escala-planalto-central",
     title: "Cultivo e Gestão de Milho em Grande Escala no Planalto Central",
     instructorName: "Dr. Carlos Manuel",
     instructorRole: "Consultor Agrícola",
@@ -101,9 +108,12 @@ export const MOCK_COURSES: CourseCardProps[] = [
     priceFormatted: "50.000 Kz",
     level: "Avançado",
     category: "Grandes Culturas",
+    ctaLabel: "Inscrever-se",
+    ctaHref: "/agriacademy/courses/cultivo-gestao-milho-grande-escala-planalto-central",
   },
   {
     id: "crs-4",
+    slug: "gestao-financeira-rentabilidade-pequenas-fazendas",
     title: "Gestão Financeira e Rentabilidade para Pequenas Fazendas",
     instructorName: "António Costa",
     instructorRole: "Gestor Agroindustrial",
@@ -114,6 +124,8 @@ export const MOCK_COURSES: CourseCardProps[] = [
     priceFormatted: "25.000 Kz",
     level: "Iniciante",
     category: "Gestão Agrícola",
+    ctaLabel: "Inscrever-se",
+    ctaHref: "/agriacademy/courses/gestao-financeira-rentabilidade-pequenas-fazendas",
   },
 ];
 

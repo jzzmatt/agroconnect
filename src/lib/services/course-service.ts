@@ -50,9 +50,13 @@ export function courseLevelLabel(level: CourseLevel): string {
   return LEVEL_LABELS[level] ?? level;
 }
 
-export function mapCourseToCardProps(course: CourseListItem): CourseCardProps {
+export function mapCourseToCardProps(
+  course: CourseListItem,
+  options: { enrolled?: boolean; ctaLabel: string; ctaHref: string }
+): CourseCardProps {
   return {
     id: course.id,
+    slug: course.slug,
     title: course.title,
     instructorName: course.instructor_name,
     instructorRole: course.instructor_role ?? "Instrutor Especialista",
@@ -64,6 +68,9 @@ export function mapCourseToCardProps(course: CourseListItem): CourseCardProps {
     level: courseLevelLabel(course.level) as CourseCardProps["level"],
     category: course.category ?? "Formação Agrícola",
     thumbnailUrl: course.thumbnail_url ?? undefined,
+    enrolled: options.enrolled,
+    ctaLabel: options.ctaLabel,
+    ctaHref: options.ctaHref,
   };
 }
 
@@ -593,6 +600,44 @@ export class CourseService {
     }
 
     return null;
+  }
+
+  public static async getPublishedCourseDetailBySlug(slug: string): Promise<CourseWithSections | null> {
+    const summary = await this.getPublishedCourseBySlug(slug);
+    if (!summary) return null;
+
+    const detail = await this.getCourseWithSections(summary.id);
+    if (detail && detail.status === "published") {
+      return detail;
+    }
+
+    if (!hasLiveSupabase()) {
+      return {
+        id: summary.id,
+        owner_id: summary.instructor_id,
+        title: summary.title,
+        slug: summary.slug,
+        description: summary.description,
+        short_description: summary.short_description,
+        level: summary.level,
+        price: summary.price,
+        currency: summary.currency,
+        status: "published",
+        lessons_count: summary.lessons_count ?? 0,
+        students_count: summary.students_count ?? 0,
+        is_featured: summary.is_featured ?? false,
+        created_at: summary.created_at,
+        updated_at: summary.created_at,
+        sections: [],
+      };
+    }
+
+    return null;
+  }
+
+  public static async isCoursePublished(courseId: string): Promise<boolean> {
+    const { courses } = await this.searchPublishedCourses({ limit: 200 });
+    return courses.some((course) => course.id === courseId);
   }
 
   private static async attachInstructorNames(

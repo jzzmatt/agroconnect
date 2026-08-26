@@ -8,6 +8,7 @@ import Link from "next/link";
 
 export interface CourseCardProps {
   id: string;
+  slug: string;
   title: string;
   instructorName: string;
   instructorRole?: string;
@@ -19,11 +20,15 @@ export interface CourseCardProps {
   level?: "Iniciante" | "Intermédio" | "Avançado";
   category?: string;
   thumbnailUrl?: string;
+  enrolled?: boolean;
+  ctaLabel: string;
+  ctaHref: string;
   className?: string;
 }
 
 export function CourseCard({
   id,
+  slug,
   title,
   instructorName,
   instructorRole = "Instrutor Especialista",
@@ -35,6 +40,9 @@ export function CourseCard({
   level = "Intermédio",
   category = "Agronomia Prática",
   thumbnailUrl,
+  enrolled = false,
+  ctaLabel,
+  ctaHref,
   className,
 }: CourseCardProps) {
   return (
@@ -103,9 +111,9 @@ export function CourseCard({
           <span className="text-base font-extrabold text-foreground">{priceFormatted}</span>
         </div>
 
-        <Link href={`/agriacademy?course=${id}`}>
+        <Link href={ctaHref}>
           <Button variant="primary" size="sm" className="font-bold">
-            Ver Curso
+            {ctaLabel}
           </Button>
         </Link>
       </div>

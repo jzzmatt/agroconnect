@@ -3,14 +3,11 @@
 import React, { useEffect, useState, useTransition } from "react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
-import { SectionHeader, CourseCard, SearchBar, EmptyState } from "@/components/ui";
+import { SectionHeader, SearchBar, EmptyState } from "@/components/ui";
+import { CourseCatalogGrid } from "@/components/academy/CourseCatalogGrid";
 import { LocationSelector } from "@/components/location";
 import { useI18n } from "@/i18n/provider";
-import {
-  CourseService,
-  INITIAL_COURSES,
-  mapCourseToCardProps,
-} from "@/lib/services/course-service";
+import { CourseService, INITIAL_COURSES } from "@/lib/services/course-service";
 import type { CourseListItem } from "@/types/agriacademy";
 import { GraduationCap } from "lucide-react";
 
@@ -66,11 +63,7 @@ export default function AgriAcademyPage() {
         {isPending && filteredCourses.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center py-12">A carregar cursos...</p>
         ) : filteredCourses.length > 0 ? (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {filteredCourses.map((course) => (
-              <CourseCard key={course.id} {...mapCourseToCardProps(course)} />
-            ))}
-          </div>
+          <CourseCatalogGrid courses={filteredCourses} />
         ) : (
           <EmptyState
             icon={GraduationCap}

@@ -1,9 +1,10 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import {
   Archive,
+  Check,
   Eye,
   Pause,
   Play,
@@ -15,6 +16,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { MediaLibraryModal } from "@/components/academy/MediaLibraryModal";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
+import { useI18n } from "@/i18n/provider";
 import {
   archiveCourseAction,
   assignLessonVideoAction,
@@ -33,6 +35,8 @@ import {
 import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
 import type { CourseEditorTree } from "@/lib/academy/authoring-service";
 
+type SaveState = "idle" | "saving" | "success" | "error";
+
 const STATUS_LABELS: Record<string, string> = {
   draft: "Rascunho",
   published: "Publicado",
@@ -40,13 +44,35 @@ const STATUS_LABELS: Record<string, string> = {
   archived: "Arquivado",
 };
 
+function formatSavedTime(date: Date, locale: string): string {
+  return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+}
+
 export function CourseEditor({ courseId }: { courseId: string }) {
+  const { dict, locale } = useI18n();
   const [course, setCourse] = useState<CourseEditorTree | null>(null);
+  const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [remainingBytes, setRemainingBytes] = useState(0);
   const [videoLessonId, setVideoLessonId] = useState<string | null>(null);
+  const [saveState, setSaveState] = useState<SaveState>("idle");
+  const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
+  const [saveError, setSaveError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const courseFingerprint = useMemo(() => {
+    if (!course) return "";
+    return JSON.stringify({
+      title: course.title,
+      description: course.description ?? "",
+      short_description: course.short_description ?? "",
+    });
+  }, [course]);
+
+  const isDirty = Boolean(course && courseFingerprint !== savedSnapshot);
+  const isSaving = saveState === "saving" || isPending;
 
   const refresh = useCallback(() => {
     startTransition(async () => {
@@ -55,6 +81,15 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         getAcademyStorageAction(),
       ]);
       setCourse(tree);
+      if (tree) {
+        setSavedSnapshot(
+          JSON.stringify({
+            title: tree.title,
+            description: tree.description ?? "",
+            short_description: tree.short_description ?? "",
+          })
+        );
+      }
       if (storage) {
         setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
       }
@@ -65,19 +100,43 @@ export function CourseEditor({ courseId }: { courseId: string }) {
     refresh();
   }, [refresh]);
 
-  const handleSaveDraft = () => {
-    if (!course) return;
-    startTransition(async () => {
-      setError(null);
-      await updateCourseAction({
-        id: course.id,
-        title: course.title,
-        description: course.description ?? undefined,
-        shortDescription: course.short_description ?? undefined,
-      });
-      setMessage("Rascunho guardado.");
-      refresh();
+  useEffect(() => {
+    return () => {
+      if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    };
+  }, []);
+
+  const handleSaveDraft = async () => {
+    if (!course || isSaving) return;
+
+    setSaveState("saving");
+    setSaveError(null);
+    setMessage(null);
+
+    const result = await updateCourseAction({
+      id: course.id,
+      title: course.title,
+      description: course.description ?? undefined,
+      shortDescription: course.short_description ?? undefined,
     });
+
+    if (!result.success || !result.course) {
+      setSaveState("error");
+      setSaveError(result.error || dict.agriacademy.unableToSave);
+      return;
+    }
+
+    const now = new Date();
+    setSavedSnapshot(courseFingerprint);
+    setLastSavedAt(now);
+    setSaveState("success");
+    setMessage(dict.agriacademy.draftSaved);
+
+    if (successTimerRef.current) clearTimeout(successTimerRef.current);
+    successTimerRef.current = setTimeout(() => {
+      setSaveState("idle");
+      setMessage(null);
+    }, 3000);
   };
 
   const runAction = (action: () => Promise<unknown>, success: string) => {
@@ -87,21 +146,39 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         await action();
         setMessage(success);
         refresh();
-      } catch (err: any) {
-        setError(err?.message || "Não foi possível concluir a operação.");
+      } catch (err: unknown) {
+        const msg = err instanceof Error ? err.message : dict.agriacademy.unableToSave;
+        setError(msg);
       }
     });
   };
 
   if (!course) {
-    return <p className="text-sm text-muted-foreground">A carregar editor do curso…</p>;
+    return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;
   }
+
+  const saveButtonLabel =
+    saveState === "saving"
+      ? dict.agriacademy.saving
+      : saveState === "success"
+        ? dict.agriacademy.draftSaved
+        : dict.agriacademy.saveDraft;
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 flex-1 min-w-0">
-          <Badge variant="pillarAcademy">{STATUS_LABELS[course.status] || course.status}</Badge>
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge variant="pillarAcademy">{STATUS_LABELS[course.status] || course.status}</Badge>
+            {isDirty && (
+              <span className="text-[11px] font-semibold text-amber-600">• Alterações por guardar</span>
+            )}
+            {lastSavedAt && saveState !== "success" && (
+              <span className="text-[11px] text-muted-foreground">
+                {dict.agriacademy.savedAt.replace("{time}", formatSavedTime(lastSavedAt, locale))}
+              </span>
+            )}
+          </div>
           <input
             value={course.title}
             onChange={(event) => setCourse({ ...course, title: event.target.value })}
@@ -115,9 +192,26 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           />
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" variant="outline" onClick={handleSaveDraft} disabled={isPending}>
-            <Save className="w-3.5 h-3.5 mr-1" />
-            Guardar rascunho
+          <Button
+            type="button"
+            size="sm"
+            variant={saveState === "success" ? "primary" : "outline"}
+            onClick={handleSaveDraft}
+            disabled={isSaving || !isDirty}
+            className={
+              saveState === "success"
+                ? "bg-emerald-600 hover:bg-emerald-600 text-white border-emerald-600"
+                : saveState === "error"
+                  ? "border-destructive text-destructive"
+                  : undefined
+            }
+          >
+            {saveState === "success" ? (
+              <Check className="w-3.5 h-3.5 mr-1" />
+            ) : (
+              <Save className="w-3.5 h-3.5 mr-1" />
+            )}
+            {saveButtonLabel}
           </Button>
           {course.status === "draft" || course.status === "paused" ? (
             <Button
@@ -169,8 +263,14 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         </div>
       </div>
 
-      {message && <p className="text-xs font-semibold text-emerald-600">{message}</p>}
-      {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
+      {message && saveState === "success" && (
+        <p className="text-xs font-semibold text-emerald-600 animate-in fade-in">{message}</p>
+      )}
+      {(saveError || error) && (
+        <p className="text-xs font-semibold text-destructive">
+          {saveError ? `❌ ${saveError}` : error}
+        </p>
+      )}
 
       <div className="space-y-4">
         {course.sections.map((section) => (
@@ -246,7 +346,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                     variant="outline"
                     onClick={() => setVideoLessonId(lesson.id)}
                   >
-                    {lesson.academy_video_id ? "Trocar vídeo" : "Selecionar vídeo"}
+                    {lesson.academy_video_id
+                      ? dict.agriacademy.replaceVideo
+                      : dict.agriacademy.selectVideo}
                   </Button>
                   <Button
                     type="button"
