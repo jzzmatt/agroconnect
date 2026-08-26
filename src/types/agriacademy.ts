@@ -10,8 +10,6 @@ export type AcademyVideoVisibility = "private" | "unlisted" | "public" | "enroll
 export interface AcademyVideoDescriptor {
   id: string;
   owner_id: string;
-  course_id?: string | null;
-  chapter_id?: string | null;
   bunny_video_id?: string | null;
   bunny_library_id?: string | null;
   title: string;
@@ -24,6 +22,8 @@ export interface AcademyVideoDescriptor {
   visibility: AcademyVideoVisibility;
   thumbnail_url?: string | null;
   playback_url?: string | null;
+  reference_count?: number;
+  orphaned_at?: string | null;
   created_at: string;
   updated_at: string;
 }

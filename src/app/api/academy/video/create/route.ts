@@ -11,7 +11,6 @@ export async function POST(request: Request) {
       filename: String(body?.filename || body?.fileName || "video.mp4"),
       mimeType: String(body?.mimeType || "video/mp4"),
       fileSize: Number(body?.fileSize || 0),
-      courseId: body?.courseId ? String(body.courseId) : undefined,
     });
 
     if (!result.upload.configured) {

@@ -20,13 +20,10 @@ const isPublicRoute = createRouteMatcher([
   "/api/subscription(.*)",
   // JSON product create — handler enforces Clerk auth so fetch is not redirected.
   "/api/products(.*)",
-<<<<<<< HEAD
   // JSON profile avatar upload — handler enforces Clerk auth so fetch is not redirected.
   "/api/profile(.*)",
-=======
   // JSON academy video upload — handler enforces Clerk auth so fetch is not redirected.
   "/api/academy(.*)",
->>>>>>> 7431934 (fix(academy): complete Bunny TUS upload from dashboard)
   // Reports which env vars a deployment can see. Never returns values.
   "/api/health(.*)",
 ]);

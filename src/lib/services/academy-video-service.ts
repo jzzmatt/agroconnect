@@ -70,7 +70,6 @@ export class AcademyVideoService {
     filename: string;
     mimeType: string;
     fileSize: number;
-    courseId?: string;
   }): Promise<{ video: AcademyVideoRecord; upload: Awaited<ReturnType<typeof createBunnyVideo>> }> {
     const allowed = await this.canAcceptUpload({
       ownerId: params.ownerId,
@@ -87,7 +86,6 @@ export class AcademyVideoService {
     const { data, error } = await (supabase.from(TABLE) as any)
       .insert({
         owner_id: params.ownerId,
-        course_id: params.courseId || null,
         bunny_video_id: bunny.bunnyVideoId,
         bunny_library_id: bunny.bunnyLibraryId,
         title: params.title,
@@ -96,6 +94,7 @@ export class AcademyVideoService {
         file_size: params.fileSize,
         status: bunny.configured ? "uploading" : "pending",
         visibility: "enrolled_only",
+        reference_count: 0,
       })
       .select()
       .single();
@@ -123,7 +122,11 @@ export class AcademyVideoService {
     return (data as unknown as AcademyVideoRecord | null) || null;
   }
 
-  public static async deleteVideo(videoId: string, ownerId: string): Promise<boolean> {
+  public static async deleteVideo(
+    videoId: string,
+    ownerId: string,
+    options: { force?: boolean } = {}
+  ): Promise<{ ok: boolean; reason?: string }> {
     const supabase = getMediaSupabaseClient();
     const { data: current } = await supabase
       .from(TABLE)
@@ -132,9 +135,14 @@ export class AcademyVideoService {
       .eq("owner_id", ownerId)
       .maybeSingle();
     const video = current as unknown as AcademyVideoRecord | null;
-    if (!video) return false;
+    if (!video) return { ok: false, reason: "not_found" };
 
-    if (video.bunny_video_id) {
+    const refCount = video.reference_count ?? 0;
+    if (!options.force && refCount > 0) {
+      return { ok: false, reason: "referenced" };
+    }
+
+    if (video.bunny_video_id && refCount === 0) {
       await deleteBunnyVideo(video.bunny_video_id);
     }
 
@@ -142,7 +150,11 @@ export class AcademyVideoService {
       .update({ status: "deleted", updated_at: new Date().toISOString() })
       .eq("id", videoId)
       .eq("owner_id", ownerId);
-    return true;
+    return { ok: true };
+  }
+
+  public static isOrphaned(video: Pick<AcademyVideoRecord, "reference_count" | "orphaned_at">): boolean {
+    return (video.reference_count ?? 0) === 0 || Boolean(video.orphaned_at);
   }
 
   /** Poll Bunny after a successful TUS upload (webhook may be unreachable in dev). */

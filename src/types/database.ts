@@ -1894,8 +1894,6 @@ export interface Database {
         Row: {
           id: string;
           owner_id: string;
-          course_id: string | null;
-          chapter_id: string | null;
           bunny_video_id: string | null;
           bunny_library_id: string | null;
           title: string;
@@ -1908,6 +1906,8 @@ export interface Database {
           visibility: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url: string | null;
           playback_url: string | null;
+          reference_count: number;
+          orphaned_at: string | null;
           upload_authorization_expires_at: string | null;
           error_message: string | null;
           created_at: string;
@@ -1916,8 +1916,6 @@ export interface Database {
         Insert: {
           id?: string;
           owner_id: string;
-          course_id?: string | null;
-          chapter_id?: string | null;
           bunny_video_id?: string | null;
           bunny_library_id?: string | null;
           title: string;
@@ -1930,6 +1928,8 @@ export interface Database {
           visibility?: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          reference_count?: number;
+          orphaned_at?: string | null;
           upload_authorization_expires_at?: string | null;
           error_message?: string | null;
           created_at?: string;
@@ -1938,8 +1938,6 @@ export interface Database {
         Update: {
           id?: string;
           owner_id?: string;
-          course_id?: string | null;
-          chapter_id?: string | null;
           bunny_video_id?: string | null;
           bunny_library_id?: string | null;
           title?: string;
@@ -1952,6 +1950,8 @@ export interface Database {
           visibility?: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          reference_count?: number;
+          orphaned_at?: string | null;
           upload_authorization_expires_at?: string | null;
           error_message?: string | null;
           created_at?: string;

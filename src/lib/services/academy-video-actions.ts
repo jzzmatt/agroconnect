@@ -34,7 +34,6 @@ export async function createAcademyVideoUploadAction(params: {
   filename: string;
   mimeType: string;
   fileSize: number;
-  courseId?: string;
 }) {
   await requireAuth();
   const profile = await getCurrentUserProfile();
@@ -52,14 +51,13 @@ export async function createAcademyVideoUploadAction(params: {
     filename: params.filename,
     mimeType: params.mimeType,
     fileSize: params.fileSize,
-    courseId: params.courseId,
   });
 }
 
 export async function deleteAcademyVideoAction(videoId: string) {
   await requireAuth();
   const profile = await getCurrentUserProfile();
-  if (!profile) return false;
+  if (!profile) return { ok: false, reason: "not_found" };
   return AcademyVideoService.deleteVideo(videoId, profile.id);
 }
 

@@ -2,12 +2,18 @@
 
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { authorize } from "@/lib/authorization/server";
-import {
-  CourseService,
-} from "@/lib/services/course-service";
-import type { SearchCoursesFilterParams } from "@/types/agriacademy";
+import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
+import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import { CourseService } from "@/lib/services/course-service";
+import { AcademyVideoService } from "@/lib/services/academy-video-service";
+import type {
+  CourseListItem,
+  CourseRecord,
+  CreateCourseInput,
+  UpdateCourseInput,
+  SearchCoursesFilterParams,
+} from "@/types/agriacademy";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
-import type { CourseListItem, CourseRecord, CreateCourseInput, UpdateCourseInput } from "@/types/agriacademy";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -47,11 +53,114 @@ export async function updateCourseAction(input: UpdateCourseInput): Promise<Cour
   return CourseService.updateCourse(userProfile.id, input);
 }
 
-export async function publishCourseAction(courseId: string): Promise<CourseRecord | null> {
+export async function getCourseEditorAction(courseId: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+}
+
+export async function publishCourseAction(courseId: string) {
+  await authorize("academy.course.publish");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) throw new Error("Perfil não encontrado.");
+
+  const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+  if (!tree) throw new Error("Curso não encontrado.");
+
+  const validation = validateCourseForPublication(tree);
+  if (!validation.ok) {
+    throw new Error(validation.errors.join(" "));
+  }
+
+  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+}
+
+export async function pauseCourseAction(courseId: string) {
+  await authorize("academy.course.publish");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) throw new Error("Perfil não encontrado.");
+  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "paused" });
+}
+
+export async function resumeCourseAction(courseId: string) {
   await authorize("academy.course.publish");
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) throw new Error("Perfil não encontrado.");
   return CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+}
+
+export async function archiveCourseAction(courseId: string) {
+  await authorize("academy.course.delete");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) throw new Error("Perfil não encontrado.");
+  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "archived" });
+}
+
+export async function createSectionAction(courseId: string, title: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.createSection(userProfile.id, courseId, title);
+}
+
+export async function updateSectionAction(sectionId: string, title: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.updateSection(userProfile.id, sectionId, title);
+}
+
+export async function deleteSectionAction(sectionId: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return false;
+  return AcademyAuthoringService.deleteSection(userProfile.id, sectionId);
+}
+
+export async function reorderSectionsAction(courseId: string, orderedSectionIds: string[]) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+  return AcademyAuthoringService.reorderSections(userProfile.id, courseId, orderedSectionIds);
+}
+
+export async function createLessonAction(sectionId: string, title: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.createLesson(userProfile.id, sectionId, title);
+}
+
+export async function updateLessonAction(
+  lessonId: string,
+  patch: { title?: string; description?: string | null }
+) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.updateLesson(userProfile.id, lessonId, patch);
+}
+
+export async function deleteLessonAction(lessonId: string) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return false;
+  return AcademyAuthoringService.deleteLesson(userProfile.id, lessonId);
+}
+
+export async function assignLessonVideoAction(lessonId: string, videoId: string | null) {
+  await authorize("academy.course.update");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+  return AcademyAuthoringService.assignLessonVideo(userProfile.id, lessonId, videoId);
+}
+
+export async function listMediaLibraryAction() {
+  await authorize("academy.video.upload");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+  return AcademyVideoService.listByOwner(userProfile.id);
 }
 
 export async function enrollInCourseAction(courseId: string) {
