@@ -196,6 +196,10 @@ export type AcademyVideoStatus =
   | "deleted"
   | "video_unavailable";
 
+export type CourseStatus = "draft" | "published" | "paused" | "archived";
+export type CourseLevel = "beginner" | "intermediate" | "advanced" | "all_levels";
+export type CourseEnrollmentStatus = "active" | "completed" | "cancelled" | "suspended";
+
 export type ProductVideoProvider = "imagekit" | "bunny_stream";
 
 export type ProductVideoStatus =
@@ -1701,12 +1705,195 @@ export interface Database {
           updated_at?: string;
         };
       };
+      courses: {
+        Row: {
+          id: string;
+          owner_id: string;
+          provider_id: string | null;
+          category_id: string | null;
+          title: string;
+          slug: string;
+          short_description: string | null;
+          description: string | null;
+          level: CourseLevel;
+          price: number;
+          currency: string;
+          status: CourseStatus;
+          thumbnail_url: string | null;
+          duration_hours: number | null;
+          lessons_count: number;
+          students_count: number;
+          rating: number | null;
+          province_id: string | null;
+          municipality_id: string | null;
+          province_name: string | null;
+          municipality_name: string | null;
+          is_featured: boolean;
+          published_at: string | null;
+          metadata: Json;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          owner_id: string;
+          provider_id?: string | null;
+          category_id?: string | null;
+          title: string;
+          slug: string;
+          short_description?: string | null;
+          description?: string | null;
+          level?: CourseLevel;
+          price?: number;
+          currency?: string;
+          status?: CourseStatus;
+          thumbnail_url?: string | null;
+          duration_hours?: number | null;
+          lessons_count?: number;
+          students_count?: number;
+          rating?: number | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          province_name?: string | null;
+          municipality_name?: string | null;
+          is_featured?: boolean;
+          published_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          owner_id?: string;
+          provider_id?: string | null;
+          category_id?: string | null;
+          title?: string;
+          slug?: string;
+          short_description?: string | null;
+          description?: string | null;
+          level?: CourseLevel;
+          price?: number;
+          currency?: string;
+          status?: CourseStatus;
+          thumbnail_url?: string | null;
+          duration_hours?: number | null;
+          lessons_count?: number;
+          students_count?: number;
+          rating?: number | null;
+          province_id?: string | null;
+          municipality_id?: string | null;
+          province_name?: string | null;
+          municipality_name?: string | null;
+          is_featured?: boolean;
+          published_at?: string | null;
+          metadata?: Json;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      course_sections: {
+        Row: {
+          id: string;
+          course_id: string;
+          title: string;
+          sort_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          title: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          title?: string;
+          sort_order?: number;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      course_lessons: {
+        Row: {
+          id: string;
+          course_id: string;
+          section_id: string;
+          title: string;
+          description: string | null;
+          sort_order: number;
+          academy_video_id: string | null;
+          duration_seconds: number | null;
+          is_free_preview: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          section_id: string;
+          title: string;
+          description?: string | null;
+          sort_order?: number;
+          academy_video_id?: string | null;
+          duration_seconds?: number | null;
+          is_free_preview?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          section_id?: string;
+          title?: string;
+          description?: string | null;
+          sort_order?: number;
+          academy_video_id?: string | null;
+          duration_seconds?: number | null;
+          is_free_preview?: boolean;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
+      course_enrollments: {
+        Row: {
+          id: string;
+          course_id: string;
+          student_id: string;
+          status: CourseEnrollmentStatus;
+          enrolled_at: string;
+          completed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: {
+          id?: string;
+          course_id: string;
+          student_id: string;
+          status?: CourseEnrollmentStatus;
+          enrolled_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: {
+          id?: string;
+          course_id?: string;
+          student_id?: string;
+          status?: CourseEnrollmentStatus;
+          enrolled_at?: string;
+          completed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+      };
       academy_videos: {
         Row: {
           id: string;
           owner_id: string;
-          course_id: string | null;
-          chapter_id: string | null;
           bunny_video_id: string | null;
           bunny_library_id: string | null;
           title: string;
@@ -1719,6 +1906,8 @@ export interface Database {
           visibility: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url: string | null;
           playback_url: string | null;
+          reference_count: number;
+          orphaned_at: string | null;
           upload_authorization_expires_at: string | null;
           error_message: string | null;
           created_at: string;
@@ -1727,8 +1916,6 @@ export interface Database {
         Insert: {
           id?: string;
           owner_id: string;
-          course_id?: string | null;
-          chapter_id?: string | null;
           bunny_video_id?: string | null;
           bunny_library_id?: string | null;
           title: string;
@@ -1741,6 +1928,8 @@ export interface Database {
           visibility?: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          reference_count?: number;
+          orphaned_at?: string | null;
           upload_authorization_expires_at?: string | null;
           error_message?: string | null;
           created_at?: string;
@@ -1749,8 +1938,6 @@ export interface Database {
         Update: {
           id?: string;
           owner_id?: string;
-          course_id?: string | null;
-          chapter_id?: string | null;
           bunny_video_id?: string | null;
           bunny_library_id?: string | null;
           title?: string;
@@ -1763,6 +1950,8 @@ export interface Database {
           visibility?: "private" | "unlisted" | "public" | "enrolled_only";
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          reference_count?: number;
+          orphaned_at?: string | null;
           upload_authorization_expires_at?: string | null;
           error_message?: string | null;
           created_at?: string;
@@ -2092,6 +2281,10 @@ export type Locality = Database["public"]["Tables"]["localities"]["Row"];
 export type ProfileLocation = Database["public"]["Tables"]["profile_locations"]["Row"];
 export type Category = Database["public"]["Tables"]["categories"]["Row"];
 export type ProviderProfile = Database["public"]["Tables"]["provider_profiles"]["Row"];
+export type Course = Database["public"]["Tables"]["courses"]["Row"];
+export type CourseSection = Database["public"]["Tables"]["course_sections"]["Row"];
+export type CourseLesson = Database["public"]["Tables"]["course_lessons"]["Row"];
+export type CourseEnrollment = Database["public"]["Tables"]["course_enrollments"]["Row"];
 export type Service = Database["public"]["Tables"]["services"]["Row"];
 export type Product = Database["public"]["Tables"]["products"]["Row"];
 export type AgriculturalResource = Database["public"]["Tables"]["agricultural_resources"]["Row"];

@@ -291,7 +291,7 @@ export default function DashboardPage() {
             </Link>
           ) : profile.activeProfile === "instructor" ? (
             <Link
-              href={entitlements.can_create_courses ? "/dashboard/academy/my-courses" : "#"}
+              href={entitlements.can_create_courses ? "/dashboard/academy" : "#"}
               onClick={handleCreateCourseClick}
             >
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">

@@ -1,5 +1,19 @@
 import { getUserEntitlements } from "@/lib/services/pricing-service";
-import { createBunnyVideo, deleteBunnyVideo, isBunnyConfigured } from "@/lib/video/bunny";
+import { planLibraryReconcile } from "@/lib/academy/video-library-sync";
+import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
+import {
+  createBunnyVideo,
+  deleteBunnyVideo,
+  fetchBunnyVideoStatus,
+  getBunnyConfig,
+  getBunnyEmbedUrl,
+  isBunnyConfigured,
+  isBunnyUploadReceived,
+  listBunnyLibraryVideos,
+  pollBunnyUploadReceived,
+  uploadBunnyVideoBinary,
+  type BunnyLibraryVideoSummary,
+} from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
@@ -58,6 +72,112 @@ export class AcademyVideoService {
     return (data || []) as unknown as AcademyVideoRecord[];
   }
 
+  /**
+   * Reconciles the owner's library with Bunny Stream before returning it.
+   * Removes DB rows whose Bunny assets were deleted; syncs status/metadata for the rest.
+   */
+  private static async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+    return Promise.race([
+      promise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+    ]);
+  }
+
+  private static async applyLibraryReconcilePlan(
+    ownerId: string,
+    videos: AcademyVideoRecord[],
+    remoteByGuid: Map<string, BunnyLibraryVideoSummary>
+  ): Promise<AcademyVideoRecord[]> {
+    const supabase = getMediaSupabaseClient();
+    const kept: AcademyVideoRecord[] = [];
+
+    for (const video of videos) {
+      const remote = video.bunny_video_id ? remoteByGuid.get(video.bunny_video_id) ?? null : null;
+      const plan = planLibraryReconcile({ video, remote });
+
+      if (plan.action === "remove") {
+        await (supabase.from(TABLE) as any)
+          .update({
+            status: "deleted",
+            orphaned_at: video.orphaned_at ?? new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", video.id)
+          .eq("owner_id", ownerId);
+        continue;
+      }
+
+      if (plan.action === "mark_failed") {
+        await (supabase.from(TABLE) as any)
+          .update({
+            status: "failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", video.id)
+          .eq("owner_id", ownerId);
+        continue;
+      }
+
+      if (plan.action === "sync" && video.bunny_video_id && remote) {
+        const updated = await this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+          thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+          duration_seconds: remote.durationSeconds ?? video.duration_seconds ?? null,
+        });
+        kept.push(updated ?? { ...video, status: remote.status });
+        continue;
+      }
+
+      kept.push(video);
+    }
+
+    return kept.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
+  }
+
+  private static async reconcileOwnerVideosByStatus(
+    ownerId: string,
+    videos: AcademyVideoRecord[]
+  ): Promise<AcademyVideoRecord[]> {
+    const remoteByGuid = new Map<string, BunnyLibraryVideoSummary>();
+
+    for (const video of videos) {
+      if (!video.bunny_video_id) continue;
+      const remote = await this.withTimeout(fetchBunnyVideoStatus(video.bunny_video_id), 4_000);
+      if (!remote) continue;
+      if (remote.status === "deleted") continue;
+      remoteByGuid.set(video.bunny_video_id, {
+        guid: video.bunny_video_id,
+        title: video.title,
+        status: remote.status,
+        thumbnailUrl: remote.thumbnailUrl,
+        durationSeconds: video.duration_seconds ?? null,
+      });
+    }
+
+    return this.applyLibraryReconcilePlan(ownerId, videos, remoteByGuid);
+  }
+
+  public static async listByOwnerSynced(ownerId: string): Promise<AcademyVideoRecord[]> {
+    const videos = await this.listByOwner(ownerId);
+    if (!isBunnyConfigured() || videos.length === 0) {
+      return videos;
+    }
+
+    if (videos.length <= 50) {
+      return this.reconcileOwnerVideosByStatus(ownerId, videos);
+    }
+
+    const remoteVideos = await this.withTimeout(listBunnyLibraryVideos(), 12_000);
+    if (remoteVideos === null) {
+      console.warn("[AcademyVideoService] Bunny library sync timed out; using database list.");
+      return videos;
+    }
+
+    const remoteByGuid = new Map(remoteVideos.map((item) => [item.guid, item]));
+    return this.applyLibraryReconcilePlan(ownerId, videos, remoteByGuid);
+  }
+
   public static async createUpload(params: {
     ownerId: string;
     plan: SubscriptionPlan | string | null;
@@ -65,7 +185,6 @@ export class AcademyVideoService {
     filename: string;
     mimeType: string;
     fileSize: number;
-    courseId?: string;
   }): Promise<{ video: AcademyVideoRecord; upload: Awaited<ReturnType<typeof createBunnyVideo>> }> {
     const allowed = await this.canAcceptUpload({
       ownerId: params.ownerId,
@@ -82,7 +201,6 @@ export class AcademyVideoService {
     const { data, error } = await (supabase.from(TABLE) as any)
       .insert({
         owner_id: params.ownerId,
-        course_id: params.courseId || null,
         bunny_video_id: bunny.bunnyVideoId,
         bunny_library_id: bunny.bunnyLibraryId,
         title: params.title,
@@ -91,6 +209,7 @@ export class AcademyVideoService {
         file_size: params.fileSize,
         status: bunny.configured ? "uploading" : "pending",
         visibility: "enrolled_only",
+        reference_count: 0,
       })
       .select()
       .single();
@@ -110,15 +229,47 @@ export class AcademyVideoService {
     extras?: Partial<AcademyVideoRecord>
   ): Promise<AcademyVideoRecord | null> {
     const supabase = getMediaSupabaseClient();
+    const { data: existing } = await supabase
+      .from(TABLE)
+      .select("bunny_video_id, bunny_library_id, playback_url")
+      .eq("bunny_video_id", bunnyVideoId)
+      .maybeSingle();
+    const current = existing as Pick<
+      AcademyVideoRecord,
+      "bunny_video_id" | "bunny_library_id" | "playback_url"
+    > | null;
+
+    const patch: Partial<AcademyVideoRecord> & { updated_at: string } = {
+      ...extras,
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (
+      status === "ready" &&
+      current?.bunny_video_id &&
+      !patch.playback_url &&
+      !current.playback_url
+    ) {
+      const libraryId = current.bunny_library_id || getBunnyConfig().libraryId || null;
+      if (libraryId) {
+        patch.playback_url = getBunnyEmbedUrl(libraryId, current.bunny_video_id);
+      }
+    }
+
     const { data } = await (supabase.from(TABLE) as any)
-      .update({ ...extras, status, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq("bunny_video_id", bunnyVideoId)
       .select()
       .maybeSingle();
     return (data as unknown as AcademyVideoRecord | null) || null;
   }
 
-  public static async deleteVideo(videoId: string, ownerId: string): Promise<boolean> {
+  public static async deleteVideo(
+    videoId: string,
+    ownerId: string,
+    options: { force?: boolean } = {}
+  ): Promise<{ ok: boolean; reason?: string }> {
     const supabase = getMediaSupabaseClient();
     const { data: current } = await supabase
       .from(TABLE)
@@ -127,9 +278,14 @@ export class AcademyVideoService {
       .eq("owner_id", ownerId)
       .maybeSingle();
     const video = current as unknown as AcademyVideoRecord | null;
-    if (!video) return false;
+    if (!video) return { ok: false, reason: "not_found" };
 
-    if (video.bunny_video_id) {
+    const refCount = video.reference_count ?? 0;
+    if (!options.force && refCount > 0) {
+      return { ok: false, reason: "referenced" };
+    }
+
+    if (video.bunny_video_id && refCount === 0) {
       await deleteBunnyVideo(video.bunny_video_id);
     }
 
@@ -137,7 +293,180 @@ export class AcademyVideoService {
       .update({ status: "deleted", updated_at: new Date().toISOString() })
       .eq("id", videoId)
       .eq("owner_id", ownerId);
-    return true;
+    return { ok: true };
+  }
+
+  public static isOrphaned(video: Pick<AcademyVideoRecord, "reference_count" | "orphaned_at">): boolean {
+    return (video.reference_count ?? 0) === 0 || Boolean(video.orphaned_at);
+  }
+
+  /** Poll Bunny after a successful upload (webhook may be unreachable in dev). */
+  public static async syncStatusAfterUpload(
+    videoId: string,
+    ownerId: string
+  ): Promise<AcademyVideoRecord | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return video;
+
+    const remote = await pollBunnyUploadReceived(video.bunny_video_id);
+    if (!remote || remote.status === "deleted" || !isBunnyUploadReceived(remote.status)) {
+      await (supabase.from(TABLE) as any)
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", videoId)
+        .eq("owner_id", ownerId);
+      return null;
+    }
+
+    return this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+      thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+    });
+  }
+
+  /** Upload video bytes through the server (Bunny HTTP PUT). */
+  public static async uploadBinaryForOwner(params: {
+    videoId: string;
+    ownerId: string;
+    body: ArrayBuffer | ReadableStream<Uint8Array>;
+    contentType: string;
+    contentLength: number;
+  }): Promise<AcademyVideoRecord | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", params.videoId)
+      .eq("owner_id", params.ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return null;
+
+    const uploaded = await uploadBunnyVideoBinary({
+      bunnyVideoId: video.bunny_video_id,
+      libraryId: video.bunny_library_id,
+      body: params.body,
+      contentType: params.contentType,
+      contentLength: params.contentLength,
+    });
+
+    if (!uploaded.ok) {
+      await (supabase.from(TABLE) as any)
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", params.videoId)
+        .eq("owner_id", params.ownerId);
+      return null;
+    }
+
+    await (supabase.from(TABLE) as any)
+      .update({
+        status: "uploading",
+        mime_type: params.contentType,
+        file_size: params.contentLength,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.videoId)
+      .eq("owner_id", params.ownerId);
+
+    return this.syncStatusAfterUpload(params.videoId, params.ownerId);
+  }
+
+  /** Poll Bunny and return upload/encoding progress for the owner UI. */
+  public static async syncUploadProgressFromBunny(
+    videoId: string,
+    ownerId: string
+  ): Promise<{
+    status: AcademyVideoRecord["status"];
+    bunnyStatusCode: number;
+    encodeProgress: number;
+    storageSize: number;
+    received: boolean;
+    ready: boolean;
+    failed: boolean;
+  } | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return null;
+
+    const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
+    if (!remote || remote.status === "deleted") {
+      return {
+        status: "failed",
+        bunnyStatusCode: remote?.statusCode ?? -1,
+        encodeProgress: 0,
+        storageSize: 0,
+        received: false,
+        ready: false,
+        failed: true,
+      };
+    }
+
+    const dbStatus = remote.status;
+    const synced = await this.markStatusByBunnyId(video.bunny_video_id, dbStatus, {
+      thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+    });
+
+    return {
+      status: synced?.status ?? dbStatus,
+      bunnyStatusCode: remote.statusCode,
+      encodeProgress: remote.encodeProgress,
+      storageSize: remote.storageSize,
+      received: isBunnyUploadReceived(remote.status),
+      ready: remote.status === "ready",
+      failed: remote.status === "failed",
+    };
+  }
+
+  /** Instructor media-library preview — owner-only, resolves Bunny embed URLs server-side. */
+  public static async resolveOwnerPreview(
+    videoId: string,
+    ownerId: string
+  ): Promise<{ embedUrl: string | null; ready: boolean; status: AcademyVideoRecord["status"] } | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    let video = current as unknown as AcademyVideoRecord | null;
+    if (!video) return null;
+
+    if (video.bunny_video_id) {
+      const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
+      if (remote && remote.status !== "deleted") {
+        const synced = await this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+          thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+        });
+        if (synced) video = synced;
+      }
+    }
+
+    const embedUrl =
+      video.status === "ready" ? await resolvePlaybackEmbedUrl(video) : null;
+
+    return {
+      embedUrl,
+      ready: video.status === "ready",
+      status: video.status,
+    };
   }
 
   public static reconcile(params: { bunnyVideoId?: string | null; hasBunny: boolean; hasRecord: boolean }): "ok" | "orphan_bunny" | "video_unavailable" {

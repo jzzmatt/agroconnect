@@ -128,13 +128,17 @@ export function DashboardSidebar({
                   pathname === resolvedHref ||
                   (resolvedHref !== "/planos" && pathname?.startsWith(`${resolvedHref}/`));
                 const Icon = item.icon;
-                const managePermission = section.requiredModule
+                const sectionManagePermission = section.requiredModule
                   ? moduleManagePermission[section.requiredModule]
                   : undefined;
-                const agriLocked = managePermission
-                  ? !can(subject, managePermission)
-                  : false;
-                const href = agriLocked ? "/planos" : resolvedHref;
+                const itemLocked = item.neverLock
+                  ? false
+                  : item.requiredPermission
+                    ? !can(subject, item.requiredPermission)
+                    : sectionManagePermission
+                      ? !can(subject, sectionManagePermission)
+                      : false;
+                const href = itemLocked ? "/planos" : resolvedHref;
                 return (
                   <Link
                     key={`${item.href}-${item.title}`}
@@ -142,7 +146,7 @@ export function DashboardSidebar({
                     onClick={() => onClose && onClose()}
                     className={cn(
                       "flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors",
-                      isActive && !agriLocked
+                      isActive && !itemLocked
                         ? "bg-sidebar-active text-sidebar-active-foreground shadow-xs font-bold"
                         : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
                     )}
@@ -151,12 +155,12 @@ export function DashboardSidebar({
                       <Icon
                         className={cn(
                           "w-4 h-4 shrink-0",
-                          isActive && !agriLocked ? "text-primary-foreground" : "text-primary"
+                          isActive && !itemLocked ? "text-primary-foreground" : "text-primary"
                         )}
                       />
                       <span className="truncate">{item.title}</span>
                     </div>
-                    {agriLocked ? (
+                    {itemLocked ? (
                       <Lock className="w-3.5 h-3.5 text-amber-600" />
                     ) : item.badge ? (
                       <span

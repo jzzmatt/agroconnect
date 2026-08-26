@@ -30,6 +30,14 @@ export type BunnyVideoStatus =
   | "failed"
   | "deleted";
 
+export type BunnyVideoSnapshot = {
+  status: BunnyVideoStatus;
+  statusCode: number;
+  thumbnailUrl: string | null;
+  encodeProgress: number;
+  storageSize: number;
+};
+
 function trimEnv(value?: string | null): string {
   return String(value || "").trim();
 }
@@ -49,6 +57,17 @@ export function normalizeBunnyCredentials(apiKey: string, libraryId: string) {
   return { apiKey: key, libraryId: library, swapped: false as const };
 }
 
+/** Bunny Stream library IDs are numeric. Rejects UUIDs and empty values early. */
+export function parseBunnyLibraryId(value: string | number | null | undefined): string {
+  const normalized = trimEnv(value == null ? "" : String(value));
+  if (!/^\d+$/.test(normalized)) {
+    throw Object.assign(new Error("BUNNY_STREAM_LIBRARY_ID inválido ou em falta."), {
+      code: "BUNNY_LIBRARY_ID_INVALID",
+    });
+  }
+  return normalized;
+}
+
 export function getBunnyConfig() {
   const normalized = normalizeBunnyCredentials(
     process.env.BUNNY_STREAM_API_KEY || "",
@@ -59,9 +78,18 @@ export function getBunnyConfig() {
       "[bunny] BUNNY_STREAM_API_KEY and BUNNY_STREAM_LIBRARY_ID were reversed; using the numeric value as Library ID."
     );
   }
+  const libraryId = normalized.libraryId
+    ? (() => {
+        try {
+          return parseBunnyLibraryId(normalized.libraryId);
+        } catch {
+          return "";
+        }
+      })()
+    : "";
   return {
     apiKey: normalized.apiKey,
-    libraryId: normalized.libraryId,
+    libraryId,
     cdnHostname: trimEnv(process.env.BUNNY_STREAM_CDN_HOSTNAME).replace(/^https?:\/\//, ""),
     webhookSecret: trimEnv(process.env.BUNNY_STREAM_WEBHOOK_SECRET),
   };
@@ -147,7 +175,7 @@ export async function createBunnyVideo(params: {
     });
   }
 
-  const created = (await response.json()) as { guid?: string };
+  const created = (await response.json()) as { guid?: string; videoLibraryId?: number | string };
   const videoId = created.guid || null;
   if (!videoId) {
     return emptyResult({
@@ -158,21 +186,78 @@ export async function createBunnyVideo(params: {
     });
   }
 
-  const expire = Math.floor(Date.now() / 1000) + 60 * 60 * 6;
-  const signature = createHash("sha256")
-    .update(`${config.libraryId}${config.apiKey}${expire}${videoId}`)
-    .digest("hex");
+  const libraryId = parseBunnyLibraryId(
+    created.videoLibraryId != null ? created.videoLibraryId : config.libraryId
+  );
+  const expire = buildBunnyTusAuthorizationExpire();
+  const signature = buildBunnyTusAuthorizationSignature({
+    libraryId,
+    apiKey: config.apiKey,
+    expire,
+    videoId,
+  });
 
   return {
     configured: true,
     bunnyVideoId: videoId,
-    bunnyLibraryId: config.libraryId,
+    bunnyLibraryId: libraryId,
     authorizationSignature: signature,
     authorizationExpire: expire,
     uploadUrl: BUNNY_TUS_ENDPOINT,
-    embedUrl: getBunnyEmbedUrl(config.libraryId, videoId),
-    playbackUrl: getBunnyPlaybackUrl(config.libraryId, videoId),
+    embedUrl: getBunnyEmbedUrl(libraryId, videoId),
+    playbackUrl: getBunnyPlaybackUrl(libraryId, videoId),
   };
+}
+
+/** Server-side binary upload (PUT) — reliable alternative to browser TUS. */
+export async function uploadBunnyVideoBinary(params: {
+  bunnyVideoId: string;
+  libraryId?: string | null;
+  body: ArrayBuffer | ReadableStream<Uint8Array>;
+  contentType?: string;
+  contentLength?: number;
+}): Promise<{ ok: boolean; status: number; error?: string }> {
+  const config = getBunnyConfig();
+  if (!config.apiKey || !config.libraryId) {
+    return { ok: false, status: 0, error: "BUNNY_NOT_CONFIGURED" };
+  }
+
+  const libraryId = parseBunnyLibraryId(params.libraryId || config.libraryId);
+  const headers: Record<string, string> = {
+    AccessKey: config.apiKey,
+    Accept: "application/json",
+  };
+  if (params.contentType) headers["Content-Type"] = params.contentType;
+  if (params.contentLength && params.contentLength > 0) {
+    headers["Content-Length"] = String(params.contentLength);
+  }
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method: "PUT",
+    headers,
+    body: params.body as BodyInit,
+  };
+  if (params.body instanceof ReadableStream) {
+    init.duplex = "half";
+  }
+
+  try {
+    const response = await fetch(
+      `${BUNNY_STREAM_API}/library/${libraryId}/videos/${params.bunnyVideoId}`,
+      init
+    );
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return { ok: false, status: response.status, error: detail.slice(0, 400) };
+    }
+    return { ok: true, status: response.status };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      error: error instanceof Error ? error.message : "upload failed",
+    };
+  }
 }
 
 /**
@@ -182,9 +267,7 @@ export async function createBunnyVideo(params: {
  * environment would leave a row stuck at "uploading" forever, so playback must
  * not depend on it.
  */
-export async function fetchBunnyVideoStatus(
-  bunnyVideoId: string
-): Promise<{ status: BunnyVideoStatus; thumbnailUrl: string | null } | null> {
+export async function fetchBunnyVideoStatus(bunnyVideoId: string): Promise<BunnyVideoSnapshot | null> {
   const config = getBunnyConfig();
   if (!config.apiKey || !config.libraryId || !bunnyVideoId) return null;
 
@@ -193,15 +276,36 @@ export async function fetchBunnyVideoStatus(
       `${BUNNY_STREAM_API}/library/${config.libraryId}/videos/${bunnyVideoId}`,
       { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
     );
+    if (response.status === 404) {
+      return {
+        status: "deleted",
+        statusCode: -1,
+        thumbnailUrl: null,
+        encodeProgress: 0,
+        storageSize: 0,
+      };
+    }
     if (!response.ok) return null;
 
-    const video = (await response.json()) as { status?: number; thumbnailFileName?: string };
-    const status = mapBunnyStatus(Number(video.status));
+    const video = (await response.json()) as {
+      status?: number;
+      thumbnailFileName?: string;
+      encodeProgress?: number;
+      storageSize?: number;
+    };
+    const statusCode = Number(video.status ?? 0);
+    const status = mapBunnyStatus(statusCode);
     const thumbnailUrl =
       video.thumbnailFileName && config.cdnHostname
         ? `https://${config.cdnHostname}/${bunnyVideoId}/${video.thumbnailFileName}`
         : null;
-    return { status, thumbnailUrl };
+    return {
+      status,
+      statusCode,
+      thumbnailUrl,
+      encodeProgress: Math.max(0, Math.min(100, Number(video.encodeProgress ?? 0))),
+      storageSize: Number(video.storageSize ?? 0),
+    };
   } catch (error) {
     console.warn(
       "[bunny] status lookup failed:",
@@ -209,6 +313,69 @@ export async function fetchBunnyVideoStatus(
     );
     return null;
   }
+}
+
+export interface BunnyLibraryVideoSummary {
+  guid: string;
+  title: string;
+  status: BunnyVideoStatus;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+}
+
+/** Paginated inventory of the configured Bunny Stream library. */
+export async function listBunnyLibraryVideos(): Promise<BunnyLibraryVideoSummary[]> {
+  const config = getBunnyConfig();
+  if (!config.apiKey || !config.libraryId) return [];
+
+  const results: BunnyLibraryVideoSummary[] = [];
+  let page = 1;
+  const itemsPerPage = 100;
+
+  try {
+    while (page <= 10) {
+      const response = await fetch(
+        `${BUNNY_STREAM_API}/library/${config.libraryId}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=date`,
+        { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
+      );
+      if (!response.ok) {
+        console.warn("[bunny] list videos failed", response.status);
+        break;
+      }
+
+      const payload = (await response.json()) as {
+        items?: Array<{
+          guid?: string;
+          title?: string;
+          status?: number;
+          length?: number;
+          thumbnailFileName?: string;
+        }>;
+      };
+      const items = payload.items || [];
+      for (const item of items) {
+        const guid = String(item.guid || "").trim();
+        if (!guid) continue;
+        results.push({
+          guid,
+          title: String(item.title || "Untitled"),
+          status: mapBunnyStatus(Number(item.status)),
+          thumbnailUrl:
+            item.thumbnailFileName && config.cdnHostname
+              ? `https://${config.cdnHostname}/${guid}/${item.thumbnailFileName}`
+              : null,
+          durationSeconds: Number(item.length) > 0 ? Number(item.length) : null,
+        });
+      }
+
+      if (items.length < itemsPerPage) break;
+      page += 1;
+    }
+  } catch (error) {
+    console.warn("[bunny] list videos error:", error instanceof Error ? error.message : error);
+  }
+
+  return results;
 }
 
 export async function deleteBunnyVideo(bunnyVideoId: string): Promise<boolean> {
@@ -242,6 +409,46 @@ export function mapBunnyStatus(statusCode?: number): BunnyVideoStatus {
     default:
       return "processing";
   }
+}
+
+/** True once Bunny has received the binary (not just the empty video object). */
+export function isBunnyUploadReceived(status: BunnyVideoStatus): boolean {
+  return status !== "pending" && status !== "deleted";
+}
+
+export async function pollBunnyUploadReceived(
+  bunnyVideoId: string,
+  options: { attempts?: number; delayMs?: number } = {}
+): Promise<BunnyVideoSnapshot | null> {
+  const attempts = options.attempts ?? 45;
+  const delayMs = options.delayMs ?? 1000;
+  let last: BunnyVideoSnapshot | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    last = await fetchBunnyVideoStatus(bunnyVideoId);
+    if (!last || last.status === "deleted") return last;
+    if (isBunnyUploadReceived(last.status)) return last;
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return last;
+}
+
+export function buildBunnyTusAuthorizationExpire(secondsFromNow = 60 * 60 * 24): number {
+  return Math.floor(Date.now() / 1000) + secondsFromNow;
+}
+
+export function buildBunnyTusAuthorizationSignature(params: {
+  libraryId: string;
+  apiKey: string;
+  expire: number;
+  videoId: string;
+}): string {
+  return createHash("sha256")
+    .update(`${params.libraryId}${params.apiKey}${params.expire}${params.videoId}`)
+    .digest("hex");
 }
 
 /**
