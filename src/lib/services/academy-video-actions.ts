@@ -90,7 +90,11 @@ export async function confirmAcademyVideoUploadAction(videoId: string) {
 
   const video = await AcademyVideoService.syncStatusAfterUpload(videoId, profile.id);
   if (!video) {
-    return { success: false as const, code: "BUNNY_UPLOAD_FAILED" as const };
+    return {
+      success: false as const,
+      code: "BUNNY_UPLOAD_FAILED" as const,
+      message: "O Bunny Stream não confirmou o recebimento do ficheiro de vídeo.",
+    };
   }
 
   return { success: true as const, video };

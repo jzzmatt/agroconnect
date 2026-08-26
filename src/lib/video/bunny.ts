@@ -158,10 +158,13 @@ export async function createBunnyVideo(params: {
     });
   }
 
-  const expire = Math.floor(Date.now() / 1000) + 60 * 60 * 6;
-  const signature = createHash("sha256")
-    .update(`${config.libraryId}${config.apiKey}${expire}${videoId}`)
-    .digest("hex");
+  const expire = buildBunnyTusAuthorizationExpire();
+  const signature = buildBunnyTusAuthorizationSignature({
+    libraryId: config.libraryId,
+    apiKey: config.apiKey,
+    expire,
+    videoId,
+  });
 
   return {
     configured: true,
@@ -308,6 +311,46 @@ export function mapBunnyStatus(statusCode?: number): BunnyVideoStatus {
     default:
       return "processing";
   }
+}
+
+/** True once Bunny has received the binary (not just the empty video object). */
+export function isBunnyUploadReceived(status: BunnyVideoStatus): boolean {
+  return status !== "pending" && status !== "deleted";
+}
+
+export async function pollBunnyUploadReceived(
+  bunnyVideoId: string,
+  options: { attempts?: number; delayMs?: number } = {}
+): Promise<{ status: BunnyVideoStatus; thumbnailUrl: string | null } | null> {
+  const attempts = options.attempts ?? 15;
+  const delayMs = options.delayMs ?? 1000;
+  let last: { status: BunnyVideoStatus; thumbnailUrl: string | null } | null = null;
+
+  for (let attempt = 0; attempt < attempts; attempt += 1) {
+    last = await fetchBunnyVideoStatus(bunnyVideoId);
+    if (!last || last.status === "deleted") return last;
+    if (isBunnyUploadReceived(last.status)) return last;
+    if (attempt < attempts - 1) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
+
+  return last;
+}
+
+export function buildBunnyTusAuthorizationExpire(secondsFromNow = 60 * 60 * 24): number {
+  return Math.floor(Date.now() / 1000) + secondsFromNow;
+}
+
+export function buildBunnyTusAuthorizationSignature(params: {
+  libraryId: string;
+  apiKey: string;
+  expire: number;
+  videoId: string;
+}): string {
+  return createHash("sha256")
+    .update(`${params.libraryId}${params.apiKey}${params.expire}${params.videoId}`)
+    .digest("hex");
 }
 
 /**

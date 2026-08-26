@@ -4,11 +4,12 @@ import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
 import {
   createBunnyVideo,
   deleteBunnyVideo,
-  fetchBunnyVideoStatus,
   getBunnyConfig,
   getBunnyEmbedUrl,
   isBunnyConfigured,
+  isBunnyUploadReceived,
   listBunnyLibraryVideos,
+  pollBunnyUploadReceived,
 } from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
@@ -264,10 +265,20 @@ export class AcademyVideoService {
     const video = current as unknown as AcademyVideoRecord | null;
     if (!video?.bunny_video_id) return video;
 
-    const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
-    const status = remote?.status ?? "processing";
-    return this.markStatusByBunnyId(video.bunny_video_id, status, {
-      thumbnail_url: remote?.thumbnailUrl ?? video.thumbnail_url ?? null,
+    const remote = await pollBunnyUploadReceived(video.bunny_video_id);
+    if (!remote || remote.status === "deleted" || !isBunnyUploadReceived(remote.status)) {
+      await (supabase.from(TABLE) as any)
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", videoId)
+        .eq("owner_id", ownerId);
+      return null;
+    }
+
+    return this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+      thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
     });
   }
 

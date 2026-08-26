@@ -16,27 +16,39 @@ export async function uploadToBunnyTus(params: {
   const endpoint = params.uploadUrl || BUNNY_TUS_ENDPOINT;
   const libraryId = String(params.libraryId || "");
   const videoId = String(params.videoId || "");
-  const expire = String(params.expire);
+  const expire = Number(params.expire);
 
-  if (!libraryId || !videoId || !params.signature || !expire) {
+  if (!libraryId || !videoId || !params.signature || !Number.isFinite(expire)) {
     throw new Error("BUNNY_UPLOAD_FAILED");
   }
+
+  const authHeaders = {
+    AuthorizationSignature: params.signature,
+    AuthorizationExpire: String(expire),
+    VideoId: videoId,
+    LibraryId: libraryId,
+  };
 
   return new Promise((resolve, reject) => {
     const upload = new tus.Upload(params.file, {
       endpoint,
-      retryDelays: [0, 3000, 5000, 10000, 20000],
+      retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
       chunkSize: 5 * 1024 * 1024,
+      uploadDataDuringCreation: true,
       removeFingerprintOnSuccess: true,
-      headers: {
-        AuthorizationSignature: params.signature,
-        AuthorizationExpire: expire,
-        VideoId: videoId,
-        LibraryId: libraryId,
-      },
+      fingerprint: (file) =>
+        Promise.resolve(
+          `bunny:${videoId}:${file.name}:${file.size}:${file.lastModified}:${file.type || "video/mp4"}`
+        ),
+      headers: authHeaders,
       metadata: {
-        filetype: params.file.type || "video/webm",
-        title: params.file.name || "product-video",
+        filetype: params.file.type || "video/mp4",
+        title: params.file.name || "academy-video",
+      },
+      onBeforeRequest(req) {
+        for (const [key, value] of Object.entries(authHeaders)) {
+          req.setHeader(key, value);
+        }
       },
       onProgress(bytesUploaded, bytesTotal) {
         if (bytesTotal > 0) {
@@ -57,6 +69,19 @@ export async function uploadToBunnyTus(params: {
       reject(new Error("BUNNY_UPLOAD_FAILED"));
     };
     params.signal?.addEventListener("abort", onAbort, { once: true });
-    upload.start();
+
+    void (async () => {
+      try {
+        // Never resume a previous upload for a different Bunny video object.
+        const previousUploads = await upload.findPreviousUploads();
+        const scoped = previousUploads.find((entry) => entry.uploadUrl?.includes(videoId));
+        if (scoped) {
+          upload.resumeFromPreviousUpload(scoped);
+        }
+        upload.start();
+      } catch (error) {
+        reject(error instanceof Error ? error : new Error("BUNNY_UPLOAD_FAILED"));
+      }
+    })();
   });
 }
