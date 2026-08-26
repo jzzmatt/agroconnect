@@ -1,22 +1,26 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { Lock, Sparkles, Upload } from "lucide-react";
+import { Lock, Sparkles } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { VideoStorageMeter } from "@/components/academy/VideoStorageMeter";
+import { AcademyVideoUploader } from "@/components/academy/AcademyVideoUploader";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
-import { createAcademyVideoUploadAction, getAcademyStorageAction } from "@/lib/services/academy-video-actions";
+import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
 import { can, subjectFromProfile } from "@/lib/authorization";
 
 export default function AgriAcademyDashboardPage() {
   const { plan } = useAuthoritativePlan();
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getAcademyStorageAction>> | null>(null);
-  const [message, setMessage] = useState<string | null>(null);
+
+  const refreshStorage = useCallback(() => {
+    getAcademyStorageAction().then(setStorage).catch(() => setStorage(null));
+  }, []);
 
   useEffect(() => {
-    getAcademyStorageAction().then(setStorage).catch(() => setStorage(null));
-  }, [plan]);
+    refreshStorage();
+  }, [plan, refreshStorage]);
 
   const subject = subjectFromProfile({
     id: "",
@@ -26,28 +30,8 @@ export default function AgriAcademyDashboardPage() {
     subscription_plan: plan,
   });
 
-  // Free/basic may view AgriAcademy. Only the management capability is gated,
-  // and the server action enforces it independently of this check.
   const canUploadVideo = can(subject, "academy.video.upload");
-
-  const handleDemoUpload = async () => {
-    try {
-      const result = await createAcademyVideoUploadAction({
-        title: "Aula de irrigação — rascunho",
-        filename: "aula-irrigacao.mp4",
-        mimeType: "video/mp4",
-        fileSize: 50 * 1024 * 1024,
-      });
-      setMessage(
-        result.upload.configured
-          ? "Autorização Bunny gerada. Carregue o ficheiro diretamente para a infraestrutura de vídeo."
-          : result.upload.error || "Metadados criados. Bunny Stream ainda não está configurado neste ambiente."
-      );
-      setStorage(await getAcademyStorageAction());
-    } catch (err: any) {
-      setMessage(err?.message || "Limite de armazenamento atingido.");
-    }
-  };
+  const remainingBytes = storage ? Math.max(0, storage.limitBytes - storage.usedBytes) : 0;
 
   return (
     <div className="space-y-6">
@@ -80,11 +64,7 @@ export default function AgriAcademyDashboardPage() {
             <li>Processamento</li>
             <li>Pronto para reprodução</li>
           </ol>
-          <Button type="button" onClick={handleDemoUpload} className="font-bold text-xs">
-            <Upload className="w-4 h-4 mr-1.5" />
-            Iniciar carregamento seguro
-          </Button>
-          {message && <p className="text-xs font-semibold">{message}</p>}
+          <AcademyVideoUploader remainingBytes={remainingBytes} onUploaded={refreshStorage} />
         </div>
       ) : (
         <div className="bg-surface-card rounded-3xl border border-border p-6 sm:p-8 text-center space-y-4">

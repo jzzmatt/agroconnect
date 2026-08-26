@@ -62,3 +62,18 @@ export async function deleteAcademyVideoAction(videoId: string) {
   if (!profile) return false;
   return AcademyVideoService.deleteVideo(videoId, profile.id);
 }
+
+export async function confirmAcademyVideoUploadAction(videoId: string) {
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    return { success: false as const, code: "AUTH_REQUIRED" as const };
+  }
+
+  const video = await AcademyVideoService.syncStatusAfterUpload(videoId, profile.id);
+  if (!video) {
+    return { success: false as const, code: "BUNNY_UPLOAD_FAILED" as const };
+  }
+
+  return { success: true as const, video };
+}

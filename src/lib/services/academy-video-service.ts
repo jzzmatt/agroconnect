@@ -1,5 +1,10 @@
 import { getUserEntitlements } from "@/lib/services/pricing-service";
-import { createBunnyVideo, deleteBunnyVideo, isBunnyConfigured } from "@/lib/video/bunny";
+import {
+  createBunnyVideo,
+  deleteBunnyVideo,
+  fetchBunnyVideoStatus,
+  isBunnyConfigured,
+} from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
@@ -138,6 +143,29 @@ export class AcademyVideoService {
       .eq("id", videoId)
       .eq("owner_id", ownerId);
     return true;
+  }
+
+  /** Poll Bunny after a successful TUS upload (webhook may be unreachable in dev). */
+  public static async syncStatusAfterUpload(
+    videoId: string,
+    ownerId: string
+  ): Promise<AcademyVideoRecord | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return video;
+
+    const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
+    const status = remote?.status ?? "processing";
+    return this.markStatusByBunnyId(video.bunny_video_id, status, {
+      thumbnail_url: remote?.thumbnailUrl ?? video.thumbnail_url ?? null,
+      playback_url: video.playback_url,
+    });
   }
 
   public static reconcile(params: { bunnyVideoId?: string | null; hasBunny: boolean; hasRecord: boolean }): "ok" | "orphan_bunny" | "video_unavailable" {
