@@ -9,6 +9,7 @@ import { getUserEntitlements } from "@/lib/services/pricing-service";
 describe("AGROCONNECT Phase 7.2 — AgriAcademy Dashboard Refactor", () => {
   beforeEach(() => {
     EnrollmentService.resetMemoryStore();
+    CourseService.resetMemoryStore();
   });
 
   it("1. Exposes Course Creator and My Courses in the Academy sidebar", () => {

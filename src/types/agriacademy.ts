@@ -143,6 +143,18 @@ export interface CourseWithSections extends CourseRecord {
   sections: Array<CourseSectionRecord & { lessons: CourseLessonRecord[] }>;
 }
 
+export type LessonWithVideo = CourseLessonRecord & {
+  video?: AcademyVideoDescriptor | null;
+};
+
+export type SectionWithLessons = CourseSectionRecord & {
+  lessons: LessonWithVideo[];
+};
+
+export type CourseEditorTree = CourseWithSections & {
+  sections: SectionWithLessons[];
+};
+
 export interface CreateCourseInput {
   title: string;
   slug?: string;
