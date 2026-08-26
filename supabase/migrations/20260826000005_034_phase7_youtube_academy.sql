@@ -9,16 +9,6 @@ ALTER TABLE public.course_lessons
   ADD COLUMN IF NOT EXISTS youtube_video_id TEXT,
   ADD COLUMN IF NOT EXISTS youtube_source_url TEXT;
 
-ALTER TABLE public.course_lessons
-  DROP CONSTRAINT IF EXISTS course_lessons_youtube_video_id_check;
-
-ALTER TABLE public.course_lessons
-  ADD CONSTRAINT course_lessons_youtube_video_id_check
-  CHECK (
-    youtube_video_id IS NULL
-    OR youtube_video_id ~ '^[A-Za-z0-9_-]{11}$'
-  );
-
 CREATE INDEX IF NOT EXISTS idx_course_lessons_youtube
   ON public.course_lessons(youtube_video_id)
   WHERE youtube_video_id IS NOT NULL;
@@ -38,3 +28,5 @@ WHERE status = 'published'
     WHERE l.course_id = courses.id
       AND (l.youtube_video_id IS NULL OR btrim(l.youtube_video_id) = '')
   );
+
+NOTIFY pgrst, 'reload schema';

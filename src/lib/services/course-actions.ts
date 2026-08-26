@@ -274,7 +274,7 @@ export async function assignLessonYouTubeAction(lessonId: string, urlOrId: strin
     );
     if (!lesson) return mutationFail("UNAUTHORIZED");
     if (urlOrId !== null && urlOrId.trim() !== "" && !lesson.youtube_video_id) {
-      return mutationFail("DATABASE_ERROR");
+      return mutationFail("YOUTUBE_SCHEMA_MISSING");
     }
     if ((urlOrId === null || urlOrId.trim() === "") && lesson.youtube_video_id != null) {
       return mutationFail("DATABASE_ERROR");

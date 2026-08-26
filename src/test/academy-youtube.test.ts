@@ -1,10 +1,7 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import {
-  buildYouTubeEmbedUrl,
-  extractYouTubeVideoId,
-  isYouTubeVideoId,
-} from "@/lib/academy/youtube";
+import { buildYouTubeEmbedUrl, extractYouTubeVideoId, isYouTubeVideoId } from "@/lib/academy/youtube";
+import { isMissingYoutubeColumnError, mutationRecordHasYouTubeId } from "@/lib/academy/db-errors";
 import { buildAuthorizedEmbedUrl, canAccessLessonVideo } from "@/lib/academy/video-playback";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import type { CourseWithSections } from "@/types/agriacademy";
@@ -76,6 +73,25 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
     expect(validateCourseForPublication(courseWithLesson(YT_ID)).ok).toBe(true);
     expect(validateCourseForPublication(courseWithLesson(null)).ok).toBe(false);
     expect(validateCourseForPublication(courseWithLesson("vid-bunny")).ok).toBe(false);
+  });
+
+  it("maps missing youtube_video_id schema errors", () => {
+    expect(
+      isMissingYoutubeColumnError({
+        code: "PGRST204",
+        message: "Could not find the 'youtube_video_id' column of 'course_lessons' in the schema cache",
+      })
+    ).toBe(true);
+    expect(isMissingYoutubeColumnError({ code: "42703", message: 'column "youtube_video_id" does not exist' })).toBe(
+      true
+    );
+    expect(isMissingYoutubeColumnError({ code: "23503", message: "fk violation" })).toBe(false);
+  });
+
+  it("reads YouTube IDs from nested mutation payloads", () => {
+    expect(mutationRecordHasYouTubeId({ youtube_video_id: "dQw4w9WgXcQ" })).toBe(true);
+    expect(mutationRecordHasYouTubeId({ success: true, data: { youtube_video_id: "dQw4w9WgXcQ" } })).toBe(true);
+    expect(mutationRecordHasYouTubeId({ success: true, data: { youtube_video_id: null } })).toBe(false);
   });
 
   it("keeps enrollment gates separate from Unlisted URL secrecy", () => {

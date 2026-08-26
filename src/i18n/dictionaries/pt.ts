@@ -572,6 +572,8 @@ export const pt = {
     youtubeUrlLabel: "Vídeo do YouTube",
     youtubeUrlPlaceholder: "Cole o URL Unlisted do YouTube",
     youtubeUrlInvalid: "URL ou ID do YouTube inválido.",
+    youtubeSchemaMissing:
+      "A base de dados ainda não está pronta para vídeos do YouTube. Aplique a migração da AgriAcademy.",
     youtubeUnlistedHint:
       "Carregue o vídeo no YouTube como Não listado e cole o URL. Quem obtiver o URL pode vê-lo fora da AgroConnect.",
     youtubePreviewPending: "Pré-visualize o vídeo depois de colar um URL válido.",

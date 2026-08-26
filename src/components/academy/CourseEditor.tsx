@@ -24,6 +24,7 @@ import {
   type CourseDeleteDialogKind,
 } from "@/lib/academy/course-delete-flow";
 import type { CourseMutationCode, CourseMutationResult } from "@/lib/academy/course-errors";
+import { mutationRecordHasYouTubeId } from "@/lib/academy/db-errors";
 import { useI18n } from "@/i18n/provider";
 import {
   archiveCourseAction,
@@ -121,6 +122,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           return dict.agriacademy.deleteDependencyError;
         case "YOUTUBE_URL_INVALID":
           return dict.agriacademy.youtubeUrlInvalid;
+        case "YOUTUBE_SCHEMA_MISSING":
+          return dict.agriacademy.youtubeSchemaMissing;
         default:
           return fallback || dict.agriacademy.unableToSave;
       }
@@ -695,7 +698,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           void runAction(
             () => assignLessonYouTubeAction(lessonId, urlOrId),
             dict.agriacademy.videoAssigned,
-            { require: (data) => Boolean((data as { youtube_video_id?: string | null }).youtube_video_id) }
+            { require: (data) => mutationRecordHasYouTubeId(data) }
           );
         }}
       />

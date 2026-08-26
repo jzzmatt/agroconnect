@@ -574,6 +574,8 @@ export const fr: Dictionary = {
     youtubeUrlLabel: "Vidéo YouTube",
     youtubeUrlPlaceholder: "Collez l’URL YouTube non répertoriée",
     youtubeUrlInvalid: "URL ou identifiant YouTube invalide.",
+    youtubeSchemaMissing:
+      "La base de données n’est pas encore prête pour les vidéos YouTube. Appliquez la migration AgriAcademy.",
     youtubeUnlistedHint:
       "Téléchargez la vidéo sur YouTube en Non répertorié et collez l’URL. Quiconque possède l’URL peut la regarder hors d’AgroConnect.",
     youtubePreviewPending: "L’aperçu apparaît après un URL valide.",

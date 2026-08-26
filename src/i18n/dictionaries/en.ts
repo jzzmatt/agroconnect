@@ -574,6 +574,8 @@ export const en: Dictionary = {
     youtubeUrlLabel: "YouTube video",
     youtubeUrlPlaceholder: "Paste the Unlisted YouTube URL",
     youtubeUrlInvalid: "Invalid YouTube URL or video ID.",
+    youtubeSchemaMissing:
+      "The database is not ready for YouTube videos yet. Apply the AgriAcademy YouTube migration.",
     youtubeUnlistedHint:
       "Upload the video on YouTube as Unlisted and paste the URL. Anyone with the URL can watch it outside AgroConnect.",
     youtubePreviewPending: "Preview appears after you paste a valid URL.",

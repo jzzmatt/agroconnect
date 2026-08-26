@@ -7,6 +7,7 @@ import {
   COURSE_MUTATION_MESSAGES,
 } from "@/lib/academy/course-errors";
 import { extractYouTubeVideoId } from "@/lib/academy/youtube";
+import { isMissingYoutubeColumnError } from "@/lib/academy/db-errors";
 import type {
   CourseEditorTree,
   CourseLessonRecord,
@@ -62,6 +63,13 @@ function seedMemoryStore(): void {
 seedMemoryStore();
 
 function databaseError(cause?: unknown): CoursePersistenceError {
+  if (isMissingYoutubeColumnError(cause)) {
+    return new CoursePersistenceError(
+      "YOUTUBE_SCHEMA_MISSING",
+      COURSE_MUTATION_MESSAGES.YOUTUBE_SCHEMA_MISSING,
+      cause
+    );
+  }
   return new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, cause);
 }
 
@@ -460,7 +468,6 @@ export class AcademyAuthoringService {
         .update({
           youtube_video_id: youtubeVideoId,
           youtube_source_url: youtubeSourceUrl,
-          academy_video_id: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", lessonId)
