@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import {
   formatChapterNumber,
@@ -16,7 +16,6 @@ import {
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { canTransitionCourseStatus, isPubliclyVisibleCourseStatus } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
-import { AcademyVideoService } from "@/lib/services/academy-video-service";
 import type { CourseWithSections } from "@/types/agriacademy";
 
 const OWNER = "prof-seed-1";
@@ -97,17 +96,25 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
     expect(reordered.map((lesson) => lesson.sort_order)).toEqual([1, 2, 3]);
   });
 
-  it("assigns, replaces and removes a lesson video without deleting the asset", async () => {
+  it("assigns, replaces and removes a lesson YouTube reference without deleting the YouTube video", async () => {
     const chapter = await AcademyAuthoringService.createSection(OWNER, "crs-order", "Capítulo");
     const lesson = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "Aula");
-    const assigned = await AcademyAuthoringService.assignLessonVideo(OWNER, lesson!.id, "vid-a");
-    expect(assigned?.academy_video_id).toBe("vid-a");
-    const replaced = await AcademyAuthoringService.assignLessonVideo(OWNER, lesson!.id, "vid-b");
-    expect(replaced?.academy_video_id).toBe("vid-b");
-    const removed = await AcademyAuthoringService.assignLessonVideo(OWNER, lesson!.id, null);
-    expect(removed?.academy_video_id).toBeNull();
-    expect(AcademyAuthoringService.countVideoReferences("vid-a")).toBe(0);
-    expect(AcademyAuthoringService.countVideoReferences("vid-b")).toBe(0);
+    const assigned = await AcademyAuthoringService.assignLessonYouTubeVideo(
+      OWNER,
+      lesson!.id,
+      "dQw4w9WgXcQ"
+    );
+    expect(assigned?.youtube_video_id).toBe("dQw4w9WgXcQ");
+    const replaced = await AcademyAuthoringService.assignLessonYouTubeVideo(
+      OWNER,
+      lesson!.id,
+      "jNQXAC9IVRw"
+    );
+    expect(replaced?.youtube_video_id).toBe("jNQXAC9IVRw");
+    const removed = await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, lesson!.id, null);
+    expect(removed?.youtube_video_id).toBeNull();
+    expect(AcademyAuthoringService.countYouTubeReferences("dQw4w9WgXcQ")).toBe(0);
+    expect(AcademyAuthoringService.countYouTubeReferences("jNQXAC9IVRw")).toBe(0);
   });
 
   it("includes chapters, lessons and video refs in the editor fingerprint", async () => {
@@ -115,7 +122,7 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
     const before = await AcademyAuthoringService.getCourseEditorTree("crs-fp", OWNER);
     const fingerprintBefore = courseEditorFingerprint(before!);
     const lesson = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "Aula");
-    await AcademyAuthoringService.assignLessonVideo(OWNER, lesson!.id, "vid-fp");
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, lesson!.id, "dQw4w9WgXcQ");
     const after = await AcademyAuthoringService.getCourseEditorTree("crs-fp", OWNER);
     expect(courseEditorFingerprint(after!)).not.toBe(fingerprintBefore);
   });
@@ -142,7 +149,7 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
               section_id: "sec-valid",
               title: "Aula",
               sort_order: 1,
-              academy_video_id: "vid-ready",
+              youtube_video_id: "dQw4w9WgXcQ",
               is_free_preview: false,
               created_at: created.created_at,
               updated_at: created.updated_at,
@@ -159,7 +166,7 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
         sections: [
           {
             ...tree.sections[0],
-            lessons: [{ ...tree.sections[0].lessons[0], academy_video_id: null }],
+            lessons: [{ ...tree.sections[0].lessons[0], youtube_video_id: null }],
           },
         ],
       }).ok
@@ -275,16 +282,12 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
     if (!deleted.success) expect(deleted.code).toBe("COURSE_PUBLISHED");
   });
 
-  it("does not delete reusable Academy/Bunny videos when a course is deleted", async () => {
+  it("does not delete YouTube videos when a course is deleted", async () => {
     const chapter = await AcademyAuthoringService.createSection(OWNER, "crs-seed-draft", "Capítulo");
     const lesson = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "Aula");
-    await AcademyAuthoringService.assignLessonVideo(OWNER, lesson!.id, "vid-reusable");
-    const spy = vi.spyOn(AcademyVideoService, "deleteVideo");
+    await AcademyAuthoringService.assignLessonYouTubeVideo(OWNER, lesson!.id, "dQw4w9WgXcQ");
     const deleted = await CourseService.deleteCourse(OWNER, "crs-seed-draft");
     expect(deleted.success).toBe(true);
-    expect(spy).not.toHaveBeenCalled();
-    spy.mockRestore();
-    expect(AcademyVideoService.isOrphaned({ reference_count: 1, orphaned_at: null })).toBe(false);
   });
 
   it("allows archived course deletion as an explicit unpublished lifecycle", () => {

@@ -1826,6 +1826,8 @@ export interface Database {
           description: string | null;
           sort_order: number;
           academy_video_id: string | null;
+          youtube_video_id: string | null;
+          youtube_source_url: string | null;
           duration_seconds: number | null;
           is_free_preview: boolean;
           created_at: string;
@@ -1839,6 +1841,8 @@ export interface Database {
           description?: string | null;
           sort_order?: number;
           academy_video_id?: string | null;
+          youtube_video_id?: string | null;
+          youtube_source_url?: string | null;
           duration_seconds?: number | null;
           is_free_preview?: boolean;
           created_at?: string;
@@ -1852,6 +1856,8 @@ export interface Database {
           description?: string | null;
           sort_order?: number;
           academy_video_id?: string | null;
+          youtube_video_id?: string | null;
+          youtube_source_url?: string | null;
           duration_seconds?: number | null;
           is_free_preview?: boolean;
           created_at?: string;

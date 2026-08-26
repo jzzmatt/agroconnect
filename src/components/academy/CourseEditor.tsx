@@ -15,7 +15,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { MediaLibraryModal } from "@/components/academy/MediaLibraryModal";
+import { LessonYouTubeModal } from "@/components/academy/LessonYouTubeModal";
 import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { courseEditorFingerprint } from "@/lib/academy/editor-snapshot";
@@ -27,7 +27,7 @@ import type { CourseMutationCode, CourseMutationResult } from "@/lib/academy/cou
 import { useI18n } from "@/i18n/provider";
 import {
   archiveCourseAction,
-  assignLessonVideoAction,
+  assignLessonYouTubeAction,
   createLessonAction,
   createSectionAction,
   deleteCourseAction,
@@ -41,7 +41,6 @@ import {
   updateLessonAction,
   updateSectionAction,
 } from "@/lib/services/course-actions";
-import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
 import type { CourseEditorTree } from "@/types/agriacademy";
 
 type SaveState = "idle" | "saving" | "success" | "error";
@@ -80,7 +79,6 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [savedSnapshot, setSavedSnapshot] = useState<string>("");
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [remainingBytes, setRemainingBytes] = useState(0);
   const [videoLessonId, setVideoLessonId] = useState<string | null>(null);
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
@@ -121,6 +119,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           return dict.agriacademy.mutationDatabaseError;
         case "DEPENDENCY_ERROR":
           return dict.agriacademy.deleteDependencyError;
+        case "YOUTUBE_URL_INVALID":
+          return dict.agriacademy.youtubeUrlInvalid;
         default:
           return fallback || dict.agriacademy.unableToSave;
       }
@@ -198,18 +198,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
     [applyCourseTree, courseId, dict.agriacademy.unableToLoadCourse]
   );
 
-  const refreshStorage = useCallback(() => {
-    void getAcademyStorageAction()
-      .then((storage) => {
-        setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
-      })
-      .catch(() => undefined);
-  }, []);
-
   useEffect(() => {
     void loadCourse({ showLoading: true });
-    refreshStorage();
-  }, [courseId, loadCourse, refreshStorage]);
+  }, [courseId, loadCourse]);
 
   useEffect(() => {
     return () => {
@@ -609,11 +600,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                     disabled={isSaving}
                     onClick={() => setVideoLessonId(lesson.id)}
                   >
-                    {lesson.academy_video_id
+                    {lesson.youtube_video_id
                       ? dict.agriacademy.replaceVideo
                       : dict.agriacademy.selectVideo}
                   </Button>
-                  {lesson.academy_video_id ? (
+                  {lesson.youtube_video_id ? (
                     <Button
                       type="button"
                       size="sm"
@@ -621,9 +612,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       disabled={isSaving}
                       onClick={() =>
                         void runAction(
-                          () => assignLessonVideoAction(lesson.id, null),
+                          () => assignLessonYouTubeAction(lesson.id, null),
                           dict.agriacademy.videoRemoved,
-                          { require: (data) => (data as { academy_video_id?: string | null }).academy_video_id == null }
+                          { require: (data) => (data as { youtube_video_id?: string | null }).youtube_video_id == null }
                         )
                       }
                     >
@@ -641,11 +632,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
-                  {(lesson as { video?: { title?: string } }).video?.title && (
+                  {lesson.youtube_video_id ? (
                     <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                      {(lesson as { video?: { title?: string } }).video?.title}
+                      {lesson.youtube_video_id}
                     </span>
-                  )}
+                  ) : null}
                 </div>
               ))}
               <Button
@@ -687,18 +678,25 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         ← {dict.agriacademy.backToCourseCreator}
       </Link>
 
-      <MediaLibraryModal
+      <LessonYouTubeModal
         open={Boolean(videoLessonId)}
-        remainingBytes={remainingBytes}
+        initialUrl={
+          course?.sections
+            .flatMap((section) => section.lessons)
+            .find((lesson) => lesson.id === videoLessonId)?.youtube_source_url
+          || course?.sections
+            .flatMap((section) => section.lessons)
+            .find((lesson) => lesson.id === videoLessonId)?.youtube_video_id
+        }
         onClose={() => setVideoLessonId(null)}
-        onSelect={(videoId) => {
+        onSave={(urlOrId) => {
           if (!videoLessonId) return;
           const lessonId = videoLessonId;
           setVideoLessonId(null);
           void runAction(
-            () => assignLessonVideoAction(lessonId, videoId),
+            () => assignLessonYouTubeAction(lessonId, urlOrId),
             dict.agriacademy.videoAssigned,
-            { require: (data) => (data as { academy_video_id?: string | null }).academy_video_id === videoId }
+            { require: (data) => Boolean((data as { youtube_video_id?: string | null }).youtube_video_id) }
           );
         }}
       />

@@ -93,9 +93,8 @@ describe("Bunny Stream webhook security (Phase 4)", () => {
     expect(response.status).toBe(401);
   });
 
-  it("accepts a correctly signed request and durably updates the Academy video row", async () => {
+  it("accepts a correctly signed request without writing Academy video rows", async () => {
     const { POST } = await import("@/app/api/webhooks/bunny/route");
-    const { AcademyVideoService } = await import("@/lib/services/academy-video-service");
 
     const body = JSON.stringify({
       VideoGuid: BUNNY_VIDEO_ID,
@@ -106,14 +105,7 @@ describe("Bunny Stream webhook security (Phase 4)", () => {
 
     const response = await POST(signedRequest(body, signature));
     expect(response.status).toBe(200);
-
-    // Re-read through an independent service call. If the webhook only
-    // mutated a local variable or an in-memory array, this fresh read would
-    // still show "uploading" — it does not, because the write landed in the
-    // (fake) academy_videos table.
-    const rows = await AcademyVideoService.listByOwner("owner-1");
-    expect(rows).toHaveLength(1);
-    expect(rows[0].status).toBe("ready");
-    expect(rows[0].thumbnail_url).toBe("https://cdn.example.test/thumb.jpg");
+    const payload = await response.json();
+    expect(payload.academy).toBe(false);
   });
 });

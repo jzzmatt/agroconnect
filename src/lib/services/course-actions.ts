@@ -5,7 +5,6 @@ import { authorize } from "@/lib/authorization/server";
 import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { CourseService } from "@/lib/services/course-service";
-import { AcademyVideoService } from "@/lib/services/academy-video-service";
 import {
   mutationFail,
   mutationOk,
@@ -263,23 +262,31 @@ export async function deleteLessonAction(lessonId: string) {
   }
 }
 
-export async function assignLessonVideoAction(lessonId: string, videoId: string | null) {
+export async function assignLessonYouTubeAction(lessonId: string, urlOrId: string | null) {
   try {
     await authorize("academy.course.update");
     const userProfile = await getCurrentUserProfile();
     if (!userProfile) return mutationFail("UNAUTHORIZED");
-    const lesson = await AcademyAuthoringService.assignLessonVideo(userProfile.id, lessonId, videoId);
+    const lesson = await AcademyAuthoringService.assignLessonYouTubeVideo(
+      userProfile.id,
+      lessonId,
+      urlOrId
+    );
     if (!lesson) return mutationFail("UNAUTHORIZED");
-    if (videoId !== null && lesson.academy_video_id !== videoId) {
+    if (urlOrId !== null && urlOrId.trim() !== "" && !lesson.youtube_video_id) {
       return mutationFail("DATABASE_ERROR");
     }
-    if (videoId === null && lesson.academy_video_id != null) {
+    if ((urlOrId === null || urlOrId.trim() === "") && lesson.youtube_video_id != null) {
       return mutationFail("DATABASE_ERROR");
     }
     return mutationOk(lesson);
   } catch (err: unknown) {
     return toCourseMutationFailure(err);
   }
+}
+
+export async function assignLessonVideoAction(lessonId: string, videoId: string | null) {
+  return assignLessonYouTubeAction(lessonId, videoId);
 }
 
 export async function reorderLessonsAction(sectionId: string, orderedLessonIds: string[]) {
@@ -296,13 +303,6 @@ export async function reorderLessonsAction(sectionId: string, orderedLessonIds: 
   } catch (err: unknown) {
     return toCourseMutationFailure(err);
   }
-}
-
-export async function listMediaLibraryAction() {
-  await authorize("academy.video.upload");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
-  return AcademyVideoService.listByOwnerSynced(userProfile.id);
 }
 
 export async function getPublishedCourseDetailAction(slug: string) {

@@ -10,9 +10,7 @@ import type { CourseWithSections } from "@/types/agriacademy";
 const STUDENT = "student-1";
 const COURSE_ID = "crs-published-1";
 
-function publishedCourseTree(): CourseWithSections & {
-  sections: Array<{ lessons?: Array<{ video?: { status: string } }> }>;
-} {
+function publishedCourseTree(): CourseWithSections {
   return {
     id: COURSE_ID,
     owner_id: "instructor-1",
@@ -43,11 +41,10 @@ function publishedCourseTree(): CourseWithSections & {
             section_id: "sec-1",
             title: "Apresentação",
             sort_order: 1,
-            academy_video_id: "vid-1",
+            youtube_video_id: "dQw4w9WgXcQ",
             is_free_preview: false,
             created_at: new Date().toISOString(),
             updated_at: new Date().toISOString(),
-            video: { status: "ready" as const },
           },
         ],
       },
@@ -127,60 +124,20 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
     ).toBe(true);
   });
 
-  it("8. Builds embed URLs for ready and in-flight Bunny assets", () => {
-    expect(
-      buildAuthorizedEmbedUrl({
-        bunny_video_id: "abc",
-        bunny_library_id: "lib",
-        status: "ready",
-      })
-    ).toBeTruthy();
-
-    expect(
-      buildAuthorizedEmbedUrl({
-        bunny_video_id: "abc",
-        bunny_library_id: "lib",
-        status: "processing",
-      })
-    ).toBeTruthy();
-
-    expect(
-      buildAuthorizedEmbedUrl({
-        bunny_video_id: "abc",
-        bunny_library_id: "lib",
-        status: "pending",
-      })
-    ).toBeNull();
+  it("8. Builds YouTube embed URLs from Video IDs", () => {
+    expect(buildAuthorizedEmbedUrl("dQw4w9WgXcQ")).toBe(
+      "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ"
+    );
+    expect(buildAuthorizedEmbedUrl(null)).toBeNull();
+    expect(buildAuthorizedEmbedUrl("not-valid")).toBeNull();
   });
 
-  it("9. Reuses stored playback_url when present", () => {
-    const url = "https://iframe.mediadelivery.net/embed/123/abc";
-    expect(
-      buildAuthorizedEmbedUrl({
-        bunny_video_id: "abc",
-        bunny_library_id: null,
-        status: "processing",
-        playback_url: url,
-      })
-    ).toBe(url);
-  });
-
-  it("9b. Builds embed URLs for ready videos without stored playback_url", () => {
-    const url = buildAuthorizedEmbedUrl({
-      bunny_video_id: "abc",
-      bunny_library_id: "lib-123",
-      status: "ready",
-      playback_url: null,
-    });
-    expect(url).toContain("iframe.mediadelivery.net/embed/lib-123/abc");
-  });
-
-  it("9. Blocks publication when videos are still processing", () => {
+  it("9. Blocks publication when lessons lack a YouTube Video ID", () => {
     const tree = publishedCourseTree();
-    tree.sections[0].lessons![0].video = { status: "processing" };
+    tree.sections[0].lessons[0].youtube_video_id = null;
     const result = validateCourseForPublication(tree);
     expect(result.ok).toBe(false);
-    expect(result.errors.some((error) => error.includes("processados"))).toBe(true);
+    expect(result.errors.some((error) => error.toLowerCase().includes("youtube"))).toBe(true);
   });
 
   it("10. Preserves intended course destination through auth redirect", () => {

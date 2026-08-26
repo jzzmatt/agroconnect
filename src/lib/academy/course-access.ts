@@ -4,12 +4,7 @@ import {
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
-import {
-  buildAuthorizedEmbedUrl,
-  canAccessLessonVideo,
-  resolvePlaybackEmbedUrl,
-} from "@/lib/academy/video-playback";
-import type { AcademyVideoDescriptor } from "@/types/agriacademy";
+import { buildAuthorizedEmbedUrl, canAccessLessonVideo } from "@/lib/academy/video-playback";
 
 function hasLiveSupabase(): boolean {
   return Boolean(
@@ -31,7 +26,7 @@ export class CourseAccessService {
   public static async getLessonPlayback(params: {
     lessonId: string;
     profileId: string;
-  }): Promise<{ allowed: boolean; embedUrl?: string; reason?: string; processing?: boolean }> {
+  }): Promise<{ allowed: boolean; embedUrl?: string; reason?: string }> {
     if (!hasLiveSupabase()) {
       return { allowed: false, reason: "unavailable" };
     }
@@ -39,7 +34,7 @@ export class CourseAccessService {
     const supabase = await getPlaybackSupabase();
 
     const { data: lesson } = await (supabase.from("course_lessons") as any)
-      .select("id, course_id, academy_video_id, is_free_preview")
+      .select("id, course_id, youtube_video_id, is_free_preview")
       .eq("id", params.lessonId)
       .maybeSingle();
 
@@ -70,30 +65,12 @@ export class CourseAccessService {
       return { allowed: false, reason: "not_enrolled" };
     }
 
-    if (!lesson.academy_video_id) {
+    const embedUrl = buildAuthorizedEmbedUrl(lesson.youtube_video_id);
+    if (!embedUrl) {
       return { allowed: false, reason: "no_video" };
     }
 
-    const { data: video } = await (supabase.from("academy_videos") as any)
-      .select("*")
-      .eq("id", lesson.academy_video_id)
-      .maybeSingle();
-
-    const asset = video as AcademyVideoDescriptor | null;
-    if (!asset) {
-      return { allowed: false, reason: "video_not_found" };
-    }
-
-    const embedUrl = await resolvePlaybackEmbedUrl(asset);
-    if (!embedUrl) {
-      return { allowed: false, reason: "video_not_ready" };
-    }
-
-    return {
-      allowed: true,
-      embedUrl,
-      processing: asset.status !== "ready",
-    };
+    return { allowed: true, embedUrl };
   }
 
   public static async getEnrollmentStatus(

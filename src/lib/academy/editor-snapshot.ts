@@ -3,6 +3,7 @@ type EditorSnapshotLesson = {
   title: string;
   sort_order: number;
   academy_video_id?: string | null;
+  youtube_video_id?: string | null;
 };
 
 type EditorSnapshotSection = {
@@ -36,6 +37,7 @@ export function courseEditorFingerprint(course: EditorSnapshotCourse): string {
         title: lesson.title,
         sort_order: lesson.sort_order,
         academy_video_id: lesson.academy_video_id ?? null,
+        youtube_video_id: lesson.youtube_video_id ?? null,
       })),
     })),
   });

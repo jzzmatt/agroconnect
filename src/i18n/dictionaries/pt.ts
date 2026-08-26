@@ -569,6 +569,13 @@ export const pt = {
     lessonUpdated: "Aula atualizada.",
     lessonRemoved: "Aula removida.",
     videoAssigned: "Vídeo associado à aula.",
+    youtubeUrlLabel: "Vídeo do YouTube",
+    youtubeUrlPlaceholder: "Cole o URL Unlisted do YouTube",
+    youtubeUrlInvalid: "URL ou ID do YouTube inválido.",
+    youtubeUnlistedHint:
+      "Carregue o vídeo no YouTube como Não listado e cole o URL. Quem obtiver o URL pode vê-lo fora da AgroConnect.",
+    youtubePreviewPending: "Pré-visualize o vídeo depois de colar um URL válido.",
+    saveYouTubeUrl: "Guardar URL do YouTube",
     videoRemoved: "Vídeo removido da aula.",
     deleteUnauthorized: "Não tem permissão para eliminar este curso.",
     deletePublished: "Este curso está publicado. Retire-o da publicação antes de o eliminar.",
@@ -637,6 +644,7 @@ export const pt = {
     BUNNY_LIBRARY_ID_INVALID:
       "O ID da biblioteca Bunny Stream é inválido. Use o ID numérico da biblioteca (Stream → Biblioteca → API), não a chave da conta.",
     BUNNY_UPLOAD_FAILED: "Não foi possível enviar o vídeo para o Bunny Stream. Tente novamente.",
+    YOUTUBE_URL_INVALID: "URL ou ID do YouTube inválido.",
     IMAGEKIT_NOT_CONFIGURED: "O carregamento de média não está configurado. Adicione as chaves ImageKit.",
     IMAGEKIT_UPLOAD_FAILED: "Não foi possível enviar o ficheiro para o ImageKit. Tente novamente.",
     PRODUCT_PUBLISH_TIMEOUT: "Não foi possível concluir a publicação. Tente novamente.",

@@ -5,8 +5,10 @@ import type {
   CourseStatus,
 } from "./database";
 
+/** @deprecated Academy training video is a YouTube Unlisted ID on the lesson. */
 export type AcademyVideoVisibility = "private" | "unlisted" | "public" | "enrolled_only";
 
+/** @deprecated Kept for leftover `academy_videos` rows; new lessons use `youtube_video_id`. */
 export interface AcademyVideoDescriptor {
   id: string;
   owner_id: string;
@@ -106,6 +108,8 @@ export interface CourseLessonRecord {
   description?: string | null;
   sort_order: number;
   academy_video_id?: string | null;
+  youtube_video_id?: string | null;
+  youtube_source_url?: string | null;
   duration_seconds?: number | null;
   is_free_preview: boolean;
   created_at: string;
@@ -143,9 +147,7 @@ export interface CourseWithSections extends CourseRecord {
   sections: Array<CourseSectionRecord & { lessons: CourseLessonRecord[] }>;
 }
 
-export type LessonWithVideo = CourseLessonRecord & {
-  video?: AcademyVideoDescriptor | null;
-};
+export type LessonWithVideo = CourseLessonRecord;
 
 export type SectionWithLessons = CourseSectionRecord & {
   lessons: LessonWithVideo[];
