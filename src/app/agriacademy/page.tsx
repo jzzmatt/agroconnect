@@ -7,7 +7,8 @@ import { SectionHeader, SearchBar, EmptyState } from "@/components/ui";
 import { CourseCatalogGrid } from "@/components/academy/CourseCatalogGrid";
 import { LocationSelector } from "@/components/location";
 import { useI18n } from "@/i18n/provider";
-import { CourseService, INITIAL_COURSES } from "@/lib/services/course-service";
+import { INITIAL_COURSES } from "@/lib/academy/course-catalog";
+import { searchPublishedCoursesAction } from "@/lib/services/course-actions";
 import type { CourseListItem } from "@/types/agriacademy";
 import { GraduationCap } from "lucide-react";
 
@@ -20,7 +21,7 @@ export default function AgriAcademyPage() {
 
   useEffect(() => {
     startTransition(() => {
-      void CourseService.searchPublishedCourses({
+      void searchPublishedCoursesAction({
         query: searchQuery || undefined,
         provinceName: selectedProvince || undefined,
       }).then((result) => {

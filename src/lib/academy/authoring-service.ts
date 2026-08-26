@@ -1,3 +1,5 @@
+import "server-only";
+
 import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
 import { nextSortOrder } from "@/lib/academy/lesson-numbering";
 import type {
