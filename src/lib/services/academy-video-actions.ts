@@ -13,7 +13,6 @@ export async function getAcademyStorageAction() {
       usedLabel: "0 GB",
       limitLabel: "0 GB",
       percent: 0,
-      videos: [],
     };
   }
   const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
@@ -25,7 +24,6 @@ export async function getAcademyStorageAction() {
     usedLabel: formatVideoStorage(usedBytes),
     limitLabel: formatVideoStorage(limitBytes),
     percent: limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0,
-    videos: await AcademyVideoService.listByOwnerSynced(profile.id),
   };
 }
 

@@ -76,10 +76,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
 
   const refresh = useCallback(() => {
     startTransition(async () => {
-      const [tree, storage] = await Promise.all([
-        getCourseEditorAction(courseId),
-        getAcademyStorageAction(),
-      ]);
+      const tree = await getCourseEditorAction(courseId);
       setCourse(tree);
       if (tree) {
         setSavedSnapshot(
@@ -90,10 +87,13 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           })
         );
       }
-      if (storage) {
-        setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
-      }
     });
+
+    void getAcademyStorageAction()
+      .then((storage) => {
+        setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
+      })
+      .catch(() => undefined);
   }, [courseId]);
 
   useEffect(() => {

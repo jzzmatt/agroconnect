@@ -16,6 +16,12 @@ describe("AgriAcademy Bunny upload flow", () => {
     );
   });
 
+  it("keeps storage quota reads lightweight for the course editor", () => {
+    const storageAction = readFileSync("src/lib/services/academy-video-actions.ts", "utf8");
+    expect(storageAction).not.toContain("listByOwnerSynced");
+    expect(storageAction).toContain("getUsageBytes");
+  });
+
   it("uses file picker + TUS upload instead of a metadata-only demo button", () => {
     const mediaLibrary = readFileSync("src/components/academy/MediaLibraryModal.tsx", "utf8");
     const uploader = readFileSync("src/components/academy/AcademyVideoUploader.tsx", "utf8");

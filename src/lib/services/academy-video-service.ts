@@ -4,6 +4,7 @@ import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
 import {
   createBunnyVideo,
   deleteBunnyVideo,
+  fetchBunnyVideoStatus,
   getBunnyConfig,
   getBunnyEmbedUrl,
   isBunnyConfigured,
@@ -11,6 +12,7 @@ import {
   listBunnyLibraryVideos,
   pollBunnyUploadReceived,
   uploadBunnyVideoBinary,
+  type BunnyLibraryVideoSummary,
 } from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
@@ -74,14 +76,18 @@ export class AcademyVideoService {
    * Reconciles the owner's library with Bunny Stream before returning it.
    * Removes DB rows whose Bunny assets were deleted; syncs status/metadata for the rest.
    */
-  public static async listByOwnerSynced(ownerId: string): Promise<AcademyVideoRecord[]> {
-    const videos = await this.listByOwner(ownerId);
-    if (!isBunnyConfigured() || videos.length === 0) {
-      return videos;
-    }
+  private static async withTimeout<T>(promise: Promise<T>, ms: number): Promise<T | null> {
+    return Promise.race([
+      promise,
+      new Promise<null>((resolve) => setTimeout(() => resolve(null), ms)),
+    ]);
+  }
 
-    const remoteVideos = await listBunnyLibraryVideos();
-    const remoteByGuid = new Map(remoteVideos.map((item) => [item.guid, item]));
+  private static async applyLibraryReconcilePlan(
+    ownerId: string,
+    videos: AcademyVideoRecord[],
+    remoteByGuid: Map<string, BunnyLibraryVideoSummary>
+  ): Promise<AcademyVideoRecord[]> {
     const supabase = getMediaSupabaseClient();
     const kept: AcademyVideoRecord[] = [];
 
@@ -127,6 +133,49 @@ export class AcademyVideoService {
     return kept.sort(
       (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
     );
+  }
+
+  private static async reconcileOwnerVideosByStatus(
+    ownerId: string,
+    videos: AcademyVideoRecord[]
+  ): Promise<AcademyVideoRecord[]> {
+    const remoteByGuid = new Map<string, BunnyLibraryVideoSummary>();
+
+    for (const video of videos) {
+      if (!video.bunny_video_id) continue;
+      const remote = await this.withTimeout(fetchBunnyVideoStatus(video.bunny_video_id), 4_000);
+      if (!remote) continue;
+      if (remote.status === "deleted") continue;
+      remoteByGuid.set(video.bunny_video_id, {
+        guid: video.bunny_video_id,
+        title: video.title,
+        status: remote.status,
+        thumbnailUrl: remote.thumbnailUrl,
+        durationSeconds: video.duration_seconds ?? null,
+      });
+    }
+
+    return this.applyLibraryReconcilePlan(ownerId, videos, remoteByGuid);
+  }
+
+  public static async listByOwnerSynced(ownerId: string): Promise<AcademyVideoRecord[]> {
+    const videos = await this.listByOwner(ownerId);
+    if (!isBunnyConfigured() || videos.length === 0) {
+      return videos;
+    }
+
+    if (videos.length <= 50) {
+      return this.reconcileOwnerVideosByStatus(ownerId, videos);
+    }
+
+    const remoteVideos = await this.withTimeout(listBunnyLibraryVideos(), 12_000);
+    if (remoteVideos === null) {
+      console.warn("[AcademyVideoService] Bunny library sync timed out; using database list.");
+      return videos;
+    }
+
+    const remoteByGuid = new Map(remoteVideos.map((item) => [item.guid, item]));
+    return this.applyLibraryReconcilePlan(ownerId, videos, remoteByGuid);
   }
 
   public static async createUpload(params: {

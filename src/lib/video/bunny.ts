@@ -309,7 +309,7 @@ export async function listBunnyLibraryVideos(): Promise<BunnyLibraryVideoSummary
   const itemsPerPage = 100;
 
   try {
-    while (page <= 100) {
+    while (page <= 10) {
       const response = await fetch(
         `${BUNNY_STREAM_API}/library/${config.libraryId}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=date`,
         { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }

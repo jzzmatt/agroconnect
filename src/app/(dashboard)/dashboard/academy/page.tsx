@@ -35,7 +35,8 @@ export default function CourseCreatorPage() {
   const [publishedCourses, setPublishedCourses] = useState<PublishedCourse[]>([]);
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getAcademyStorageAction>> | null>(null);
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [, startRefresh] = useTransition();
+  const [isCreating, startCreate] = useTransition();
 
   const subject = subjectFromProfile({
     id: "",
@@ -47,7 +48,7 @@ export default function CourseCreatorPage() {
   const canManage = can(subject, "academy.course.create");
 
   const refresh = useCallback(() => {
-    startTransition(async () => {
+    startRefresh(async () => {
       const [dashboard, storageData] = await Promise.all([
         canManage ? getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] })) : Promise.resolve({ draftCourses: [], publishedCourses: [] }),
         canManage ? getAcademyStorageAction().catch(() => null) : Promise.resolve(null),
@@ -63,7 +64,7 @@ export default function CourseCreatorPage() {
   }, [refresh, plan]);
 
   const handleCreate = () => {
-    startTransition(async () => {
+    startCreate(async () => {
       const created = await createCourseAction({
         title: "Novo curso AgriAcademy",
         description: "Descrição do curso em preparação.",
@@ -100,7 +101,7 @@ export default function CourseCreatorPage() {
           <h1 className="text-2xl font-black">{dict.agriacademy.courseCreatorTitle}</h1>
           <p className="text-xs text-muted-foreground mt-1">{dict.agriacademy.courseCreatorSubtitle}</p>
         </div>
-        <Button type="button" onClick={handleCreate} disabled={isPending} className="font-bold">
+        <Button type="button" onClick={handleCreate} disabled={isCreating} className="font-bold">
           <Plus className="w-4 h-4 mr-1.5" />
           {dict.agriacademy.createNewCourse}
         </Button>
