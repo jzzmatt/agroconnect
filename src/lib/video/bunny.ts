@@ -193,6 +193,9 @@ export async function fetchBunnyVideoStatus(
       `${BUNNY_STREAM_API}/library/${config.libraryId}/videos/${bunnyVideoId}`,
       { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
     );
+    if (response.status === 404) {
+      return { status: "deleted", thumbnailUrl: null };
+    }
     if (!response.ok) return null;
 
     const video = (await response.json()) as { status?: number; thumbnailFileName?: string };
@@ -209,6 +212,69 @@ export async function fetchBunnyVideoStatus(
     );
     return null;
   }
+}
+
+export interface BunnyLibraryVideoSummary {
+  guid: string;
+  title: string;
+  status: BunnyVideoStatus;
+  thumbnailUrl: string | null;
+  durationSeconds: number | null;
+}
+
+/** Paginated inventory of the configured Bunny Stream library. */
+export async function listBunnyLibraryVideos(): Promise<BunnyLibraryVideoSummary[]> {
+  const config = getBunnyConfig();
+  if (!config.apiKey || !config.libraryId) return [];
+
+  const results: BunnyLibraryVideoSummary[] = [];
+  let page = 1;
+  const itemsPerPage = 100;
+
+  try {
+    while (page <= 100) {
+      const response = await fetch(
+        `${BUNNY_STREAM_API}/library/${config.libraryId}/videos?page=${page}&itemsPerPage=${itemsPerPage}&orderBy=date`,
+        { headers: { AccessKey: config.apiKey, Accept: "application/json" }, cache: "no-store" }
+      );
+      if (!response.ok) {
+        console.warn("[bunny] list videos failed", response.status);
+        break;
+      }
+
+      const payload = (await response.json()) as {
+        items?: Array<{
+          guid?: string;
+          title?: string;
+          status?: number;
+          length?: number;
+          thumbnailFileName?: string;
+        }>;
+      };
+      const items = payload.items || [];
+      for (const item of items) {
+        const guid = String(item.guid || "").trim();
+        if (!guid) continue;
+        results.push({
+          guid,
+          title: String(item.title || "Untitled"),
+          status: mapBunnyStatus(Number(item.status)),
+          thumbnailUrl:
+            item.thumbnailFileName && config.cdnHostname
+              ? `https://${config.cdnHostname}/${guid}/${item.thumbnailFileName}`
+              : null,
+          durationSeconds: Number(item.length) > 0 ? Number(item.length) : null,
+        });
+      }
+
+      if (items.length < itemsPerPage) break;
+      page += 1;
+    }
+  } catch (error) {
+    console.warn("[bunny] list videos error:", error instanceof Error ? error.message : error);
+  }
+
+  return results;
 }
 
 export async function deleteBunnyVideo(bunnyVideoId: string): Promise<boolean> {

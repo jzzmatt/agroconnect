@@ -527,6 +527,7 @@ export const pt = {
     references: "Referências",
     preview: "Pré-visualizar",
     closePreview: "Fechar pré-visualização",
+    videoUnavailable: "Indisponível no Bunny Stream",
   },
   agriexpert: {
     experts: "Especialistas",

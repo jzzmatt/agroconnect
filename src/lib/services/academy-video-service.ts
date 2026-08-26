@@ -1,4 +1,5 @@
 import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { planLibraryReconcile } from "@/lib/academy/video-library-sync";
 import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
 import {
   createBunnyVideo,
@@ -7,6 +8,7 @@ import {
   getBunnyConfig,
   getBunnyEmbedUrl,
   isBunnyConfigured,
+  listBunnyLibraryVideos,
 } from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
@@ -64,6 +66,65 @@ export class AcademyVideoService {
       .order("created_at", { ascending: false });
     if (error) throw Object.assign(new Error(error.message), { code: "ACADEMY_VIDEO_READ_FAILED" });
     return (data || []) as unknown as AcademyVideoRecord[];
+  }
+
+  /**
+   * Reconciles the owner's library with Bunny Stream before returning it.
+   * Removes DB rows whose Bunny assets were deleted; syncs status/metadata for the rest.
+   */
+  public static async listByOwnerSynced(ownerId: string): Promise<AcademyVideoRecord[]> {
+    const videos = await this.listByOwner(ownerId);
+    if (!isBunnyConfigured() || videos.length === 0) {
+      return videos;
+    }
+
+    const remoteVideos = await listBunnyLibraryVideos();
+    const remoteByGuid = new Map(remoteVideos.map((item) => [item.guid, item]));
+    const supabase = getMediaSupabaseClient();
+    const kept: AcademyVideoRecord[] = [];
+
+    for (const video of videos) {
+      const remote = video.bunny_video_id ? remoteByGuid.get(video.bunny_video_id) ?? null : null;
+      const plan = planLibraryReconcile({ video, remote });
+
+      if (plan.action === "remove") {
+        await (supabase.from(TABLE) as any)
+          .update({
+            status: "deleted",
+            orphaned_at: video.orphaned_at ?? new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", video.id)
+          .eq("owner_id", ownerId);
+        continue;
+      }
+
+      if (plan.action === "mark_failed") {
+        await (supabase.from(TABLE) as any)
+          .update({
+            status: "failed",
+            updated_at: new Date().toISOString(),
+          })
+          .eq("id", video.id)
+          .eq("owner_id", ownerId);
+        continue;
+      }
+
+      if (plan.action === "sync" && video.bunny_video_id && remote) {
+        const updated = await this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
+          thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
+          duration_seconds: remote.durationSeconds ?? video.duration_seconds ?? null,
+        });
+        kept.push(updated ?? { ...video, status: remote.status });
+        continue;
+      }
+
+      kept.push(video);
+    }
+
+    return kept.sort(
+      (a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime()
+    );
   }
 
   public static async createUpload(params: {

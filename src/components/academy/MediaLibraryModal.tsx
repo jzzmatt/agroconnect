@@ -8,6 +8,7 @@ import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
 import { formatVideoDuration } from "@/lib/academy/format-duration";
 import { listMediaLibraryAction } from "@/lib/services/course-actions";
 import { getAcademyVideoPreviewAction } from "@/lib/services/academy-video-actions";
+import { isSelectableLibraryVideo } from "@/lib/academy/video-library-sync";
 import { useI18n } from "@/i18n/provider";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
 
@@ -71,6 +72,7 @@ function MediaLibraryVideoPreview({ videoId, title }: { videoId: string; title: 
 function statusLabel(status: string, dict: ReturnType<typeof useI18n>["dict"]): string {
   if (status === "ready") return dict.agriacademy.ready;
   if (status === "processing" || status === "uploading") return dict.agriacademy.processing;
+  if (status === "failed") return dict.agriacademy.videoUnavailable;
   return status;
 }
 
@@ -99,9 +101,10 @@ export function MediaLibraryModal({
   }, [open]);
 
   const filteredVideos = useMemo(() => {
+    const selectable = videos.filter(isSelectableLibraryVideo);
     const q = query.trim().toLowerCase();
-    if (!q) return videos;
-    return videos.filter((video) => video.title.toLowerCase().includes(q));
+    if (!q) return selectable;
+    return selectable.filter((video) => video.title.toLowerCase().includes(q));
   }, [videos, query]);
 
   const previewVideo = previewId ? videos.find((video) => video.id === previewId) : null;

@@ -175,7 +175,7 @@ export async function listMediaLibraryAction() {
   await authorize("academy.video.upload");
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
-  return AcademyVideoService.listByOwner(userProfile.id);
+  return AcademyVideoService.listByOwnerSynced(userProfile.id);
 }
 
 export async function getPublishedCourseDetailAction(slug: string) {

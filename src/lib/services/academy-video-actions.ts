@@ -25,7 +25,7 @@ export async function getAcademyStorageAction() {
     usedLabel: formatVideoStorage(usedBytes),
     limitLabel: formatVideoStorage(limitBytes),
     percent: limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0,
-    videos: await AcademyVideoService.listByOwner(profile.id),
+    videos: await AcademyVideoService.listByOwnerSynced(profile.id),
   };
 }
 

@@ -529,6 +529,7 @@ export const fr: Dictionary = {
     references: "Références",
     preview: "Aperçu",
     closePreview: "Fermer l'aperçu",
+    videoUnavailable: "Indisponible sur Bunny Stream",
   },
   agriexpert: {
     experts: "Experts",
