@@ -30,13 +30,15 @@ export async function POST(request: Request) {
       !result.upload.bunnyVideoId ||
       !result.upload.bunnyLibraryId ||
       !result.upload.authorizationSignature ||
-      !result.upload.authorizationExpire
+      !result.upload.authorizationExpire ||
+      !/^\d+$/.test(String(result.upload.bunnyLibraryId))
     ) {
       return NextResponse.json(
         {
           success: false,
-          code: result.upload.code || "BUNNY_UPLOAD_FAILED",
-          message: result.upload.error || "Não foi possível autorizar o carregamento.",
+          code: "BUNNY_LIBRARY_ID_INVALID",
+          message:
+            "O ID da biblioteca Bunny Stream é inválido. Confirme BUNNY_STREAM_LIBRARY_ID (numérico) e a chave da biblioteca.",
           video: result.video,
           upload: result.upload,
         },
@@ -51,13 +53,17 @@ export async function POST(request: Request) {
     });
   } catch (error: unknown) {
     const message = error instanceof Error ? error.message : "";
+    const code =
+      error instanceof Error && "code" in error && typeof error.code === "string"
+        ? error.code
+        : "BUNNY_UPLOAD_FAILED";
     return NextResponse.json(
       {
         success: false,
-        code: "BUNNY_UPLOAD_FAILED",
+        code,
         message: message || "Não foi possível iniciar o carregamento.",
       },
-      { status: /autorizado|unauthor/i.test(message) ? 401 : 500 }
+      { status: /autorizado|unauthor/i.test(message) ? 401 : code === "BUNNY_LIBRARY_ID_INVALID" ? 400 : 500 }
     );
   }
 }

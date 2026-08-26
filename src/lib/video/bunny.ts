@@ -49,6 +49,17 @@ export function normalizeBunnyCredentials(apiKey: string, libraryId: string) {
   return { apiKey: key, libraryId: library, swapped: false as const };
 }
 
+/** Bunny Stream library IDs are numeric. Rejects UUIDs and empty values early. */
+export function parseBunnyLibraryId(value: string | number | null | undefined): string {
+  const normalized = trimEnv(value == null ? "" : String(value));
+  if (!/^\d+$/.test(normalized)) {
+    throw Object.assign(new Error("BUNNY_STREAM_LIBRARY_ID inválido ou em falta."), {
+      code: "BUNNY_LIBRARY_ID_INVALID",
+    });
+  }
+  return normalized;
+}
+
 export function getBunnyConfig() {
   const normalized = normalizeBunnyCredentials(
     process.env.BUNNY_STREAM_API_KEY || "",
@@ -59,9 +70,18 @@ export function getBunnyConfig() {
       "[bunny] BUNNY_STREAM_API_KEY and BUNNY_STREAM_LIBRARY_ID were reversed; using the numeric value as Library ID."
     );
   }
+  const libraryId = normalized.libraryId
+    ? (() => {
+        try {
+          return parseBunnyLibraryId(normalized.libraryId);
+        } catch {
+          return "";
+        }
+      })()
+    : "";
   return {
     apiKey: normalized.apiKey,
-    libraryId: normalized.libraryId,
+    libraryId,
     cdnHostname: trimEnv(process.env.BUNNY_STREAM_CDN_HOSTNAME).replace(/^https?:\/\//, ""),
     webhookSecret: trimEnv(process.env.BUNNY_STREAM_WEBHOOK_SECRET),
   };
@@ -147,7 +167,7 @@ export async function createBunnyVideo(params: {
     });
   }
 
-  const created = (await response.json()) as { guid?: string };
+  const created = (await response.json()) as { guid?: string; videoLibraryId?: number | string };
   const videoId = created.guid || null;
   if (!videoId) {
     return emptyResult({
@@ -158,9 +178,12 @@ export async function createBunnyVideo(params: {
     });
   }
 
+  const libraryId = parseBunnyLibraryId(
+    created.videoLibraryId != null ? created.videoLibraryId : config.libraryId
+  );
   const expire = buildBunnyTusAuthorizationExpire();
   const signature = buildBunnyTusAuthorizationSignature({
-    libraryId: config.libraryId,
+    libraryId,
     apiKey: config.apiKey,
     expire,
     videoId,
@@ -169,12 +192,12 @@ export async function createBunnyVideo(params: {
   return {
     configured: true,
     bunnyVideoId: videoId,
-    bunnyLibraryId: config.libraryId,
+    bunnyLibraryId: libraryId,
     authorizationSignature: signature,
     authorizationExpire: expire,
     uploadUrl: BUNNY_TUS_ENDPOINT,
-    embedUrl: getBunnyEmbedUrl(config.libraryId, videoId),
-    playbackUrl: getBunnyPlaybackUrl(config.libraryId, videoId),
+    embedUrl: getBunnyEmbedUrl(libraryId, videoId),
+    playbackUrl: getBunnyPlaybackUrl(libraryId, videoId),
   };
 }
 

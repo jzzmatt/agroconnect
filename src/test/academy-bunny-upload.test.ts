@@ -23,8 +23,8 @@ describe("AgriAcademy Bunny upload flow", () => {
     expect(uploader).toContain('fetch("/api/academy/video/create"');
     expect(uploader).toContain("uploadToBunnyTus");
     expect(uploader).toContain('fetch("/api/academy/video/complete"');
-    expect(bunnyUpload).toContain("uploadDataDuringCreation: true");
     expect(bunnyUpload).toContain("onBeforeRequest");
-    expect(bunnyUpload).toContain("bunny:${videoId}:");
+    expect(bunnyUpload).toContain("LibraryId");
+    expect(bunnyUpload).not.toContain("uploadDataDuringCreation");
   });
 });

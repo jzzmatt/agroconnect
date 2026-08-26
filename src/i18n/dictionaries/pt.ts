@@ -578,6 +578,8 @@ export const pt = {
     VALIDATION_ERROR: "Verifique os campos obrigatórios e tente novamente.",
     MEDIA_UPLOAD_FAILED: "Não foi possível carregar o ficheiro de média.",
     BUNNY_NOT_CONFIGURED: "O carregamento de vídeo não está configurado. Adicione as chaves Bunny Stream.",
+    BUNNY_LIBRARY_ID_INVALID:
+      "O ID da biblioteca Bunny Stream é inválido. Use o ID numérico da biblioteca (Stream → Biblioteca → API), não a chave da conta.",
     BUNNY_UPLOAD_FAILED: "Não foi possível enviar o vídeo para o Bunny Stream. Tente novamente.",
     IMAGEKIT_NOT_CONFIGURED: "O carregamento de média não está configurado. Adicione as chaves ImageKit.",
     IMAGEKIT_UPLOAD_FAILED: "Não foi possível enviar o ficheiro para o ImageKit. Tente novamente.",

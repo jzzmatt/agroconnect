@@ -580,6 +580,8 @@ export const fr: Dictionary = {
     VALIDATION_ERROR: "Vérifiez les champs obligatoires et réessayez.",
     MEDIA_UPLOAD_FAILED: "Impossible de charger le fichier média.",
     BUNNY_NOT_CONFIGURED: "Le chargement vidéo n'est pas configuré. Ajoutez les clés Bunny Stream.",
+    BUNNY_LIBRARY_ID_INVALID:
+      "L'identifiant de bibliothèque Bunny Stream est invalide. Utilisez l'ID numérique de la bibliothèque (Stream → Bibliothèque → API), pas la clé du compte.",
     BUNNY_UPLOAD_FAILED: "Impossible d'envoyer la vidéo vers Bunny Stream. Veuillez réessayer.",
     IMAGEKIT_NOT_CONFIGURED: "Le chargement de média n'est pas configuré. Ajoutez les clés ImageKit.",
     IMAGEKIT_UPLOAD_FAILED: "Impossible d'envoyer le fichier vers ImageKit. Veuillez réessayer.",

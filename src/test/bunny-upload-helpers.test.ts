@@ -3,6 +3,7 @@ import {
   buildBunnyTusAuthorizationSignature,
   isBunnyUploadReceived,
   mapBunnyStatus,
+  parseBunnyLibraryId,
 } from "@/lib/video/bunny";
 
 describe("Bunny upload helpers", () => {
@@ -36,5 +37,11 @@ describe("Bunny upload helpers", () => {
         videoId: "video-guid",
       })
     ).toBe(signature);
+  });
+
+  it("accepts only numeric Bunny library IDs", () => {
+    expect(parseBunnyLibraryId("156467")).toBe("156467");
+    expect(parseBunnyLibraryId(156467)).toBe("156467");
+    expect(() => parseBunnyLibraryId("not-a-library-id")).toThrow(/BUNNY_STREAM_LIBRARY_ID/);
   });
 });

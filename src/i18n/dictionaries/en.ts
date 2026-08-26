@@ -580,6 +580,8 @@ export const en: Dictionary = {
     VALIDATION_ERROR: "Check the required fields and try again.",
     MEDIA_UPLOAD_FAILED: "We couldn't upload the media file.",
     BUNNY_NOT_CONFIGURED: "Video upload is not configured. Add the Bunny Stream keys.",
+    BUNNY_LIBRARY_ID_INVALID:
+      "The Bunny Stream library ID is invalid. Use the numeric library ID (Stream → Library → API), not the account API key.",
     BUNNY_UPLOAD_FAILED: "We couldn't upload the video to Bunny Stream. Please try again.",
     IMAGEKIT_NOT_CONFIGURED: "Media upload is not configured. Add the ImageKit keys.",
     IMAGEKIT_UPLOAD_FAILED: "We couldn't upload the file to ImageKit. Please try again.",
