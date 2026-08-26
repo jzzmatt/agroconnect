@@ -11,6 +11,9 @@ describe("AgriAcademy Bunny upload flow", () => {
     expect(readFileSync("src/app/api/academy/video/complete/route.ts", "utf8")).toContain(
       "confirmAcademyVideoUploadAction"
     );
+    expect(readFileSync("src/app/api/academy/video/upload/route.ts", "utf8")).toContain(
+      "uploadAcademyVideoBinaryAction"
+    );
   });
 
   it("uses file picker + TUS upload instead of a metadata-only demo button", () => {
@@ -21,6 +24,7 @@ describe("AgriAcademy Bunny upload flow", () => {
     expect(mediaLibrary).toContain("getAcademyVideoPreviewAction");
     expect(uploader).not.toContain("handleDemoUpload");
     expect(uploader).toContain('fetch("/api/academy/video/create"');
+    expect(uploader).toContain("uploadAcademyVideoWithProgress");
     expect(uploader).toContain("uploadToBunnyTus");
     expect(uploader).toContain('fetch("/api/academy/video/complete"');
     expect(bunnyUpload).toContain("onBeforeRequest");

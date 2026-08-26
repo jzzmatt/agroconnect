@@ -201,6 +201,57 @@ export async function createBunnyVideo(params: {
   };
 }
 
+/** Server-side binary upload (PUT) — reliable alternative to browser TUS. */
+export async function uploadBunnyVideoBinary(params: {
+  bunnyVideoId: string;
+  libraryId?: string | null;
+  body: ArrayBuffer | ReadableStream<Uint8Array>;
+  contentType?: string;
+  contentLength?: number;
+}): Promise<{ ok: boolean; status: number; error?: string }> {
+  const config = getBunnyConfig();
+  if (!config.apiKey || !config.libraryId) {
+    return { ok: false, status: 0, error: "BUNNY_NOT_CONFIGURED" };
+  }
+
+  const libraryId = parseBunnyLibraryId(params.libraryId || config.libraryId);
+  const headers: Record<string, string> = {
+    AccessKey: config.apiKey,
+    Accept: "application/json",
+  };
+  if (params.contentType) headers["Content-Type"] = params.contentType;
+  if (params.contentLength && params.contentLength > 0) {
+    headers["Content-Length"] = String(params.contentLength);
+  }
+
+  const init: RequestInit & { duplex?: "half" } = {
+    method: "PUT",
+    headers,
+    body: params.body as BodyInit,
+  };
+  if (params.body instanceof ReadableStream) {
+    init.duplex = "half";
+  }
+
+  try {
+    const response = await fetch(
+      `${BUNNY_STREAM_API}/library/${libraryId}/videos/${params.bunnyVideoId}`,
+      init
+    );
+    if (!response.ok) {
+      const detail = await response.text().catch(() => "");
+      return { ok: false, status: response.status, error: detail.slice(0, 400) };
+    }
+    return { ok: true, status: response.status };
+  } catch (error) {
+    return {
+      ok: false,
+      status: 0,
+      error: error instanceof Error ? error.message : "upload failed",
+    };
+  }
+}
+
 /**
  * Reads the current encoding state straight from Bunny.
  *

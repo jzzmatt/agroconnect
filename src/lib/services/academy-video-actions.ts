@@ -81,6 +81,37 @@ export async function getAcademyVideoPreviewAction(videoId: string) {
   };
 }
 
+export async function uploadAcademyVideoBinaryAction(params: {
+  videoId: string;
+  body: ArrayBuffer;
+  contentType: string;
+  contentLength: number;
+}) {
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    return { success: false as const, code: "AUTH_REQUIRED" as const };
+  }
+
+  const video = await AcademyVideoService.uploadBinaryForOwner({
+    videoId: params.videoId,
+    ownerId: profile.id,
+    body: params.body,
+    contentType: params.contentType,
+    contentLength: params.contentLength,
+  });
+
+  if (!video) {
+    return {
+      success: false as const,
+      code: "BUNNY_UPLOAD_FAILED" as const,
+      message: "O Bunny Stream não confirmou o recebimento do ficheiro de vídeo.",
+    };
+  }
+
+  return { success: true as const, video };
+}
+
 export async function confirmAcademyVideoUploadAction(videoId: string) {
   await requireAuth();
   const profile = await getCurrentUserProfile();

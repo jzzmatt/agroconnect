@@ -127,7 +127,7 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
     ).toBe(true);
   });
 
-  it("8. Builds embed URLs only for ready Bunny assets", () => {
+  it("8. Builds embed URLs for ready and in-flight Bunny assets", () => {
     expect(
       buildAuthorizedEmbedUrl({
         bunny_video_id: "abc",
@@ -141,6 +141,14 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
         bunny_video_id: "abc",
         bunny_library_id: "lib",
         status: "processing",
+      })
+    ).toBeTruthy();
+
+    expect(
+      buildAuthorizedEmbedUrl({
+        bunny_video_id: "abc",
+        bunny_library_id: "lib",
+        status: "pending",
       })
     ).toBeNull();
   });

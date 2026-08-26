@@ -10,7 +10,9 @@ export function buildAuthorizedEmbedUrl(
 
   const libraryId = video.bunny_library_id || getBunnyConfig().libraryId || null;
   if (!video.bunny_video_id || !libraryId) return null;
-  if (video.status !== "ready") return null;
+  if (video.status === "failed" || video.status === "deleted" || video.status === "pending") {
+    return null;
+  }
   return getBunnyEmbedUrl(libraryId, video.bunny_video_id);
 }
 
@@ -23,10 +25,12 @@ export async function resolvePlaybackEmbedUrl(
   const direct = buildAuthorizedEmbedUrl(video);
   if (direct) return direct;
 
-  if (!video.bunny_video_id || video.status === "ready") return null;
+  if (!video.bunny_video_id || video.status === "ready" || video.status === "failed" || video.status === "deleted") {
+    return null;
+  }
 
   const remote = await fetchBunnyVideoStatus(video.bunny_video_id);
-  if (remote?.status !== "ready") return null;
+  if (!remote || remote.status === "deleted" || remote.status === "pending") return null;
 
   const libraryId = video.bunny_library_id || getBunnyConfig().libraryId || null;
   if (!libraryId) return null;

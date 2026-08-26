@@ -31,7 +31,7 @@ export class CourseAccessService {
   public static async getLessonPlayback(params: {
     lessonId: string;
     profileId: string;
-  }): Promise<{ allowed: boolean; embedUrl?: string; reason?: string }> {
+  }): Promise<{ allowed: boolean; embedUrl?: string; reason?: string; processing?: boolean }> {
     if (!hasLiveSupabase()) {
       return { allowed: false, reason: "unavailable" };
     }
@@ -89,7 +89,11 @@ export class CourseAccessService {
       return { allowed: false, reason: "video_not_ready" };
     }
 
-    return { allowed: true, embedUrl };
+    return {
+      allowed: true,
+      embedUrl,
+      processing: asset.status !== "ready",
+    };
   }
 
   public static async getEnrollmentStatus(

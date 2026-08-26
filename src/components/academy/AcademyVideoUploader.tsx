@@ -5,6 +5,7 @@ import { AlertCircle, Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
+import { uploadAcademyVideoWithProgress, shouldUseServerBunnyUpload } from "@/lib/academy/upload-academy-video";
 import { uploadToBunnyTus } from "@/lib/products/bunny-upload";
 
 type UploadPhase = "idle" | "authorizing" | "uploading" | "processing" | "success" | "error";
@@ -115,32 +116,47 @@ export function AcademyVideoUploader({
       }
 
       setPhase("uploading");
-      await uploadToBunnyTus({
-        file: selectedFile,
-        uploadUrl: upload.uploadUrl,
-        libraryId: upload.bunnyLibraryId,
-        videoId: upload.bunnyVideoId,
-        signature: upload.authorizationSignature,
-        expire: upload.authorizationExpire,
-        signal: controller.signal,
-        onProgress: setProgress,
-      });
 
-      setPhase("processing");
-      const completeRes = await fetch("/api/academy/video/complete", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        cache: "no-store",
-        redirect: "manual",
-        signal: controller.signal,
-        body: JSON.stringify({ videoId: createPayload.video.id }),
-      });
-      const completePayload = await completeRes.json().catch(() => null);
-      if (!completeRes.ok || !completePayload?.success) {
-        throw Object.assign(new Error(completePayload?.message || "BUNNY_UPLOAD_FAILED"), {
-          code: completePayload?.code || "BUNNY_UPLOAD_FAILED",
+      if (shouldUseServerBunnyUpload(selectedFile.size)) {
+        const uploadResult = await uploadAcademyVideoWithProgress({
+          videoId: createPayload.video.id,
+          file: selectedFile,
+          signal: controller.signal,
+          onProgress: setProgress,
         });
+        if (!uploadResult.success) {
+          throw Object.assign(new Error(uploadResult.message || "BUNNY_UPLOAD_FAILED"), {
+            code: uploadResult.code || "BUNNY_UPLOAD_FAILED",
+          });
+        }
+      } else {
+        await uploadToBunnyTus({
+          file: selectedFile,
+          uploadUrl: upload.uploadUrl,
+          libraryId: upload.bunnyLibraryId,
+          videoId: upload.bunnyVideoId,
+          signature: upload.authorizationSignature,
+          expire: upload.authorizationExpire,
+          signal: controller.signal,
+          onProgress: setProgress,
+        });
+
+        setPhase("processing");
+        const completeRes = await fetch("/api/academy/video/complete", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          cache: "no-store",
+          redirect: "manual",
+          signal: controller.signal,
+          body: JSON.stringify({ videoId: createPayload.video.id }),
+        });
+        const completePayload = await completeRes.json().catch(() => null);
+        if (!completeRes.ok || !completePayload?.success) {
+          throw Object.assign(new Error(completePayload?.message || "BUNNY_UPLOAD_FAILED"), {
+            code: completePayload?.code || "BUNNY_UPLOAD_FAILED",
+          });
+        }
       }
 
       setPhase("success");

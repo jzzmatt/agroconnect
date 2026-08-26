@@ -10,6 +10,7 @@ import {
   isBunnyUploadReceived,
   listBunnyLibraryVideos,
   pollBunnyUploadReceived,
+  uploadBunnyVideoBinary,
 } from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import type { SubscriptionPlan } from "@/types/database";
@@ -250,7 +251,7 @@ export class AcademyVideoService {
     return (video.reference_count ?? 0) === 0 || Boolean(video.orphaned_at);
   }
 
-  /** Poll Bunny after a successful TUS upload (webhook may be unreachable in dev). */
+  /** Poll Bunny after a successful upload (webhook may be unreachable in dev). */
   public static async syncStatusAfterUpload(
     videoId: string,
     ownerId: string
@@ -280,6 +281,56 @@ export class AcademyVideoService {
     return this.markStatusByBunnyId(video.bunny_video_id, remote.status, {
       thumbnail_url: remote.thumbnailUrl ?? video.thumbnail_url ?? null,
     });
+  }
+
+  /** Upload video bytes through the server (Bunny HTTP PUT). */
+  public static async uploadBinaryForOwner(params: {
+    videoId: string;
+    ownerId: string;
+    body: ArrayBuffer | ReadableStream<Uint8Array>;
+    contentType: string;
+    contentLength: number;
+  }): Promise<AcademyVideoRecord | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", params.videoId)
+      .eq("owner_id", params.ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video?.bunny_video_id) return null;
+
+    const uploaded = await uploadBunnyVideoBinary({
+      bunnyVideoId: video.bunny_video_id,
+      libraryId: video.bunny_library_id,
+      body: params.body,
+      contentType: params.contentType,
+      contentLength: params.contentLength,
+    });
+
+    if (!uploaded.ok) {
+      await (supabase.from(TABLE) as any)
+        .update({
+          status: "failed",
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", params.videoId)
+        .eq("owner_id", params.ownerId);
+      return null;
+    }
+
+    await (supabase.from(TABLE) as any)
+      .update({
+        status: "uploading",
+        mime_type: params.contentType,
+        file_size: params.contentLength,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.videoId)
+      .eq("owner_id", params.ownerId);
+
+    return this.syncStatusAfterUpload(params.videoId, params.ownerId);
   }
 
   /** Instructor media-library preview — owner-only, resolves Bunny embed URLs server-side. */

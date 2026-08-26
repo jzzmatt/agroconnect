@@ -40,12 +40,20 @@ export async function uploadToBunnyTus(params: {
     req.setHeader("LibraryId", libraryId);
   };
 
+  const authHeaders = {
+    AuthorizationSignature: signature,
+    AuthorizationExpire: String(expire),
+    VideoId: videoId,
+    LibraryId: libraryId,
+  };
+
   return new Promise((resolve, reject) => {
     const upload = new tus.Upload(params.file, {
       endpoint,
       retryDelays: [0, 3000, 5000, 10000, 20000, 60000],
       chunkSize: 5 * 1024 * 1024,
       removeFingerprintOnSuccess: true,
+      headers: authHeaders,
       fingerprint: (file) =>
         Promise.resolve(
           `bunny:${videoId}:${file.name}:${file.size}:${file.lastModified}:${file.type || "video/mp4"}`
