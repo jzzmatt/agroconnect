@@ -4,6 +4,7 @@ import { validateCourseForPublication } from "@/lib/academy/publication-validati
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { resolveAuthRedirectUrl } from "@/lib/auth/redirect-url";
 import { formatVideoDuration } from "@/lib/academy/format-duration";
+import { buildCourseLearnPath } from "@/lib/academy/course-navigation";
 import type { CourseWithSections } from "@/types/agriacademy";
 
 const STUDENT = "student-1";
@@ -163,5 +164,10 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
     expect(formatVideoDuration(125)).toBe("2:05");
     expect(formatVideoDuration(3661)).toBe("1:01:01");
     expect(formatVideoDuration(null)).toBe("—");
+  });
+
+  it("12. Builds post-enrollment learning route", () => {
+    expect(buildCourseLearnPath("producao-milho")).toBe("/agriacademy/courses/producao-milho/learn");
+    expect(buildCourseLearnPath("producao-milho", "les-1")).toContain("lesson=les-1");
   });
 });

@@ -1,15 +1,14 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useRef, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Navbar, MobileBottomNav } from "@/components/navigation";
-import { Footer } from "@/components/layout";
+import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { ProtectedLessonPlayer } from "@/components/academy/ProtectedLessonPlayer";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
+import { buildCourseLearnPath } from "@/lib/academy/course-navigation";
 import { useI18n } from "@/i18n/provider";
 import {
   getCourseEnrollmentStatusAction,
@@ -27,6 +26,8 @@ export function CourseDetailClient({ slug }: { slug: string }) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [isPending, startTransition] = useTransition();
+  const [isEnrolling, setIsEnrolling] = useState(false);
+  const autoEnrollStarted = useRef(false);
 
   const refresh = useCallback(() => {
     startTransition(async () => {
@@ -43,14 +44,74 @@ export function CourseDetailClient({ slug }: { slug: string }) {
     refresh();
   }, [refresh, isSignedIn]);
 
+  const redirectToLearning = useCallback(
+    (showEnrollmentSuccess = false) => {
+      const learnPath = showEnrollmentSuccess
+        ? `${buildCourseLearnPath(slug)}?enrolled=1`
+        : buildCourseLearnPath(slug);
+      router.push(learnPath);
+    },
+    [router, slug]
+  );
+
+  const completeEnrollment = useCallback(async () => {
+    if (!course) return;
+
+    setIsEnrolling(true);
+    setError(null);
+    setMessage(null);
+
+    try {
+      const res = await fetch("/api/academy/enroll", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ courseId: course.id }),
+      });
+      const payload = await res.json().catch(() => null);
+
+      if (!res.ok || !payload?.success) {
+        setError(dict.agriacademy.enrollmentFailed);
+        return;
+      }
+
+      const status = await getCourseEnrollmentStatusAction(course.id);
+      if (!status.enrolled) {
+        setError(dict.agriacademy.enrollmentFailed);
+        return;
+      }
+
+      setEnrolled(true);
+      setMessage(
+        payload.alreadyEnrolled
+          ? dict.agriacademy.alreadyEnrolled
+          : dict.agriacademy.enrollmentSuccess
+      );
+
+      setTimeout(() => {
+        redirectToLearning(!payload.alreadyEnrolled);
+      }, payload.alreadyEnrolled ? 300 : 900);
+    } finally {
+      setIsEnrolling(false);
+    }
+  }, [course, dict.agriacademy, redirectToLearning]);
+
   useEffect(() => {
-    if (!isSignedIn || searchParams.get("enroll") !== "1" || !course) return;
-    void handleEnroll();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [isSignedIn, searchParams, course?.id]);
+    if (
+      !isSignedIn ||
+      searchParams.get("enroll") !== "1" ||
+      !course ||
+      isEnrolling ||
+      autoEnrollStarted.current
+    ) {
+      return;
+    }
+    autoEnrollStarted.current = true;
+    void completeEnrollment();
+  }, [completeEnrollment, course, isEnrolling, isSignedIn, searchParams]);
 
   const handleEnroll = async () => {
-    if (!course) return;
+    if (!course || enrolled) return;
     setError(null);
     setMessage(null);
 
@@ -60,26 +121,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
       return;
     }
 
-    startTransition(async () => {
-      const res = await fetch("/api/academy/enroll", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "same-origin",
-        body: JSON.stringify({ courseId: course.id }),
-      });
-      const payload = await res.json().catch(() => null);
-      if (!res.ok || !payload?.success) {
-        setError(dict.agriacademy.enrollmentFailed);
-        return;
-      }
-      setEnrolled(true);
-      setMessage(
-        payload.alreadyEnrolled
-          ? dict.agriacademy.alreadyEnrolled
-          : dict.agriacademy.enrollmentSuccess
-      );
-      router.replace(`/agriacademy/courses/${slug}`);
-    });
+    await completeEnrollment();
   };
 
   if (!course) {
@@ -93,20 +135,36 @@ export function CourseDetailClient({ slug }: { slug: string }) {
   return (
     <div className="space-y-8">
       <div className="space-y-3">
-        <Badge variant="pillarAcademy">AgriAcademy</Badge>
+        <div className="flex flex-wrap items-center gap-2">
+          <Badge variant="pillarAcademy">AgriAcademy</Badge>
+          {enrolled && (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+              <Check className="w-3.5 h-3.5" />
+              {dict.agriacademy.enrolledBadge}
+            </span>
+          )}
+        </div>
         <h1 className="text-3xl font-black">{course.title}</h1>
         {course.description && (
           <p className="text-sm text-muted-foreground max-w-3xl">{course.description}</p>
         )}
         <div className="flex flex-wrap gap-2 pt-2">
-          <Button
-            type="button"
-            onClick={handleEnroll}
-            disabled={isPending || enrolled}
-            className="font-bold"
-          >
-            {enrolled ? dict.agriacademy.continueCourse : dict.agriacademy.register}
-          </Button>
+          {enrolled ? (
+            <Link href={buildCourseLearnPath(slug)}>
+              <Button type="button" className="font-bold">
+                {dict.agriacademy.continueCourse}
+              </Button>
+            </Link>
+          ) : (
+            <Button
+              type="button"
+              onClick={handleEnroll}
+              disabled={isPending || isEnrolling}
+              className="font-bold"
+            >
+              {dict.agriacademy.register}
+            </Button>
+          )}
           <Link href="/agriacademy">
             <Button type="button" variant="outline" className="font-bold">
               {dict.common.back}
@@ -117,28 +175,24 @@ export function CourseDetailClient({ slug }: { slug: string }) {
         {error && <p className="text-xs font-semibold text-destructive">{error}</p>}
       </div>
 
-      <div className="space-y-6">
-        {course.sections.map((section) => (
-          <div key={section.id} className="rounded-3xl border border-border p-5 space-y-4">
-            <h2 className="font-bold">
-              {formatChapterNumber(section.sort_order)} — {section.title}
-            </h2>
-            <div className="space-y-4">
-              {section.lessons.map((lesson) => (
-                <div key={lesson.id} className="space-y-2">
-                  <h3 className="text-sm font-bold">
+      <div className="rounded-3xl border border-border p-5 space-y-3">
+        <h2 className="font-bold">{dict.agriacademy.courseContent}</h2>
+        <div className="space-y-4">
+          {course.sections.map((section) => (
+            <div key={section.id} className="space-y-2">
+              <h3 className="text-sm font-bold">
+                {formatChapterNumber(section.sort_order)} — {section.title}
+              </h3>
+              <ul className="space-y-1 pl-4">
+                {section.lessons.map((lesson) => (
+                  <li key={lesson.id} className="text-sm text-muted-foreground">
                     {formatLessonNumber(section.sort_order, lesson.sort_order)} — {lesson.title}
-                  </h3>
-                  <ProtectedLessonPlayer
-                    lessonId={lesson.id}
-                    title={lesson.title}
-                    enabled={enrolled}
-                  />
-                </div>
-              ))}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </div>
-        ))}
+          ))}
+        </div>
       </div>
     </div>
   );

@@ -15,6 +15,7 @@ import type {
 } from "@/types/agriacademy";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { CourseAccessService } from "@/lib/academy/course-access";
+import { resolveStartLesson } from "@/lib/academy/course-navigation";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -186,6 +187,35 @@ export async function getCourseEnrollmentStatusAction(courseId: string) {
   if (!userProfile) return { enrolled: false, authenticated: false };
   const status = await CourseAccessService.getEnrollmentStatus(userProfile.id, courseId);
   return { ...status, authenticated: true };
+}
+
+export async function getCourseLearnContextAction(slug: string, lessonId?: string | null) {
+  const course = await CourseService.getPublishedCourseDetailBySlug(slug);
+  if (!course) {
+    return { allowed: false as const, reason: "not_found" as const };
+  }
+
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) {
+    return { allowed: false as const, reason: "auth_required" as const, course };
+  }
+
+  const enrolled = await EnrollmentService.isEnrolled(userProfile.id, course.id);
+  if (!enrolled) {
+    return { allowed: false as const, reason: "not_enrolled" as const, course };
+  }
+
+  const startLesson = resolveStartLesson(course, { lessonId });
+  if (!startLesson) {
+    return { allowed: false as const, reason: "no_lessons" as const, course };
+  }
+
+  return {
+    allowed: true as const,
+    course,
+    startLesson,
+    enrolled: true as const,
+  };
 }
 
 export async function listMyEnrolledCourseIdsAction(): Promise<string[]> {

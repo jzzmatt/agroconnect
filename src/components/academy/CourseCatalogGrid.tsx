@@ -4,6 +4,7 @@ import React, { useEffect, useState } from "react";
 import { useAuth } from "@clerk/nextjs";
 import { CourseCard } from "@/components/ui/CourseCard";
 import { useI18n } from "@/i18n/provider";
+import { buildCourseLearnPath } from "@/lib/academy/course-navigation";
 import { listMyEnrolledCourseIdsAction } from "@/lib/services/course-actions";
 import { mapCourseToCardProps } from "@/lib/services/course-service";
 import type { CourseListItem } from "@/types/agriacademy";
@@ -25,13 +26,16 @@ export function CourseCatalogGrid({ courses }: { courses: CourseListItem[] }) {
     <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
       {courses.map((course) => {
         const enrolled = enrolledIds.has(course.id);
+        const ctaHref = enrolled
+          ? buildCourseLearnPath(course.slug)
+          : `/agriacademy/courses/${course.slug}`;
         return (
           <CourseCard
             key={course.id}
             {...mapCourseToCardProps(course, {
               enrolled,
               ctaLabel: enrolled ? dict.agriacademy.continueCourse : dict.agriacademy.register,
-              ctaHref: `/agriacademy/courses/${course.slug}`,
+              ctaHref,
             })}
           />
         );
