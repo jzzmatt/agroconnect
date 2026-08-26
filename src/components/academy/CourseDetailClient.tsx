@@ -71,12 +71,17 @@ export function CourseDetailClient({ slug }: { slug: string }) {
       const payload = await res.json().catch(() => null);
 
       if (!res.ok || !payload?.success) {
-        setError(dict.agriacademy.enrollmentFailed);
+        if (payload?.code === "COURSE_NOT_AVAILABLE") {
+          setError(dict.agriacademy.courseNotAvailable);
+        } else if (payload?.code === "AUTH_REQUIRED") {
+          setError(dict.agriacademy.authRequiredToEnroll);
+        } else {
+          setError(dict.agriacademy.enrollmentFailed);
+        }
         return;
       }
 
-      const status = await getCourseEnrollmentStatusAction(course.id);
-      if (!status.enrolled) {
+      if (!payload.enrollment) {
         setError(dict.agriacademy.enrollmentFailed);
         return;
       }

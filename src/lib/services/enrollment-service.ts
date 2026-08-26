@@ -1,5 +1,8 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
-import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import {
+  createServerSupabaseClient,
+  tryCreateAdminServerSupabaseClient,
+} from "@/lib/supabase/server";
 import type { CourseEnrollmentRecord } from "@/types/agriacademy";
 import type { CourseEnrollmentStatus } from "@/types/database";
 
@@ -12,6 +15,10 @@ function hasLiveSupabase(): boolean {
 
 /** In-memory enrollment store for tests/dev when Supabase is unavailable. */
 const memoryEnrollments: CourseEnrollmentRecord[] = [];
+
+async function getEnrollmentClient() {
+  return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+}
 
 export class EnrollmentService {
   public static async enroll(studentId: string, courseId: string): Promise<CourseEnrollmentRecord> {
@@ -33,26 +40,27 @@ export class EnrollmentService {
     };
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.from("course_enrollments") as any)
-          .upsert(
-            {
-              course_id: courseId,
-              student_id: studentId,
-              status: "active",
-              enrolled_at: now,
-            },
-            { onConflict: "course_id,student_id" }
-          )
-          .select()
-          .single();
-        if (!error && data) {
-          return data as CourseEnrollmentRecord;
-        }
-      } catch (err) {
-        console.warn("[EnrollmentService.enroll] Using in-memory record:", err);
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .upsert(
+          {
+            course_id: courseId,
+            student_id: studentId,
+            status: "active",
+            enrolled_at: now,
+          },
+          { onConflict: "course_id,student_id" }
+        )
+        .select()
+        .single();
+
+      if (error) {
+        throw new Error(error.message || "Não foi possível guardar a inscrição.");
       }
+      if (data) {
+        return data as CourseEnrollmentRecord;
+      }
+      throw new Error("Não foi possível guardar a inscrição.");
     }
 
     const idx = memoryEnrollments.findIndex(
@@ -68,16 +76,13 @@ export class EnrollmentService {
 
   public static async unenroll(studentId: string, courseId: string): Promise<boolean> {
     if (hasLiveSupabase()) {
-      try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
-        const { error } = await (supabase.from("course_enrollments") as any)
-          .update({ status: "cancelled", updated_at: new Date().toISOString() })
-          .eq("course_id", courseId)
-          .eq("student_id", studentId);
-        if (!error) return true;
-      } catch (err) {
-        console.warn("[EnrollmentService.unenroll] Fallback to memory:", err);
-      }
+      const supabase = await getEnrollmentClient();
+      const { error } = await (supabase.from("course_enrollments") as any)
+        .update({ status: "cancelled", updated_at: new Date().toISOString() })
+        .eq("course_id", courseId)
+        .eq("student_id", studentId);
+      if (!error) return true;
+      return false;
     }
 
     const idx = memoryEnrollments.findIndex(
@@ -97,17 +102,13 @@ export class EnrollmentService {
     status: CourseEnrollmentStatus = "active"
   ): Promise<CourseEnrollmentRecord[]> {
     if (hasLiveSupabase()) {
-      try {
-        const supabase = createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.from("course_enrollments") as any)
-          .select("*")
-          .eq("student_id", studentId)
-          .eq("status", status)
-          .order("enrolled_at", { ascending: false });
-        if (!error && data) return data as CourseEnrollmentRecord[];
-      } catch (err) {
-        console.warn("[EnrollmentService.listByStudent] Fallback to memory:", err);
-      }
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("status", status)
+        .order("enrolled_at", { ascending: false });
+      if (!error && data) return data as CourseEnrollmentRecord[];
     }
 
     return memoryEnrollments.filter(
@@ -120,17 +121,13 @@ export class EnrollmentService {
     status: CourseEnrollmentStatus = "active"
   ): Promise<CourseEnrollmentRecord[]> {
     if (hasLiveSupabase()) {
-      try {
-        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.from("course_enrollments") as any)
-          .select("*")
-          .eq("course_id", courseId)
-          .eq("status", status)
-          .order("enrolled_at", { ascending: false });
-        if (!error && data) return data as CourseEnrollmentRecord[];
-      } catch (err) {
-        console.warn("[EnrollmentService.listByCourse] Fallback to memory:", err);
-      }
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .select("*")
+        .eq("course_id", courseId)
+        .eq("status", status)
+        .order("enrolled_at", { ascending: false });
+      if (!error && data) return data as CourseEnrollmentRecord[];
     }
 
     return memoryEnrollments.filter(
@@ -148,17 +145,14 @@ export class EnrollmentService {
     courseId: string
   ): Promise<CourseEnrollmentRecord | null> {
     if (hasLiveSupabase()) {
-      try {
-        const supabase = createPublicServerSupabaseClient();
-        const { data, error } = await (supabase.from("course_enrollments") as any)
-          .select("*")
-          .eq("student_id", studentId)
-          .eq("course_id", courseId)
-          .maybeSingle();
-        if (!error && data) return data as CourseEnrollmentRecord;
-      } catch {
-        // fall through
-      }
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .select("*")
+        .eq("student_id", studentId)
+        .eq("course_id", courseId)
+        .maybeSingle();
+      if (!error && data) return data as CourseEnrollmentRecord;
+      if (!error) return null;
     }
 
     return (

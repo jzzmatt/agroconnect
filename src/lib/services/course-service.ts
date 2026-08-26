@@ -636,6 +636,20 @@ export class CourseService {
   }
 
   public static async isCoursePublished(courseId: string): Promise<boolean> {
+    if (hasLiveSupabase()) {
+      try {
+        const supabase = createPublicServerSupabaseClient();
+        const { data, error } = await (supabase.from("courses") as any)
+          .select("id")
+          .eq("id", courseId)
+          .eq("status", "published")
+          .maybeSingle();
+        if (!error && data) return true;
+      } catch (err) {
+        console.warn("[CourseService.isCoursePublished] Direct lookup failed:", err);
+      }
+    }
+
     const { courses } = await this.searchPublishedCourses({ limit: 200 });
     return courses.some((course) => course.id === courseId);
   }

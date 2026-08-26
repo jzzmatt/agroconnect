@@ -490,6 +490,8 @@ export const en: Dictionary = {
     enrollmentFailed: "Unable to complete enrollment",
     alreadyEnrolled: "You are already enrolled in this course",
     courseNotFound: "Course not found",
+    courseNotAvailable: "This course is not available for enrollment",
+    authRequiredToEnroll: "Sign in to enroll in this course",
     mediaLibrary: "Video library",
     existingVideos: "Existing videos",
     newVideo: "New video",

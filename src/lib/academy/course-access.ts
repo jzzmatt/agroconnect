@@ -1,5 +1,7 @@
-import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
-import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import {
+  createServerSupabaseClient,
+  tryCreateAdminServerSupabaseClient,
+} from "@/lib/supabase/server";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { buildAuthorizedEmbedUrl, canAccessLessonVideo } from "@/lib/academy/video-playback";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
@@ -11,6 +13,10 @@ function hasLiveSupabase(): boolean {
   );
 }
 
+async function getAccessClient() {
+  return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+}
+
 export class CourseAccessService {
   public static async getLessonPlayback(params: {
     lessonId: string;
@@ -20,7 +26,7 @@ export class CourseAccessService {
       return { allowed: false, reason: "unavailable" };
     }
 
-    const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+    const supabase = await getAccessClient();
 
     const { data: lesson } = await (supabase.from("course_lessons") as any)
       .select("id, course_id, academy_video_id, is_free_preview")

@@ -488,6 +488,8 @@ export const pt = {
     enrollmentFailed: "Não foi possível concluir a inscrição",
     alreadyEnrolled: "Já está inscrito neste curso",
     courseNotFound: "Curso não encontrado",
+    courseNotAvailable: "Este curso não está disponível para inscrição",
+    authRequiredToEnroll: "Inicie sessão para se inscrever neste curso",
     mediaLibrary: "Biblioteca de vídeos",
     existingVideos: "Vídeos existentes",
     newVideo: "Novo vídeo",
