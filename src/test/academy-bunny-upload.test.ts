@@ -17,6 +17,7 @@ describe("AgriAcademy Bunny upload flow", () => {
     const mediaLibrary = readFileSync("src/components/academy/MediaLibraryModal.tsx", "utf8");
     const uploader = readFileSync("src/components/academy/AcademyVideoUploader.tsx", "utf8");
     expect(mediaLibrary).toContain("AcademyVideoUploader");
+    expect(mediaLibrary).toContain("getAcademyVideoPreviewAction");
     expect(uploader).not.toContain("handleDemoUpload");
     expect(uploader).toContain('fetch("/api/academy/video/create"');
     expect(uploader).toContain("uploadToBunnyTus");

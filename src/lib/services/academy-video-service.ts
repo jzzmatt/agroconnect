@@ -1,8 +1,11 @@
 import { getUserEntitlements } from "@/lib/services/pricing-service";
+import { resolvePlaybackEmbedUrl } from "@/lib/academy/video-playback";
 import {
   createBunnyVideo,
   deleteBunnyVideo,
   fetchBunnyVideoStatus,
+  getBunnyConfig,
+  getBunnyEmbedUrl,
   isBunnyConfigured,
 } from "@/lib/video/bunny";
 import { getMediaSupabaseClient } from "@/lib/media/db";
@@ -114,8 +117,36 @@ export class AcademyVideoService {
     extras?: Partial<AcademyVideoRecord>
   ): Promise<AcademyVideoRecord | null> {
     const supabase = getMediaSupabaseClient();
+    const { data: existing } = await supabase
+      .from(TABLE)
+      .select("bunny_video_id, bunny_library_id, playback_url")
+      .eq("bunny_video_id", bunnyVideoId)
+      .maybeSingle();
+    const current = existing as Pick<
+      AcademyVideoRecord,
+      "bunny_video_id" | "bunny_library_id" | "playback_url"
+    > | null;
+
+    const patch: Partial<AcademyVideoRecord> & { updated_at: string } = {
+      ...extras,
+      status,
+      updated_at: new Date().toISOString(),
+    };
+
+    if (
+      status === "ready" &&
+      current?.bunny_video_id &&
+      !patch.playback_url &&
+      !current.playback_url
+    ) {
+      const libraryId = current.bunny_library_id || getBunnyConfig().libraryId || null;
+      if (libraryId) {
+        patch.playback_url = getBunnyEmbedUrl(libraryId, current.bunny_video_id);
+      }
+    }
+
     const { data } = await (supabase.from(TABLE) as any)
-      .update({ ...extras, status, updated_at: new Date().toISOString() })
+      .update(patch)
       .eq("bunny_video_id", bunnyVideoId)
       .select()
       .maybeSingle();
@@ -176,8 +207,37 @@ export class AcademyVideoService {
     const status = remote?.status ?? "processing";
     return this.markStatusByBunnyId(video.bunny_video_id, status, {
       thumbnail_url: remote?.thumbnailUrl ?? video.thumbnail_url ?? null,
-      playback_url: video.playback_url,
     });
+  }
+
+  /** Instructor media-library preview — owner-only, resolves Bunny embed URLs server-side. */
+  public static async resolveOwnerPreview(
+    videoId: string,
+    ownerId: string
+  ): Promise<{ embedUrl: string | null; ready: boolean; status: AcademyVideoRecord["status"] } | null> {
+    const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", videoId)
+      .eq("owner_id", ownerId)
+      .maybeSingle();
+    const video = current as unknown as AcademyVideoRecord | null;
+    if (!video) return null;
+
+    const embedUrl = await resolvePlaybackEmbedUrl(video);
+    if (embedUrl && video.bunny_video_id && (video.status !== "ready" || !video.playback_url)) {
+      await this.markStatusByBunnyId(video.bunny_video_id, "ready", {
+        playback_url: embedUrl,
+        thumbnail_url: video.thumbnail_url ?? undefined,
+      });
+    }
+
+    return {
+      embedUrl,
+      ready: Boolean(embedUrl),
+      status: embedUrl ? "ready" : video.status,
+    };
   }
 
   public static reconcile(params: { bunnyVideoId?: string | null; hasBunny: boolean; hasRecord: boolean }): "ok" | "orphan_bunny" | "video_unavailable" {

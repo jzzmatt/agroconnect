@@ -61,6 +61,26 @@ export async function deleteAcademyVideoAction(videoId: string) {
   return AcademyVideoService.deleteVideo(videoId, profile.id);
 }
 
+export async function getAcademyVideoPreviewAction(videoId: string) {
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    return { allowed: false as const, code: "AUTH_REQUIRED" as const };
+  }
+
+  const preview = await AcademyVideoService.resolveOwnerPreview(videoId, profile.id);
+  if (!preview) {
+    return { allowed: false as const, code: "NOT_FOUND" as const };
+  }
+
+  return {
+    allowed: true as const,
+    embedUrl: preview.embedUrl,
+    ready: preview.ready,
+    status: preview.status,
+  };
+}
+
 export async function confirmAcademyVideoUploadAction(videoId: string) {
   await requireAuth();
   const profile = await getCurrentUserProfile();

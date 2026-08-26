@@ -7,8 +7,66 @@ import { AcademyVideoUploader } from "@/components/academy/AcademyVideoUploader"
 import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
 import { formatVideoDuration } from "@/lib/academy/format-duration";
 import { listMediaLibraryAction } from "@/lib/services/course-actions";
+import { getAcademyVideoPreviewAction } from "@/lib/services/academy-video-actions";
 import { useI18n } from "@/i18n/provider";
 import type { AcademyVideoDescriptor } from "@/types/agriacademy";
+
+function MediaLibraryVideoPreview({ videoId, title }: { videoId: string; title: string }) {
+  const { dict } = useI18n();
+  const [embedUrl, setEmbedUrl] = useState<string | null>(null);
+  const [ready, setReady] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [denied, setDenied] = useState(false);
+
+  useEffect(() => {
+    let cancelled = false;
+    setLoading(true);
+    setDenied(false);
+    setEmbedUrl(null);
+    setReady(false);
+
+    void getAcademyVideoPreviewAction(videoId)
+      .then((result) => {
+        if (cancelled) return;
+        if (!result.allowed) {
+          setDenied(true);
+          setLoading(false);
+          return;
+        }
+        setEmbedUrl(result.embedUrl ?? null);
+        setReady(result.ready);
+        setLoading(false);
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setDenied(true);
+          setLoading(false);
+        }
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [videoId]);
+
+  if (loading) {
+    return (
+      <div className="aspect-video rounded-2xl border border-border bg-muted/40 flex items-center justify-center text-xs text-muted-foreground">
+        {dict.common.loading}
+      </div>
+    );
+  }
+
+  if (denied) {
+    return (
+      <div className="aspect-video rounded-2xl border border-border bg-muted/40 flex items-center justify-center text-xs text-muted-foreground px-4 text-center">
+        {dict.agriacademy.accessDenied}
+      </div>
+    );
+  }
+
+  return <BunnyPlayer playbackUrl={embedUrl} title={title} ready={ready} />;
+}
 
 function statusLabel(status: string, dict: ReturnType<typeof useI18n>["dict"]): string {
   if (status === "ready") return dict.agriacademy.ready;
@@ -106,11 +164,7 @@ export function MediaLibraryModal({
                     {dict.agriacademy.closePreview}
                   </button>
                 </div>
-                <BunnyPlayer
-                  playbackUrl={previewVideo.playback_url}
-                  title={previewVideo.title}
-                  ready={previewVideo.status === "ready"}
-                />
+                <MediaLibraryVideoPreview videoId={previewVideo.id} title={previewVideo.title} />
               </div>
             )}
 
