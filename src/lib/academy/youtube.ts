@@ -44,7 +44,12 @@ export function analyzeYouTubeInput(input: string | null | undefined): YouTubeAn
   if (!trimmed) return { ok: false, reason: "empty" };
   if (YOUTUBE_VIDEO_ID_PATTERN.test(trimmed)) return acceptedVideo(trimmed);
 
-  const withProtocol = /^https?:\/\//i.test(trimmed) ? trimmed : `https://${trimmed}`;
+  const hasProtocol = /^https?:\/\//i.test(trimmed);
+  if (!hasProtocol && !trimmed.includes(".") && !trimmed.includes("/")) {
+    return { ok: false, reason: "malformed" };
+  }
+
+  const withProtocol = hasProtocol ? trimmed : `https://${trimmed}`;
   let url: URL;
   try {
     url = new URL(withProtocol);
