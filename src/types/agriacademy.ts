@@ -123,6 +123,22 @@ export interface CourseEnrollmentRecord {
   updated_at: string;
 }
 
+export interface CourseEnrollmentStudentRow {
+  enrollmentId: string;
+  courseId: string;
+  studentId: string;
+  studentEmail: string | null;
+  studentDisplayName: string | null;
+  enrolledAt: string;
+  status: CourseEnrollmentStatus;
+}
+
+export interface EnrolledCourseListItem {
+  enrollmentId: string;
+  enrolledAt: string;
+  course: CourseListItem;
+}
+
 export interface CourseWithSections extends CourseRecord {
   sections: Array<CourseSectionRecord & { lessons: CourseLessonRecord[] }>;
 }

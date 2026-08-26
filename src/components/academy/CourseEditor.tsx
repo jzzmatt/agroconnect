@@ -395,8 +395,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         </Button>
       </div>
 
-      <Link href="/dashboard/academy/my-courses" className="text-xs font-bold text-primary hover:underline">
-        ← Voltar aos meus cursos
+      <Link href="/dashboard/academy" className="text-xs font-bold text-primary hover:underline">
+        ← Voltar à criação de cursos
       </Link>
 
       <MediaLibraryModal

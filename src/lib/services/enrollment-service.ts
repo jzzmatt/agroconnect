@@ -3,7 +3,7 @@ import {
   createServerSupabaseClient,
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
-import type { CourseEnrollmentRecord } from "@/types/agriacademy";
+import type { CourseEnrollmentRecord, CourseEnrollmentStudentRow } from "@/types/agriacademy";
 import type { CourseEnrollmentStatus } from "@/types/database";
 
 function hasLiveSupabase(): boolean {
@@ -138,6 +138,84 @@ export class EnrollmentService {
   public static async isEnrolled(studentId: string, courseId: string): Promise<boolean> {
     const enrollment = await this.findEnrollment(studentId, courseId);
     return enrollment?.status === "active";
+  }
+
+  /** Aggregated active enrollment counts per course (single query). */
+  public static async countActiveByCourseIds(courseIds: string[]): Promise<Record<string, number>> {
+    if (courseIds.length === 0) return {};
+
+    if (hasLiveSupabase()) {
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .select("course_id")
+        .in("course_id", courseIds)
+        .eq("status", "active");
+      if (!error && data) {
+        const counts: Record<string, number> = {};
+        for (const row of data as Array<{ course_id: string }>) {
+          counts[row.course_id] = (counts[row.course_id] ?? 0) + 1;
+        }
+        return counts;
+      }
+    }
+
+    const counts: Record<string, number> = {};
+    for (const enrollment of memoryEnrollments) {
+      if (enrollment.status !== "active" || !courseIds.includes(enrollment.course_id)) continue;
+      counts[enrollment.course_id] = (counts[enrollment.course_id] ?? 0) + 1;
+    }
+    return counts;
+  }
+
+  /** Instructor-facing student list with profile email (private). */
+  public static async listStudentsWithProfiles(
+    courseId: string,
+    status: CourseEnrollmentStatus = "active"
+  ): Promise<CourseEnrollmentStudentRow[]> {
+    if (hasLiveSupabase()) {
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .select(
+          `
+          id,
+          course_id,
+          student_id,
+          status,
+          enrolled_at,
+          profiles:student_id ( email, display_name )
+        `
+        )
+        .eq("course_id", courseId)
+        .eq("status", status)
+        .order("enrolled_at", { ascending: false });
+
+      if (!error && data) {
+        return (data as Array<Record<string, unknown>>).map((row) => {
+          const profile = row.profiles as { email?: string | null; display_name?: string | null } | null;
+          return {
+            enrollmentId: String(row.id),
+            courseId: String(row.course_id),
+            studentId: String(row.student_id),
+            studentEmail: profile?.email ?? null,
+            studentDisplayName: profile?.display_name ?? null,
+            enrolledAt: String(row.enrolled_at),
+            status: row.status as CourseEnrollmentStatus,
+          };
+        });
+      }
+    }
+
+    return memoryEnrollments
+      .filter((item) => item.course_id === courseId && item.status === status)
+      .map((item) => ({
+        enrollmentId: item.id,
+        courseId: item.course_id,
+        studentId: item.student_id,
+        studentEmail: null,
+        studentDisplayName: null,
+        enrolledAt: item.enrolled_at,
+        status: item.status,
+      }));
   }
 
   private static async findEnrollment(

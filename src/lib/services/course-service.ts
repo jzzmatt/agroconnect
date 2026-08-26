@@ -395,6 +395,30 @@ export class CourseService {
     );
   }
 
+  public static async getCoursesByIds(courseIds: string[]): Promise<CourseListItem[]> {
+    if (courseIds.length === 0) return [];
+
+    if (hasLiveSupabase()) {
+      try {
+        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const { data, error } = await (supabase.from("courses") as any)
+          .select("*")
+          .in("id", courseIds);
+        if (!error && data) {
+          const mapped = await this.attachInstructorNames(supabase, data);
+          const order = new Map(courseIds.map((id, index) => [id, index]));
+          return mapped.sort(
+            (a, b) => (order.get(a.id) ?? 0) - (order.get(b.id) ?? 0)
+          );
+        }
+      } catch (err) {
+        console.warn("[CourseService.getCoursesByIds] Fallback to seed:", err);
+      }
+    }
+
+    return INITIAL_COURSES.filter((course) => courseIds.includes(course.id));
+  }
+
   public static isCourseOwner(course: Pick<CourseListItem, "instructor_id">, ownerId: string): boolean {
     return course.instructor_id === ownerId;
   }

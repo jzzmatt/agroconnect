@@ -248,5 +248,75 @@ export async function listMyEnrollmentsAction() {
 
 export async function listCourseEnrollmentsAction(courseId: string) {
   await authorize("academy.students.view");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+
+  const owned = await CourseService.listByOwner(userProfile.id, true);
+  if (!owned.some((course) => course.id === courseId)) {
+    throw new Error("Acesso negado.");
+  }
+
   return EnrollmentService.listByCourse(courseId);
+}
+
+export async function listOwnedCourseStudentsAction(courseId: string) {
+  await authorize("academy.students.view");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+
+  const owned = await CourseService.listByOwner(userProfile.id, true);
+  if (!owned.some((course) => course.id === courseId)) {
+    throw new Error("Acesso negado.");
+  }
+
+  return EnrollmentService.listStudentsWithProfiles(courseId);
+}
+
+export async function getCourseCreatorDashboardAction() {
+  await authorize("academy.course.create");
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) {
+    return {
+      draftCourses: [],
+      publishedCourses: [],
+    };
+  }
+
+  const courses = await CourseService.listByOwner(userProfile.id, true);
+  const published = courses.filter((course) => course.status === "published");
+  const drafts = courses.filter((course) => course.status !== "published" && course.status !== "archived");
+  const counts = await EnrollmentService.countActiveByCourseIds(published.map((course) => course.id));
+
+  return {
+    draftCourses: drafts,
+    publishedCourses: published.map((course) => ({
+      ...course,
+      studentCount: counts[course.id] ?? 0,
+    })),
+  };
+}
+
+export async function listMyEnrolledCoursesAction() {
+  await requireAuth();
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return [];
+
+  const enrollments = await EnrollmentService.listByStudent(userProfile.id);
+  if (enrollments.length === 0) return [];
+
+  const courseIds = enrollments.map((item) => item.course_id);
+  const courses = await CourseService.getCoursesByIds(courseIds);
+  const courseMap = new Map(courses.map((course) => [course.id, course]));
+
+  return enrollments
+    .map((enrollment) => {
+      const course = courseMap.get(enrollment.course_id);
+      if (!course) return null;
+      return {
+        enrollmentId: enrollment.id,
+        enrolledAt: enrollment.enrolled_at,
+        course,
+      };
+    })
+    .filter((item): item is NonNullable<typeof item> => item !== null);
 }

@@ -14,10 +14,10 @@ describe("AgriAcademy Bunny upload flow", () => {
   });
 
   it("uses file picker + TUS upload instead of a metadata-only demo button", () => {
-    const page = readFileSync("src/app/(dashboard)/dashboard/academy/page.tsx", "utf8");
+    const mediaLibrary = readFileSync("src/components/academy/MediaLibraryModal.tsx", "utf8");
     const uploader = readFileSync("src/components/academy/AcademyVideoUploader.tsx", "utf8");
-    expect(page).toContain("AcademyVideoUploader");
-    expect(page).not.toContain("handleDemoUpload");
+    expect(mediaLibrary).toContain("AcademyVideoUploader");
+    expect(uploader).not.toContain("handleDemoUpload");
     expect(uploader).toContain('fetch("/api/academy/video/create"');
     expect(uploader).toContain("uploadToBunnyTus");
     expect(uploader).toContain('fetch("/api/academy/video/complete"');

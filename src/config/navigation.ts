@@ -6,7 +6,7 @@ import {
   ShoppingBag,
   MapPin,
   Calendar,
-  BookOpen,
+  BookOpenCheck,
   DollarSign,
   Award,
   Star,
@@ -19,6 +19,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
+import type { Permission } from "@/lib/authorization";
 import { pt, type Dictionary } from "@/i18n/dictionaries/pt";
 
 export interface NavItem {
@@ -28,6 +29,10 @@ export interface NavItem {
   badge?: string;
   requiredRole?: UserRoleType;
   requiredModule?: "agriShopping" | "agriAcademy" | "agriExpert" | "agriLocalizacao";
+  /** When set, item is locked unless the user has this capability. */
+  requiredPermission?: Permission;
+  /** When true, subscription/module lock never applies (e.g. student My Courses). */
+  neverLock?: boolean;
 }
 
 export interface NavSection {
@@ -104,19 +109,16 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
     roles: ["instructor", "student"],
     items: [
       {
-        title: dict.navDash.myCourses,
-        href: "/dashboard/academy/my-courses",
-        icon: BookOpen,
-      },
-      {
-        title: dict.navDash.videosStorage,
+        title: dict.navDash.courseCreator,
         href: "/dashboard/academy",
-        icon: BookOpen,
+        icon: GraduationCap,
+        requiredPermission: "academy.course.create",
       },
       {
-        title: dict.navDash.students,
-        href: "/dashboard/academy/students",
-        icon: Users,
+        title: dict.navDash.myEnrolledCourses,
+        href: "/dashboard/academy/my-courses",
+        icon: BookOpenCheck,
+        neverLock: true,
       },
     ],
   },

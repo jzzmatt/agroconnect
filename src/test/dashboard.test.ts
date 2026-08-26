@@ -22,7 +22,10 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     expect(expertSection?.items.map((i) => i.title)).toContain(pt.navDash.myServices);
 
     const academySection = getDashboardNavigation(pt).find((s) => s.pillar === "agriAcademy");
-    expect(academySection?.items.map((i) => i.href)).toContain("/dashboard/academy/my-courses");
+    expect(academySection?.items.map((i) => i.href)).toEqual([
+      "/dashboard/academy",
+      "/dashboard/academy/my-courses",
+    ]);
 
     const en = getDictionary("en");
     const enNav = getDashboardNavigation(en);
