@@ -12,8 +12,16 @@ import {
 } from "@/lib/academy/course-catalog";
 import {
   assertCourseStatusTransition,
+  canPermanentlyDeleteCourse,
   isPubliclyVisibleCourseStatus,
 } from "@/lib/academy/course-lifecycle";
+import {
+  CoursePersistenceError,
+  COURSE_MUTATION_MESSAGES,
+  mutationFail,
+  mutationOk,
+  type CourseMutationResult,
+} from "@/lib/academy/course-errors";
 import type {
   CourseListItem,
   CourseRecord,
@@ -39,6 +47,14 @@ function hasLiveSupabase(): boolean {
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
   );
+}
+
+type MemoryCourseRecord = CourseRecord & { deleted?: boolean };
+
+const memoryCourses = new Map<string, MemoryCourseRecord>();
+
+function databaseError(cause?: unknown): CoursePersistenceError {
+  return new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, cause);
 }
 
 function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
@@ -73,7 +89,99 @@ function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
   };
 }
 
+function listItemToRecord(item: CourseListItem): CourseRecord {
+  return {
+    id: item.id,
+    owner_id: item.instructor_id,
+    provider_id: item.provider_id ?? null,
+    title: item.title,
+    slug: item.slug,
+    short_description: item.short_description ?? null,
+    description: item.description ?? null,
+    level: item.level,
+    price: item.price,
+    currency: item.currency,
+    status: item.status,
+    thumbnail_url: item.thumbnail_url ?? null,
+    duration_hours: item.duration_hours ?? null,
+    lessons_count: item.lessons_count ?? 0,
+    students_count: item.students_count ?? 0,
+    rating: item.rating ?? null,
+    province_name: item.province_name ?? null,
+    municipality_name: item.municipality_name ?? null,
+    is_featured: item.is_featured ?? false,
+    published_at: item.published_at ?? null,
+    metadata: {},
+    created_at: item.created_at,
+    updated_at: item.created_at,
+  };
+}
+
+function rememberCourse(record: CourseRecord): MemoryCourseRecord {
+  const stored: MemoryCourseRecord = { ...record, deleted: false };
+  memoryCourses.set(record.id, stored);
+  return stored;
+}
+
+function resolveMemoryCourse(courseId: string): MemoryCourseRecord | null {
+  const existing = memoryCourses.get(courseId);
+  if (existing) return existing.deleted ? null : existing;
+  const seed = INITIAL_COURSES.find((course) => course.id === courseId);
+  if (!seed) return null;
+  return rememberCourse(listItemToRecord(seed));
+}
+
+function applyMemoryOverlay(courses: CourseListItem[]): CourseListItem[] {
+  return courses
+    .map((course) => {
+      const overlay = memoryCourses.get(course.id);
+      if (!overlay) return course;
+      if (overlay.deleted) return null;
+      return {
+        ...course,
+        title: overlay.title,
+        slug: overlay.slug,
+        description: overlay.description,
+        short_description: overlay.short_description,
+        status: overlay.status,
+        published_at: overlay.published_at,
+      };
+    })
+    .filter((course): course is CourseListItem => course !== null)
+    .concat(
+      [...memoryCourses.values()]
+        .filter((record) => !record.deleted && !courses.some((course) => course.id === record.id))
+        .map((record) => ({
+          id: record.id,
+          title: record.title,
+          slug: record.slug,
+          instructor_id: record.owner_id,
+          instructor_name: "Instrutor",
+          description: record.description,
+          short_description: record.short_description,
+          level: record.level,
+          price: record.price,
+          currency: record.currency,
+          status: record.status,
+          thumbnail_url: record.thumbnail_url,
+          duration_hours: record.duration_hours,
+          lessons_count: record.lessons_count,
+          students_count: record.students_count,
+          rating: record.rating,
+          province_name: record.province_name,
+          municipality_name: record.municipality_name,
+          is_featured: record.is_featured,
+          created_at: record.created_at,
+          published_at: record.published_at,
+        }))
+    );
+}
+
 export class CourseService {
+  public static resetMemoryStore(): void {
+    memoryCourses.clear();
+  }
+
   /** Public catalogue — only published courses. */
   public static async searchPublishedCourses(
     params: SearchCoursesFilterParams = {}
@@ -123,7 +231,9 @@ export class CourseService {
       }
     }
 
-    const courses = filterSeedCourses(params);
+    const courses = applyMemoryOverlay(filterSeedCourses(params)).filter((course) =>
+      isPubliclyVisibleCourseStatus(course.status)
+    );
     return { courses, total: courses.length };
   }
 
@@ -152,7 +262,9 @@ export class CourseService {
       }
     }
 
-    const seed = INITIAL_COURSES.find((course) => course.slug === slug && course.status === "published");
+    const seed = applyMemoryOverlay(INITIAL_COURSES).find(
+      (course) => course.slug === slug && isPubliclyVisibleCourseStatus(course.status)
+    );
     return seed ?? null;
   }
 
@@ -191,7 +303,9 @@ export class CourseService {
       }
     }
 
-    const courses = filterSeedCourses(params).filter((course) => course.provider_slug === providerSlug);
+    const courses = applyMemoryOverlay(filterSeedCourses(params)).filter(
+      (course) => course.provider_slug === providerSlug && isPubliclyVisibleCourseStatus(course.status)
+    );
     return { courses, total: courses.length };
   }
 
@@ -212,8 +326,10 @@ export class CourseService {
       }
     }
 
-    return INITIAL_COURSES.filter(
-      (course) => course.instructor_id === ownerId && (includeDrafts || course.status === "published")
+    return applyMemoryOverlay(INITIAL_COURSES).filter(
+      (course) =>
+        course.instructor_id === ownerId &&
+        (includeDrafts || isPubliclyVisibleCourseStatus(course.status))
     );
   }
 
@@ -238,7 +354,7 @@ export class CourseService {
       }
     }
 
-    return INITIAL_COURSES.filter((course) => courseIds.includes(course.id));
+    return applyMemoryOverlay(INITIAL_COURSES).filter((course) => courseIds.includes(course.id));
   }
 
   public static isCourseOwner(course: Pick<CourseListItem, "instructor_id">, ownerId: string): boolean {
@@ -318,60 +434,70 @@ export class CourseService {
       if (!error && data) {
         return normalizeCourseRecord(data as Record<string, unknown>);
       }
-      throw new Error(error?.message || "Não foi possível criar o curso na base de dados.");
+      throw databaseError(error);
     }
 
+    rememberCourse(record);
     return record;
+  }
+
+  public static async getOwnedCourse(
+    ownerId: string,
+    courseId: string
+  ): Promise<CourseMutationResult<CourseRecord>> {
+    if (hasLiveSupabase()) {
+      try {
+        const supabase = await getAcademyWritableClient();
+        const { data, error } = await (supabase.from("courses") as any)
+          .select("*")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (error) return mutationFail("DATABASE_ERROR");
+        if (!data) return mutationFail("COURSE_NOT_FOUND");
+        const record = normalizeCourseRecord(data as Record<string, unknown>);
+        if (record.owner_id !== ownerId) return mutationFail("UNAUTHORIZED");
+        return mutationOk(record);
+      } catch {
+        return mutationFail("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR);
+      }
+    }
+
+    const existing = resolveMemoryCourse(courseId);
+    if (!existing) return mutationFail("COURSE_NOT_FOUND");
+    if (existing.owner_id !== ownerId) return mutationFail("UNAUTHORIZED");
+    return mutationOk(existing);
   }
 
   public static async updateCourse(
     ownerId: string,
     input: UpdateCourseInput
-  ): Promise<CourseRecord | null> {
-    const existing = INITIAL_COURSES.find((course) => course.id === input.id);
-    if (existing && !this.isCourseOwner(existing, ownerId)) {
-      return null;
+  ): Promise<CourseMutationResult<CourseRecord>> {
+    const current = await this.getOwnedCourse(ownerId, input.id);
+    if (!current.success) return current;
+
+    let nextStatus = current.data.status;
+    if (input.status && input.status !== current.data.status) {
+      try {
+        nextStatus = this.transitionStatus(current.data.status, input.status);
+      } catch (err) {
+        return mutationFail(
+          "INVALID_STATE_TRANSITION",
+          err instanceof Error ? err.message : COURSE_MUTATION_MESSAGES.INVALID_STATE_TRANSITION
+        );
+      }
     }
 
-    const nextStatus = input.status
-      ? this.transitionStatus(existing?.status ?? "draft", input.status)
-      : existing?.status ?? "draft";
-
-    const updated: CourseRecord = {
-      id: input.id,
-      owner_id: ownerId,
-      provider_id: input.providerId ?? existing?.provider_id ?? null,
-      category_id: input.categoryId ?? null,
-      title: input.title ?? existing?.title ?? "",
-      slug: input.slug ?? existing?.slug ?? "",
-      short_description: input.shortDescription ?? existing?.short_description ?? null,
-      description: input.description ?? existing?.description ?? null,
-      level: input.level ?? existing?.level ?? "all_levels",
-      price: input.price ?? existing?.price ?? 0,
-      currency: input.currency ?? existing?.currency ?? "AOA",
-      status: nextStatus,
-      thumbnail_url: input.thumbnailUrl ?? existing?.thumbnail_url ?? null,
-      duration_hours: existing?.duration_hours ?? null,
-      lessons_count: existing?.lessons_count ?? 0,
-      students_count: existing?.students_count ?? 0,
-      rating: existing?.rating ?? null,
-      province_name: input.provinceName ?? existing?.province_name ?? null,
-      municipality_name: input.municipalityName ?? existing?.municipality_name ?? null,
-      is_featured: existing?.is_featured ?? false,
-      published_at:
-        nextStatus === "published"
-          ? existing?.published_at ?? new Date().toISOString()
-          : existing?.published_at ?? null,
-      metadata: {},
-      created_at: existing?.created_at ?? new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    };
+    const now = new Date().toISOString();
+    const publishedAt =
+      nextStatus === "published"
+        ? current.data.published_at ?? now
+        : current.data.published_at ?? null;
 
     if (hasLiveSupabase()) {
       try {
         const supabase = await getAcademyWritableClient();
         const patch: Record<string, unknown> = {
-          updated_at: updated.updated_at,
+          updated_at: now,
         };
         if (input.title) patch.title = input.title;
         if (input.slug) patch.slug = input.slug;
@@ -385,8 +511,8 @@ export class CourseService {
         if (input.municipalityName !== undefined) patch.municipality_name = input.municipalityName;
         if (input.status) {
           patch.status = nextStatus;
-          if (nextStatus === "published" && !existing?.published_at) {
-            patch.published_at = new Date().toISOString();
+          if (nextStatus === "published" && !current.data.published_at) {
+            patch.published_at = now;
           }
         }
 
@@ -395,18 +521,102 @@ export class CourseService {
           .eq("id", input.id)
           .eq("owner_id", ownerId)
           .select()
-          .single();
+          .maybeSingle();
 
-        if (!error && data) {
-          return data as CourseRecord;
-        }
-        if (error) return null;
-      } catch (err) {
-        console.warn("[CourseService.updateCourse] Using in-memory record:", err);
+        if (error) return mutationFail("DATABASE_ERROR");
+        if (!data) return mutationFail("COURSE_NOT_FOUND");
+        return mutationOk(normalizeCourseRecord(data as Record<string, unknown>));
+      } catch {
+        return mutationFail("DATABASE_ERROR");
       }
     }
 
-    return updated;
+    const updated: CourseRecord = {
+      ...current.data,
+      provider_id: input.providerId ?? current.data.provider_id ?? null,
+      category_id: input.categoryId ?? current.data.category_id ?? null,
+      title: input.title ?? current.data.title,
+      slug: input.slug ?? current.data.slug,
+      short_description: input.shortDescription ?? current.data.short_description ?? null,
+      description: input.description ?? current.data.description ?? null,
+      level: input.level ?? current.data.level,
+      price: input.price ?? current.data.price,
+      currency: input.currency ?? current.data.currency,
+      status: nextStatus,
+      thumbnail_url: input.thumbnailUrl ?? current.data.thumbnail_url ?? null,
+      province_name: input.provinceName ?? current.data.province_name ?? null,
+      municipality_name: input.municipalityName ?? current.data.municipality_name ?? null,
+      published_at: publishedAt,
+      updated_at: now,
+    };
+    rememberCourse(updated);
+    return mutationOk(updated);
+  }
+
+  /**
+   * Permanently delete a course. Published courses are rejected using the
+   * current database/memory status — never a client-supplied status.
+   * Sections and lessons cascade; reusable academy_videos/Bunny assets remain.
+   */
+  public static async deleteCourse(
+    ownerId: string,
+    courseId: string
+  ): Promise<CourseMutationResult<{ id: string }>> {
+    const current = await this.getOwnedCourse(ownerId, courseId);
+    if (!current.success) {
+      if (current.code === "UNAUTHORIZED") {
+        return mutationFail("UNAUTHORIZED", "Não tem permissão para eliminar este curso.");
+      }
+      return current;
+    }
+
+    if (current.data.status === "published") {
+      return mutationFail("COURSE_PUBLISHED");
+    }
+
+    if (!canPermanentlyDeleteCourse(current.data.status)) {
+      return mutationFail("INVALID_STATE_TRANSITION");
+    }
+
+    if (hasLiveSupabase()) {
+      try {
+        const supabase = await getAcademyWritableClient();
+        const { data: latest, error: latestError } = await (supabase.from("courses") as any)
+          .select("id, status, owner_id")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (latestError) return mutationFail("DATABASE_ERROR");
+        if (!latest) return mutationFail("COURSE_NOT_FOUND");
+        if (latest.owner_id !== ownerId) {
+          return mutationFail("UNAUTHORIZED", "Não tem permissão para eliminar este curso.");
+        }
+        if (latest.status === "published") return mutationFail("COURSE_PUBLISHED");
+
+        const { error } = await (supabase.from("courses") as any)
+          .delete()
+          .eq("id", courseId)
+          .eq("owner_id", ownerId);
+        if (error) {
+          const code = typeof error === "object" && error && "code" in error ? String(error.code) : "";
+          if (code === "23503") return mutationFail("DEPENDENCY_ERROR");
+          return mutationFail("DATABASE_ERROR");
+        }
+
+        const { data: remaining, error: confirmError } = await (supabase.from("courses") as any)
+          .select("id")
+          .eq("id", courseId)
+          .maybeSingle();
+        if (confirmError) return mutationFail("DATABASE_ERROR");
+        if (remaining) return mutationFail("DATABASE_ERROR");
+        return mutationOk({ id: courseId });
+      } catch {
+        return mutationFail("DATABASE_ERROR");
+      }
+    }
+
+    const stored = memoryCourses.get(courseId) ?? rememberCourse(current.data);
+    stored.deleted = true;
+    return mutationOk({ id: courseId });
   }
 
   public static async getCourseWithSections(courseId: string): Promise<CourseWithSections | null> {

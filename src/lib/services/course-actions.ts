@@ -6,6 +6,12 @@ import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { CourseService } from "@/lib/services/course-service";
 import { AcademyVideoService } from "@/lib/services/academy-video-service";
+import {
+  mutationFail,
+  mutationOk,
+  toCourseMutationFailure,
+  type CourseMutationResult,
+} from "@/lib/academy/course-errors";
 import type {
   CourseListItem,
   CourseRecord,
@@ -53,21 +59,14 @@ export async function createCourseAction(
 
 export async function updateCourseAction(
   input: UpdateCourseInput
-): Promise<{ success: boolean; course: CourseRecord | null; error?: string }> {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) {
-    return { success: false, course: null, error: "Perfil não encontrado." };
-  }
+): Promise<CourseMutationResult<CourseRecord>> {
   try {
-    const course = await CourseService.updateCourse(userProfile.id, input);
-    if (!course) {
-      return { success: false, course: null, error: "Não foi possível guardar o curso." };
-    }
-    return { success: true, course };
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED", "Não tem permissão para alterar este curso.");
+    return CourseService.updateCourse(userProfile.id, input);
   } catch (err: unknown) {
-    const message = err instanceof Error ? err.message : "Não foi possível guardar o curso.";
-    return { success: false, course: null, error: message };
+    return toCourseMutationFailure(err);
   }
 }
 
@@ -78,100 +77,225 @@ export async function getCourseEditorAction(courseId: string) {
   return AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
 }
 
-export async function publishCourseAction(courseId: string) {
-  await authorize("academy.course.publish");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
+export async function publishCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
+  try {
+    await authorize("academy.course.publish");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
 
-  const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
-  if (!tree) throw new Error("Curso não encontrado.");
+    const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+    if (!tree) return mutationFail("COURSE_NOT_FOUND");
 
-  const validation = validateCourseForPublication(tree);
-  if (!validation.ok) {
-    throw new Error(validation.errors.join(" "));
+    const validation = validateCourseForPublication(tree);
+    if (!validation.ok) {
+      return mutationFail("VALIDATION_ERROR", validation.errors.join(" "));
+    }
+
+    const updated = await CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+    if (!updated.success) return updated;
+    if (updated.data.status !== "published") {
+      return mutationFail("DATABASE_ERROR", "Não foi possível publicar o curso. Tente novamente.");
+    }
+    return updated;
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
   }
-
-  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
 }
 
-export async function pauseCourseAction(courseId: string) {
-  await authorize("academy.course.publish");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
-  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "paused" });
+export async function pauseCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
+  try {
+    await authorize("academy.course.publish");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const updated = await CourseService.updateCourse(userProfile.id, { id: courseId, status: "paused" });
+    if (!updated.success) return updated;
+    if (updated.data.status !== "paused") {
+      return mutationFail("DATABASE_ERROR", "Não foi possível retirar o curso da publicação.");
+    }
+    return updated;
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
-export async function resumeCourseAction(courseId: string) {
-  await authorize("academy.course.publish");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
-  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+export async function resumeCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
+  try {
+    await authorize("academy.course.publish");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+
+    const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+    if (!tree) return mutationFail("COURSE_NOT_FOUND");
+    const validation = validateCourseForPublication(tree);
+    if (!validation.ok) {
+      return mutationFail("VALIDATION_ERROR", validation.errors.join(" "));
+    }
+
+    const updated = await CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+    if (!updated.success) return updated;
+    if (updated.data.status !== "published") {
+      return mutationFail("DATABASE_ERROR", "Não foi possível retomar o curso.");
+    }
+    return updated;
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
-export async function archiveCourseAction(courseId: string) {
-  await authorize("academy.course.delete");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
-  return CourseService.updateCourse(userProfile.id, { id: courseId, status: "archived" });
+export async function archiveCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
+  try {
+    await authorize("academy.course.delete");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    return CourseService.updateCourse(userProfile.id, { id: courseId, status: "archived" });
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
+}
+
+export async function deleteCourseAction(courseId: string): Promise<CourseMutationResult<{ id: string }>> {
+  try {
+    await authorize("academy.course.delete");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) {
+      return mutationFail("UNAUTHORIZED", "Não tem permissão para eliminar este curso.");
+    }
+    return CourseService.deleteCourse(userProfile.id, courseId);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err, "UNAUTHORIZED");
+  }
 }
 
 export async function createSectionAction(courseId: string, title: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.createSection(userProfile.id, courseId, title);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const section = await AcademyAuthoringService.createSection(userProfile.id, courseId, title);
+    if (!section) return mutationFail("UNAUTHORIZED");
+    return mutationOk(section);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function updateSectionAction(sectionId: string, title: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.updateSection(userProfile.id, sectionId, title);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const section = await AcademyAuthoringService.updateSection(userProfile.id, sectionId, title);
+    if (!section) return mutationFail("COURSE_NOT_FOUND");
+    return mutationOk(section);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function deleteSectionAction(sectionId: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return false;
-  return AcademyAuthoringService.deleteSection(userProfile.id, sectionId);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const deleted = await AcademyAuthoringService.deleteSection(userProfile.id, sectionId);
+    if (!deleted) return mutationFail("COURSE_NOT_FOUND");
+    return mutationOk({ deleted: true });
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function reorderSectionsAction(courseId: string, orderedSectionIds: string[]) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
-  return AcademyAuthoringService.reorderSections(userProfile.id, courseId, orderedSectionIds);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const sections = await AcademyAuthoringService.reorderSections(
+      userProfile.id,
+      courseId,
+      orderedSectionIds
+    );
+    return mutationOk(sections);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function createLessonAction(sectionId: string, title: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.createLesson(userProfile.id, sectionId, title);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const lesson = await AcademyAuthoringService.createLesson(userProfile.id, sectionId, title);
+    if (!lesson) return mutationFail("UNAUTHORIZED");
+    return mutationOk(lesson);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function updateLessonAction(
   lessonId: string,
   patch: { title?: string; description?: string | null }
 ) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.updateLesson(userProfile.id, lessonId, patch);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const lesson = await AcademyAuthoringService.updateLesson(userProfile.id, lessonId, patch);
+    if (!lesson) return mutationFail("COURSE_NOT_FOUND");
+    return mutationOk(lesson);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function deleteLessonAction(lessonId: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return false;
-  return AcademyAuthoringService.deleteLesson(userProfile.id, lessonId);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const deleted = await AcademyAuthoringService.deleteLesson(userProfile.id, lessonId);
+    if (!deleted) return mutationFail("COURSE_NOT_FOUND");
+    return mutationOk({ deleted: true });
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function assignLessonVideoAction(lessonId: string, videoId: string | null) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.assignLessonVideo(userProfile.id, lessonId, videoId);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const lesson = await AcademyAuthoringService.assignLessonVideo(userProfile.id, lessonId, videoId);
+    if (!lesson) return mutationFail("UNAUTHORIZED");
+    if (videoId !== null && lesson.academy_video_id !== videoId) {
+      return mutationFail("DATABASE_ERROR");
+    }
+    if (videoId === null && lesson.academy_video_id != null) {
+      return mutationFail("DATABASE_ERROR");
+    }
+    return mutationOk(lesson);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
+}
+
+export async function reorderLessonsAction(sectionId: string, orderedLessonIds: string[]) {
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const lessons = await AcademyAuthoringService.reorderLessons(
+      userProfile.id,
+      sectionId,
+      orderedLessonIds
+    );
+    return mutationOk(lessons);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
 }
 
 export async function listMediaLibraryAction() {

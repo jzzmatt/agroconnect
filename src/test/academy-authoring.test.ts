@@ -74,6 +74,7 @@ function draftCourseTree(): CourseWithSections {
 describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
   beforeEach(() => {
     AcademyAuthoringService.resetMemoryStore();
+    CourseService.resetMemoryStore();
   });
 
   it("1. Creates a course in draft state", async () => {
@@ -87,8 +88,11 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
       id: "crs-seed-draft",
       title: "Atualizado",
     });
-    expect(owned?.title).toBe("Atualizado");
-    expect(await CourseService.updateCourse("other-user", { id: "crs-seed-draft", title: "Hack" })).toBeNull();
+    expect(owned.success).toBe(true);
+    if (owned.success) expect(owned.data.title).toBe("Atualizado");
+    const denied = await CourseService.updateCourse("other-user", { id: "crs-seed-draft", title: "Hack" });
+    expect(denied.success).toBe(false);
+    if (!denied.success) expect(denied.code).toBe("UNAUTHORIZED");
   });
 
   it("3. Gates course authoring behind paid subscription entitlements", () => {
@@ -187,7 +191,8 @@ describe("AGROCONNECT Phase 7.1 — AgriAcademy Course Authoring", () => {
       id: "crs-seed-draft",
       status: "archived",
     });
-    expect(archived?.status).toBe("archived");
+    expect(archived.success).toBe(true);
+    if (archived.success) expect(archived.data.status).toBe("archived");
     expect(canTransitionCourseStatus("paused", "archived")).toBe(true);
   });
 

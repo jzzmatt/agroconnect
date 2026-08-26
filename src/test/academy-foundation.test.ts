@@ -32,6 +32,7 @@ function instructorSubject(plan: "basic" | "professional" | "business" | "enterp
 describe("AGROCONNECT Phase 7 — AgriAcademy LMS Foundation", () => {
   beforeEach(() => {
     EnrollmentService.resetMemoryStore();
+    CourseService.resetMemoryStore();
   });
 
   it("1. Slugify utility produces URL-safe course slugs", () => {
@@ -96,14 +97,15 @@ describe("AGROCONNECT Phase 7 — AgriAcademy LMS Foundation", () => {
       id: owned!.id,
       title: "Avicultura Atualizada",
     });
-    expect(allowed).not.toBeNull();
-    expect(allowed?.title).toBe("Avicultura Atualizada");
+    expect(allowed.success).toBe(true);
+    if (allowed.success) expect(allowed.data.title).toBe("Avicultura Atualizada");
 
     const denied = await CourseService.updateCourse("prof-seed-2", {
       id: owned!.id,
       title: "Tentativa não autorizada",
     });
-    expect(denied).toBeNull();
+    expect(denied.success).toBe(false);
+    if (!denied.success) expect(denied.code).toBe("UNAUTHORIZED");
     expect(CourseService.isCourseOwner(owned!, "prof-seed-1")).toBe(true);
     expect(CourseService.canInstructorManageCourse(owned!, "prof-seed-2")).toBe(false);
   });

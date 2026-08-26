@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useRef, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   Archive,
   Check,
@@ -15,13 +16,21 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { MediaLibraryModal } from "@/components/academy/MediaLibraryModal";
+import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
+import { courseEditorFingerprint } from "@/lib/academy/editor-snapshot";
+import {
+  deleteDialogForStatus,
+  type CourseDeleteDialogKind,
+} from "@/lib/academy/course-delete-flow";
+import type { CourseMutationCode, CourseMutationResult } from "@/lib/academy/course-errors";
 import { useI18n } from "@/i18n/provider";
 import {
   archiveCourseAction,
   assignLessonVideoAction,
   createLessonAction,
   createSectionAction,
+  deleteCourseAction,
   deleteLessonAction,
   deleteSectionAction,
   getCourseEditorAction,
@@ -33,7 +42,7 @@ import {
   updateSectionAction,
 } from "@/lib/services/course-actions";
 import { getAcademyStorageAction } from "@/lib/services/academy-video-actions";
-import type { CourseEditorTree } from "@/lib/academy/authoring-service";
+import type { CourseEditorTree } from "@/types/agriacademy";
 
 type SaveState = "idle" | "saving" | "success" | "error";
 type LoadState = "loading" | "ready" | "not_found" | "error";
@@ -54,19 +63,17 @@ function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   });
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  published: "Publicado",
-  paused: "Em pausa",
-  archived: "Arquivado",
-};
-
 function formatSavedTime(date: Date, locale: string): string {
   return date.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
 }
 
+function isMutationResult(value: unknown): value is CourseMutationResult<unknown> {
+  return Boolean(value) && typeof value === "object" && "success" in (value as object);
+}
+
 export function CourseEditor({ courseId }: { courseId: string }) {
   const { dict, locale } = useI18n();
+  const router = useRouter();
   const [course, setCourse] = useState<CourseEditorTree | null>(null);
   const [loadState, setLoadState] = useState<LoadState>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -78,30 +85,72 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [saveState, setSaveState] = useState<SaveState>("idle");
   const [lastSavedAt, setLastSavedAt] = useState<Date | null>(null);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [isPending, startTransition] = useTransition();
+  const [mutating, setMutating] = useState(false);
+  const [deleteDialog, setDeleteDialog] = useState<CourseDeleteDialogKind | null>(null);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [deleteBusy, setDeleteBusy] = useState(false);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const courseFingerprint = useMemo(() => {
-    if (!course) return "";
-    return JSON.stringify({
-      title: course.title,
-      description: course.description ?? "",
-      short_description: course.short_description ?? "",
-    });
-  }, [course]);
+  const statusLabels: Record<string, string> = {
+    draft: dict.agriacademy.statusDraft,
+    published: dict.agriacademy.statusPublished,
+    paused: dict.agriacademy.statusPaused,
+    archived: dict.agriacademy.statusArchived,
+  };
+
+  const courseFingerprint = useMemo(
+    () => (course ? courseEditorFingerprint(course) : ""),
+    [course]
+  );
 
   const isDirty = Boolean(course && courseFingerprint !== savedSnapshot);
-  const isSaving = saveState === "saving" || isPending;
+  const isSaving = saveState === "saving" || mutating || deleteBusy;
+
+  const mutationMessage = useCallback(
+    (code: CourseMutationCode | undefined, fallback: string) => {
+      switch (code) {
+        case "UNAUTHORIZED":
+          return dict.agriacademy.mutationUnauthorized;
+        case "COURSE_NOT_FOUND":
+          return dict.agriacademy.mutationNotFound;
+        case "COURSE_PUBLISHED":
+          return dict.agriacademy.deletePublished;
+        case "INVALID_STATE_TRANSITION":
+          return dict.agriacademy.mutationInvalidState;
+        case "DATABASE_ERROR":
+          return dict.agriacademy.mutationDatabaseError;
+        case "DEPENDENCY_ERROR":
+          return dict.agriacademy.deleteDependencyError;
+        default:
+          return fallback || dict.agriacademy.unableToSave;
+      }
+    },
+    [dict.agriacademy]
+  );
+
+  const deleteMessage = useCallback(
+    (code: CourseMutationCode | undefined, fallback: string) => {
+      switch (code) {
+        case "UNAUTHORIZED":
+          return dict.agriacademy.deleteUnauthorized;
+        case "COURSE_NOT_FOUND":
+          return dict.agriacademy.deleteNotFound;
+        case "COURSE_PUBLISHED":
+          return dict.agriacademy.deletePublished;
+        case "DATABASE_ERROR":
+          return dict.agriacademy.deleteDatabaseError;
+        case "DEPENDENCY_ERROR":
+          return dict.agriacademy.deleteDependencyError;
+        default:
+          return fallback || dict.agriacademy.deleteUnknownError;
+      }
+    },
+    [dict.agriacademy]
+  );
 
   const applyCourseTree = useCallback((tree: CourseEditorTree) => {
     setCourse(tree);
-    setSavedSnapshot(
-      JSON.stringify({
-        title: tree.title,
-        description: tree.description ?? "",
-        short_description: tree.short_description ?? "",
-      })
-    );
+    setSavedSnapshot(courseEditorFingerprint(tree));
   }, []);
 
   const loadCourse = useCallback(
@@ -117,11 +166,12 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         if (!tree) {
           setLoadState("not_found");
           setCourse(null);
-          return;
+          return null;
         }
         applyCourseTree(tree);
         setLoadState("ready");
         setLoadError(null);
+        return tree;
       } catch (err: unknown) {
         if (!showLoading) {
           setError(
@@ -131,7 +181,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                 ? err.message
                 : dict.agriacademy.unableToLoadCourse
           );
-          return;
+          return null;
         }
         setLoadState("error");
         setLoadError(
@@ -142,29 +192,24 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               : dict.agriacademy.unableToLoadCourse
         );
         setCourse(null);
+        return null;
       }
     },
     [applyCourseTree, courseId, dict.agriacademy.unableToLoadCourse]
   );
 
-  const refresh = useCallback(() => {
-    void loadCourse({ showLoading: false });
-
+  const refreshStorage = useCallback(() => {
     void getAcademyStorageAction()
       .then((storage) => {
         setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
       })
       .catch(() => undefined);
-  }, [loadCourse]);
+  }, []);
 
   useEffect(() => {
     void loadCourse({ showLoading: true });
-    void getAcademyStorageAction()
-      .then((storage) => {
-        setRemainingBytes(Math.max(0, storage.limitBytes - storage.usedBytes));
-      })
-      .catch(() => undefined);
-  }, [courseId, loadCourse]);
+    refreshStorage();
+  }, [courseId, loadCourse, refreshStorage]);
 
   useEffect(() => {
     return () => {
@@ -186,14 +231,20 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       shortDescription: course.short_description ?? undefined,
     });
 
-    if (!result.success || !result.course) {
+    if (!result.success) {
       setSaveState("error");
-      setSaveError(result.error || dict.agriacademy.unableToSave);
+      setSaveError(mutationMessage(result.code, result.error));
+      return;
+    }
+
+    const tree = await loadCourse({ showLoading: false });
+    if (!tree) {
+      setSaveState("error");
+      setSaveError(dict.agriacademy.unableToSave);
       return;
     }
 
     const now = new Date();
-    setSavedSnapshot(courseFingerprint);
     setLastSavedAt(now);
     setSaveState("success");
     setMessage(dict.agriacademy.draftSaved);
@@ -205,18 +256,99 @@ export function CourseEditor({ courseId }: { courseId: string }) {
     }, 3000);
   };
 
-  const runAction = (action: () => Promise<unknown>, success: string) => {
-    startTransition(async () => {
-      try {
-        setError(null);
-        await action();
-        setMessage(success);
-        refresh();
-      } catch (err: unknown) {
-        const msg = err instanceof Error ? err.message : dict.agriacademy.unableToSave;
-        setError(msg);
+  const runAction = async (
+    action: () => Promise<unknown>,
+    success: string,
+    options?: { require?: (data: unknown) => boolean }
+  ): Promise<boolean> => {
+    if (mutating || deleteBusy) return false;
+    setMutating(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const raw = await action();
+      if (isMutationResult(raw)) {
+        if (!raw.success) {
+          setError(mutationMessage(raw.code, raw.error));
+          return false;
+        }
+        if (options?.require && !options.require(raw.data)) {
+          setError(dict.agriacademy.mutationDatabaseError);
+          return false;
+        }
+      } else if (raw == null) {
+        setError(dict.agriacademy.unableToSave);
+        return false;
       }
-    });
+
+      await loadCourse({ showLoading: false });
+      refreshStorage();
+      setMessage(success);
+      return true;
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : dict.agriacademy.unableToSave;
+      setError(msg);
+      return false;
+    } finally {
+      setMutating(false);
+    }
+  };
+
+  const openDeleteDialog = () => {
+    if (!course || isSaving) return;
+    setDeleteError(null);
+    setDeleteDialog(deleteDialogForStatus(course.status));
+  };
+
+  const closeDeleteDialog = () => {
+    if (deleteBusy) return;
+    setDeleteDialog(null);
+    setDeleteError(null);
+  };
+
+  const confirmPermanentDelete = async () => {
+    if (!course || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const result = await deleteCourseAction(course.id);
+      if (!result.success) {
+        setDeleteError(deleteMessage(result.code, result.error));
+        return;
+      }
+      router.push("/dashboard/academy?courseDeleted=1");
+    } catch (err: unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : dict.agriacademy.deleteUnknownError
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
+  };
+
+  const removeFromPublication = async () => {
+    if (!course || deleteBusy) return;
+    setDeleteBusy(true);
+    setDeleteError(null);
+    try {
+      const result = await pauseCourseAction(course.id);
+      if (!result.success) {
+        setDeleteError(mutationMessage(result.code, result.error));
+        return;
+      }
+      if (result.data.status !== "paused") {
+        setDeleteError(dict.agriacademy.mutationDatabaseError);
+        return;
+      }
+      await loadCourse({ showLoading: false });
+      setDeleteDialog("confirm_after_pause");
+    } catch (err: unknown) {
+      setDeleteError(
+        err instanceof Error ? err.message : dict.agriacademy.mutationDatabaseError
+      );
+    } finally {
+      setDeleteBusy(false);
+    }
   };
 
   if (loadState === "loading") {
@@ -263,9 +395,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 flex-1 min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="pillarAcademy">{STATUS_LABELS[course.status] || course.status}</Badge>
+            <Badge variant="pillarAcademy">{statusLabels[course.status] || course.status}</Badge>
             {isDirty && (
-              <span className="text-[11px] font-semibold text-amber-600">• Alterações por guardar</span>
+              <span className="text-[11px] font-semibold text-amber-600">
+                • {dict.agriacademy.unsavedChanges}
+              </span>
             )}
             {lastSavedAt && saveState !== "success" && (
               <span className="text-[11px] text-muted-foreground">
@@ -281,7 +415,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           <textarea
             value={course.description || course.short_description || ""}
             onChange={(event) => setCourse({ ...course, description: event.target.value })}
-            placeholder="Descrição do curso"
+            placeholder={dict.agriacademy.courseDescriptionPlaceholder}
             className="w-full min-h-20 text-sm bg-surface rounded-2xl border border-border p-3"
           />
         </div>
@@ -290,7 +424,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             type="button"
             size="sm"
             variant={saveState === "success" ? "primary" : "outline"}
-            onClick={handleSaveDraft}
+            onClick={() => void handleSaveDraft()}
             disabled={isSaving || !isDirty}
             className={
               saveState === "success"
@@ -311,11 +445,17 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             <Button
               type="button"
               size="sm"
-              onClick={() => runAction(() => publishCourseAction(course.id), "Curso publicado.")}
-              disabled={isPending}
+              onClick={() =>
+                void runAction(
+                  () => publishCourseAction(course.id),
+                  dict.agriacademy.coursePublished,
+                  { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
+                )
+              }
+              disabled={isSaving}
             >
               <Eye className="w-3.5 h-3.5 mr-1" />
-              Publicar
+              {dict.common.publish}
             </Button>
           ) : null}
           {course.status === "published" ? (
@@ -323,11 +463,17 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => runAction(() => pauseCourseAction(course.id), "Curso em pausa.")}
-              disabled={isPending}
+              onClick={() =>
+                void runAction(
+                  () => pauseCourseAction(course.id),
+                  dict.agriacademy.coursePaused,
+                  { require: (data) => (data as { status?: string } | undefined)?.status === "paused" }
+                )
+              }
+              disabled={isSaving}
             >
               <Pause className="w-3.5 h-3.5 mr-1" />
-              Pausar
+              {dict.agriacademy.statusPaused}
             </Button>
           ) : null}
           {course.status === "paused" ? (
@@ -335,11 +481,17 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => runAction(() => resumeCourseAction(course.id), "Curso retomado.")}
-              disabled={isPending}
+              onClick={() =>
+                void runAction(
+                  () => resumeCourseAction(course.id),
+                  dict.agriacademy.courseResumed,
+                  { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
+                )
+              }
+              disabled={isSaving}
             >
               <Play className="w-3.5 h-3.5 mr-1" />
-              Retomar
+              {dict.agriacademy.courseResumed.replace(".", "")}
             </Button>
           ) : null}
           {course.status !== "archived" ? (
@@ -347,17 +499,32 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               type="button"
               size="sm"
               variant="outline"
-              onClick={() => runAction(() => archiveCourseAction(course.id), "Curso arquivado.")}
-              disabled={isPending}
+              onClick={() =>
+                void runAction(() => archiveCourseAction(course.id), dict.agriacademy.courseArchived)
+              }
+              disabled={isSaving}
             >
               <Archive className="w-3.5 h-3.5 mr-1" />
-              Arquivar
+              {dict.agriacademy.statusArchived}
             </Button>
           ) : null}
         </div>
       </div>
 
-      {message && saveState === "success" && (
+      <div className="flex justify-end border-t border-border pt-4">
+        <Button
+          type="button"
+          size="sm"
+          variant="destructive"
+          onClick={openDeleteDialog}
+          disabled={isSaving}
+        >
+          <Trash2 className="w-3.5 h-3.5 mr-1" />
+          {deleteBusy ? dict.agriacademy.deletingCourse : dict.agriacademy.deleteCourse}
+        </Button>
+      </div>
+
+      {message && (saveState === "success" || (!saveError && !error)) && (
         <p className="text-xs font-semibold text-emerald-600 animate-in fade-in">{message}</p>
       )}
       {(saveError || error) && (
@@ -384,9 +551,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   })
                 }
                 onBlur={() =>
-                  runAction(
+                  void runAction(
                     () => updateSectionAction(section.id, section.title),
-                    "Capítulo atualizado."
+                    dict.agriacademy.chapterUpdated
                   )
                 }
                 className="flex-1 font-bold bg-transparent border-b border-border focus:outline-none"
@@ -395,8 +562,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                 type="button"
                 size="sm"
                 variant="outline"
+                disabled={isSaving}
                 onClick={() =>
-                  runAction(() => deleteSectionAction(section.id), "Capítulo removido.")
+                  void runAction(() => deleteSectionAction(section.id), dict.agriacademy.chapterRemoved)
                 }
               >
                 <Trash2 className="w-3.5 h-3.5" />
@@ -427,9 +595,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       })
                     }
                     onBlur={() =>
-                      runAction(
+                      void runAction(
                         () => updateLessonAction(lesson.id, { title: lesson.title }),
-                        "Aula atualizada."
+                        dict.agriacademy.lessonUpdated
                       )
                     }
                     className="flex-1 min-w-[160px] text-sm bg-transparent border-b border-border focus:outline-none"
@@ -438,17 +606,38 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                     type="button"
                     size="sm"
                     variant="outline"
+                    disabled={isSaving}
                     onClick={() => setVideoLessonId(lesson.id)}
                   >
                     {lesson.academy_video_id
                       ? dict.agriacademy.replaceVideo
                       : dict.agriacademy.selectVideo}
                   </Button>
+                  {lesson.academy_video_id ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() =>
+                        void runAction(
+                          () => assignLessonVideoAction(lesson.id, null),
+                          dict.agriacademy.videoRemoved,
+                          { require: (data) => (data as { academy_video_id?: string | null }).academy_video_id == null }
+                        )
+                      }
+                    >
+                      {dict.agriacademy.removeVideo}
+                    </Button>
+                  ) : null}
                   <Button
                     type="button"
                     size="sm"
                     variant="outline"
-                    onClick={() => runAction(() => deleteLessonAction(lesson.id), "Aula removida.")}
+                    disabled={isSaving}
+                    onClick={() =>
+                      void runAction(() => deleteLessonAction(lesson.id), dict.agriacademy.lessonRemoved)
+                    }
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -463,15 +652,16 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                 type="button"
                 size="sm"
                 variant="outline"
+                disabled={isSaving}
                 onClick={() =>
-                  runAction(
-                    () => createLessonAction(section.id, "Nova aula"),
-                    "Aula adicionada."
+                  void runAction(
+                    () => createLessonAction(section.id, dict.agriacademy.newLesson),
+                    dict.agriacademy.lessonAdded
                   )
                 }
               >
                 <Plus className="w-3.5 h-3.5 mr-1" />
-                Adicionar aula
+                {dict.agriacademy.addLesson}
               </Button>
             </div>
           </div>
@@ -480,17 +670,21 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         <Button
           type="button"
           variant="outline"
+          disabled={isSaving}
           onClick={() =>
-            runAction(() => createSectionAction(course.id, "Novo capítulo"), "Capítulo adicionado.")
+            void runAction(
+              () => createSectionAction(course.id, dict.agriacademy.newChapter),
+              dict.agriacademy.chapterAdded
+            )
           }
         >
           <Plus className="w-4 h-4 mr-1.5" />
-          Adicionar capítulo
+          {dict.agriacademy.addChapter}
         </Button>
       </div>
 
       <Link href="/dashboard/academy" className="text-xs font-bold text-primary hover:underline">
-        ← Voltar à criação de cursos
+        ← {dict.agriacademy.backToCourseCreator}
       </Link>
 
       <MediaLibraryModal
@@ -499,12 +693,49 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         onClose={() => setVideoLessonId(null)}
         onSelect={(videoId) => {
           if (!videoLessonId) return;
-          runAction(
-            () => assignLessonVideoAction(videoLessonId, videoId),
-            "Vídeo associado à aula."
-          );
+          const lessonId = videoLessonId;
           setVideoLessonId(null);
+          void runAction(
+            () => assignLessonVideoAction(lessonId, videoId),
+            dict.agriacademy.videoAssigned,
+            { require: (data) => (data as { academy_video_id?: string | null }).academy_video_id === videoId }
+          );
         }}
+      />
+
+      <CourseConfirmDialog
+        open={deleteDialog === "confirm_delete" || deleteDialog === "confirm_after_pause"}
+        title={
+          deleteDialog === "confirm_after_pause"
+            ? dict.agriacademy.unpublishThenDeleteTitle
+            : dict.agriacademy.deleteCourseConfirmTitle
+        }
+        message={
+          deleteDialog === "confirm_after_pause"
+            ? dict.agriacademy.unpublishThenDeleteMessage
+            : dict.agriacademy.deleteCourseConfirmMessage
+        }
+        confirmLabel={
+          deleteDialog === "confirm_after_pause"
+            ? dict.agriacademy.deletePermanently
+            : dict.agriacademy.deleteCourse
+        }
+        confirmVariant="destructive"
+        loading={deleteBusy}
+        error={deleteError}
+        onConfirm={() => void confirmPermanentDelete()}
+        onCancel={closeDeleteDialog}
+      />
+
+      <CourseConfirmDialog
+        open={deleteDialog === "published_block"}
+        title={dict.agriacademy.publishedCourseTitle}
+        message={dict.agriacademy.publishedCourseDeleteMessage}
+        confirmLabel={dict.agriacademy.removeFromPublication}
+        loading={deleteBusy}
+        error={deleteError}
+        onConfirm={() => void removeFromPublication()}
+        onCancel={closeDeleteDialog}
       />
     </div>
   );

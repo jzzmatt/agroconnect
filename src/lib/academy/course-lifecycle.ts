@@ -1,4 +1,5 @@
 import type { CourseStatus } from "@/types/database";
+import { canPermanentlyDeleteCourse } from "@/lib/academy/course-delete-flow";
 
 /** Allowed publication lifecycle transitions for AgriAcademy courses. */
 export const COURSE_STATUS_TRANSITIONS: Record<CourseStatus, readonly CourseStatus[]> = {
@@ -7,6 +8,8 @@ export const COURSE_STATUS_TRANSITIONS: Record<CourseStatus, readonly CourseStat
   paused: ["published", "archived"],
   archived: [],
 };
+
+export { canPermanentlyDeleteCourse };
 
 export function isPubliclyVisibleCourseStatus(status: CourseStatus): boolean {
   return status === "published";

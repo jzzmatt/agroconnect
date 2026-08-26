@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useState, useTransition } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { GraduationCap, Lock, Plus, Sparkles, Users } from "lucide-react";
@@ -35,9 +35,9 @@ export default function CourseCreatorPage() {
   const [publishedCourses, setPublishedCourses] = useState<PublishedCourse[]>([]);
   const [storage, setStorage] = useState<Awaited<ReturnType<typeof getAcademyStorageAction>> | null>(null);
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
-  const [, startRefresh] = useTransition();
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
+  const [deletedNotice, setDeletedNotice] = useState(false);
 
   const subject = subjectFromProfile({
     id: "",
@@ -63,6 +63,15 @@ export default function CourseCreatorPage() {
   useEffect(() => {
     void refresh();
   }, [refresh, plan]);
+
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const params = new URLSearchParams(window.location.search);
+    if (params.get("courseDeleted") === "1") {
+      setDeletedNotice(true);
+      router.replace("/dashboard/academy");
+    }
+  }, [router]);
 
   const handleCreate = async () => {
     if (isCreating) return;
@@ -118,6 +127,9 @@ export default function CourseCreatorPage() {
       </div>
 
       {createError && <p className="text-xs font-semibold text-destructive">{createError}</p>}
+      {deletedNotice && (
+        <p className="text-xs font-semibold text-emerald-600">{dict.agriacademy.courseDeleted}</p>
+      )}
 
       {storage && (
         <AcademyStorageCard

@@ -1,31 +1,48 @@
 import "server-only";
 
 import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
-import { nextSortOrder } from "@/lib/academy/lesson-numbering";
+import { nextSortOrder, reorderItems } from "@/lib/academy/lesson-numbering";
+import {
+  CoursePersistenceError,
+  COURSE_MUTATION_MESSAGES,
+} from "@/lib/academy/course-errors";
 import type {
+  AcademyVideoDescriptor,
+  CourseEditorTree,
   CourseLessonRecord,
   CourseSectionRecord,
   CourseWithSections,
+  LessonWithVideo,
+  SectionWithLessons,
 } from "@/types/agriacademy";
-import type { AcademyVideoDescriptor } from "@/types/agriacademy";
 
 const SECTIONS_TABLE = "course_sections";
 const LESSONS_TABLE = "course_lessons";
 const COURSES_TABLE = "courses";
+const SORT_ORDER_OFFSET = 1_000_000;
 
-const memorySections: CourseSectionRecord[] = [
-  {
+const memorySections: CourseSectionRecord[] = [];
+const memoryLessons: CourseLessonRecord[] = [];
+
+function hasLiveSupabase(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+  );
+}
+
+function seedMemoryStore(): void {
+  memorySections.length = 0;
+  memoryLessons.length = 0;
+  memorySections.push({
     id: "sec-seed-1",
     course_id: "crs-seed-draft",
     title: "Introdução",
     sort_order: 1,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  },
-];
-
-const memoryLessons: CourseLessonRecord[] = [
-  {
+  });
+  memoryLessons.push({
     id: "les-seed-1",
     course_id: "crs-seed-draft",
     section_id: "sec-seed-1",
@@ -37,70 +54,120 @@ const memoryLessons: CourseLessonRecord[] = [
     is_free_preview: false,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
-  },
-];
+  });
+}
 
-function hasLiveSupabase(): boolean {
-  return Boolean(
-    process.env.NEXT_PUBLIC_SUPABASE_URL &&
-      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
-  );
+seedMemoryStore();
+
+function databaseError(cause?: unknown): CoursePersistenceError {
+  return new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, cause);
+}
+
+function normalizeSection(row: Record<string, unknown>): CourseSectionRecord {
+  return {
+    id: String(row.id),
+    course_id: String(row.course_id),
+    title: String(row.title),
+    sort_order: Number(row.sort_order ?? 0),
+    created_at: String(row.created_at ?? new Date().toISOString()),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
+  };
+}
+
+function normalizeLesson(row: Record<string, unknown>): CourseLessonRecord {
+  return {
+    id: String(row.id),
+    course_id: String(row.course_id),
+    section_id: String(row.section_id),
+    title: String(row.title),
+    description: (row.description as string | null) ?? null,
+    sort_order: Number(row.sort_order ?? 0),
+    academy_video_id: (row.academy_video_id as string | null) ?? null,
+    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
+    is_free_preview: Boolean(row.is_free_preview),
+    created_at: String(row.created_at ?? new Date().toISOString()),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
+  };
+}
+
+function normalizeVideo(row: Record<string, unknown>): AcademyVideoDescriptor {
+  return {
+    id: String(row.id),
+    owner_id: String(row.owner_id),
+    title: String(row.title ?? ""),
+    file_size: Number(row.file_size ?? 0),
+    status: (row.status as AcademyVideoDescriptor["status"]) ?? "processing",
+    visibility: (row.visibility as AcademyVideoDescriptor["visibility"]) ?? "private",
+    bunny_video_id: (row.bunny_video_id as string | null) ?? null,
+    bunny_library_id: (row.bunny_library_id as string | null) ?? null,
+    description: (row.description as string | null) ?? null,
+    filename: (row.filename as string | null) ?? null,
+    mime_type: (row.mime_type as string | null) ?? null,
+    duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
+    thumbnail_url: (row.thumbnail_url as string | null) ?? null,
+    playback_url: (row.playback_url as string | null) ?? null,
+    reference_count: row.reference_count != null ? Number(row.reference_count) : 0,
+    orphaned_at: (row.orphaned_at as string | null) ?? null,
+    created_at: String(row.created_at ?? new Date().toISOString()),
+    updated_at: String(row.updated_at ?? new Date().toISOString()),
+  };
 }
 
 async function assertCourseOwner(courseId: string, ownerId: string): Promise<boolean> {
   if (hasLiveSupabase()) {
     try {
       const supabase = await getAcademyWritableClient();
-      const { data } = await (supabase.from(COURSES_TABLE) as any)
+      const { data, error } = await (supabase.from(COURSES_TABLE) as any)
         .select("id")
         .eq("id", courseId)
         .eq("owner_id", ownerId)
         .maybeSingle();
+      if (error) throw databaseError(error);
       return Boolean(data?.id);
-    } catch {
-      return false;
+    } catch (err) {
+      if (err instanceof CoursePersistenceError) throw err;
+      throw databaseError(err);
     }
   }
   return courseId === "crs-seed-draft" || ownerId === "prof-seed-1";
 }
 
-export type LessonWithVideo = CourseLessonRecord & {
-  video?: AcademyVideoDescriptor | null;
-};
+async function applySequentialSortOrder(
+  table: string,
+  parentColumn: string,
+  parentId: string,
+  orderedIds: string[]
+): Promise<void> {
+  const supabase = await getAcademyWritableClient();
+  const now = new Date().toISOString();
 
-export type SectionWithLessons = CourseSectionRecord & {
-  lessons: LessonWithVideo[];
-};
+  for (let index = 0; index < orderedIds.length; index += 1) {
+    const { error } = await (supabase.from(table) as any)
+      .update({ sort_order: SORT_ORDER_OFFSET + index + 1, updated_at: now })
+      .eq("id", orderedIds[index])
+      .eq(parentColumn, parentId);
+    if (error) throw databaseError(error);
+  }
 
-export type CourseEditorTree = CourseWithSections & {
-  sections: SectionWithLessons[];
-};
+  for (let index = 0; index < orderedIds.length; index += 1) {
+    const { error } = await (supabase.from(table) as any)
+      .update({ sort_order: index + 1, updated_at: now })
+      .eq("id", orderedIds[index])
+      .eq(parentColumn, parentId);
+    if (error) throw databaseError(error);
+  }
+}
+
+export type { CourseEditorTree, LessonWithVideo, SectionWithLessons };
 
 export class AcademyAuthoringService {
   public static resetMemoryStore(): void {
+    seedMemoryStore();
+  }
+
+  public static clearMemoryStore(): void {
     memorySections.length = 0;
     memoryLessons.length = 0;
-    memorySections.push({
-      id: "sec-seed-1",
-      course_id: "crs-seed-draft",
-      title: "Introdução",
-      sort_order: 1,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
-    memoryLessons.push({
-      id: "les-seed-1",
-      course_id: "crs-seed-draft",
-      section_id: "sec-seed-1",
-      title: "Boas-vindas ao curso",
-      description: null,
-      sort_order: 1,
-      academy_video_id: null,
-      duration_seconds: null,
-      is_free_preview: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
-    });
   }
 
   public static async getCourseEditorTree(
@@ -110,56 +177,63 @@ export class AcademyAuthoringService {
     if (!(await assertCourseOwner(courseId, ownerId))) return null;
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: course } = await (supabase.from(COURSES_TABLE) as any)
-          .select("*")
-          .eq("id", courseId)
-          .eq("owner_id", ownerId)
-          .maybeSingle();
-        if (!course) return null;
+      const supabase = await getAcademyWritableClient();
+      const { data: course, error: courseError } = await (supabase.from(COURSES_TABLE) as any)
+        .select("*")
+        .eq("id", courseId)
+        .eq("owner_id", ownerId)
+        .maybeSingle();
+      if (courseError) throw databaseError(courseError);
+      if (!course) return null;
 
-        const { data: sections } = await (supabase.from(SECTIONS_TABLE) as any)
-          .select("*")
-          .eq("course_id", courseId)
-          .order("sort_order", { ascending: true });
+      const { data: sections, error: sectionsError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("*")
+        .eq("course_id", courseId)
+        .order("sort_order", { ascending: true });
+      if (sectionsError) throw databaseError(sectionsError);
 
-        const { data: lessons } = await (supabase.from(LESSONS_TABLE) as any)
-          .select("*")
-          .eq("course_id", courseId)
-          .order("sort_order", { ascending: true });
+      const { data: lessons, error: lessonsError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("*")
+        .eq("course_id", courseId)
+        .order("sort_order", { ascending: true });
+      if (lessonsError) throw databaseError(lessonsError);
 
-        const videoIds = [...new Set((lessons || []).map((l: CourseLessonRecord) => l.academy_video_id).filter(Boolean))];
-        const videoMap = new Map<string, AcademyVideoDescriptor>();
-        if (videoIds.length > 0) {
-          const { data: videos } = await (supabase.from("academy_videos") as any)
-            .select("*")
-            .in("id", videoIds);
-          for (const video of videos || []) {
-            videoMap.set(video.id, video as AcademyVideoDescriptor);
-          }
+      const normalizedLessons = ((lessons || []) as Record<string, unknown>[]).map(normalizeLesson);
+      const videoIds = [
+        ...new Set(normalizedLessons.map((lesson) => lesson.academy_video_id).filter(Boolean)),
+      ] as string[];
+      const videoMap = new Map<string, AcademyVideoDescriptor>();
+      if (videoIds.length > 0) {
+        const { data: videos, error: videosError } = await (supabase.from("academy_videos") as any)
+          .select("*")
+          .in("id", videoIds);
+        if (videosError) throw databaseError(videosError);
+        for (const video of videos || []) {
+          const normalized = normalizeVideo(video as Record<string, unknown>);
+          videoMap.set(normalized.id, normalized);
         }
-
-        const lessonsBySection = new Map<string, LessonWithVideo[]>();
-        for (const lesson of (lessons || []) as CourseLessonRecord[]) {
-          const list = lessonsBySection.get(lesson.section_id) || [];
-          list.push({
-            ...lesson,
-            video: lesson.academy_video_id ? videoMap.get(lesson.academy_video_id) ?? null : null,
-          });
-          lessonsBySection.set(lesson.section_id, list);
-        }
-
-        return {
-          ...(course as CourseWithSections),
-          sections: ((sections || []) as CourseSectionRecord[]).map((section) => ({
-            ...section,
-            lessons: lessonsBySection.get(section.id) || [],
-          })),
-        };
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.getCourseEditorTree] fallback:", err);
       }
+
+      const lessonsBySection = new Map<string, LessonWithVideo[]>();
+      for (const lesson of normalizedLessons) {
+        const list = lessonsBySection.get(lesson.section_id) || [];
+        list.push({
+          ...lesson,
+          video: lesson.academy_video_id ? videoMap.get(lesson.academy_video_id) ?? null : null,
+        });
+        lessonsBySection.set(lesson.section_id, list);
+      }
+
+      return {
+        ...(course as CourseWithSections),
+        sections: ((sections || []) as Record<string, unknown>[]).map((section) => {
+          const normalized = normalizeSection(section);
+          return {
+            ...normalized,
+            lessons: lessonsBySection.get(normalized.id) || [],
+          };
+        }),
+      };
     }
 
     const sections = memorySections
@@ -196,27 +270,29 @@ export class AcademyAuthoringService {
   ): Promise<CourseSectionRecord | null> {
     if (!(await assertCourseOwner(courseId, ownerId))) return null;
     const now = new Date().toISOString();
-    const existing = memorySections.filter((section) => section.course_id === courseId);
-    const sort_order = nextSortOrder(existing);
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
-          .insert({ course_id: courseId, title, sort_order })
-          .select()
-          .single();
-        if (!error && data) return data as CourseSectionRecord;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.createSection] memory fallback:", err);
-      }
+      const supabase = await getAcademyWritableClient();
+      const { data: existing, error: queryError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("id, sort_order")
+        .eq("course_id", courseId);
+      if (queryError) throw databaseError(queryError);
+
+      const sort_order = nextSortOrder((existing || []) as Array<{ sort_order: number }>);
+      const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
+        .insert({ course_id: courseId, title, sort_order })
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeSection(data as Record<string, unknown>);
     }
 
+    const existing = memorySections.filter((section) => section.course_id === courseId);
     const section: CourseSectionRecord = {
-      id: `sec-${Date.now()}`,
+      id: `sec-${Date.now()}-${memorySections.length}`,
       course_id: courseId,
       title,
-      sort_order,
+      sort_order: nextSortOrder(existing),
       created_at: now,
       updated_at: now,
     };
@@ -229,54 +305,47 @@ export class AcademyAuthoringService {
     sectionId: string,
     title: string
   ): Promise<CourseSectionRecord | null> {
-    const section = memorySections.find((item) => item.id === sectionId);
-    if (section && !(await assertCourseOwner(section.course_id, ownerId))) return null;
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", sectionId)
-          .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", sectionId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
 
-        const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
-          .update({ title, updated_at: new Date().toISOString() })
-          .eq("id", sectionId)
-          .select()
-          .single();
-        if (!error && data) return data as CourseSectionRecord;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.updateSection] memory fallback:", err);
-      }
+      const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
+        .update({ title, updated_at: new Date().toISOString() })
+        .eq("id", sectionId)
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeSection(data as Record<string, unknown>);
     }
 
+    const section = memorySections.find((item) => item.id === sectionId);
+    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return null;
     const idx = memorySections.findIndex((item) => item.id === sectionId);
-    if (idx < 0) return null;
     memorySections[idx] = { ...memorySections[idx], title, updated_at: new Date().toISOString() };
     return memorySections[idx];
   }
 
   public static async deleteSection(ownerId: string, sectionId: string): Promise<boolean> {
-    const section = memorySections.find((item) => item.id === sectionId);
-    if (section && !(await assertCourseOwner(section.course_id, ownerId))) return false;
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", sectionId)
-          .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
-        const { error } = await (supabase.from(SECTIONS_TABLE) as any).delete().eq("id", sectionId);
-        if (!error) return true;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.deleteSection] memory fallback:", err);
-      }
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", sectionId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
+      const { error } = await (supabase.from(SECTIONS_TABLE) as any).delete().eq("id", sectionId);
+      if (error) throw databaseError(error);
+      return true;
     }
 
+    const section = memorySections.find((item) => item.id === sectionId);
+    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return false;
     const lessonIds = memoryLessons.filter((lesson) => lesson.section_id === sectionId).map((l) => l.id);
     for (const lessonId of lessonIds) {
       await this.deleteLesson(ownerId, lessonId);
@@ -295,32 +364,18 @@ export class AcademyAuthoringService {
     if (!(await assertCourseOwner(courseId, ownerId))) return [];
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const updates = orderedSectionIds.map((id, index) =>
-          (supabase.from(SECTIONS_TABLE) as any)
-            .update({ sort_order: index + 1, updated_at: new Date().toISOString() })
-            .eq("id", id)
-            .eq("course_id", courseId)
-        );
-        await Promise.all(updates);
-        const { data } = await (supabase.from(SECTIONS_TABLE) as any)
-          .select("*")
-          .eq("course_id", courseId)
-          .order("sort_order", { ascending: true });
-        if (data) return data as CourseSectionRecord[];
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.reorderSections] memory fallback:", err);
-      }
+      await applySequentialSortOrder(SECTIONS_TABLE, "course_id", courseId, orderedSectionIds);
+      const supabase = await getAcademyWritableClient();
+      const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("*")
+        .eq("course_id", courseId)
+        .order("sort_order", { ascending: true });
+      if (error) throw databaseError(error);
+      return ((data || []) as Record<string, unknown>[]).map(normalizeSection);
     }
 
     const courseSections = memorySections.filter((section) => section.course_id === courseId);
-    const reordered = orderedSectionIds
-      .map((id, index) => {
-        const section = courseSections.find((item) => item.id === id);
-        return section ? { ...section, sort_order: index + 1 } : null;
-      })
-      .filter((item): item is CourseSectionRecord => item !== null);
+    const reordered = reorderItems(courseSections, orderedSectionIds);
     for (const section of reordered) {
       const idx = memorySections.findIndex((item) => item.id === section.id);
       if (idx >= 0) memorySections[idx] = section;
@@ -333,44 +388,41 @@ export class AcademyAuthoringService {
     sectionId: string,
     title: string
   ): Promise<CourseLessonRecord | null> {
-    const section = memorySections.find((item) => item.id === sectionId);
-    const courseId =
-      section?.course_id ||
-      (hasLiveSupabase()
-        ? (
-            await ((await getAcademyWritableClient()).from(SECTIONS_TABLE) as any)
-              .select("course_id")
-              .eq("id", sectionId)
-              .maybeSingle()
-          ).data?.course_id
-        : null);
-
-    if (!courseId || !(await assertCourseOwner(courseId, ownerId))) return null;
-
     const now = new Date().toISOString();
-    const existing = memoryLessons.filter((lesson) => lesson.section_id === sectionId);
-    const sort_order = nextSortOrder(existing);
 
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
-          .insert({ course_id: courseId, section_id: sectionId, title, sort_order })
-          .select()
-          .single();
-        if (!error && data) return data as CourseLessonRecord;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.createLesson] memory fallback:", err);
-      }
+      const supabase = await getAcademyWritableClient();
+      const { data: section, error: sectionError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("id, course_id")
+        .eq("id", sectionId)
+        .maybeSingle();
+      if (sectionError) throw databaseError(sectionError);
+      if (!section?.course_id || !(await assertCourseOwner(section.course_id, ownerId))) return null;
+
+      const { data: existing, error: queryError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("id, sort_order")
+        .eq("section_id", sectionId);
+      if (queryError) throw databaseError(queryError);
+
+      const sort_order = nextSortOrder((existing || []) as Array<{ sort_order: number }>);
+      const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+        .insert({ course_id: section.course_id, section_id: sectionId, title, sort_order })
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeLesson(data as Record<string, unknown>);
     }
 
+    const section = memorySections.find((item) => item.id === sectionId);
+    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return null;
+    const existing = memoryLessons.filter((lesson) => lesson.section_id === sectionId);
     const lesson: CourseLessonRecord = {
-      id: `les-${Date.now()}`,
-      course_id: courseId,
+      id: `les-${Date.now()}-${memoryLessons.length}`,
+      course_id: section.course_id,
       section_id: sectionId,
       title,
       description: null,
-      sort_order,
+      sort_order: nextSortOrder(existing),
       academy_video_id: null,
       duration_seconds: null,
       is_free_preview: false,
@@ -386,31 +438,27 @@ export class AcademyAuthoringService {
     lessonId: string,
     patch: Partial<Pick<CourseLessonRecord, "title" | "description" | "is_free_preview">>
   ): Promise<CourseLessonRecord | null> {
-    const lesson = memoryLessons.find((item) => item.id === lessonId);
-    if (lesson && !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", lessonId)
-          .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
 
-        const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
-          .update({ ...patch, updated_at: new Date().toISOString() })
-          .eq("id", lessonId)
-          .select()
-          .single();
-        if (!error && data) return data as CourseLessonRecord;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.updateLesson] memory fallback:", err);
-      }
+      const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+        .update({ ...patch, updated_at: new Date().toISOString() })
+        .eq("id", lessonId)
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeLesson(data as Record<string, unknown>);
     }
 
+    const lesson = memoryLessons.find((item) => item.id === lessonId);
+    if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
-    if (idx < 0) return null;
     memoryLessons[idx] = { ...memoryLessons[idx], ...patch, updated_at: new Date().toISOString() };
     return memoryLessons[idx];
   }
@@ -420,43 +468,40 @@ export class AcademyAuthoringService {
     lessonId: string,
     videoId: string | null
   ): Promise<CourseLessonRecord | null> {
-    const lesson = memoryLessons.find((item) => item.id === lessonId);
-    if (lesson && !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", lessonId)
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
+
+      if (videoId) {
+        const { data: video, error: videoError } = await (supabase.from("academy_videos") as any)
+          .select("id")
+          .eq("id", videoId)
+          .eq("owner_id", ownerId)
           .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
-
-        if (videoId) {
-          const { data: video } = await (supabase.from("academy_videos") as any)
-            .select("id")
-            .eq("id", videoId)
-            .eq("owner_id", ownerId)
-            .maybeSingle();
-          if (!video) return null;
-        }
-
-        const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
-          .update({
-            academy_video_id: videoId,
-            updated_at: new Date().toISOString(),
-          })
-          .eq("id", lessonId)
-          .select()
-          .single();
-        if (!error && data) return data as CourseLessonRecord;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.assignLessonVideo] memory fallback:", err);
+        if (videoError) throw databaseError(videoError);
+        if (!video) return null;
       }
+
+      const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+        .update({
+          academy_video_id: videoId,
+          updated_at: new Date().toISOString(),
+        })
+        .eq("id", lessonId)
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeLesson(data as Record<string, unknown>);
     }
 
+    const lesson = memoryLessons.find((item) => item.id === lessonId);
+    if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
-    if (idx < 0) return null;
     memoryLessons[idx] = {
       ...memoryLessons[idx],
       academy_video_id: videoId,
@@ -466,24 +511,21 @@ export class AcademyAuthoringService {
   }
 
   public static async deleteLesson(ownerId: string, lessonId: string): Promise<boolean> {
-    const lesson = memoryLessons.find((item) => item.id === lessonId);
-    if (lesson && !(await assertCourseOwner(lesson.course_id, ownerId))) return false;
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(LESSONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", lessonId)
-          .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
-        const { error } = await (supabase.from(LESSONS_TABLE) as any).delete().eq("id", lessonId);
-        if (!error) return true;
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.deleteLesson] memory fallback:", err);
-      }
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
+      const { error } = await (supabase.from(LESSONS_TABLE) as any).delete().eq("id", lessonId);
+      if (error) throw databaseError(error);
+      return true;
     }
 
+    const lesson = memoryLessons.find((item) => item.id === lessonId);
+    if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return false;
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
     if (idx < 0) return false;
     memoryLessons.splice(idx, 1);
@@ -495,42 +537,28 @@ export class AcademyAuthoringService {
     sectionId: string,
     orderedLessonIds: string[]
   ): Promise<CourseLessonRecord[]> {
-    const section = memorySections.find((item) => item.id === sectionId);
-    if (section && !(await assertCourseOwner(section.course_id, ownerId))) return [];
-
     if (hasLiveSupabase()) {
-      try {
-        const supabase = await getAcademyWritableClient();
-        const { data: current } = await (supabase.from(SECTIONS_TABLE) as any)
-          .select("course_id")
-          .eq("id", sectionId)
-          .maybeSingle();
-        if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return [];
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("course_id")
+        .eq("id", sectionId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return [];
 
-        const updates = orderedLessonIds.map((id, index) =>
-          (supabase.from(LESSONS_TABLE) as any)
-            .update({ sort_order: index + 1, updated_at: new Date().toISOString() })
-            .eq("id", id)
-            .eq("section_id", sectionId)
-        );
-        await Promise.all(updates);
-        const { data } = await (supabase.from(LESSONS_TABLE) as any)
-          .select("*")
-          .eq("section_id", sectionId)
-          .order("sort_order", { ascending: true });
-        if (data) return data as CourseLessonRecord[];
-      } catch (err) {
-        console.warn("[AcademyAuthoringService.reorderLessons] memory fallback:", err);
-      }
+      await applySequentialSortOrder(LESSONS_TABLE, "section_id", sectionId, orderedLessonIds);
+      const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("*")
+        .eq("section_id", sectionId)
+        .order("sort_order", { ascending: true });
+      if (error) throw databaseError(error);
+      return ((data || []) as Record<string, unknown>[]).map(normalizeLesson);
     }
 
+    const section = memorySections.find((item) => item.id === sectionId);
+    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return [];
     const sectionLessons = memoryLessons.filter((lesson) => lesson.section_id === sectionId);
-    const reordered = orderedLessonIds
-      .map((id, index) => {
-        const lesson = sectionLessons.find((item) => item.id === id);
-        return lesson ? { ...lesson, sort_order: index + 1 } : null;
-      })
-      .filter((item): item is CourseLessonRecord => item !== null);
+    const reordered = reorderItems(sectionLessons, orderedLessonIds);
     for (const lesson of reordered) {
       const idx = memoryLessons.findIndex((item) => item.id === lesson.id);
       if (idx >= 0) memoryLessons[idx] = lesson;
