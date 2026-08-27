@@ -1,6 +1,6 @@
 import { describe, it, expect } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
-import { render, screen } from "@testing-library/react";
+import { cleanup, render, screen } from "@testing-library/react";
 import React from "react";
 import { I18nProvider } from "@/i18n/provider";
 import { YouTubePlayer } from "@/components/academy/YouTubePlayer";
@@ -61,6 +61,9 @@ function publishedCourse(): CourseWithSections {
 }
 
 describe("AGROCONNECT Phase 12 — YouTube Academy production hardening", () => {
+  beforeEach(() => {
+    cleanup();
+  });
   it("removes Academy Bunny services, actions and players", () => {
     expect(existsSync("src/lib/services/academy-video-service.ts")).toBe(false);
     expect(existsSync("src/lib/services/academy-video-actions.ts")).toBe(false);
