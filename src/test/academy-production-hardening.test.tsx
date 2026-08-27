@@ -1,4 +1,4 @@
-import { describe, it, expect } from "vitest";
+import { describe, it, expect, beforeEach } from "vitest";
 import { existsSync, readFileSync } from "node:fs";
 import { cleanup, render, screen } from "@testing-library/react";
 import React from "react";
