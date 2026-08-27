@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { CourseService, INITIAL_COURSES } from "@/lib/services/course-service";
 import {
   collectForbiddenPublicCourseKeys,
+  publishedCourseBelongsToProvider,
   toPublicProviderAcademyCourses,
 } from "@/lib/academy/public-provider-courses";
 import { listProviderPublishedCoursesAction } from "@/lib/services/course-actions";
@@ -33,6 +34,46 @@ function asListItem(overrides: Partial<CourseListItem> & { status: CourseListIte
 describe("AGROCONNECT Phase 10 — provider Academy integration", () => {
   beforeEach(() => {
     CourseService.resetMemoryStore();
+  });
+
+  it("matches published courses owned by the provider even when provider_id is missing", () => {
+    const provider = { id: "prov-1", profileId: "prof-1", slug: "dr-joao-silva" };
+    expect(
+      publishedCourseBelongsToProvider(
+        asListItem({ status: "published", provider_id: null, provider_slug: null, instructor_id: "prof-1" }),
+        provider
+      )
+    ).toBe(true);
+    expect(
+      publishedCourseBelongsToProvider(
+        asListItem({ status: "published", provider_id: "prov-1", provider_slug: null, instructor_id: "other" }),
+        provider
+      )
+    ).toBe(true);
+    expect(
+      publishedCourseBelongsToProvider(
+        asListItem({
+          id: "crs-draft",
+          status: "draft",
+          provider_id: null,
+          provider_slug: null,
+          instructor_id: "prof-1",
+        }),
+        provider
+      )
+    ).toBe(false);
+    expect(
+      publishedCourseBelongsToProvider(
+        asListItem({
+          id: "crs-other",
+          status: "published",
+          provider_id: "prov-other",
+          provider_slug: "outro-prestador",
+          instructor_id: "prof-other",
+        }),
+        provider
+      )
+    ).toBe(false);
   });
 
   it("returns only published courses for a provider slug", async () => {
@@ -84,9 +125,62 @@ describe("AGROCONNECT Phase 10 — provider Academy integration", () => {
     expect(existsSync("src/app/providers/[slug]/page.tsx")).toBe(true);
     const page = readFileSync("src/app/providers/[slug]/page.tsx", "utf8");
     expect(page).toContain("listProviderPublishedCoursesAction");
+    expect(page).toContain("providerId: res.id");
     expect(page).toContain("ProviderAcademyCoursesSection");
     expect(page).not.toContain("listOwnedCourseStudentsAction");
     expect(page).not.toContain("bunny");
     expect(page).not.toContain("youtube_video_id");
+  });
+
+  it("matches published courses by provider id when slug is not on the course row", async () => {
+    CourseService.resetMemoryStore();
+    const created = await CourseService.createCourse("prof-owner-1", {
+      title: "Curso do prestador real",
+      shortDescription: "Publicado",
+      providerId: "prov-real-1",
+    });
+    const published = await CourseService.updateCourse("prof-owner-1", {
+      id: created.id,
+      status: "published",
+    });
+    expect(published.success).toBe(true);
+
+    const { courses } = await CourseService.listPublishedCoursesForProvider({
+      id: "prov-real-1",
+      slug: "prestador-real",
+    });
+    expect(courses.some((course) => course.id === created.id)).toBe(true);
+    expect(courses.every((course) => course.status === "published")).toBe(true);
+
+    const fromAction = await listProviderPublishedCoursesAction("prestador-real", {
+      providerId: "prov-real-1",
+    });
+    expect(fromAction.courses.some((course) => course.id === created.id)).toBe(true);
+    expect(collectForbiddenPublicCourseKeys(fromAction)).toEqual([]);
+  });
+
+  it("matches published courses by instructor when provider_id was never stored", async () => {
+    const created = await CourseService.createCourse("prof-owner-orphan", {
+      title: "Curso sem provider_id",
+      shortDescription: "Publicado pelo dono",
+    });
+    const published = await CourseService.updateCourse("prof-owner-orphan", {
+      id: created.id,
+      status: "published",
+    });
+    expect(published.success).toBe(true);
+    expect(created.provider_id).toBeNull();
+
+    expect(
+      publishedCourseBelongsToProvider(
+        {
+          status: "published",
+          provider_id: created.provider_id ?? null,
+          provider_slug: null,
+          instructor_id: created.owner_id,
+        },
+        { id: "prov-orphan", profileId: "prof-owner-orphan", slug: "prestador-orfao" }
+      )
+    ).toBe(true);
   });
 });

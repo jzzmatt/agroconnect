@@ -42,10 +42,14 @@ export async function getPublishedCourseBySlugAction(slug: string): Promise<Cour
 
 export async function listProviderPublishedCoursesAction(
   providerSlug: string,
-  params: SearchCoursesFilterParams = {}
+  params: SearchCoursesFilterParams & { providerId?: string } = {}
 ): Promise<{ courses: CourseListItem[]; total: number }> {
-  if (!providerSlug?.trim()) return { courses: [], total: 0 };
-  const result = await CourseService.listPublishedCoursesByProviderSlug(providerSlug, params);
+  const { providerId, ...searchParams } = params;
+  if (!providerSlug?.trim() && !providerId?.trim()) return { courses: [], total: 0 };
+  const result = await CourseService.listPublishedCoursesForProvider(
+    { slug: providerSlug, id: providerId },
+    searchParams
+  );
   const courses = toPublicProviderAcademyCourses(result.courses);
   return { courses, total: courses.length };
 }
