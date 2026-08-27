@@ -106,8 +106,9 @@ describe("Course Creator dashboard guided progress", () => {
       </I18nProvider>
     );
 
-    expect(await screen.findByText("Curso UI")).toBeInTheDocument();
-    expect(screen.getByText(/Crie o primeiro capítulo/)).toBeInTheDocument();
+    expect((await screen.findAllByText("Curso UI")).length).toBeGreaterThan(1);
+    expect(screen.getByText("Cursos que requerem atenção")).toBeInTheDocument();
+    expect(screen.getAllByText(/Crie o primeiro capítulo/).length).toBeGreaterThan(0);
     expect(screen.getByText("Informação do curso")).toBeInTheDocument();
     expect(screen.getByText("Capítulos")).toBeInTheDocument();
   });
