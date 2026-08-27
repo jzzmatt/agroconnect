@@ -1,13 +1,14 @@
 import "server-only";
 
 import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
-import { nextSortOrder, reorderItems } from "@/lib/academy/lesson-numbering";
+import { nextSortOrder, reorderItems, repairSortOrders } from "@/lib/academy/lesson-numbering";
 import {
   CoursePersistenceError,
   COURSE_MUTATION_MESSAGES,
 } from "@/lib/academy/course-errors";
 import { analyzeYouTubeInput } from "@/lib/academy/youtube";
 import { isMissingYoutubeColumnError } from "@/lib/academy/db-errors";
+import { CourseService } from "@/lib/services/course-service";
 import type {
   CourseEditorTree,
   CourseLessonRecord,
@@ -121,6 +122,39 @@ async function assertCourseOwner(courseId: string, ownerId: string): Promise<boo
   return courseId === "crs-seed-draft" || ownerId === "prof-seed-1";
 }
 
+function assertPermutation(existingIds: string[], orderedIds: string[]): void {
+  if (existingIds.length !== orderedIds.length) {
+    throw new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR);
+  }
+  if (new Set(orderedIds).size !== orderedIds.length) {
+    throw new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR);
+  }
+  const existing = new Set(existingIds);
+  if (orderedIds.some((id) => !existing.has(id))) {
+    throw new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR);
+  }
+}
+
+async function compactSortOrders(
+  table: string,
+  parentColumn: string,
+  parentId: string
+): Promise<void> {
+  const supabase = await getAcademyWritableClient();
+  const { data, error } = await (supabase.from(table) as any)
+    .select("id, sort_order, created_at")
+    .eq(parentColumn, parentId);
+  if (error) throw databaseError(error);
+  const ordered = repairSortOrders((data || []) as Array<{ id: string; sort_order: number; created_at?: string }>);
+  if (ordered.length === 0) return;
+  await applySequentialSortOrder(
+    table,
+    parentColumn,
+    parentId,
+    ordered.map((item) => item.id)
+  );
+}
+
 async function applySequentialSortOrder(
   table: string,
   parentColumn: string,
@@ -207,29 +241,35 @@ export class AcademyAuthoringService {
       };
     }
 
-    const sections = memorySections
-      .filter((section) => section.course_id === courseId)
-      .sort((a, b) => a.sort_order - b.sort_order);
+    const sections = repairSortOrders(
+      memorySections.filter((section) => section.course_id === courseId)
+    );
+
+    const owned = await CourseService.getOwnedCourse(ownerId, courseId);
+    const course = owned.success ? owned.data : null;
 
     return {
       id: courseId,
       owner_id: ownerId,
-      title: "Rascunho de curso",
-      slug: "rascunho",
-      level: "all_levels",
-      price: 0,
-      currency: "AOA",
-      status: "draft",
-      lessons_count: memoryLessons.filter((l) => l.course_id === courseId).length,
-      students_count: 0,
-      is_featured: false,
-      created_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      title: course?.title || "Rascunho de curso",
+      slug: course?.slug || "rascunho",
+      description: course?.description,
+      short_description: course?.short_description,
+      level: course?.level || "all_levels",
+      price: course?.price ?? 0,
+      currency: course?.currency || "AOA",
+      status: course?.status || "draft",
+      thumbnail_url: course?.thumbnail_url,
+      duration_hours: course?.duration_hours,
+      lessons_count: memoryLessons.filter((lesson) => lesson.course_id === courseId).length,
+      students_count: course?.students_count ?? 0,
+      is_featured: course?.is_featured ?? false,
+      created_at: course?.created_at || new Date().toISOString(),
+      updated_at: course?.updated_at || new Date().toISOString(),
+      published_at: course?.published_at,
       sections: sections.map((section) => ({
         ...section,
-        lessons: memoryLessons
-          .filter((lesson) => lesson.section_id === section.id)
-          .sort((a, b) => a.sort_order - b.sort_order),
+        lessons: repairSortOrders(memoryLessons.filter((lesson) => lesson.section_id === section.id)),
       })),
     };
   }
@@ -312,11 +352,13 @@ export class AcademyAuthoringService {
       if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
       const { error } = await (supabase.from(SECTIONS_TABLE) as any).delete().eq("id", sectionId);
       if (error) throw databaseError(error);
+      await compactSortOrders(SECTIONS_TABLE, "course_id", current.course_id);
       return true;
     }
 
     const section = memorySections.find((item) => item.id === sectionId);
     if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return false;
+    const courseId = section.course_id;
     const lessonIds = memoryLessons.filter((lesson) => lesson.section_id === sectionId).map((l) => l.id);
     for (const lessonId of lessonIds) {
       await this.deleteLesson(ownerId, lessonId);
@@ -324,6 +366,11 @@ export class AcademyAuthoringService {
     const idx = memorySections.findIndex((item) => item.id === sectionId);
     if (idx < 0) return false;
     memorySections.splice(idx, 1);
+    const remaining = repairSortOrders(memorySections.filter((item) => item.course_id === courseId));
+    for (const item of remaining) {
+      const remainingIdx = memorySections.findIndex((row) => row.id === item.id);
+      if (remainingIdx >= 0) memorySections[remainingIdx] = item;
+    }
     return true;
   }
 
@@ -332,11 +379,21 @@ export class AcademyAuthoringService {
     courseId: string,
     orderedSectionIds: string[]
   ): Promise<CourseSectionRecord[]> {
-    if (!(await assertCourseOwner(courseId, ownerId))) return [];
+    if (!(await assertCourseOwner(courseId, ownerId))) {
+      throw new CoursePersistenceError("UNAUTHORIZED", COURSE_MUTATION_MESSAGES.UNAUTHORIZED);
+    }
 
     if (hasLiveSupabase()) {
-      await applySequentialSortOrder(SECTIONS_TABLE, "course_id", courseId, orderedSectionIds);
       const supabase = await getAcademyWritableClient();
+      const { data: existing, error: existingError } = await (supabase.from(SECTIONS_TABLE) as any)
+        .select("id")
+        .eq("course_id", courseId);
+      if (existingError) throw databaseError(existingError);
+      assertPermutation(
+        ((existing || []) as Array<{ id: string }>).map((row) => row.id),
+        orderedSectionIds
+      );
+      await applySequentialSortOrder(SECTIONS_TABLE, "course_id", courseId, orderedSectionIds);
       const { data, error } = await (supabase.from(SECTIONS_TABLE) as any)
         .select("*")
         .eq("course_id", courseId)
@@ -346,6 +403,10 @@ export class AcademyAuthoringService {
     }
 
     const courseSections = memorySections.filter((section) => section.course_id === courseId);
+    assertPermutation(
+      courseSections.map((section) => section.id),
+      orderedSectionIds
+    );
     const reordered = reorderItems(courseSections, orderedSectionIds);
     for (const section of reordered) {
       const idx = memorySections.findIndex((item) => item.id === section.id);
@@ -504,21 +565,30 @@ export class AcademyAuthoringService {
     if (hasLiveSupabase()) {
       const supabase = await getAcademyWritableClient();
       const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
-        .select("course_id")
+        .select("course_id, section_id")
         .eq("id", lessonId)
         .maybeSingle();
       if (readError) throw databaseError(readError);
       if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return false;
       const { error } = await (supabase.from(LESSONS_TABLE) as any).delete().eq("id", lessonId);
       if (error) throw databaseError(error);
+      if (current.section_id) {
+        await compactSortOrders(LESSONS_TABLE, "section_id", current.section_id);
+      }
       return true;
     }
 
     const lesson = memoryLessons.find((item) => item.id === lessonId);
     if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return false;
+    const sectionId = lesson.section_id;
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
     if (idx < 0) return false;
     memoryLessons.splice(idx, 1);
+    const remaining = repairSortOrders(memoryLessons.filter((item) => item.section_id === sectionId));
+    for (const item of remaining) {
+      const remainingIdx = memoryLessons.findIndex((row) => row.id === item.id);
+      if (remainingIdx >= 0) memoryLessons[remainingIdx] = item;
+    }
     return true;
   }
 
@@ -534,7 +604,18 @@ export class AcademyAuthoringService {
         .eq("id", sectionId)
         .maybeSingle();
       if (readError) throw databaseError(readError);
-      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return [];
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) {
+        throw new CoursePersistenceError("UNAUTHORIZED", COURSE_MUTATION_MESSAGES.UNAUTHORIZED);
+      }
+
+      const { data: existing, error: existingError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("id")
+        .eq("section_id", sectionId);
+      if (existingError) throw databaseError(existingError);
+      assertPermutation(
+        ((existing || []) as Array<{ id: string }>).map((row) => row.id),
+        orderedLessonIds
+      );
 
       await applySequentialSortOrder(LESSONS_TABLE, "section_id", sectionId, orderedLessonIds);
       const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
@@ -546,8 +627,14 @@ export class AcademyAuthoringService {
     }
 
     const section = memorySections.find((item) => item.id === sectionId);
-    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) return [];
+    if (!section || !(await assertCourseOwner(section.course_id, ownerId))) {
+      throw new CoursePersistenceError("UNAUTHORIZED", COURSE_MUTATION_MESSAGES.UNAUTHORIZED);
+    }
     const sectionLessons = memoryLessons.filter((lesson) => lesson.section_id === sectionId);
+    assertPermutation(
+      sectionLessons.map((lesson) => lesson.id),
+      orderedLessonIds
+    );
     const reordered = reorderItems(sectionLessons, orderedLessonIds);
     for (const lesson of reordered) {
       const idx = memoryLessons.findIndex((item) => item.id === lesson.id);

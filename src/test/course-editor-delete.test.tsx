@@ -71,6 +71,8 @@ vi.mock("@/lib/services/course-actions", () => ({
   updateLessonAction: vi.fn(),
   deleteLessonAction: vi.fn(),
   assignLessonYouTubeAction: vi.fn(),
+  reorderSectionsAction: vi.fn(),
+  reorderLessonsAction: vi.fn(),
 }));
 
 describe("CourseEditor deletion lifecycle", () => {

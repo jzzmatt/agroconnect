@@ -3,6 +3,7 @@ import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import {
   formatChapterNumber,
   formatLessonNumber,
+  moveOrderedId,
   nextSortOrder,
   repairSortOrders,
   reorderItems,
@@ -14,7 +15,7 @@ import {
   deleteDialogForStatus,
 } from "@/lib/academy/course-delete-flow";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
-import { canTransitionCourseStatus, isPubliclyVisibleCourseStatus } from "@/lib/academy/course-lifecycle";
+import { CoursePersistenceError } from "@/lib/academy/course-errors";
 import { CourseService } from "@/lib/services/course-service";
 import type { CourseWithSections } from "@/types/agriacademy";
 
@@ -94,6 +95,58 @@ describe("AGROCONNECT Phase 7.2.1 — Instructor editor stabilization", () => {
     ]);
     expect(reordered.map((lesson) => lesson.id)).toEqual([c!.id, b!.id, a!.id]);
     expect(reordered.map((lesson) => lesson.sort_order)).toEqual([1, 2, 3]);
+  });
+
+  it("swaps an id one position with moveOrderedId and rejects out-of-range moves", () => {
+    expect(moveOrderedId(["a", "b", "c"], "b", -1)).toEqual(["b", "a", "c"]);
+    expect(moveOrderedId(["a", "b", "c"], "b", 1)).toEqual(["a", "c", "b"]);
+    expect(moveOrderedId(["a", "b", "c"], "a", -1)).toBeNull();
+    expect(moveOrderedId(["a", "b", "c"], "c", 1)).toBeNull();
+    expect(moveOrderedId(["a", "b", "c"], "missing", 1)).toBeNull();
+  });
+
+  it("resequences remaining chapters after deleting a middle chapter", async () => {
+    const a = await AcademyAuthoringService.createSection(OWNER, "crs-order", "A");
+    const b = await AcademyAuthoringService.createSection(OWNER, "crs-order", "B");
+    const c = await AcademyAuthoringService.createSection(OWNER, "crs-order", "C");
+    expect(await AcademyAuthoringService.deleteSection(OWNER, b!.id)).toBe(true);
+    const tree = await AcademyAuthoringService.getCourseEditorTree("crs-order", OWNER);
+    expect(tree?.sections.map((section) => section.id)).toEqual([a!.id, c!.id]);
+    expect(tree?.sections.map((section) => section.sort_order)).toEqual([1, 2]);
+    expect(sortOrdersAreSequential(tree!.sections)).toBe(true);
+  });
+
+  it("resequences remaining lessons after deleting a middle lesson", async () => {
+    const chapter = await AcademyAuthoringService.createSection(OWNER, "crs-order", "Capítulo");
+    const a = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "A");
+    const b = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "B");
+    const c = await AcademyAuthoringService.createLesson(OWNER, chapter!.id, "C");
+    expect(await AcademyAuthoringService.deleteLesson(OWNER, b!.id)).toBe(true);
+    const tree = await AcademyAuthoringService.getCourseEditorTree("crs-order", OWNER);
+    const lessons = tree?.sections[0]?.lessons || [];
+    expect(lessons.map((lesson) => lesson.id)).toEqual([a!.id, c!.id]);
+    expect(lessons.map((lesson) => lesson.sort_order)).toEqual([1, 2]);
+  });
+
+  it("rejects unauthorized reorder instead of returning an empty success list", async () => {
+    const a = await AcademyAuthoringService.createSection(OWNER, "crs-order", "A");
+    await expect(
+      AcademyAuthoringService.reorderSections("other-user", "crs-order", [a!.id])
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(
+      AcademyAuthoringService.reorderLessons("other-user", "missing-section", [])
+    ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+    await expect(
+      AcademyAuthoringService.reorderSections(OWNER, "crs-order", [])
+    ).rejects.toBeInstanceOf(CoursePersistenceError);
+  });
+
+  it("reconstructs the editor tree from persisted CourseService metadata", async () => {
+    const created = await CourseService.createCourse(OWNER, { title: "Título persistido" });
+    const tree = await AcademyAuthoringService.getCourseEditorTree(created.id, OWNER);
+    expect(tree?.title).toBe("Título persistido");
+    expect(tree?.status).toBe("draft");
+    expect(tree?.id).toBe(created.id);
   });
 
   it("assigns, replaces and removes a lesson YouTube reference without deleting the YouTube video", async () => {
