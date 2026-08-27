@@ -6,6 +6,19 @@ export function buildCourseLearnPath(slug: string, lessonId?: string | null): st
   return `${base}?lesson=${encodeURIComponent(lessonId)}`;
 }
 
+export function buildCourseDetailPath(slug: string, enroll = false): string {
+  const base = `/agriacademy/courses/${slug}`;
+  return enroll ? `${base}?enroll=1` : base;
+}
+
+export function buildAnonymousEnrollSignUpPath(slug: string): string {
+  return `/sign-up?redirect_url=${encodeURIComponent(buildCourseDetailPath(slug, true))}`;
+}
+
+export function buildLearnSignUpPath(slug: string, lessonId?: string | null): string {
+  return `/sign-up?redirect_url=${encodeURIComponent(buildCourseLearnPath(slug, lessonId))}`;
+}
+
 export function listOrderedLessons(
   course: Pick<CourseWithSections, "sections">
 ): CourseLessonRecord[] {
@@ -17,7 +30,7 @@ export function listOrderedLessons(
     );
 }
 
-/** Phase 8 will supply persisted progress; until then, use the first lesson. */
+/** Phase 8 persists last_lesson_id independently of YouTube. */
 export function resolveStartLesson(
   course: Pick<CourseWithSections, "sections">,
   options: { lessonId?: string | null; lastLessonId?: string | null } = {}

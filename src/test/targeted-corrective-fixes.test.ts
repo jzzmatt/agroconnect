@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { MapLifecycleManager, coordinatesEqual, DEFAULT_ANGOLA_CENTER } from "@/lib/location/map-lifecycle";
 import { getSelectablePlans } from "@/lib/services/pricing-service";
@@ -225,6 +225,18 @@ describe("no implicit Basic subscription", () => {
     const server = read("src/lib/authorization/server.ts");
     expect(server).toMatch('redirect("/planos")');
     expect(server).toMatch("control_panel.access");
+  });
+
+  it("keeps My Courses available without a Control Panel subscription", () => {
+    const studentLayout = read("src/app/(academy-student)/layout.tsx");
+    expect(studentLayout).toMatch("requireAuthenticatedStudentAccess");
+    expect(studentLayout).not.toMatch("requireControlPanelAccess");
+    expect(existsSync(resolve(process.cwd(), "src/app/(academy-student)/dashboard/academy/my-courses/page.tsx"))).toBe(
+      true
+    );
+    expect(existsSync(resolve(process.cwd(), "src/app/(dashboard)/dashboard/academy/my-courses/page.tsx"))).toBe(
+      false
+    );
   });
 
   it("sends unsubscribed Control Panel clicks to /planos", () => {

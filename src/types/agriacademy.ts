@@ -123,6 +123,7 @@ export interface CourseEnrollmentRecord {
   status: CourseEnrollmentStatus;
   enrolled_at: string;
   completed_at?: string | null;
+  last_lesson_id?: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -140,6 +141,7 @@ export interface CourseEnrollmentStudentRow {
 export interface EnrolledCourseListItem {
   enrollmentId: string;
   enrolledAt: string;
+  lastLessonId?: string | null;
   course: CourseListItem;
 }
 
