@@ -35,6 +35,7 @@ export class EnrollmentService {
       status: "active",
       enrolled_at: now,
       completed_at: null,
+      last_lesson_id: null,
       created_at: now,
       updated_at: now,
     };
@@ -138,6 +139,46 @@ export class EnrollmentService {
   public static async isEnrolled(studentId: string, courseId: string): Promise<boolean> {
     const enrollment = await this.findEnrollment(studentId, courseId);
     return enrollment?.status === "active";
+  }
+
+  public static async getActiveEnrollment(
+    studentId: string,
+    courseId: string
+  ): Promise<CourseEnrollmentRecord | null> {
+    const enrollment = await this.findEnrollment(studentId, courseId);
+    if (enrollment?.status !== "active") return null;
+    return enrollment;
+  }
+
+  public static async recordLastLesson(
+    studentId: string,
+    courseId: string,
+    lessonId: string
+  ): Promise<CourseEnrollmentRecord | null> {
+    const enrollment = await this.getActiveEnrollment(studentId, courseId);
+    if (!enrollment) return null;
+    const now = new Date().toISOString();
+
+    if (hasLiveSupabase()) {
+      const supabase = await getEnrollmentClient();
+      const { data, error } = await (supabase.from("course_enrollments") as any)
+        .update({ last_lesson_id: lessonId, updated_at: now })
+        .eq("id", enrollment.id)
+        .eq("student_id", studentId)
+        .select()
+        .single();
+      if (error || !data) return null;
+      return data as CourseEnrollmentRecord;
+    }
+
+    const idx = memoryEnrollments.findIndex((item) => item.id === enrollment.id);
+    if (idx < 0) return null;
+    memoryEnrollments[idx] = {
+      ...memoryEnrollments[idx],
+      last_lesson_id: lessonId,
+      updated_at: now,
+    };
+    return memoryEnrollments[idx];
   }
 
   /** Aggregated active enrollment counts per course (single query). */

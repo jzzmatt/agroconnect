@@ -473,6 +473,11 @@ export const pt = {
     register: "Inscrever-se",
     continueCourse: "Continuar curso",
     enrolledBadge: "Inscrito",
+    coursePausedForStudents: "Este curso está em pausa e não está disponível para visualização.",
+    continueWhenPublished: "O curso voltará a ficar disponível quando o instrutor o publicar de novo.",
+    youtubeUnlistedStudentHint:
+      "O vídeo está no YouTube como Não listado. Quem obtiver o URL pode vê-lo fora da AgroConnect.",
+    backToMyCourses: "Voltar aos meus cursos",
     courseContent: "Conteúdo do curso",
     previousLesson: "Aula anterior",
     nextLesson: "Próxima aula",

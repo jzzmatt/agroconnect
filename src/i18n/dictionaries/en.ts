@@ -475,6 +475,11 @@ export const en: Dictionary = {
     register: "Register",
     continueCourse: "Continue course",
     enrolledBadge: "Enrolled",
+    coursePausedForStudents: "This course is paused and is not available to watch.",
+    continueWhenPublished: "The course will be available again when the instructor republishes it.",
+    youtubeUnlistedStudentHint:
+      "The video is Unlisted on YouTube. Anyone who obtains the URL can watch it outside AgroConnect.",
+    backToMyCourses: "Back to my courses",
     courseContent: "Course content",
     previousLesson: "Previous lesson",
     nextLesson: "Next lesson",

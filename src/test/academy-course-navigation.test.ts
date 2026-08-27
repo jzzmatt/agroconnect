@@ -1,6 +1,9 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildAnonymousEnrollSignUpPath,
+  buildCourseDetailPath,
   buildCourseLearnPath,
+  buildLearnSignUpPath,
   listOrderedLessons,
   resolveStartLesson,
 } from "@/lib/academy/course-navigation";
@@ -87,5 +90,25 @@ describe("course navigation", () => {
   it("opens a requested lesson when it exists", () => {
     const lesson = resolveStartLesson(sampleCourse(), { lessonId: "les-2" });
     expect(lesson?.id).toBe("les-2");
+  });
+
+  it("resumes the last persisted lesson when no lesson query is present", () => {
+    const lesson = resolveStartLesson(sampleCourse(), { lastLessonId: "les-2" });
+    expect(lesson?.id).toBe("les-2");
+  });
+
+  it("prefers an explicit lesson query over persisted progress", () => {
+    const lesson = resolveStartLesson(sampleCourse(), { lessonId: "les-1", lastLessonId: "les-2" });
+    expect(lesson?.id).toBe("les-1");
+  });
+
+  it("builds anonymous enroll and learn sign-up return paths", () => {
+    expect(buildCourseDetailPath("producao-milho", true)).toBe(
+      "/agriacademy/courses/producao-milho?enroll=1"
+    );
+    expect(buildAnonymousEnrollSignUpPath("producao-milho")).toBe(
+      `/sign-up?redirect_url=${encodeURIComponent("/agriacademy/courses/producao-milho?enroll=1")}`
+    );
+    expect(buildLearnSignUpPath("producao-milho", "les-2")).toContain("lesson%3Dles-2");
   });
 });

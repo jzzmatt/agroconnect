@@ -3,14 +3,13 @@
 import React, { useCallback, useEffect, useMemo, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { ProtectedLessonPlayer } from "@/components/academy/ProtectedLessonPlayer";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
-import { buildCourseLearnPath } from "@/lib/academy/course-navigation";
+import { buildCourseLearnPath, buildLearnSignUpPath } from "@/lib/academy/course-navigation";
 import { useI18n } from "@/i18n/provider";
-import { getCourseLearnContextAction } from "@/lib/services/course-actions";
+import { getCourseLearnContextAction, recordLessonProgressAction } from "@/lib/services/course-actions";
 import type { CourseLessonRecord, CourseWithSections } from "@/types/agriacademy";
 
 export function CourseLearnClient({ slug }: { slug: string }) {
@@ -21,6 +20,7 @@ export function CourseLearnClient({ slug }: { slug: string }) {
   const [activeLesson, setActiveLesson] = useState<CourseLessonRecord | null>(null);
   const [showSuccess, setShowSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [unavailable, setUnavailable] = useState(false);
   const [isPending, startTransition] = useTransition();
 
   const lessonIdParam = searchParams.get("lesson");
@@ -31,30 +31,38 @@ export function CourseLearnClient({ slug }: { slug: string }) {
       const context = await getCourseLearnContextAction(slug, lessonIdParam);
       if (!context.allowed) {
         if (context.reason === "auth_required") {
-          router.replace(
-            `/sign-up?redirect_url=${encodeURIComponent(buildCourseLearnPath(slug, lessonIdParam))}`
-          );
+          router.replace(buildLearnSignUpPath(slug, lessonIdParam));
           return;
         }
         if (context.reason === "not_enrolled") {
           router.replace(`/agriacademy/courses/${slug}`);
           return;
         }
+        if (context.reason === "course_unavailable") {
+          setUnavailable(true);
+          setCourse(context.course ?? null);
+          setActiveLesson(null);
+          setError(dict.agriacademy.coursePausedForStudents);
+          return;
+        }
+        setUnavailable(false);
         setError(dict.agriacademy.courseNotFound);
         setCourse(null);
         setActiveLesson(null);
         return;
       }
 
+      setUnavailable(false);
       setCourse(context.course);
       setActiveLesson(context.startLesson);
       setError(null);
+      void recordLessonProgressAction(context.course.id, context.startLesson.id);
 
       if (context.startLesson && context.startLesson.id !== lessonIdParam) {
         router.replace(buildCourseLearnPath(slug, context.startLesson.id), { scroll: false });
       }
     });
-  }, [dict.agriacademy.courseNotFound, lessonIdParam, router, slug]);
+  }, [dict.agriacademy.courseNotFound, dict.agriacademy.coursePausedForStudents, lessonIdParam, router, slug]);
 
   useEffect(() => {
     loadContext();
@@ -93,9 +101,20 @@ export function CourseLearnClient({ slug }: { slug: string }) {
 
   if (!course || !activeLesson) {
     return (
-      <p className="text-sm text-muted-foreground text-center py-16">
-        {error || dict.agriacademy.courseNotFound}
-      </p>
+      <div className="space-y-4 text-center py-16">
+        {course ? <h1 className="text-2xl font-black">{course.title}</h1> : null}
+        <p className="text-sm font-semibold text-muted-foreground">
+          {error || dict.agriacademy.courseNotFound}
+        </p>
+        {unavailable ? (
+          <p className="text-xs text-muted-foreground">{dict.agriacademy.continueWhenPublished}</p>
+        ) : null}
+        <Link href="/dashboard/academy/my-courses">
+          <Button type="button" variant="outline" size="sm" className="font-bold">
+            {dict.agriacademy.backToMyCourses}
+          </Button>
+        </Link>
+      </div>
     );
   }
 
@@ -116,8 +135,7 @@ export function CourseLearnClient({ slug }: { slug: string }) {
         <div className="flex flex-wrap items-center gap-2">
           <Badge variant="pillarAcademy">AgriAcademy</Badge>
           <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-            <Check className="w-3.5 h-3.5" />
-            {dict.agriacademy.enrolledBadge}
+            ✓ {dict.agriacademy.enrolledBadge}
           </span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-black">{course.title}</h1>
@@ -184,6 +202,9 @@ export function CourseLearnClient({ slug }: { slug: string }) {
             title={activeLesson.title}
             enabled
           />
+          <p className="text-[11px] text-muted-foreground">
+            {dict.agriacademy.youtubeUnlistedStudentHint}
+          </p>
 
           <div className="flex flex-wrap gap-2 pt-2">
             {previousLesson ? (

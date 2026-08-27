@@ -1872,6 +1872,7 @@ export interface Database {
           status: CourseEnrollmentStatus;
           enrolled_at: string;
           completed_at: string | null;
+          last_lesson_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1882,6 +1883,7 @@ export interface Database {
           status?: CourseEnrollmentStatus;
           enrolled_at?: string;
           completed_at?: string | null;
+          last_lesson_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1892,6 +1894,7 @@ export interface Database {
           status?: CourseEnrollmentStatus;
           enrolled_at?: string;
           completed_at?: string | null;
+          last_lesson_id?: string | null;
           created_at?: string;
           updated_at?: string;
         };

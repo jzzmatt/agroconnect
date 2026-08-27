@@ -23,7 +23,7 @@ import type {
 } from "@/types/agriacademy";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { CourseAccessService } from "@/lib/academy/course-access";
-import { resolveStartLesson } from "@/lib/academy/course-navigation";
+import { resolveLearnAccess } from "@/lib/academy/learn-access";
 import { deriveDashboardAuthoringProgress, type AuthoringProgress } from "@/lib/academy/authoring-progress";
 
 export async function searchPublishedCoursesAction(
@@ -338,33 +338,33 @@ export async function getCourseEnrollmentStatusAction(courseId: string) {
 }
 
 export async function getCourseLearnContextAction(slug: string, lessonId?: string | null) {
-  const course = await CourseService.getPublishedCourseDetailBySlug(slug);
-  if (!course) {
-    return { allowed: false as const, reason: "not_found" as const };
-  }
-
+  const published = await CourseService.getPublishedCourseDetailBySlug(slug);
+  const course = published ?? (await CourseService.getLearnerCourseDetailBySlug(slug));
   const userProfile = await getCurrentUserProfile();
-  if (!userProfile) {
-    return { allowed: false as const, reason: "auth_required" as const, course };
-  }
+  const enrollment =
+    userProfile && course
+      ? await EnrollmentService.getActiveEnrollment(userProfile.id, course.id)
+      : null;
+  const enrolled = Boolean(enrollment);
+  const isOwner = Boolean(userProfile && course && course.owner_id === userProfile.id);
 
-  const enrolled = await EnrollmentService.isEnrolled(userProfile.id, course.id);
-  const isOwner = course.owner_id === userProfile.id;
-  if (!enrolled && !isOwner) {
-    return { allowed: false as const, reason: "not_enrolled" as const, course };
-  }
-
-  const startLesson = resolveStartLesson(course, { lessonId });
-  if (!startLesson) {
-    return { allowed: false as const, reason: "no_lessons" as const, course };
-  }
-
-  return {
-    allowed: true as const,
+  return resolveLearnAccess({
     course,
-    startLesson,
-    enrolled: true as const,
-  };
+    profileId: userProfile?.id ?? null,
+    enrolled,
+    isOwner,
+    lessonId,
+    lastLessonId: enrollment?.last_lesson_id,
+  });
+}
+
+export async function recordLessonProgressAction(courseId: string, lessonId: string) {
+  await requireAuth();
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return { success: false as const };
+  const enrollment = await EnrollmentService.recordLastLesson(userProfile.id, courseId, lessonId);
+  if (!enrollment) return { success: false as const };
+  return { success: true as const, lastLessonId: enrollment.last_lesson_id };
 }
 
 export async function listMyEnrolledCourseIdsAction(): Promise<string[]> {
@@ -378,6 +378,8 @@ export async function enrollInCourseAction(courseId: string) {
   await requireAuth();
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) throw new Error("Perfil não encontrado.");
+  const published = await CourseService.isCoursePublished(courseId);
+  if (!published) throw new Error("Este curso não está disponível para inscrição.");
   return EnrollmentService.enroll(userProfile.id, courseId);
 }
 
@@ -495,6 +497,7 @@ export async function listMyEnrolledCoursesAction() {
       return {
         enrollmentId: enrollment.id,
         enrolledAt: enrollment.enrolled_at,
+        lastLessonId: enrollment.last_lesson_id ?? null,
         course,
       };
     })

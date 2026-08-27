@@ -709,6 +709,59 @@ export class CourseService {
     return null;
   }
 
+  /**
+   * Learner lookup by slug, including paused/archived courses.
+   * Callers must still authorize enrollment before rendering the learning UI.
+   * YouTube IDs stay redacted; playback goes through the enrollment-gated API.
+   */
+  public static async getLearnerCourseDetailBySlug(slug: string): Promise<CourseWithSections | null> {
+    if (hasLiveSupabase()) {
+      try {
+        const supabase = await getAcademyWritableClient();
+        const { data, error } = await (supabase.from("courses") as any)
+          .select("*")
+          .eq("slug", slug)
+          .maybeSingle();
+        if (error || !data?.id) return null;
+        const detail = await this.getCourseWithSections(String(data.id));
+        return detail ? redactPublicCourseYouTubeIds(detail) : null;
+      } catch (err) {
+        console.warn("[CourseService.getLearnerCourseDetailBySlug] Unavailable:", err);
+      }
+    }
+
+    const stored = [...memoryCourses.values()].find(
+      (course) => course.slug === slug && !course.deleted
+    );
+    if (stored) {
+      return { ...stored, sections: [] };
+    }
+
+    const overlay = applyMemoryOverlay(INITIAL_COURSES).find((course) => course.slug === slug);
+    if (!overlay) return null;
+    return {
+      id: overlay.id,
+      owner_id: overlay.instructor_id,
+      title: overlay.title,
+      slug: overlay.slug,
+      description: overlay.description,
+      short_description: overlay.short_description,
+      level: overlay.level,
+      price: overlay.price,
+      currency: overlay.currency,
+      status: overlay.status,
+      thumbnail_url: overlay.thumbnail_url,
+      duration_hours: overlay.duration_hours,
+      lessons_count: overlay.lessons_count ?? 0,
+      students_count: overlay.students_count ?? 0,
+      is_featured: overlay.is_featured ?? false,
+      created_at: overlay.created_at,
+      updated_at: overlay.created_at,
+      published_at: overlay.published_at,
+      sections: [],
+    };
+  }
+
   public static async isCoursePublished(courseId: string): Promise<boolean> {
     if (hasLiveSupabase()) {
       try {

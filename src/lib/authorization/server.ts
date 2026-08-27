@@ -78,3 +78,15 @@ export async function requireControlPanelAccess(): Promise<CapabilitySubject> {
   }
   return subject;
 }
+
+/**
+ * Student My Courses is available to any authenticated user, including
+ * those with no stored subscription (`currentPlan = null`).
+ */
+export async function requireAuthenticatedStudentAccess(): Promise<CapabilitySubject> {
+  const subject = await getCurrentSubject();
+  if (!subject) {
+    redirect("/sign-in?redirect_url=/dashboard/academy/my-courses");
+  }
+  return subject;
+}

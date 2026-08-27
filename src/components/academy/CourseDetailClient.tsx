@@ -4,11 +4,10 @@ import React, { useCallback, useEffect, useRef, useState, useTransition } from "
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
-import { Check } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
-import { buildCourseLearnPath } from "@/lib/academy/course-navigation";
+import { buildAnonymousEnrollSignUpPath, buildCourseLearnPath } from "@/lib/academy/course-navigation";
 import { useI18n } from "@/i18n/provider";
 import {
   getCourseEnrollmentStatusAction,
@@ -121,8 +120,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
     setMessage(null);
 
     if (!isSignedIn) {
-      const returnUrl = `/agriacademy/courses/${slug}?enroll=1`;
-      router.push(`/sign-up?redirect_url=${encodeURIComponent(returnUrl)}`);
+      router.push(buildAnonymousEnrollSignUpPath(slug));
       return;
     }
 
@@ -144,8 +142,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
           <Badge variant="pillarAcademy">AgriAcademy</Badge>
           {enrolled && (
             <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
-              <Check className="w-3.5 h-3.5" />
-              {dict.agriacademy.enrolledBadge}
+              ✓ {dict.agriacademy.enrolledBadge}
             </span>
           )}
         </div>

@@ -126,6 +126,11 @@ describe("subscription status is distinct from Basic feature restrictions", () =
     expect(unsubscribed().plan).toBeNull();
   });
 
+  it("still allows AgriAcademy browsing without a stored plan", () => {
+    expect(can(unsubscribed(), "academy.view")).toBe(true);
+    expect(can(unsubscribed(), "academy.course.create")).toBe(false);
+  });
+
   it("unlocks the Control Panel for a stored Basic plan while keeping creation locked", () => {
     expect(can(FREE(), "control_panel.access")).toBe(true);
     expect(FREE().entitlements.has_subscription).toBe(true);

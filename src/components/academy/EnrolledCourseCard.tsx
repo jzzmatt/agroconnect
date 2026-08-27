@@ -19,7 +19,8 @@ function formatEnrollmentDate(value: string, locale: string): string {
 
 export function EnrolledCourseCard({ item }: { item: EnrolledCourseListItem }) {
   const { dict, locale } = useI18n();
-  const { course, enrolledAt } = item;
+  const { course, enrolledAt, lastLessonId } = item;
+  const isAvailable = course.status === "published";
   const statusLabels: Record<string, string> = {
     published: dict.agriacademy.statusPublished,
     paused: dict.agriacademy.statusPaused,
@@ -52,11 +53,17 @@ export function EnrolledCourseCard({ item }: { item: EnrolledCourseListItem }) {
             {dict.agriacademy.enrolledOn}: {formatEnrollmentDate(enrolledAt, locale)}
           </p>
         </div>
-        <Link href={buildCourseLearnPath(course.slug)}>
-          <Button type="button" size="sm" className="font-bold">
-            {dict.agriacademy.continueCourse}
-          </Button>
-        </Link>
+        {isAvailable ? (
+          <Link href={buildCourseLearnPath(course.slug, lastLessonId)}>
+            <Button type="button" size="sm" className="font-bold">
+              {dict.agriacademy.continueCourse}
+            </Button>
+          </Link>
+        ) : (
+          <p className="text-xs font-semibold text-amber-700 dark:text-amber-400">
+            {dict.agriacademy.coursePausedForStudents}
+          </p>
+        )}
       </div>
     </div>
   );
