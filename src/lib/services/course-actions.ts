@@ -14,6 +14,7 @@ import {
 import type {
   CourseListItem,
   CourseRecord,
+  CourseWithSections,
   CreateCourseInput,
   UpdateCourseInput,
   SearchCoursesFilterParams,
@@ -21,6 +22,7 @@ import type {
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { CourseAccessService } from "@/lib/academy/course-access";
 import { resolveStartLesson } from "@/lib/academy/course-navigation";
+import { deriveDashboardAuthoringProgress, type AuthoringProgress } from "@/lib/academy/authoring-progress";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -405,8 +407,8 @@ export async function getCourseCreatorDashboardAction() {
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) {
     return {
-      draftCourses: [],
-      publishedCourses: [],
+      draftCourses: [] as Array<CourseListItem & { progress: AuthoringProgress }>,
+      publishedCourses: [] as Array<CourseListItem & { studentCount: number }>,
     };
   }
 
@@ -415,8 +417,39 @@ export async function getCourseCreatorDashboardAction() {
   const drafts = courses.filter((course) => course.status !== "published" && course.status !== "archived");
   const counts = await EnrollmentService.countActiveByCourseIds(published.map((course) => course.id));
 
+  const draftCourses = await Promise.all(
+    drafts.map(async (course) => {
+      const tree = await AcademyAuthoringService.getCourseEditorTree(course.id, userProfile.id);
+      const progressSource: CourseWithSections = {
+        id: course.id,
+        owner_id: course.instructor_id,
+        title: course.title,
+        slug: course.slug,
+        description: course.description,
+        short_description: course.short_description,
+        level: course.level,
+        price: course.price,
+        currency: course.currency,
+        status: course.status,
+        thumbnail_url: course.thumbnail_url,
+        duration_hours: course.duration_hours,
+        lessons_count: course.lessons_count ?? 0,
+        students_count: course.students_count ?? 0,
+        is_featured: course.is_featured ?? false,
+        created_at: course.created_at,
+        updated_at: course.created_at,
+        published_at: course.published_at ?? undefined,
+        sections: tree?.sections ?? [],
+      };
+      return {
+        ...course,
+        progress: deriveDashboardAuthoringProgress(progressSource),
+      };
+    })
+  );
+
   return {
-    draftCourses: drafts,
+    draftCourses,
     publishedCourses: published.map((course) => ({
       ...course,
       studentCount: counts[course.id] ?? 0,
