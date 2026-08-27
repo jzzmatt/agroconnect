@@ -1,8 +1,9 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
-import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, isSupabaseConfigured, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import { can, getCurrentSubject } from "@/lib/authorization/server";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { getOrCreateCurrentProviderProfileAction } from "@/lib/services/marketplace-actions";
 import { NotificationService } from "@/lib/services/notification-service";
@@ -11,6 +12,14 @@ import { requireTransportOwnership } from "@/lib/transport/ownership";
 import {
   assertTransportStatusTransition,
 } from "@/lib/transport/transport-lifecycle";
+import {
+  buildTransportRequestInsert,
+  canActorChangeTransportRequestStatus,
+  isTransportServiceId,
+  isVisibleOnSendingRequests,
+  requirePersistedRequestId,
+  resolveTransportRequestActor,
+} from "@/lib/transport/transport-request-lifecycle";
 import { canPermanentlyDeleteTransport } from "@/lib/transport/transport-delete-flow";
 import { validateTransportForPublication } from "@/lib/transport/transport-publication-validation";
 import type { TransportListItem, TransportPublicationStatus, TransportRequestItem, TransportRequestStatus } from "@/types/transport";
@@ -27,9 +36,98 @@ export type TransportMutationResult<T> =
 
 function revalidateTransportPaths(slug?: string) {
   revalidatePath("/dashboard/transport");
+  revalidatePath("/dashboard/transport/requests");
+  revalidatePath("/dashboard/transport/requests/receiving");
+  revalidatePath("/dashboard/transport/requests/sending");
   if (slug) {
     revalidatePath(`/transport/${slug}`);
     revalidatePath("/agriservice");
+  }
+}
+
+const TRANSPORT_REQUEST_SELECT = `
+  *,
+  profiles:customer_id(display_name),
+  provider_profiles!transport_requests_provider_id_fkey(business_name),
+  transport_services!transport_requests_transport_service_id_fkey(
+    title,
+    slug,
+    origin_label,
+    destination_label,
+    vehicle_name,
+    vehicle_type,
+    vehicle_model,
+    capacity_load
+  )
+`;
+
+async function getCurrentProviderId(profileId: string): Promise<string | null> {
+  const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+  const { data, error } = await (supabase.from("provider_profiles") as any)
+    .select("id")
+    .eq("profile_id", profileId)
+    .maybeSingle();
+
+  if (error || !data?.id) return null;
+  return String(data.id);
+}
+
+async function listTransportRequests(
+  column: "provider_id" | "customer_id",
+  value: string,
+  options?: { excludeCancelled?: boolean }
+): Promise<TransportRequestItem[]> {
+  const supabase = await createServerSupabaseClient();
+  let query = (supabase.from("transport_requests") as any)
+    .select(TRANSPORT_REQUEST_SELECT)
+    .eq(column, value)
+    .order("created_at", { ascending: false });
+
+  if (options?.excludeCancelled) {
+    query = query.neq("status", "cancelled");
+  }
+
+  const { data, error } = await query;
+  if (!error && data) {
+    return data
+      .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
+      .filter((row: TransportRequestItem) =>
+        options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
+      );
+  }
+
+  console.warn("[listTransportRequests] embed query failed, retrying without joins:", error);
+  let fallbackQuery = (supabase.from("transport_requests") as any)
+    .select("*")
+    .eq(column, value)
+    .order("created_at", { ascending: false });
+
+  if (options?.excludeCancelled) {
+    fallbackQuery = fallbackQuery.neq("status", "cancelled");
+  }
+
+  const fallback = await fallbackQuery;
+
+  if (fallback.error || !fallback.data) return [];
+  return fallback.data
+    .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
+    .filter((row: TransportRequestItem) =>
+      options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
+    );
+}
+
+async function notifyTransportRequest(params: {
+  profileId: string;
+  type: string;
+  title: string;
+  message: string;
+  linkUrl: string;
+  data?: Record<string, unknown>;
+}) {
+  try {
+    await NotificationService.createNotification(params);
+  } catch (error) {
+    console.warn("[notifyTransportRequest] notification failed:", error);
   }
 }
 
@@ -382,7 +480,6 @@ export async function updateTransportStatusAction(
 
 export async function createTransportRequestAction(params: {
   transportServiceId: string;
-  providerId: string;
   message: string;
   originNotes?: string;
   destinationNotes?: string;
@@ -391,52 +488,79 @@ export async function createTransportRequestAction(params: {
   await requireAuth();
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) {
-    throw new Error("É necessário ter perfil ativo para solicitar transporte.");
+    return { success: false, message: "É necessário ter perfil ativo para solicitar transporte." };
   }
 
-  const transport = await TransportService.getTransportBySlug(
-    (await getTransportById(params.transportServiceId))?.slug || ""
-  );
+  if (!isSupabaseConfigured()) {
+    return { success: false, message: "O pedido não pôde ser gravado. Tente novamente." };
+  }
+
+  if (!isTransportServiceId(params.transportServiceId)) {
+    return { success: false, message: "Serviço de transporte inválido." };
+  }
+
+  const message = params.message.trim();
+  if (!message) {
+    return { success: false, message: "Descreva o que pretende transportar." };
+  }
+
+  let requestedDate: string | null = null;
+  if (params.requestedDate?.trim()) {
+    const parsed = new Date(params.requestedDate);
+    if (Number.isNaN(parsed.getTime())) {
+      return { success: false, message: "Data pedida inválida." };
+    }
+    requestedDate = parsed.toISOString();
+  }
+
+  const transport = await TransportService.getPublishedTransportById(params.transportServiceId);
+  if (!transport) {
+    return { success: false, message: "O serviço de transporte publicado não foi encontrado." };
+  }
+
+  const actorProviderId = await getCurrentProviderId(userProfile.id);
+  if (actorProviderId && actorProviderId === transport.provider_id) {
+    return { success: false, message: "Não pode solicitar o seu próprio transporte." };
+  }
+
+  const insert = buildTransportRequestInsert({
+    customerId: userProfile.id,
+    transport,
+    message,
+    originNotes: params.originNotes,
+    destinationNotes: params.destinationNotes,
+    requestedDate,
+  });
 
   const supabase = await createServerSupabaseClient();
   const { data, error } = await (supabase.from("transport_requests") as any)
-    .insert({
-      customer_id: userProfile.id,
-      provider_id: params.providerId,
-      transport_service_id: params.transportServiceId,
-      message: params.message.trim(),
-      origin_notes: params.originNotes || null,
-      destination_notes: params.destinationNotes || null,
-      requested_date: params.requestedDate || null,
-      estimated_trip_price: transport?.price_per_trip ?? null,
-      estimated_load_price: transport?.price_per_load ?? null,
-      status: "pending",
-      currency: "AOA",
-    })
+    .insert(insert)
     .select("id")
     .single();
 
-  if (error) {
+  const persisted = requirePersistedRequestId(data, error);
+  if (!persisted.ok) {
     console.warn("[createTransportRequestAction] DB error:", error);
+    return { success: false, message: persisted.error };
   }
 
-  const requestId = data?.id || `trq-${Math.random().toString(36).substring(2, 8)}`;
+  revalidateTransportPaths(transport.slug);
 
   const admin = tryCreateAdminServerSupabaseClient();
   if (admin) {
     const { data: providerRow } = await (admin.from("provider_profiles") as any)
       .select("profile_id")
-      .eq("id", params.providerId)
+      .eq("id", transport.provider_id)
       .maybeSingle();
 
     if (providerRow?.profile_id) {
-      await NotificationService.createNotification({
+      await notifyTransportRequest({
         profileId: providerRow.profile_id,
         type: "transport.request",
         title: "Novo pedido de transporte",
-        message: `Recebeu um novo pedido de transporte${transport ? ` para "${transport.title}"` : ""}.`,
-        linkUrl: "/dashboard/transport/requests",
-        data: { requestId, transportServiceId: params.transportServiceId },
+        message: `Recebeu um novo pedido de transporte para "${transport.title}".`,
+        linkUrl: "/dashboard/transport/requests/receiving",
+        data: { requestId: persisted.requestId, transportServiceId: transport.id },
       });
     }
   }
@@ -444,71 +568,25 @@ export async function createTransportRequestAction(params: {
   return {
     success: true,
     message: "Pedido de transporte enviado com sucesso ao transportador!",
-    requestId,
+    requestId: persisted.requestId,
   };
 }
 
-async function getTransportById(id: string): Promise<TransportListItem | null> {
-  try {
-    const { provider } = await requireTransportManager();
-    const owned = await TransportService.getOwnedTransportById(provider.id, id);
-    if (owned) return owned;
-  } catch {
-    // fall through to public lookup for customer requests
-  }
-
-  const published = await TransportService.searchPublishedTransports({ limit: 200 });
-  const match = published.transports.find((t) => t.id === id);
-  if (match) return match;
-
-  const { INITIAL_TRANSPORT_SERVICES } = await import("@/lib/transport/transport-service");
-  return INITIAL_TRANSPORT_SERVICES.find((t) => t.id === id) || null;
-}
-
 export async function getTransportRequestsForProviderAction(): Promise<TransportRequestItem[]> {
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  const subject = await getCurrentSubject();
+  if (!subject || !can(subject, "service.manage")) return [];
 
-  const provider = await getOrCreateCurrentProviderProfileAction();
-  const supabase = await createServerSupabaseClient();
+  const providerId = await getCurrentProviderId(subject.profileId);
+  if (!providerId) return [];
 
-  const { data, error } = await (supabase.from("transport_requests") as any)
-    .select(
-      `
-      *,
-      profiles:customer_id(display_name),
-      provider_profiles(provider_id:business_name),
-      transport_services(title, slug)
-    `
-    )
-    .eq("provider_id", provider.id)
-    .order("created_at", { ascending: false });
-
-  if (error || !data) return [];
-
-  return data.map((row: Record<string, unknown>) => TransportService.mapRequestRow(row));
+  return listTransportRequests("provider_id", providerId);
 }
 
 export async function getCustomerTransportRequestsAction(): Promise<TransportRequestItem[]> {
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
 
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await (supabase.from("transport_requests") as any)
-    .select(
-      `
-      *,
-      profiles:customer_id(display_name),
-      provider_profiles(business_name),
-      transport_services(title, slug)
-    `
-    )
-    .eq("customer_id", userProfile.id)
-    .order("created_at", { ascending: false });
-
-  if (error || !data) return [];
-
-  return data.map((row: Record<string, unknown>) => TransportService.mapRequestRow(row));
+  return listTransportRequests("customer_id", userProfile.id, { excludeCancelled: true });
 }
 
 export async function updateTransportRequestStatusAction(params: {
@@ -521,6 +599,10 @@ export async function updateTransportRequestStatusAction(params: {
     return { success: false, message: "Sessão não encontrada." };
   }
 
+  if (!isTransportServiceId(params.requestId)) {
+    return { success: false, message: "Pedido não encontrado." };
+  }
+
   const supabase = await createServerSupabaseClient();
   const { data: existing, error: fetchError } = await (supabase.from("transport_requests") as any)
     .select("id, customer_id, provider_id, status, transport_services(title)")
@@ -531,47 +613,93 @@ export async function updateTransportRequestStatusAction(params: {
     return { success: false, message: "Pedido não encontrado." };
   }
 
-  const provider = await getOrCreateCurrentProviderProfileAction();
-  const isProvider = existing.provider_id === provider.id;
-  const isCustomer = existing.customer_id === userProfile.id;
+  const providerId = await getCurrentProviderId(userProfile.id);
+  const actor = resolveTransportRequestActor({
+    profileId: userProfile.id,
+    providerId,
+    customerId: existing.customer_id,
+    requestProviderId: existing.provider_id,
+  });
 
-  if (!isProvider && !isCustomer) {
+  if (
+    !canActorChangeTransportRequestStatus({
+      actor,
+      from: existing.status,
+      to: params.status,
+    })
+  ) {
     return { success: false, message: "Não autorizado." };
   }
 
-  if (isCustomer && params.status !== "cancelled") {
-    return { success: false, message: "Apenas pode cancelar o seu pedido." };
+  if (actor === "transporter") {
+    const subject = await getCurrentSubject();
+    if (!subject || !can(subject, "service.manage")) {
+      return { success: false, message: "Não autorizado." };
+    }
   }
 
-  if (isProvider && !["accepted", "rejected"].includes(params.status)) {
-    return { success: false, message: "Ação inválida para o transportador." };
+  const lockColumn = actor === "transporter" ? "provider_id" : "customer_id";
+  const lockValue = actor === "transporter" ? providerId : userProfile.id;
+  if (!lockValue) {
+    return { success: false, message: "Não autorizado." };
   }
 
-  const { error } = await (supabase.from("transport_requests") as any)
+  const { data: updated, error } = await (supabase.from("transport_requests") as any)
     .update({ status: params.status })
-    .eq("id", params.requestId);
+    .eq("id", params.requestId)
+    .eq("status", existing.status)
+    .eq(lockColumn, lockValue)
+    .select("id")
+    .maybeSingle();
 
-  if (error) {
+  if (error || !updated?.id) {
     return { success: false, message: "Não foi possível atualizar o pedido." };
   }
 
-  const notifyProfileId = isProvider ? existing.customer_id : null;
-  if (notifyProfileId) {
+  revalidateTransportPaths();
+
+  const relatedTransport = Array.isArray(existing.transport_services)
+    ? existing.transport_services[0]
+    : existing.transport_services;
+  const transportTitle = relatedTransport?.title ? ` para "${relatedTransport.title}"` : "";
+
+  if (actor === "transporter") {
     const statusLabel =
       params.status === "accepted"
-        ? "aceite"
+        ? "confirmado"
         : params.status === "rejected"
-          ? "rejeitado"
-          : "cancelado";
+          ? "recusado"
+          : params.status === "completed"
+            ? "concluído"
+            : "cancelado";
 
-    await NotificationService.createNotification({
-      profileId: notifyProfileId,
+    await notifyTransportRequest({
+      profileId: existing.customer_id,
       type: "transport.request_update",
       title: `Pedido de transporte ${statusLabel}`,
-      message: `O seu pedido de transporte foi ${statusLabel} pelo transportador.`,
-      linkUrl: "/dashboard/transport/requests",
+      message: `O seu pedido de transporte${transportTitle} foi ${statusLabel} pelo transportador.`,
+      linkUrl: "/dashboard/transport/requests/sending",
       data: { requestId: params.requestId, status: params.status },
     });
+  } else {
+    const admin = tryCreateAdminServerSupabaseClient();
+    if (admin) {
+      const { data: providerRow } = await (admin.from("provider_profiles") as any)
+        .select("profile_id")
+        .eq("id", existing.provider_id)
+        .maybeSingle();
+
+      if (providerRow?.profile_id) {
+        await notifyTransportRequest({
+          profileId: providerRow.profile_id,
+          type: "transport.request_update",
+          title: "Pedido de transporte cancelado",
+          message: `Um pedido de transporte${transportTitle} foi cancelado pelo cliente.`,
+          linkUrl: "/dashboard/transport/requests/receiving",
+          data: { requestId: params.requestId, status: params.status },
+        });
+      }
+    }
   }
 
   return { success: true, message: "Estado do pedido atualizado." };

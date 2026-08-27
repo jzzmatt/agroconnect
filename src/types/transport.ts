@@ -1,6 +1,11 @@
 export type TransportPublicationStatus = "draft" | "published" | "paused" | "archived";
 
-export type TransportRequestStatus = "pending" | "accepted" | "rejected" | "cancelled";
+export type TransportRequestStatus =
+  | "pending"
+  | "accepted"
+  | "rejected"
+  | "cancelled"
+  | "completed";
 
 export interface TransportListItem {
   id: string;
@@ -48,6 +53,12 @@ export interface TransportRequestItem {
   message?: string | null;
   origin_notes?: string | null;
   destination_notes?: string | null;
+  origin?: string | null;
+  destination?: string | null;
+  vehicle_name?: string | null;
+  vehicle_type?: string | null;
+  vehicle_model?: string | null;
+  capacity_load?: string | null;
   requested_date?: string | null;
   estimated_trip_price?: number | null;
   estimated_load_price?: number | null;

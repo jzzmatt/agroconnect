@@ -13,6 +13,8 @@ import {
   Store,
   Package,
   Truck,
+  Inbox,
+  Send,
   Bell,
   Building2,
   type LucideIcon,
@@ -98,6 +100,24 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.reviews,
         href: "/dashboard/expert/reviews",
         icon: Star,
+      },
+    ],
+  },
+  {
+    title: dict.navDash.transportServiceRequests,
+    pillar: "agriExpert",
+    items: [
+      {
+        title: dict.navDash.receivingRequests,
+        href: "/dashboard/transport/requests/receiving",
+        icon: Inbox,
+        requiredPermission: "service.manage",
+      },
+      {
+        title: dict.navDash.sendingRequests,
+        href: "/dashboard/transport/requests/sending",
+        icon: Send,
+        neverLock: true,
       },
     ],
   },

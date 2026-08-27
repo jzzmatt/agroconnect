@@ -64,16 +64,32 @@ describe("AGROCONNECT Phase 10 — AgriService", () => {
       transport_service_id: "trn-1",
       status: "pending",
       message: "Transportar 20 cabeças de gado",
+      origin_notes: "Luanda Porto",
+      destination_notes: null,
+      estimated_trip_price: 120000,
       currency: "AOA",
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString(),
       profiles: { display_name: "Cliente Teste" },
       provider_profiles: { business_name: "Transportador Teste" },
-      transport_services: { title: "Rota Teste", slug: "rota-teste" },
+      transport_services: {
+        title: "Rota Teste",
+        slug: "rota-teste",
+        origin_label: "Luanda",
+        destination_label: "Benguela",
+        vehicle_name: "Kia Canter",
+        vehicle_type: "Camião",
+        vehicle_model: "2020",
+        capacity_load: "5 toneladas",
+      },
     });
 
     expect(mapped.status).toBe("pending");
     expect(mapped.customer_name).toBe("Cliente Teste");
     expect(mapped.transport_title).toBe("Rota Teste");
+    expect(mapped.origin).toBe("Luanda Porto");
+    expect(mapped.destination).toBe("Benguela");
+    expect(mapped.vehicle_name).toBe("Kia Canter");
+    expect(mapped.estimated_trip_price).toBe(120000);
   });
 });
