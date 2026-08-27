@@ -22,6 +22,7 @@ export function CourseAuthoringGuide({
   nextActionMessage,
   actionLabel,
   onAction,
+  compact = false,
 }: {
   progress: AuthoringProgress;
   title: string;
@@ -30,27 +31,40 @@ export function CourseAuthoringGuide({
   nextActionMessage: string;
   actionLabel?: string | null;
   onAction?: (action: AuthoringNextAction) => void;
+  compact?: boolean;
 }) {
   const canAct = Boolean(actionLabel && onAction && progress.nextAction.kind !== "none");
 
   return (
-    <section className="rounded-3xl border border-border bg-surface-card p-4 sm:p-5 space-y-4">
+    <section
+      className={
+        compact
+          ? "rounded-2xl border border-border bg-surface p-3 space-y-2"
+          : "rounded-3xl border border-border bg-surface-card p-4 sm:p-5 space-y-4"
+      }
+    >
       <div>
-        <h2 className="text-sm font-black">{title}</h2>
-        <p className="mt-2 text-xs font-semibold text-primary">
+        <h2 className={compact ? "text-xs font-black" : "text-sm font-black"}>{title}</h2>
+        <p className={compact ? "mt-1 text-[11px] font-semibold text-primary" : "mt-2 text-xs font-semibold text-primary"}>
           {nextStepLabel}: {nextActionMessage}
         </p>
       </div>
-      <ol className="grid gap-1 sm:grid-cols-2">
+      <ol className={compact ? "grid gap-0.5" : "grid gap-1 sm:grid-cols-2"}>
         {progress.steps.map((step) => (
           <li
             key={step.id}
             className={
               step.state === "current"
-                ? "text-sm font-bold text-foreground"
+                ? compact
+                  ? "text-[11px] font-bold text-foreground"
+                  : "text-sm font-bold text-foreground"
                 : step.state === "completed"
-                  ? "text-sm text-emerald-700 dark:text-emerald-400"
-                  : "text-sm text-muted-foreground"
+                  ? compact
+                    ? "text-[11px] text-emerald-700 dark:text-emerald-400"
+                    : "text-sm text-emerald-700 dark:text-emerald-400"
+                  : compact
+                    ? "text-[11px] text-muted-foreground"
+                    : "text-sm text-muted-foreground"
             }
           >
             <span className="mr-2 font-black" aria-hidden="true">

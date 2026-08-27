@@ -153,3 +153,38 @@ export function deriveAuthoringProgress(
     isPublished,
   };
 }
+
+export const DASHBOARD_AUTHORING_STEP_IDS = [
+  "create_course",
+  "create_chapters",
+  "create_lessons",
+  "add_youtube",
+  "review_course",
+  "publish_course",
+] as const;
+
+/**
+ * Compact Course Creator dashboard guide. Progress is reconstructed from
+ * persisted course data after reload (no local dirty overlay).
+ */
+export function deriveDashboardAuthoringProgress(course: CourseWithSections): AuthoringProgress {
+  const full = deriveAuthoringProgress(course, { isDirty: false });
+  const completed = new Set(full.steps.filter((step) => step.state === "completed").map((step) => step.id));
+  const currentStepId = DASHBOARD_AUTHORING_STEP_IDS.find((id) => !completed.has(id)) ?? null;
+  const steps: AuthoringStep[] = DASHBOARD_AUTHORING_STEP_IDS.map((id) => ({
+    id,
+    state: completed.has(id) ? "completed" : id === currentStepId ? "current" : "pending",
+  }));
+
+  return {
+    ...full,
+    steps,
+    currentStepId,
+    nextAction: nextActionForStep(
+      currentStepId,
+      full.missingYouTubeLessons,
+      full.readyToPublish,
+      full.isPublished
+    ),
+  };
+}

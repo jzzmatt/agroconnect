@@ -6,35 +6,42 @@ import { useRouter } from "next/navigation";
 import { GraduationCap, Lock, Plus, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
+import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
 import { CourseStudentsModal } from "@/components/academy/CourseStudentsModal";
 import { useI18n } from "@/i18n/provider";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { can, subjectFromProfile } from "@/lib/authorization";
+import {
+  dashboardAuthoringStepLabels,
+  formatAuthoringNextAction,
+} from "@/lib/academy/authoring-copy";
+import type { AuthoringProgress } from "@/lib/academy/authoring-progress";
 import {
   createCourseAction,
   getCourseCreatorDashboardAction,
 } from "@/lib/services/course-actions";
 import type { CourseListItem } from "@/types/agriacademy";
 
-const STATUS_LABELS: Record<string, string> = {
-  draft: "Rascunho",
-  published: "Publicado",
-  paused: "Em pausa",
-  archived: "Arquivado",
-};
-
 type PublishedCourse = CourseListItem & { studentCount: number };
+type DraftCourse = CourseListItem & { progress: AuthoringProgress };
 
 export default function CourseCreatorPage() {
   const { dict } = useI18n();
   const router = useRouter();
   const { plan } = useAuthoritativePlan();
-  const [draftCourses, setDraftCourses] = useState<CourseListItem[]>([]);
+  const [draftCourses, setDraftCourses] = useState<DraftCourse[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<PublishedCourse[]>([]);
   const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [deletedNotice, setDeletedNotice] = useState(false);
+
+  const statusLabels: Record<string, string> = {
+    draft: dict.agriacademy.statusDraft,
+    published: dict.agriacademy.statusPublished,
+    paused: dict.agriacademy.statusPaused,
+    archived: dict.agriacademy.statusArchived,
+  };
 
   const subject = subjectFromProfile({
     id: "",
@@ -47,8 +54,11 @@ export default function CourseCreatorPage() {
 
   const refresh = useCallback(async () => {
     const dashboard = canManage
-      ? await getCourseCreatorDashboardAction().catch(() => ({ draftCourses: [], publishedCourses: [] }))
-      : { draftCourses: [], publishedCourses: [] };
+      ? await getCourseCreatorDashboardAction().catch(() => ({
+          draftCourses: [] as DraftCourse[],
+          publishedCourses: [] as PublishedCourse[],
+        }))
+      : { draftCourses: [] as DraftCourse[], publishedCourses: [] as PublishedCourse[] };
     setDraftCourses(dashboard.draftCourses);
     setPublishedCourses(dashboard.publishedCourses);
   }, [canManage]);
@@ -72,8 +82,8 @@ export default function CourseCreatorPage() {
     setIsCreating(true);
     try {
       const created = await createCourseAction({
-        title: "Novo curso AgriAcademy",
-        description: "Descrição do curso em preparação.",
+        title: dict.agriacademy.newCourseDefaultTitle,
+        description: dict.agriacademy.newCourseDefaultDescription,
       });
       router.push(`/dashboard/academy/courses/${created.id}/edit`);
     } catch (err: unknown) {
@@ -105,6 +115,8 @@ export default function CourseCreatorPage() {
     );
   }
 
+  const hasNoCourses = draftCourses.length === 0 && publishedCourses.length === 0;
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
@@ -124,6 +136,18 @@ export default function CourseCreatorPage() {
         <p className="text-xs font-semibold text-emerald-600">{dict.agriacademy.courseDeleted}</p>
       )}
 
+      {hasNoCourses ? (
+        <div className="rounded-3xl border border-border bg-surface-card p-5 space-y-3">
+          <p className="text-xs font-semibold text-primary">
+            {dict.agriacademy.authoringNextStep}: {dict.agriacademy.authoringNextCreateFirstCourse}
+          </p>
+          <Button type="button" size="sm" onClick={() => void handleCreate()} disabled={isCreating}>
+            <Plus className="w-3.5 h-3.5 mr-1" />
+            {dict.agriacademy.createNewCourse}
+          </Button>
+        </div>
+      ) : null}
+
       <section className="space-y-3">
         <h2 className="text-sm font-black">{dict.agriacademy.draftCourses}</h2>
         {draftCourses.length === 0 ? (
@@ -134,15 +158,23 @@ export default function CourseCreatorPage() {
               <Link
                 key={course.id}
                 href={`/dashboard/academy/courses/${course.id}/edit`}
-                className="bg-surface-card rounded-3xl border border-border p-5 hover:border-primary transition-colors"
+                className="bg-surface-card rounded-3xl border border-border p-5 hover:border-primary transition-colors space-y-3"
               >
                 <div className="flex items-center justify-between gap-3">
                   <div>
                     <h3 className="font-bold">{course.title}</h3>
                     <p className="text-xs text-muted-foreground mt-1">{course.slug}</p>
                   </div>
-                  <Badge variant="pillarAcademy">{STATUS_LABELS[course.status] || course.status}</Badge>
+                  <Badge variant="pillarAcademy">{statusLabels[course.status] || course.status}</Badge>
                 </div>
+                <CourseAuthoringGuide
+                  compact
+                  progress={course.progress}
+                  title={dict.agriacademy.authoringGuideTitle}
+                  nextStepLabel={dict.agriacademy.authoringNextStep}
+                  stepLabels={dashboardAuthoringStepLabels(dict.agriacademy)}
+                  nextActionMessage={formatAuthoringNextAction(course.progress.nextAction, dict.agriacademy)}
+                />
               </Link>
             ))}
           </div>

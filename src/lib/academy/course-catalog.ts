@@ -38,7 +38,7 @@ export function courseLevelLabel(level: CourseLevel): string {
 
 export function mapCourseToCardProps(
   course: CourseListItem,
-  options: { enrolled?: boolean; ctaLabel: string; ctaHref: string }
+  options: { enrolled?: boolean; enrolledLabel?: string; ctaLabel: string; ctaHref: string }
 ): CourseCardProps {
   return {
     id: course.id,
@@ -55,6 +55,7 @@ export function mapCourseToCardProps(
     category: course.category ?? "Formação Agrícola",
     thumbnailUrl: course.thumbnail_url ?? undefined,
     enrolled: options.enrolled,
+    enrolledLabel: options.enrolledLabel,
     ctaLabel: options.ctaLabel,
     ctaHref: options.ctaHref,
   };

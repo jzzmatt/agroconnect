@@ -17,16 +17,15 @@ function formatEnrollmentDate(value: string, locale: string): string {
   });
 }
 
-const STATUS_LABELS: Record<string, string> = {
-  published: "Publicado",
-  paused: "Em pausa",
-  draft: "Rascunho",
-  archived: "Arquivado",
-};
-
 export function EnrolledCourseCard({ item }: { item: EnrolledCourseListItem }) {
   const { dict, locale } = useI18n();
   const { course, enrolledAt } = item;
+  const statusLabels: Record<string, string> = {
+    published: dict.agriacademy.statusPublished,
+    paused: dict.agriacademy.statusPaused,
+    draft: dict.agriacademy.statusDraft,
+    archived: dict.agriacademy.statusArchived,
+  };
 
   return (
     <div className="bg-surface-card rounded-3xl border border-border overflow-hidden flex flex-col sm:flex-row">
@@ -42,7 +41,7 @@ export function EnrolledCourseCard({ item }: { item: EnrolledCourseListItem }) {
         <div className="space-y-2">
           <div className="flex flex-wrap items-center gap-2">
             <Badge variant="pillarAcademy">AgriAcademy</Badge>
-            <Badge variant="outline">{STATUS_LABELS[course.status] || course.status}</Badge>
+            <Badge variant="outline">{statusLabels[course.status] || course.status}</Badge>
           </div>
           <h2 className="font-bold text-base">{course.title}</h2>
           <p className="text-xs text-muted-foreground">

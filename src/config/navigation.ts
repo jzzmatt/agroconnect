@@ -53,8 +53,8 @@ export interface NavSection {
  *   - Avaliações
  *   - Ganhos
  * - AgriAcademy
- *   - Meus Cursos
- *   - Estudantes
+ *   - Course Creator
+ *   - My Courses
  */
 export function getDashboardNavigation(dict: Dictionary): NavSection[] {
   return [

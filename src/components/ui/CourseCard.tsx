@@ -21,6 +21,7 @@ export interface CourseCardProps {
   category?: string;
   thumbnailUrl?: string;
   enrolled?: boolean;
+  enrolledLabel?: string;
   ctaLabel: string;
   ctaHref: string;
   className?: string;
@@ -41,6 +42,7 @@ export function CourseCard({
   category = "Agronomia Prática",
   thumbnailUrl,
   enrolled = false,
+  enrolledLabel,
   ctaLabel,
   ctaHref,
   className,
@@ -74,6 +76,11 @@ export function CourseCard({
 
         {/* Content */}
         <div className="p-5 space-y-3">
+          {enrolled && enrolledLabel ? (
+            <span className="inline-flex items-center gap-1 text-xs font-bold text-emerald-600">
+              {`✓ ${enrolledLabel}`}
+            </span>
+          ) : null}
           <h3 className="font-bold text-base text-foreground group-hover:text-primary transition-colors line-clamp-2 leading-snug">
             {title}
           </h3>

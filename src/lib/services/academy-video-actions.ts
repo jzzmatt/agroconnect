@@ -1,31 +1,8 @@
 "use server";
 
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
-import { getUserEntitlements, formatVideoStorage } from "@/lib/services/pricing-service";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { AcademyVideoService } from "@/lib/services/academy-video-service";
-
-export async function getAcademyStorageAction() {
-  const profile = await getCurrentUserProfile();
-  if (!profile) {
-    return {
-      usedBytes: 0,
-      limitBytes: 0,
-      usedLabel: "0 GB",
-      limitLabel: "0 GB",
-      percent: 0,
-    };
-  }
-  const entitlements = getUserEntitlements({ subscriptionPlan: profile.subscription_plan });
-  const usedBytes = profile.video_storage_used_bytes || (await AcademyVideoService.getUsageBytes(profile.id));
-  const limitBytes = entitlements.video_storage_limit_bytes;
-  return {
-    usedBytes,
-    limitBytes,
-    usedLabel: formatVideoStorage(usedBytes),
-    limitLabel: formatVideoStorage(limitBytes),
-    percent: limitBytes > 0 ? Math.min(100, Math.round((usedBytes / limitBytes) * 100)) : 0,
-  };
-}
 
 export async function createAcademyVideoUploadAction(params: {
   title: string;

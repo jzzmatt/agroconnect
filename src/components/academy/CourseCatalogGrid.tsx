@@ -34,6 +34,7 @@ export function CourseCatalogGrid({ courses }: { courses: CourseListItem[] }) {
             key={course.id}
             {...mapCourseToCardProps(course, {
               enrolled,
+              enrolledLabel: dict.agriacademy.enrolledBadge,
               ctaLabel: enrolled ? dict.agriacademy.continueCourse : dict.agriacademy.register,
               ctaHref,
             })}

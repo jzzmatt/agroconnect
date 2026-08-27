@@ -21,13 +21,16 @@ import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import {
   deriveAuthoringProgress,
   type AuthoringNextAction,
-  type AuthoringStepId,
 } from "@/lib/academy/authoring-progress";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { courseEditorFingerprint } from "@/lib/academy/editor-snapshot";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import {
+  authoringNextActionLabel,
+  authoringStepLabels,
+  formatAuthoringNextAction,
+} from "@/lib/academy/authoring-copy";
 import { isYouTubeVideoId } from "@/lib/academy/youtube";
-import type { Dictionary } from "@/i18n";
 import {
   deleteDialogForStatus,
   type CourseDeleteDialogKind,
@@ -78,61 +81,6 @@ function formatSavedTime(date: Date, locale: string): string {
 
 function isMutationResult(value: unknown): value is CourseMutationResult<unknown> {
   return Boolean(value) && typeof value === "object" && "success" in (value as object);
-}
-
-function authoringStepLabels(dict: Dictionary["agriacademy"]): Record<AuthoringStepId, string> {
-  return {
-    create_course: dict.authoringStepCreateCourse,
-    create_chapters: dict.authoringStepCreateChapters,
-    create_lessons: dict.authoringStepCreateLessons,
-    add_youtube: dict.authoringStepAddYouTube,
-    validate_preview: dict.authoringStepValidatePreview,
-    save_lessons: dict.authoringStepSaveLessons,
-    review_course: dict.authoringStepReviewCourse,
-    publish_course: dict.authoringStepPublishCourse,
-  };
-}
-
-function nextActionMessage(action: AuthoringNextAction, dict: Dictionary["agriacademy"]): string {
-  switch (action.kind) {
-    case "complete_course_info":
-      return dict.authoringNextCompleteInfo;
-    case "create_chapter":
-      return dict.authoringNextCreateChapter;
-    case "create_lesson":
-      return dict.authoringNextCreateLesson;
-    case "add_youtube":
-      return dict.authoringNextAddYouTube.replace("{lesson}", action.lessonNumber || "");
-    case "save_draft":
-      return dict.authoringNextSaveDraft;
-    case "review_course":
-      return dict.authoringNextReview;
-    case "publish":
-      return dict.authoringNextPublish;
-    case "none":
-      return dict.authoringNextNone;
-  }
-}
-
-function nextActionLabel(
-  action: AuthoringNextAction,
-  dict: Dictionary["agriacademy"],
-  publishLabel: string
-): string | null {
-  switch (action.kind) {
-    case "create_chapter":
-      return dict.addChapter;
-    case "create_lesson":
-      return dict.addLesson;
-    case "add_youtube":
-      return dict.selectVideo;
-    case "save_draft":
-      return dict.saveDraft;
-    case "publish":
-      return publishLabel;
-    default:
-      return null;
-  }
 }
 
 export function CourseEditor({ courseId }: { courseId: string }) {
@@ -643,8 +591,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           title={dict.agriacademy.authoringGuideTitle}
           nextStepLabel={dict.agriacademy.authoringNextStep}
           stepLabels={authoringStepLabels(dict.agriacademy)}
-          nextActionMessage={nextActionMessage(authoringProgress.nextAction, dict.agriacademy)}
-          actionLabel={nextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
+          nextActionMessage={formatAuthoringNextAction(authoringProgress.nextAction, dict.agriacademy)}
+          actionLabel={authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
           onAction={handleGuideAction}
         />
       ) : null}
