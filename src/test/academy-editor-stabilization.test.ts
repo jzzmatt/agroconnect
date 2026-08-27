@@ -16,6 +16,7 @@ import {
 } from "@/lib/academy/course-delete-flow";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { CoursePersistenceError } from "@/lib/academy/course-errors";
+import { canTransitionCourseStatus, isPubliclyVisibleCourseStatus } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
 import type { CourseWithSections } from "@/types/agriacademy";
 
