@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
 
 export default function ServicesRedirectPage() {
-  redirect("/agriexpert?view=servicos");
+  redirect("/agriservice?view=servicos");
 }

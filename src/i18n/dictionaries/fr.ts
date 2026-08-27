@@ -45,6 +45,7 @@ export const fr: Dictionary = {
   navigation: {
     home: "Accueil",
     agriExpert: "AgriExpert",
+    agriService: "AgriService",
     agriAcademy: "AgriAcademy",
     agriShopping: "AgriShopping",
     agriLocalizacao: "AgriLocalização",
@@ -75,6 +76,15 @@ export const fr: Dictionary = {
         "Connectez-vous avec des agronomes certifiés, des vétérinaires, des consultants en sols et des experts agricoles dans toutes les provinces d'Angola.",
       cta: "Consulter les experts",
       itemsName: "Experts agricoles",
+    },
+    agriService: {
+      name: "AgriService",
+      category: "Experts, services et transport",
+      headline: "Découvrez des experts, des services professionnels et le transport agricole en Angola.",
+      description:
+        "Une couche de découverte unifiée pour les consultants, services techniques et transport de produits et animaux.",
+      cta: "Explorer AgriService",
+      itemsName: "Offres de service",
     },
     agriAcademy: {
       name: "AgriAcademy",
@@ -920,6 +930,7 @@ export const fr: Dictionary = {
     dashboard: "Tableau de bord",
     myProfile: "Mon profil",
     myServices: "Mes services",
+    transport: "Transport",
     serviceRequests: "Demandes de service",
     reviews: "Avis",
     earnings: "Gains",

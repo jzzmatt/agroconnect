@@ -162,21 +162,22 @@ describe("FIX 4 — search_marketplace_services RPC", () => {
   });
 });
 
-describe("FIX 5–7 — /services merged into /agriexpert", () => {
-  it("redirects /services to /agriexpert", () => {
+describe("FIX 5–7 — /services merged into AgriService", () => {
+  it("redirects /services to /agriservice", () => {
     const page = read("src/app/services/page.tsx");
-    expect(page).toMatch("redirect(\"/agriexpert?view=servicos\")");
+    expect(page).toMatch("redirect(\"/agriservice?view=servicos\")");
     const config = read("next.config.ts");
     expect(config).toMatch('source: "/services"');
     expect(config).toMatch("/agriexpert?view=servicos");
   });
 
-  it("keeps AgriExpert specialist directory and marketplace discovery together", () => {
-    const src = read("src/app/agriexpert/page.tsx");
+  it("keeps AgriService specialist directory, services and transport together", () => {
+    const src = read("src/app/agriservice/page.tsx");
     expect(src).toMatch("MarketplaceDiscovery");
-    expect(src).toMatch("MOCK_EXPERTS");
+    expect(src).toMatch("TransportDiscovery");
     expect(src).toMatch("Especialistas");
     expect(src).toMatch("Serviços");
+    expect(src).toMatch("Transporte");
   });
 
   it("removes /services from normal navigation", () => {
@@ -184,7 +185,7 @@ describe("FIX 5–7 — /services merged into /agriexpert", () => {
     expect(navbar).not.toMatch('href: "/services"');
     const mobile = read("src/components/navigation/MobileBottomNav.tsx");
     expect(mobile).not.toMatch('href: "/services"');
-    expect(mobile).toMatch('href: "/agriexpert"');
+    expect(mobile).toMatch('href: "/agriservice"');
   });
 });
 

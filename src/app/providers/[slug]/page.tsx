@@ -3,17 +3,19 @@
 import React, { useState, useEffect } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ShieldCheck, MapPin, Globe, ChevronLeft, Share2, Mail } from "lucide-react";
+import { ShieldCheck, MapPin, Globe, ChevronLeft, Mail } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { ServiceCard } from "@/components/marketplace/ServiceCard";
-import { Button } from "@/components/ui/Button";
 import { Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { ProviderAcademyCoursesSection } from "@/components/academy/ProviderAcademyCoursesSection";
+import { ShareLink } from "@/components/sharing/ShareLink";
+import { ProviderTransportSection } from "@/components/transport/ProviderTransportSection";
 import { getPublishedProviderBySlugAction } from "@/lib/agriprofile/actions";
 import { getProviderServicesAction } from "@/lib/services/marketplace-actions";
+import { getProviderTransportsAction } from "@/lib/transport/transport-actions";
 import { getSellerProductsAction } from "@/lib/services/shopping-actions";
 import { listProviderPublishedCoursesAction } from "@/lib/services/course-actions";
 import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
@@ -21,6 +23,7 @@ import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import type { PublicProviderIdentity } from "@/types/agriprofile";
 import type { CourseListItem } from "@/types/agriacademy";
 import type { ProductListItem, ServiceListItem } from "@/types/domain";
+import type { TransportListItem } from "@/types/transport";
 import type { ProfileType } from "@/types/database";
 
 export default function ProviderProfilePage() {
@@ -31,6 +34,8 @@ export default function ProviderProfilePage() {
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [products, setProducts] = useState<ProductListItem[]>([]);
   const [courses, setCourses] = useState<CourseListItem[]>([]);
+  const [transports, setTransports] = useState<TransportListItem[]>([]);
+  const [shareUrl, setShareUrl] = useState("");
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -50,11 +55,20 @@ export default function ProviderProfilePage() {
         listProviderPublishedCoursesAction(res.slug).then((result) => {
           if (!cancelled) setCourses(result.courses);
         });
+        getProviderTransportsAction(res.id, true).then((items) => {
+          if (!cancelled) setTransports(items);
+        });
       }
     });
     return () => {
       cancelled = true;
     };
+  }, [slug]);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      setShareUrl(window.location.href);
+    }
   }, [slug]);
 
   if (!loaded) {
@@ -96,7 +110,7 @@ export default function ProviderProfilePage() {
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-8">
         <div>
           <Link
-            href="/agriexpert?view=servicos"
+            href="/agriservice?view=servicos"
             className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
             <ChevronLeft className="w-4 h-4" />
@@ -153,17 +167,11 @@ export default function ProviderProfilePage() {
               </div>
             </div>
 
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => {
-                if (navigator.clipboard) navigator.clipboard.writeText(window.location.href);
-              }}
-              className="gap-1.5 text-xs font-bold"
-            >
-              <Share2 className="w-3.5 h-3.5" />
-              <span>Partilhar</span>
-            </Button>
+            <ShareLink
+              url={shareUrl}
+              title={provider.display_name}
+              text="Veja este prestador no AgriConnect:"
+            />
           </div>
 
           {provider.description ? (
@@ -250,6 +258,8 @@ export default function ProviderProfilePage() {
         </div>
 
         <ProviderAcademyCoursesSection courses={courses} providerName={provider.display_name} />
+
+        <ProviderTransportSection transports={transports} providerName={provider.display_name} />
 
         <div className="space-y-4">
           <div>

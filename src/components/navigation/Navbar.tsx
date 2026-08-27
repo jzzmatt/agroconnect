@@ -32,7 +32,7 @@ export function Navbar() {
 
   const navLinks = [
     { href: "/", label: dict.navigation.home },
-    { href: "/agriexpert", label: dict.navigation.agriExpert, icon: Users, badge: dict.navigation.expertsBadge },
+    { href: "/agriservice", label: dict.navigation.agriService || dict.navigation.agriExpert, icon: Users, badge: dict.navigation.expertsBadge },
     { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: dict.navigation.coursesBadge },
     { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: dict.navigation.productsBadge },
     { href: "/agrilocalizacao", label: dict.navigation.agriLocalizacao, icon: MapPin },

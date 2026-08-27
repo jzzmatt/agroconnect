@@ -7,7 +7,7 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     const nav = getDashboardNavigation(getDictionary("pt"));
     const sectionTitles = nav.map((s) => s.title);
     expect(sectionTitles).toContain("Principal");
-    expect(sectionTitles).toContain("AgriExpert");
+    expect(sectionTitles).toContain("AgriService");
     expect(sectionTitles).toContain("AgriAcademy");
     expect(sectionTitles).toContain(getDictionary("pt").navDash.shoppingSales);
   });
@@ -18,6 +18,7 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     expect(expertSection).toBeDefined();
     const expertHrefs = expertSection?.items.map((i) => i.href);
     expect(expertHrefs).toContain("/dashboard/services");
+    expect(expertHrefs).toContain("/dashboard/transport");
     expect(expertHrefs).toContain("/dashboard/requests");
     expect(expertSection?.items.map((i) => i.title)).toContain(pt.navDash.myServices);
 

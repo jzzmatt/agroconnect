@@ -80,7 +80,7 @@ export function ExpertCard({
           </div>
 
           <Badge variant="pillarExpert" className="text-[10px] font-bold shrink-0">
-            AgriExpert
+            AgriService
           </Badge>
         </div>
 
@@ -120,10 +120,10 @@ export function ExpertCard({
           </span>
         </div>
 
-        <Link href={`/agriexpert?expert=${profileSlug || id}`} className="shrink-0">
+        <Link href={`/providers/${profileSlug || id}`} className="shrink-0">
           <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-9 px-3.5 shadow-xs hover:shadow-md transition-shadow">
             <Calendar className="w-3.5 h-3.5" />
-            <span>Consultar</span>
+            <span>Ver perfil</span>
           </Button>
         </Link>
       </div>
