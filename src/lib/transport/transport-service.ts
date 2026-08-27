@@ -337,6 +337,54 @@ export class TransportService {
     return [];
   }
 
+  public static async getOwnedTransportById(
+    providerId: string,
+    transportId: string
+  ): Promise<TransportListItem | null> {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      try {
+        const supabase = await getTransportWritableClient();
+        const { data, error } = await (supabase.from("transport_services") as any)
+          .select(TRANSPORT_SELECT)
+          .eq("id", transportId)
+          .eq("provider_id", providerId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return mapTransportRow(data as Record<string, unknown>);
+        }
+      } catch (err) {
+        console.warn("[TransportService.getOwnedTransportById] DB read failed:", err);
+      }
+    }
+
+    return null;
+  }
+
+  public static async getOwnedTransportBySlug(
+    providerId: string,
+    slug: string
+  ): Promise<TransportListItem | null> {
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      try {
+        const supabase = await getTransportWritableClient();
+        const { data, error } = await (supabase.from("transport_services") as any)
+          .select(TRANSPORT_SELECT)
+          .eq("slug", slug)
+          .eq("provider_id", providerId)
+          .maybeSingle();
+
+        if (!error && data) {
+          return mapTransportRow(data as Record<string, unknown>);
+        }
+      } catch (err) {
+        console.warn("[TransportService.getOwnedTransportBySlug] DB read failed:", err);
+      }
+    }
+
+    return null;
+  }
+
   public static async getOwnedTransports(providerId: string): Promise<TransportListItem[]> {
     return this.getProviderTransports(providerId, false);
   }

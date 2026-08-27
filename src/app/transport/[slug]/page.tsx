@@ -57,8 +57,12 @@ export default function TransportDetailPage() {
         <Navbar />
         <main className="flex-1 max-w-4xl mx-auto px-4 py-20 text-center space-y-3">
           <h1 className="text-2xl font-bold">Transporte não encontrado</h1>
-          <Link href="/agriservice?view=transporte" className="text-primary text-sm font-bold">
-            Voltar à descoberta
+          <p className="text-sm text-muted-foreground max-w-md mx-auto">
+            Este transporte não está publicado ou o endereço é inválido. Se acabou de criar,
+            edite-o no painel e publique-o antes de abrir a página pública.
+          </p>
+          <Link href="/dashboard/transport" className="text-primary text-sm font-bold">
+            Ir para Meus Transportes
           </Link>
         </main>
         <Footer />

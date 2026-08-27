@@ -121,7 +121,7 @@ export default function NewTransportPage() {
         }
       }
 
-      router.push("/dashboard/transport");
+      router.push(`/dashboard/transport/${transportId}/edit`);
     } catch (error) {
       const message = error instanceof Error ? error.message : "Falha ao criar transporte.";
       setFeedback(message);
@@ -202,7 +202,7 @@ export default function NewTransportPage() {
         </div>
         {feedback ? <p className="text-sm font-semibold text-destructive">{feedback}</p> : null}
         <Button type="submit" disabled={submitting}>
-          {submitting ? "A guardar..." : "Criar transporte"}
+          {submitting ? "A guardar..." : "Criar e continuar a editar"}
         </Button>
       </form>
     </div>

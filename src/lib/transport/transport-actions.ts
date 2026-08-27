@@ -1,18 +1,104 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { getOrCreateCurrentProviderProfileAction } from "@/lib/services/marketplace-actions";
 import { NotificationService } from "@/lib/services/notification-service";
 import { getTransportWritableClient } from "@/lib/transport/supabase-client";
+import { requireTransportOwnership } from "@/lib/transport/ownership";
+import {
+  assertTransportStatusTransition,
+} from "@/lib/transport/transport-lifecycle";
+import { canPermanentlyDeleteTransport } from "@/lib/transport/transport-delete-flow";
+import { validateTransportForPublication } from "@/lib/transport/transport-publication-validation";
+import type { TransportListItem, TransportPublicationStatus, TransportRequestItem, TransportRequestStatus } from "@/types/transport";
 import {
   TransportService,
   type CreateTransportInput,
   type SearchTransportFilterParams,
   type UpdateTransportInput,
 } from "@/lib/transport/transport-service";
-import type { TransportListItem, TransportRequestItem, TransportRequestStatus } from "@/types/transport";
+
+export type TransportMutationResult<T> =
+  | { success: true; data: T }
+  | { success: false; error: string; code?: string };
+
+function revalidateTransportPaths(slug?: string) {
+  revalidatePath("/dashboard/transport");
+  if (slug) {
+    revalidatePath(`/transport/${slug}`);
+    revalidatePath("/agriservice");
+  }
+}
+
+async function requireTransportManager() {
+  await requireAuth();
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) {
+    throw new Error("Sessão não encontrada.");
+  }
+  const entitlements = getUserEntitlements({
+    subscriptionPlan: userProfile.subscription_plan,
+    roles: userProfile.roles,
+    accountType: userProfile.account_type,
+  });
+  if (!entitlements.can_manage_services) {
+    throw new Error("O seu plano não permite gerir transportes.");
+  }
+  const provider = await getOrCreateCurrentProviderProfileAction();
+  return { userProfile, provider };
+}
+
+async function loadOwnedTransport(transportId: string): Promise<TransportListItem | null> {
+  const { provider } = await requireTransportManager();
+  return TransportService.getOwnedTransportById(provider.id, transportId);
+}
+
+async function transitionTransportStatus(
+  transportId: string,
+  nextStatus: TransportPublicationStatus,
+  options?: { skipPublicationValidation?: boolean }
+): Promise<TransportMutationResult<TransportListItem>> {
+  try {
+    const { userProfile, provider } = await requireTransportManager();
+    const current = await TransportService.getOwnedTransportById(provider.id, transportId);
+    if (!current) {
+      return { success: false, error: "Transporte não encontrado.", code: "TRANSPORT_NOT_FOUND" };
+    }
+
+    assertTransportStatusTransition(current.status, nextStatus);
+
+    if (nextStatus === "published" && !options?.skipPublicationValidation) {
+      const validation = validateTransportForPublication(current);
+      if (!validation.ok) {
+        return { success: false, error: validation.errors.join(" "), code: "VALIDATION_ERROR" };
+      }
+    }
+
+    await requireTransportOwnership(transportId, userProfile);
+
+    const supabase = await getTransportWritableClient();
+    const { data, error } = await (supabase.from("transport_services") as any)
+      .update({ status: nextStatus })
+      .eq("id", transportId)
+      .eq("provider_id", provider.id)
+      .select(TRANSPORT_INSERT_SELECT)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { success: false, error: "Não foi possível atualizar o estado.", code: "DATABASE_ERROR" };
+    }
+
+    const updated = TransportService.mapTransportRow(data as Record<string, unknown>);
+    revalidateTransportPaths(updated.slug);
+    return { success: true, data: updated };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha na atualização.";
+    return { success: false, error: message };
+  }
+}
 
 const TRANSPORT_INSERT_SELECT = `
   id,
@@ -133,9 +219,11 @@ export async function createTransportAction(
       return { success: false, error: message };
     }
 
+    const updated = TransportService.mapTransportRow(data as Record<string, unknown>);
+    revalidateTransportPaths(updated.slug);
     return {
       success: true,
-      transport: TransportService.mapTransportRow(data as Record<string, unknown>),
+      transport: updated,
     };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha ao criar transporte.";
@@ -143,39 +231,153 @@ export async function createTransportAction(
   }
 }
 
-export async function updateTransportStatusAction(
-  transportId: string,
-  status: "draft" | "published" | "paused" | "archived"
-): Promise<{ success: boolean; error?: string }> {
+export async function getOwnedTransportByIdAction(
+  transportId: string
+): Promise<TransportListItem | null> {
   try {
-    await requireAuth();
-    const userProfile = await getCurrentUserProfile();
-    if (!userProfile) return { success: false, error: "Sessão não encontrada." };
+    await requireTransportManager();
+    return loadOwnedTransport(transportId);
+  } catch {
+    return null;
+  }
+}
 
-    const entitlements = getUserEntitlements({
-      subscriptionPlan: userProfile.subscription_plan,
-      roles: userProfile.roles,
-      accountType: userProfile.account_type,
-    });
+export async function getTransportCreatorDashboardAction(): Promise<{
+  draftTransports: TransportListItem[];
+  publishedTransports: TransportListItem[];
+  pausedTransports: TransportListItem[];
+  archivedTransports: TransportListItem[];
+}> {
+  const transports = await getOwnedTransportsAction();
+  return {
+    draftTransports: transports.filter((t) => t.status === "draft"),
+    publishedTransports: transports.filter((t) => t.status === "published"),
+    pausedTransports: transports.filter((t) => t.status === "paused"),
+    archivedTransports: transports.filter((t) => t.status === "archived"),
+  };
+}
 
-    if (!entitlements.can_manage_services) {
-      return { success: false, error: "O seu plano não permite gerir transportes." };
+export async function updateTransportAction(
+  input: UpdateTransportInput
+): Promise<TransportMutationResult<TransportListItem>> {
+  try {
+    const { userProfile, provider } = await requireTransportManager();
+    const current = await TransportService.getOwnedTransportById(provider.id, input.id);
+    if (!current) {
+      return { success: false, error: "Transporte não encontrado.", code: "TRANSPORT_NOT_FOUND" };
     }
+
+    await requireTransportOwnership(input.id, userProfile);
+
+    const supabase = await getTransportWritableClient();
+    const { data, error } = await (supabase.from("transport_services") as any)
+      .update({
+        title: input.title?.trim() || current.title,
+        short_description: input.shortDescription || input.title || current.title,
+        description: input.description ?? current.description,
+        origin_label: input.originLabel ?? current.origin_label,
+        destination_label: input.destinationLabel ?? current.destination_label,
+        vehicle_name: input.vehicleName?.trim() || current.vehicle_name,
+        vehicle_type: input.vehicleType ?? current.vehicle_type,
+        vehicle_model: input.vehicleModel ?? current.vehicle_model,
+        capacity_load: input.capacityLoad ?? current.capacity_load,
+        price_per_trip: input.pricePerTrip ?? current.price_per_trip,
+        price_per_load: input.pricePerLoad ?? current.price_per_load,
+        currency: input.currency || current.currency,
+      })
+      .eq("id", input.id)
+      .eq("provider_id", provider.id)
+      .select(TRANSPORT_INSERT_SELECT)
+      .maybeSingle();
+
+    if (error || !data) {
+      return { success: false, error: "Não foi possível guardar o transporte.", code: "DATABASE_ERROR" };
+    }
+
+    const updated = TransportService.mapTransportRow(data as Record<string, unknown>);
+    revalidateTransportPaths(updated.slug);
+    return { success: true, data: updated };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Falha ao guardar.";
+    return { success: false, error: message };
+  }
+}
+
+export async function publishTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<TransportListItem>> {
+  return transitionTransportStatus(transportId, "published");
+}
+
+export async function pauseTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<TransportListItem>> {
+  return transitionTransportStatus(transportId, "paused");
+}
+
+export async function resumeTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<TransportListItem>> {
+  return transitionTransportStatus(transportId, "published");
+}
+
+export async function draftTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<TransportListItem>> {
+  return transitionTransportStatus(transportId, "draft", { skipPublicationValidation: true });
+}
+
+export async function archiveTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<TransportListItem>> {
+  return transitionTransportStatus(transportId, "archived", { skipPublicationValidation: true });
+}
+
+export async function deleteTransportAction(
+  transportId: string
+): Promise<TransportMutationResult<{ id: string }>> {
+  try {
+    const { userProfile, provider } = await requireTransportManager();
+    const current = await TransportService.getOwnedTransportById(provider.id, transportId);
+    if (!current) {
+      return { success: false, error: "Transporte não encontrado.", code: "TRANSPORT_NOT_FOUND" };
+    }
+    if (!canPermanentlyDeleteTransport(current.status)) {
+      return {
+        success: false,
+        error: "Pause a publicação antes de eliminar este transporte.",
+        code: "TRANSPORT_PUBLISHED",
+      };
+    }
+
+    await requireTransportOwnership(transportId, userProfile);
 
     const supabase = await getTransportWritableClient();
     const { error } = await (supabase.from("transport_services") as any)
-      .update({ status })
-      .eq("id", transportId);
+      .delete()
+      .eq("id", transportId)
+      .eq("provider_id", provider.id);
 
     if (error) {
-      return { success: false, error: "Não foi possível atualizar o estado." };
+      return { success: false, error: "Não foi possível eliminar o transporte.", code: "DATABASE_ERROR" };
     }
 
-    return { success: true };
+    revalidateTransportPaths(current.slug);
+    return { success: true, data: { id: transportId } };
   } catch (error) {
-    const message = error instanceof Error ? error.message : "Falha na atualização.";
+    const message = error instanceof Error ? error.message : "Falha ao eliminar.";
     return { success: false, error: message };
   }
+}
+
+export async function updateTransportStatusAction(
+  transportId: string,
+  status: TransportPublicationStatus
+): Promise<{ success: boolean; error?: string }> {
+  const result = await transitionTransportStatus(transportId, status, {
+    skipPublicationValidation: status !== "published",
+  });
+  return result.success ? { success: true } : { success: false, error: result.error };
 }
 
 export async function createTransportRequestAction(params: {
@@ -247,9 +449,18 @@ export async function createTransportRequestAction(params: {
 }
 
 async function getTransportById(id: string): Promise<TransportListItem | null> {
+  try {
+    const { provider } = await requireTransportManager();
+    const owned = await TransportService.getOwnedTransportById(provider.id, id);
+    if (owned) return owned;
+  } catch {
+    // fall through to public lookup for customer requests
+  }
+
   const published = await TransportService.searchPublishedTransports({ limit: 200 });
   const match = published.transports.find((t) => t.id === id);
   if (match) return match;
+
   const { INITIAL_TRANSPORT_SERVICES } = await import("@/lib/transport/transport-service");
   return INITIAL_TRANSPORT_SERVICES.find((t) => t.id === id) || null;
 }
