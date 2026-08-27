@@ -7,6 +7,7 @@ export type PublicationIssueCode =
   | "MISSING_DESCRIPTION"
   | "MISSING_CHAPTER"
   | "MISSING_LESSON"
+  | "MISSING_STRUCTURE"
   | "MISSING_YOUTUBE";
 
 export interface PublicationIssue {
@@ -39,6 +40,8 @@ function fallbackMessage(issue: PublicationIssue): string {
       return "O curso precisa de pelo menos um capítulo.";
     case "MISSING_LESSON":
       return "O curso precisa de pelo menos uma aula.";
+    case "MISSING_STRUCTURE":
+      return "Cada capítulo precisa de pelo menos uma aula.";
     case "MISSING_YOUTUBE": {
       const lesson = issue.lessonNumber
         ? issue.lessonTitle
@@ -83,6 +86,13 @@ export function validateCourseForPublication(
 
   if (numberedLessons.length === 0) {
     issues.push({ code: "MISSING_LESSON" });
+  }
+
+  const hasEmptyChapter = (course.sections || []).some(
+    (section) => (section.lessons || []).length === 0
+  );
+  if (hasEmptyChapter) {
+    issues.push({ code: "MISSING_STRUCTURE" });
   }
 
   for (const { lesson, lessonNumber } of numberedLessons) {

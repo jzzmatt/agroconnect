@@ -7,6 +7,7 @@ import {
   Archive,
   Check,
   ChevronDown,
+  ChevronRight,
   ChevronUp,
   Eye,
   Pause,
@@ -18,7 +19,9 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
+import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
 import { LessonYouTubeModal } from "@/components/academy/LessonYouTubeModal";
+import { YouTubePlayer } from "@/components/academy/YouTubePlayer";
 import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import {
   deriveAuthoringProgress,
@@ -31,8 +34,10 @@ import {
   authoringNextActionLabel,
   authoringStepLabels,
   formatAuthoringNextAction,
+  readinessItemLabels,
 } from "@/lib/academy/authoring-copy";
-import { isYouTubeVideoId } from "@/lib/academy/youtube";
+import { deriveReadinessChecklist } from "@/lib/academy/course-readiness";
+import { buildYouTubeEmbedUrl, isYouTubeVideoId } from "@/lib/academy/youtube";
 import {
   deleteDialogForStatus,
   type CourseDeleteDialogKind,
@@ -116,6 +121,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [deleteDialog, setDeleteDialog] = useState<CourseDeleteDialogKind | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
+  const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
+  const [previewLesson, setPreviewLesson] = useState<{ title: string; youtubeId: string } | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusLabels: Record<string, string> = {
@@ -138,6 +145,10 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   );
   const publicationIssues = useMemo(
     () => (course ? validateCourseForPublication(course).issues : []),
+    [course]
+  );
+  const readinessChecklist = useMemo(
+    () => (course ? deriveReadinessChecklist(course) : null),
     [course]
   );
 
@@ -355,6 +366,15 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       dict.agriacademy.lessonReordered,
       { require: (data) => Array.isArray(data) && data.length === nextIds.length }
     );
+  };
+
+  const toggleSection = (sectionId: string) => {
+    setCollapsedSectionIds((current) => {
+      const next = new Set(current);
+      if (next.has(sectionId)) next.delete(sectionId);
+      else next.add(sectionId);
+      return next;
+    });
   };
 
   const openDeleteDialog = () => {
@@ -643,15 +663,24 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       )}
 
       {authoringProgress ? (
-        <CourseAuthoringGuide
-          progress={authoringProgress}
-          title={dict.agriacademy.authoringGuideTitle}
-          nextStepLabel={dict.agriacademy.authoringNextStep}
-          stepLabels={authoringStepLabels(dict.agriacademy)}
-          nextActionMessage={formatAuthoringNextAction(authoringProgress.nextAction, dict.agriacademy)}
-          actionLabel={authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
-          onAction={handleGuideAction}
-        />
+        <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.8fr)]">
+          <CourseAuthoringGuide
+            progress={authoringProgress}
+            title={dict.agriacademy.authoringGuideTitle}
+            nextStepLabel={dict.agriacademy.authoringNextStep}
+            stepLabels={authoringStepLabels(dict.agriacademy)}
+            nextActionMessage={formatAuthoringNextAction(authoringProgress.nextAction, dict.agriacademy)}
+            actionLabel={authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
+            onAction={handleGuideAction}
+          />
+          {readinessChecklist ? (
+            <CourseReadinessChecklist
+              checklist={readinessChecklist}
+              title={dict.agriacademy.readinessTitle}
+              labels={readinessItemLabels(dict.agriacademy)}
+            />
+          ) : null}
+        </div>
       ) : null}
 
       {publicationIssues.length > 0 && (course.status === "draft" || course.status === "paused") ? (
@@ -683,7 +712,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                           ? dict.agriacademy.authoringMissingChapter
                           : issue.code === "MISSING_LESSON"
                             ? dict.agriacademy.authoringMissingLesson
-                            : dict.agriacademy.authoringPublishBlocked}
+                            : issue.code === "MISSING_STRUCTURE"
+                              ? dict.agriacademy.authoringMissingStructure
+                              : dict.agriacademy.authoringPublishBlocked}
                   </span>
                 )}
               </li>
@@ -696,6 +727,23 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         {course.sections.map((section, sectionIndex) => (
           <div key={section.id} className="rounded-3xl border border-border p-4 space-y-3">
             <div className="flex items-center gap-2">
+              <Button
+                type="button"
+                size="iconSm"
+                variant="ghost"
+                aria-label={
+                  collapsedSectionIds.has(section.id)
+                    ? dict.agriacademy.expandChapter
+                    : dict.agriacademy.collapseChapter
+                }
+                onClick={() => toggleSection(section.id)}
+              >
+                {collapsedSectionIds.has(section.id) ? (
+                  <ChevronRight className="w-3.5 h-3.5" />
+                ) : (
+                  <ChevronDown className="w-3.5 h-3.5" />
+                )}
+              </Button>
               <span className="text-xs font-bold text-muted-foreground">
                 {formatChapterNumber(section.sort_order)}
               </span>
@@ -753,6 +801,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               </Button>
             </div>
 
+            {collapsedSectionIds.has(section.id) ? null : (
             <div className="space-y-2 pl-4 border-l border-border">
               {section.lessons.map((lesson, lessonIndex) => {
                 const missingYouTube = !isYouTubeVideoId(lesson.youtube_video_id);
@@ -833,6 +882,22 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       variant="outline"
                       disabled={isSaving}
                       onClick={() =>
+                        setPreviewLesson({
+                          title: lesson.title,
+                          youtubeId: lesson.youtube_video_id as string,
+                        })
+                      }
+                    >
+                      {dict.agriacademy.previewLesson}
+                    </Button>
+                  ) : null}
+                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="outline"
+                      disabled={isSaving}
+                      onClick={() =>
                         void runAction(
                           () => assignLessonYouTubeAction(lesson.id, null),
                           dict.agriacademy.videoRemoved,
@@ -885,6 +950,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                 {dict.agriacademy.addLesson}
               </Button>
             </div>
+            )}
           </div>
         ))}
 
@@ -930,6 +996,23 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           );
         }}
       />
+
+      {previewLesson ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-4 space-y-3">
+            <h2 className="text-sm font-black">{previewLesson.title}</h2>
+            <YouTubePlayer
+              embedUrl={buildYouTubeEmbedUrl(previewLesson.youtubeId)}
+              title={previewLesson.title}
+              ready
+              pendingLabel={dict.common.loading}
+            />
+            <Button type="button" size="sm" variant="outline" onClick={() => setPreviewLesson(null)}>
+              {dict.agriacademy.closeLessonPreview}
+            </Button>
+          </div>
+        </div>
+      ) : null}
 
       <CourseConfirmDialog
         open={deleteDialog === "confirm_delete" || deleteDialog === "confirm_after_pause"}
