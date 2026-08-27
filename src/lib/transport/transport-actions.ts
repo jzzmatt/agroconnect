@@ -14,12 +14,13 @@ import {
 } from "@/lib/transport/transport-lifecycle";
 import {
   buildTransportRequestInsert,
-  canActorChangeTransportRequestStatus,
   isTransportServiceId,
   isVisibleOnSendingRequests,
   requirePersistedRequestId,
   resolveTransportRequestActor,
+  resolveTransportRequestStatusChange,
 } from "@/lib/transport/transport-request-lifecycle";
+import { transportRequestStatusPatch } from "@/lib/transport/transport-booking-boundary";
 import { canPermanentlyDeleteTransport } from "@/lib/transport/transport-delete-flow";
 import { validateTransportForPublication } from "@/lib/transport/transport-publication-validation";
 import type { TransportListItem, TransportPublicationStatus, TransportRequestItem, TransportRequestStatus } from "@/types/transport";
@@ -621,14 +622,19 @@ export async function updateTransportRequestStatusAction(params: {
     requestProviderId: existing.provider_id,
   });
 
-  if (
-    !canActorChangeTransportRequestStatus({
-      actor,
-      from: existing.status,
-      to: params.status,
-    })
-  ) {
-    return { success: false, message: "Não autorizado." };
+  const change = resolveTransportRequestStatusChange({
+    actor,
+    from: existing.status,
+    to: params.status,
+  });
+  if (!change.ok) {
+    return {
+      success: false,
+      message:
+        change.reason === "conflict"
+          ? "Este pedido já foi atualizado."
+          : "Não autorizado.",
+    };
   }
 
   if (actor === "transporter") {
@@ -645,7 +651,7 @@ export async function updateTransportRequestStatusAction(params: {
   }
 
   const { data: updated, error } = await (supabase.from("transport_requests") as any)
-    .update({ status: params.status })
+    .update(transportRequestStatusPatch(params.status))
     .eq("id", params.requestId)
     .eq("status", existing.status)
     .eq(lockColumn, lockValue)
@@ -653,7 +659,7 @@ export async function updateTransportRequestStatusAction(params: {
     .maybeSingle();
 
   if (error || !updated?.id) {
-    return { success: false, message: "Não foi possível atualizar o pedido." };
+    return { success: false, message: "Este pedido já foi atualizado." };
   }
 
   revalidateTransportPaths();
