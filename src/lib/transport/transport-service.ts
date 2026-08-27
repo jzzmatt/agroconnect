@@ -2,6 +2,7 @@ import "server-only";
 
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/services/marketplace-service";
+import { getTransportWritableClient } from "@/lib/transport/supabase-client";
 import type {
   TransportListItem,
   TransportPublicationStatus,
@@ -32,6 +33,7 @@ export interface CreateTransportInput {
   vehicleModel?: string;
   capacityLoad?: string;
   vehicleMediaUrl?: string;
+  vehicleVideoUrl?: string;
   baseProvinceId?: string;
   baseMunicipalityId?: string;
   baseLatitude?: number;
@@ -67,6 +69,7 @@ export const INITIAL_TRANSPORT_SERVICES: TransportListItem[] = [
     vehicle_model: "Kia Canter 2020",
     capacity_load: "5 toneladas",
     vehicle_media_url: null,
+    vehicle_video_url: null,
     base_province_name: "Luanda",
     base_municipality_name: "Viana",
     base_latitude: -8.9,
@@ -96,6 +99,7 @@ export const INITIAL_TRANSPORT_SERVICES: TransportListItem[] = [
     vehicle_model: "Toyota Dyna 2019",
     capacity_load: "3 toneladas",
     vehicle_media_url: null,
+    vehicle_video_url: null,
     base_province_name: "Huambo",
     base_municipality_name: "Caála",
     base_latitude: -12.85,
@@ -138,6 +142,7 @@ function mapTransportRow(item: Record<string, unknown>): TransportListItem {
     vehicle_model: (item.vehicle_model as string) || null,
     capacity_load: (item.capacity_load as string) || null,
     vehicle_media_url: (item.vehicle_media_url as string) || null,
+    vehicle_video_url: (item.vehicle_video_url as string) || null,
     base_province_name: baseProvince?.name || null,
     base_municipality_name: baseMunicipality?.name || null,
     base_latitude: item.base_latitude != null ? Number(item.base_latitude) : null,
@@ -164,6 +169,7 @@ const TRANSPORT_SELECT = `
   vehicle_model,
   capacity_load,
   vehicle_media_url,
+  vehicle_video_url,
   base_latitude,
   base_longitude,
   price_per_trip,
@@ -302,7 +308,9 @@ export class TransportService {
   ): Promise<TransportListItem[]> {
     if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
       try {
-        const supabase = createPublicServerSupabaseClient();
+        const supabase = onlyPublished
+          ? createPublicServerSupabaseClient()
+          : await getTransportWritableClient();
         let query = (supabase.from("transport_services") as any)
           .select(TRANSPORT_SELECT)
           .eq("provider_id", providerId);
@@ -312,7 +320,7 @@ export class TransportService {
         }
 
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
+        if (!error && data) {
           return data.map((row: Record<string, unknown>) => mapTransportRow(row));
         }
       } catch (err) {
@@ -320,9 +328,13 @@ export class TransportService {
       }
     }
 
-    return INITIAL_TRANSPORT_SERVICES.filter(
-      (t) => t.provider_id === providerId && (!onlyPublished || t.status === "published")
-    );
+    if (onlyPublished) {
+      return INITIAL_TRANSPORT_SERVICES.filter(
+        (t) => t.provider_id === providerId && t.status === "published"
+      );
+    }
+
+    return [];
   }
 
   public static async getOwnedTransports(providerId: string): Promise<TransportListItem[]> {
@@ -336,6 +348,10 @@ export class TransportService {
 
   public static formatPrice(amount: number, currency = "AOA"): string {
     return `${amount.toLocaleString("pt-AO")} ${currency === "AOA" ? "Kz" : currency}`;
+  }
+
+  public static mapTransportRow(item: Record<string, unknown>): TransportListItem {
+    return mapTransportRow(item);
   }
 
   public static mapRequestRow(row: Record<string, unknown>): TransportRequestItem {

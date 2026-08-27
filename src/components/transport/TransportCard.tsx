@@ -29,6 +29,15 @@ export function TransportCard({ transport, className }: TransportCardProps) {
       )}
     >
       <div className="space-y-4">
+        {transport.vehicle_media_url ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={transport.vehicle_media_url}
+            alt={transport.vehicle_name}
+            className="w-full h-40 object-cover rounded-2xl border border-border"
+          />
+        ) : null}
+
         <div className="flex items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-2 mb-1">
@@ -68,6 +77,16 @@ export function TransportCard({ transport, className }: TransportCardProps) {
             </span>
           </div>
         </div>
+
+        {transport.vehicle_video_url ? (
+          <video
+            src={transport.vehicle_video_url}
+            controls
+            playsInline
+            preload="metadata"
+            className="w-full max-h-40 rounded-2xl border border-border bg-black"
+          />
+        ) : null}
 
         <div className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
           <span className="font-semibold">{transport.vehicle_name}</span>

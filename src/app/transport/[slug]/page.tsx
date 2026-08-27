@@ -119,6 +119,15 @@ export default function TransportDetailPage() {
             </div>
           </div>
 
+          {transport.vehicle_media_url ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={transport.vehicle_media_url}
+              alt={transport.vehicle_name}
+              className="w-full max-h-72 object-cover rounded-2xl border border-border"
+            />
+          ) : null}
+
           <div className="space-y-2">
             <h2 className="text-sm font-bold">Veículo</h2>
             <p className="text-sm">
@@ -126,6 +135,15 @@ export default function TransportDetailPage() {
               {transport.vehicle_model ? ` • ${transport.vehicle_model}` : ""}
               {transport.capacity_load ? ` • ${transport.capacity_load}` : ""}
             </p>
+            {transport.vehicle_video_url ? (
+              <video
+                src={transport.vehicle_video_url}
+                controls
+                playsInline
+                preload="metadata"
+                className="w-full max-h-80 rounded-2xl border border-border bg-black"
+              />
+            ) : null}
           </div>
 
           {transport.base_province_name ? (

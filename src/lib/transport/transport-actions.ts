@@ -5,6 +5,7 @@ import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { getOrCreateCurrentProviderProfileAction } from "@/lib/services/marketplace-actions";
 import { NotificationService } from "@/lib/services/notification-service";
+import { getTransportWritableClient } from "@/lib/transport/supabase-client";
 import {
   TransportService,
   type CreateTransportInput,
@@ -12,6 +13,31 @@ import {
   type UpdateTransportInput,
 } from "@/lib/transport/transport-service";
 import type { TransportListItem, TransportRequestItem, TransportRequestStatus } from "@/types/transport";
+
+const TRANSPORT_INSERT_SELECT = `
+  id,
+  provider_id,
+  title,
+  slug,
+  short_description,
+  description,
+  origin_label,
+  destination_label,
+  vehicle_name,
+  vehicle_type,
+  vehicle_model,
+  capacity_load,
+  vehicle_media_url,
+  vehicle_video_url,
+  base_latitude,
+  base_longitude,
+  price_per_trip,
+  price_per_load,
+  currency,
+  status,
+  created_at,
+  provider_profiles(id, business_name, slug, verification_status)
+`;
 
 export async function searchPublishedTransportsAction(
   params: SearchTransportFilterParams = {}
@@ -67,7 +93,7 @@ export async function createTransportAction(
     }
 
     const provider = await getOrCreateCurrentProviderProfileAction();
-    const supabase = await createServerSupabaseClient();
+    const supabase = await getTransportWritableClient();
     const slug = TransportService.buildSlug(input.title);
 
     const { data, error } = await (supabase.from("transport_services") as any)
@@ -88,6 +114,7 @@ export async function createTransportAction(
         vehicle_model: input.vehicleModel || null,
         capacity_load: input.capacityLoad || null,
         vehicle_media_url: input.vehicleMediaUrl || null,
+        vehicle_video_url: input.vehicleVideoUrl || null,
         base_province_id: input.baseProvinceId || null,
         base_municipality_id: input.baseMunicipalityId || null,
         base_latitude: input.baseLatitude || null,
@@ -97,17 +124,19 @@ export async function createTransportAction(
         currency: input.currency || "AOA",
         status: input.status || "draft",
       })
-      .select("*")
+      .select(TRANSPORT_INSERT_SELECT)
       .single();
 
     if (error || !data) {
       console.warn("[createTransportAction] DB error:", error);
-      return { success: false, error: "Não foi possível criar o transporte." };
+      const message = error?.message || "Não foi possível criar o transporte.";
+      return { success: false, error: message };
     }
 
-    const transports = await TransportService.getOwnedTransports(provider.id);
-    const created = transports.find((t) => t.id === data.id);
-    return { success: true, transport: created };
+    return {
+      success: true,
+      transport: TransportService.mapTransportRow(data as Record<string, unknown>),
+    };
   } catch (error) {
     const message = error instanceof Error ? error.message : "Falha ao criar transporte.";
     return { success: false, error: message };
@@ -133,7 +162,7 @@ export async function updateTransportStatusAction(
       return { success: false, error: "O seu plano não permite gerir transportes." };
     }
 
-    const supabase = await createServerSupabaseClient();
+    const supabase = await getTransportWritableClient();
     const { error } = await (supabase.from("transport_services") as any)
       .update({ status })
       .eq("id", transportId);

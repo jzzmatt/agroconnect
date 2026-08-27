@@ -26,6 +26,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/profile(.*)",
   // JSON academy video upload — handler enforces Clerk auth so fetch is not redirected.
   "/api/academy(.*)",
+  // JSON transport media upload — handler enforces Clerk auth so fetch is not redirected.
+  "/api/transport(.*)",
   // Reports which env vars a deployment can see. Never returns values.
   "/api/health(.*)",
 ]);

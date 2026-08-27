@@ -23,6 +23,7 @@ export interface TransportListItem {
   vehicle_model?: string | null;
   capacity_load?: string | null;
   vehicle_media_url?: string | null;
+  vehicle_video_url?: string | null;
   base_province_name?: string | null;
   base_municipality_name?: string | null;
   base_latitude?: number | null;
