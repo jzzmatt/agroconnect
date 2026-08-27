@@ -27,6 +27,7 @@ import { resolveLearnAccess } from "@/lib/academy/learn-access";
 import { deriveDashboardAuthoringProgress, type AuthoringProgress } from "@/lib/academy/authoring-progress";
 import { deriveCoursesRequiringAttention } from "@/lib/academy/course-attention";
 import { requireOwnedCourseId } from "@/lib/academy/instructor-access";
+import { toPublicProviderAcademyCourses } from "@/lib/academy/public-provider-courses";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -42,7 +43,10 @@ export async function listProviderPublishedCoursesAction(
   providerSlug: string,
   params: SearchCoursesFilterParams = {}
 ): Promise<{ courses: CourseListItem[]; total: number }> {
-  return CourseService.listPublishedCoursesByProviderSlug(providerSlug, params);
+  if (!providerSlug?.trim()) return { courses: [], total: 0 };
+  const result = await CourseService.listPublishedCoursesByProviderSlug(providerSlug, params);
+  const courses = toPublicProviderAcademyCourses(result.courses);
+  return { courses, total: courses.length };
 }
 
 export async function listMyCoursesAction(includeDrafts = true): Promise<CourseListItem[]> {
