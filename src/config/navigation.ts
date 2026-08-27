@@ -7,7 +7,6 @@ import {
   MapPin,
   Calendar,
   BookOpenCheck,
-  DollarSign,
   Award,
   Star,
   ClipboardList,
@@ -75,7 +74,7 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
     ],
   },
   {
-    title: "AgriExpert",
+    title: "AgriService",
     pillar: "agriExpert",
     requiredModule: "agriExpert",
     roles: ["expert", "veterinarian", "agronomist", "agricultural_consultant"],
@@ -86,6 +85,11 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         icon: ClipboardList,
       },
       {
+        title: dict.navDash.transport || "Transporte",
+        href: "/dashboard/transport",
+        icon: Truck,
+      },
+      {
         title: dict.navDash.serviceRequests,
         href: "/dashboard/requests",
         icon: Calendar,
@@ -94,11 +98,6 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.reviews,
         href: "/dashboard/expert/reviews",
         icon: Star,
-      },
-      {
-        title: dict.navDash.earnings,
-        href: "/dashboard/expert/earnings",
-        icon: DollarSign,
       },
     ],
   },
@@ -136,12 +135,6 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.receivedOrders,
         href: "/dashboard/orders",
         icon: Package,
-      },
-      {
-        title: dict.navDash.logistics,
-        href: "/dashboard/logistics",
-        icon: Truck,
-        badge: "Fulfillment",
       },
       {
         title: dict.navDash.notifications,

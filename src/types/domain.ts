@@ -33,5 +33,8 @@ export * from "./notifications";
 // AgriAcademy Domain
 export * from "./agriacademy";
 
+// AgriService Transport
+export * from "./transport";
+
 // Media Domain
 export * from "./media";

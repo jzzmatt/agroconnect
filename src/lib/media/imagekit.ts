@@ -187,6 +187,10 @@ export async function deleteImageKitFile(fileId: string): Promise<boolean> {
   }
 }
 
+export function transportMediaFolder(transportId: string, kind: "images" | "videos"): string {
+  return `/agriconnect/transport/${transportId}/${kind}`;
+}
+
 /** Deterministic, collision-resistant folder path for a product's media. */
 export function productMediaFolder(productId: string, kind: "images" | "videos"): string {
   return `/agriconnect/products/${productId}/${kind}`;

@@ -43,6 +43,7 @@ export const pt = {
   navigation: {
     home: "Início",
     agriExpert: "AgriExpert",
+    agriService: "AgriService",
     agriAcademy: "AgriAcademy",
     agriShopping: "AgriShopping",
     agriLocalizacao: "AgriLocalização",
@@ -73,6 +74,15 @@ export const pt = {
         "Conecte-se com agrónomos certificados, médicos veterinários, consultores de solo e especialistas agrícolas em todas as províncias de Angola.",
       cta: "Consultar Especialistas",
       itemsName: "Especialistas Agrícolas",
+    },
+    agriService: {
+      name: "AgriService",
+      category: "Especialistas, Serviços e Transporte",
+      headline: "Descubra especialistas, serviços profissionais e transporte agrícola em Angola.",
+      description:
+        "Uma camada unificada de descoberta para consultores, serviços técnicos e transporte de produtos e animais.",
+      cta: "Explorar AgriService",
+      itemsName: "Ofertas de Serviço",
     },
     agriAcademy: {
       name: "AgriAcademy",
@@ -918,6 +928,7 @@ export const pt = {
     dashboard: "Painel",
     myProfile: "Meu perfil",
     myServices: "Meus serviços",
+    transport: "Transporte",
     serviceRequests: "Pedidos de serviço",
     reviews: "Avaliações",
     earnings: "Ganhos",
