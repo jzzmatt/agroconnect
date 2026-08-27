@@ -283,7 +283,7 @@ export class CourseService {
     return seed ?? null;
   }
 
-  /** Provider compatibility contract for future /providers/[slug] page. */
+  /** Public /providers/[slug] contract: published Academy courses only. */
   public static async listPublishedCoursesByProviderSlug(
     providerSlug: string,
     params: SearchCoursesFilterParams = {}

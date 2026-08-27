@@ -11,12 +11,15 @@ import { Button } from "@/components/ui/Button";
 import { Avatar, WhatsAppBrandIcon } from "@/components/ui";
 import { LocationBadge } from "@/components/location";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
+import { ProviderAcademyCoursesSection } from "@/components/academy/ProviderAcademyCoursesSection";
 import { getPublishedProviderBySlugAction } from "@/lib/agriprofile/actions";
 import { getProviderServicesAction } from "@/lib/services/marketplace-actions";
 import { getSellerProductsAction } from "@/lib/services/shopping-actions";
+import { listProviderPublishedCoursesAction } from "@/lib/services/course-actions";
 import { normalizeWhatsAppNumber } from "@/lib/services/pricing-service";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import type { PublicProviderIdentity } from "@/types/agriprofile";
+import type { CourseListItem } from "@/types/agriacademy";
 import type { ProductListItem, ServiceListItem } from "@/types/domain";
 import type { ProfileType } from "@/types/database";
 
@@ -27,6 +30,7 @@ export default function ProviderProfilePage() {
   const [provider, setProvider] = useState<PublicProviderIdentity | null>(null);
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [products, setProducts] = useState<ProductListItem[]>([]);
+  const [courses, setCourses] = useState<CourseListItem[]>([]);
   const [loaded, setLoaded] = useState(false);
 
   useEffect(() => {
@@ -42,6 +46,9 @@ export default function ProviderProfilePage() {
         });
         getSellerProductsAction(res.id, true).then((items) => {
           if (!cancelled) setProducts(items);
+        });
+        listProviderPublishedCoursesAction(res.slug).then((result) => {
+          if (!cancelled) setCourses(result.courses);
         });
       }
     });
@@ -241,6 +248,8 @@ export default function ProviderProfilePage() {
             </div>
           </div>
         </div>
+
+        <ProviderAcademyCoursesSection courses={courses} providerName={provider.display_name} />
 
         <div className="space-y-4">
           <div>
