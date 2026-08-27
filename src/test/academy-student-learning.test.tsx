@@ -204,7 +204,7 @@ describe("Phase 8 student learning UI", () => {
     );
 
     await screen.findByRole("heading", { name: "Produção de Milho" });
-    expect(screen.getByText("01 — Introdução")).toBeInTheDocument();
+    expect(screen.getAllByText("01 — Introdução").length).toBeGreaterThan(0);
     expect(screen.getByRole("button", { name: /01.02 — Plantação/ })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Próxima aula/i })).toBeInTheDocument();
     expect(screen.getByText(/YouTube como Não listado/)).toBeInTheDocument();

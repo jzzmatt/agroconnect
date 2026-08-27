@@ -109,6 +109,6 @@ describe("course navigation", () => {
     expect(buildAnonymousEnrollSignUpPath("producao-milho")).toBe(
       `/sign-up?redirect_url=${encodeURIComponent("/agriacademy/courses/producao-milho?enroll=1")}`
     );
-    expect(buildLearnSignUpPath("producao-milho", "les-2")).toContain("lesson=les-2");
+    expect(buildLearnSignUpPath("producao-milho", "les-2")).toContain("lesson%3Dles-2");
   });
 });
