@@ -137,7 +137,7 @@ export default function DashboardTransportPage() {
         <p className="text-sm font-semibold text-primary">Transporte eliminado com sucesso.</p>
       ) : null}
 
-      <Link href="/dashboard/transport/requests" className="text-xs font-bold text-primary">
+      <Link href="/dashboard/transport/requests/receiving" className="text-xs font-bold text-primary">
         Ver pedidos de transporte →
       </Link>
 

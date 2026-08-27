@@ -112,6 +112,16 @@ export const INITIAL_TRANSPORT_SERVICES: TransportListItem[] = [
   },
 ];
 
+function asRelatedRecord(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    const first = value[0];
+    return first && typeof first === "object" ? (first as Record<string, unknown>) : null;
+  }
+  if (typeof value === "object") return value as Record<string, unknown>;
+  return null;
+}
+
 function mapTransportRow(item: Record<string, unknown>): TransportListItem {
   const provider = item.provider_profiles as Record<string, unknown> | null;
   const originProvince = item.origin_provinces as { name?: string } | null;
@@ -337,6 +347,29 @@ export class TransportService {
     return [];
   }
 
+  public static async getPublishedTransportById(id: string): Promise<TransportListItem | null> {
+    if (!id) return null;
+
+    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+      try {
+        const supabase = createPublicServerSupabaseClient();
+        const { data, error } = await (supabase.from("transport_services") as any)
+          .select(TRANSPORT_SELECT)
+          .eq("id", id)
+          .eq("status", "published")
+          .maybeSingle();
+
+        if (!error && data) {
+          return mapTransportRow(data as Record<string, unknown>);
+        }
+      } catch (err) {
+        console.warn("[TransportService.getPublishedTransportById] DB read failed:", err);
+      }
+    }
+
+    return null;
+  }
+
   public static async getOwnedTransportById(
     providerId: string,
     transportId: string
@@ -403,23 +436,33 @@ export class TransportService {
   }
 
   public static mapRequestRow(row: Record<string, unknown>): TransportRequestItem {
-    const customer = row.profiles as { display_name?: string } | null;
-    const provider = row.provider_profiles as { business_name?: string } | null;
-    const transport = row.transport_services as { title?: string; slug?: string } | null;
+    const customer = asRelatedRecord(row.profiles);
+    const provider = asRelatedRecord(row.provider_profiles);
+    const transport = asRelatedRecord(row.transport_services);
+    const originNotes = (row.origin_notes as string) || null;
+    const destinationNotes = (row.destination_notes as string) || null;
+    const originLabel = (transport?.origin_label as string) || null;
+    const destinationLabel = (transport?.destination_label as string) || null;
 
     return {
       id: String(row.id),
       customer_id: String(row.customer_id),
-      customer_name: customer?.display_name || null,
+      customer_name: (customer?.display_name as string) || null,
       provider_id: String(row.provider_id),
-      provider_name: provider?.business_name || null,
+      provider_name: (provider?.business_name as string) || null,
       transport_service_id: row.transport_service_id ? String(row.transport_service_id) : null,
-      transport_title: transport?.title || null,
-      transport_slug: transport?.slug || null,
+      transport_title: (transport?.title as string) || null,
+      transport_slug: (transport?.slug as string) || null,
       status: row.status as TransportRequestStatus,
       message: (row.message as string) || null,
-      origin_notes: (row.origin_notes as string) || null,
-      destination_notes: (row.destination_notes as string) || null,
+      origin_notes: originNotes,
+      destination_notes: destinationNotes,
+      origin: originNotes || originLabel,
+      destination: destinationNotes || destinationLabel,
+      vehicle_name: (transport?.vehicle_name as string) || null,
+      vehicle_type: (transport?.vehicle_type as string) || null,
+      vehicle_model: (transport?.vehicle_model as string) || null,
+      capacity_load: (transport?.capacity_load as string) || null,
       requested_date: (row.requested_date as string) || null,
       estimated_trip_price: row.estimated_trip_price != null ? Number(row.estimated_trip_price) : null,
       estimated_load_price: row.estimated_load_price != null ? Number(row.estimated_load_price) : null,
