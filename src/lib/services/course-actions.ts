@@ -4,6 +4,7 @@ import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { authorize } from "@/lib/authorization/server";
 import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import { canSetCourseStatusViaGenericUpdate } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
 import {
   mutationFail,
@@ -79,6 +80,12 @@ export async function updateCourseAction(
     await authorize("academy.course.update");
     const userProfile = await getCurrentUserProfile();
     if (!userProfile) return mutationFail("UNAUTHORIZED", "Não tem permissão para alterar este curso.");
+    if (input.status && !canSetCourseStatusViaGenericUpdate(input.status)) {
+      return mutationFail(
+        "VALIDATION_ERROR",
+        "Publique o curso através da acção de publicação."
+      );
+    }
     return CourseService.updateCourse(userProfile.id, input);
   } catch (err: unknown) {
     return toCourseMutationFailure(err);

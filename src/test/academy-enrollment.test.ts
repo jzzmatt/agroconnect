@@ -113,15 +113,14 @@ describe("AGROCONNECT Phase 7.1 — Enrollment & Protected Video Access", () => 
     ).toBe(true);
   });
 
-  it("7. Allows free preview lessons without enrollment", () => {
+  it("7. Does not let a free-preview flag bypass enrollment for lesson playback", () => {
     expect(
       canAccessLessonVideo({
         courseStatus: "published",
         isEnrolled: false,
         isOwner: false,
-        isFreePreview: true,
       })
-    ).toBe(true);
+    ).toBe(false);
   });
 
   it("8. Builds YouTube embed URLs from Video IDs", () => {

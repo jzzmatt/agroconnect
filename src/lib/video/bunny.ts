@@ -1,6 +1,6 @@
 /**
- * Bunny Stream integration for AgriAcademy training video only (Phase 4
- * narrowed Bunny off AgriShopping product video, which now uses ImageKit).
+ * Bunny Stream client for leftover AgriShopping product-video rows.
+ * AgriAcademy training video is YouTube Unlisted, not Bunny.
  * Credentials stay on the server. The browser never receives private API keys.
  *
  * Required environment variables:

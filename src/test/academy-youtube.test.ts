@@ -168,8 +168,9 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
     expect(existsSync("src/app/api/academy/video/create/route.ts")).toBe(false);
     expect(existsSync("src/app/api/academy/video/upload/route.ts")).toBe(false);
     expect(existsSync("src/app/api/academy/video/complete/route.ts")).toBe(false);
-    expect(existsSync("src/components/academy/AcademyVideoUploader.tsx")).toBe(false);
-    expect(existsSync("src/components/academy/MediaLibraryModal.tsx")).toBe(false);
+    expect(existsSync("src/lib/services/academy-video-service.ts")).toBe(false);
+    expect(existsSync("src/lib/services/academy-video-actions.ts")).toBe(false);
+    expect(existsSync("src/components/academy/BunnyPlayer.tsx")).toBe(false);
 
     const playback = readFileSync("src/lib/academy/video-playback.ts", "utf8");
     expect(playback.toLowerCase()).not.toContain("bunny");

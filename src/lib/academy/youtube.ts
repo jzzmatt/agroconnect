@@ -110,3 +110,23 @@ export function buildYouTubeEmbedUrl(videoId: string | null | undefined): string
   if (!isYouTubeVideoId(videoId)) return null;
   return `https://www.youtube-nocookie.com/embed/${videoId}`;
 }
+
+const YOUTUBE_EMBED_HOST = "www.youtube-nocookie.com";
+
+/** Only the official YouTube nocookie embed player may be used for Academy lessons. */
+export function isAllowedYouTubeEmbedUrl(embedUrl: string | null | undefined): embedUrl is string {
+  if (!embedUrl) return false;
+  try {
+    const url = new URL(embedUrl);
+    if (url.protocol !== "https:") return false;
+    if (url.hostname.toLowerCase() !== YOUTUBE_EMBED_HOST) return false;
+    const parts = url.pathname.split("/").filter(Boolean);
+    return parts.length === 2 && parts[0] === "embed" && isYouTubeVideoId(parts[1]);
+  } catch {
+    return false;
+  }
+}
+
+export function assertYouTubeEmbedUrl(embedUrl: string | null | undefined): string | null {
+  return isAllowedYouTubeEmbedUrl(embedUrl) ? embedUrl : null;
+}
