@@ -13,6 +13,17 @@ const FORBIDDEN_PUBLIC_COURSE_KEYS = [
   "owner_id",
 ] as const;
 
+export function publishedCourseBelongsToProvider(
+  course: Pick<CourseListItem, "status" | "provider_id" | "provider_slug" | "instructor_id">,
+  provider: { id?: string | null; profileId?: string | null; slug: string }
+): boolean {
+  if (!isPubliclyVisibleCourseStatus(course.status)) return false;
+  if (provider.id && course.provider_id && course.provider_id === provider.id) return true;
+  if (provider.profileId && course.instructor_id === provider.profileId) return true;
+  if (course.provider_slug && course.provider_slug === provider.slug) return true;
+  return false;
+}
+
 export function toPublicProviderAcademyCourses(courses: CourseListItem[]): CourseListItem[] {
   return courses
     .filter((course) => isPubliclyVisibleCourseStatus(course.status))

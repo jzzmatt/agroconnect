@@ -52,7 +52,7 @@ export default function ProviderProfilePage() {
         getSellerProductsAction(res.id, true).then((items) => {
           if (!cancelled) setProducts(items);
         });
-        listProviderPublishedCoursesAction(res.slug).then((result) => {
+        listProviderPublishedCoursesAction(res.slug, { providerId: res.id }).then((result) => {
           if (!cancelled) setCourses(result.courses);
         });
         getProviderTransportsAction(res.id, true).then((items) => {

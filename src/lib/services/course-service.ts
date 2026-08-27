@@ -22,6 +22,7 @@ import {
   mutationOk,
   type CourseMutationResult,
 } from "@/lib/academy/course-errors";
+import { publishedCourseBelongsToProvider } from "@/lib/academy/public-provider-courses";
 import type {
   CourseListItem,
   CourseRecord,
@@ -47,6 +48,30 @@ function hasLiveSupabase(): boolean {
     process.env.NEXT_PUBLIC_SUPABASE_URL &&
       !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
   );
+}
+
+function isProviderRef(value?: string | null): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
+}
+
+async function resolveOwnerProviderId(
+  ownerId: string,
+  explicit?: string | null
+): Promise<string | null> {
+  if (explicit) return explicit;
+  if (!hasLiveSupabase()) return null;
+  try {
+    const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+    const { data } = await (supabase.from("provider_profiles") as any)
+      .select("id")
+      .eq("profile_id", ownerId)
+      .maybeSingle();
+    return data?.id ? String(data.id) : null;
+  } catch {
+    return null;
+  }
 }
 
 type MemoryCourseRecord = CourseRecord & { deleted?: boolean };
@@ -145,6 +170,7 @@ function applyMemoryOverlay(courses: CourseListItem[]): CourseListItem[] {
         short_description: overlay.short_description,
         status: overlay.status,
         published_at: overlay.published_at,
+        provider_id: overlay.provider_id ?? course.provider_id ?? null,
       };
     })
     .filter((course): course is CourseListItem => course !== null)
@@ -157,6 +183,8 @@ function applyMemoryOverlay(courses: CourseListItem[]): CourseListItem[] {
           slug: record.slug,
           instructor_id: record.owner_id,
           instructor_name: "Instrutor",
+          provider_id: record.provider_id ?? null,
+          provider_slug: null,
           description: record.description,
           short_description: record.short_description,
           level: record.level,
@@ -288,38 +316,87 @@ export class CourseService {
     providerSlug: string,
     params: SearchCoursesFilterParams = {}
   ): Promise<{ courses: CourseListItem[]; total: number }> {
+    return this.listPublishedCoursesForProvider({ slug: providerSlug }, params);
+  }
+
+  public static async listPublishedCoursesForProvider(
+    ref: { id?: string | null; slug?: string | null },
+    params: SearchCoursesFilterParams = {}
+  ): Promise<{ courses: CourseListItem[]; total: number }> {
+    const slug = ref.slug?.trim() || "";
+    const id = ref.id?.trim() || "";
+    if (!slug && !id) return { courses: [], total: 0 };
+
     if (hasLiveSupabase()) {
       try {
-        const supabase = createPublicServerSupabaseClient();
-        const { data: provider } = await (supabase.from("provider_profiles") as any)
-          .select("id")
-          .eq("slug", providerSlug)
-          .eq("status", "active")
-          .maybeSingle();
+        const reader = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        let provider: { id?: string; profile_id?: string; slug?: string } | null = null;
 
-        if (provider?.id) {
-          let query = (supabase.from("courses") as any)
-            .select("*", { count: "exact" })
-            .eq("provider_id", provider.id)
-            .eq("status", "published");
+        if (id) {
+          const { data } = await (reader.from("provider_profiles") as any)
+            .select("id, profile_id, slug")
+            .eq("id", id)
+            .eq("publication_state", "published")
+            .maybeSingle();
+          provider = data;
+        }
 
-          const limit = params.limit ?? 20;
+        if (!provider && slug) {
+          const { data } = await (reader.from("provider_profiles") as any)
+            .select("id, profile_id, slug")
+            .eq("slug", slug)
+            .eq("publication_state", "published")
+            .maybeSingle();
+          provider = data;
+        }
+
+        if (!provider && slug && isProviderRef(slug)) {
+          const { data } = await (reader.from("provider_profiles") as any)
+            .select("id, profile_id, slug")
+            .eq("id", slug)
+            .eq("publication_state", "published")
+            .maybeSingle();
+          provider = data;
+        }
+
+        if (provider?.id || provider?.profile_id) {
+          const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+          const limit = params.limit ?? 50;
           const offset = params.offset ?? 0;
-          query = query.order("published_at", { ascending: false }).range(offset, offset + limit - 1);
+          const rows = await this.fetchPublishedCourseRowsForProvider(supabase, {
+            providerId: provider.id ? String(provider.id) : null,
+            ownerId: provider.profile_id ? String(provider.profile_id) : null,
+            limit,
+            offset,
+          });
 
-          const { data, error, count } = await query;
-          if (!error && data) {
-            const courses = await this.attachInstructorNames(supabase, data);
-            return { courses, total: count ?? courses.length };
+          if (rows) {
+            const courses = (await this.attachInstructorNames(supabase, rows))
+              .map((course) => ({
+                ...course,
+                provider_id: course.provider_id ?? (provider.id ? String(provider.id) : null),
+                provider_slug: course.provider_slug ?? provider.slug ?? (slug || null),
+              }))
+              .filter((course) =>
+                publishedCourseBelongsToProvider(course, {
+                  id: provider.id ? String(provider.id) : null,
+                  profileId: provider.profile_id ? String(provider.profile_id) : null,
+                  slug: String(provider.slug || slug || ""),
+                })
+              );
+            return { courses, total: courses.length };
           }
         }
       } catch (err) {
-        console.warn("[CourseService.listPublishedCoursesByProviderSlug] Fallback to seed:", err);
+        console.warn("[CourseService.listPublishedCoursesForProvider] Fallback to seed:", err);
       }
     }
 
-    const courses = applyMemoryOverlay(filterSeedCourses(params)).filter(
-      (course) => course.provider_slug === providerSlug && isPubliclyVisibleCourseStatus(course.status)
+    const courses = applyMemoryOverlay(filterSeedCourses(params)).filter((course) =>
+      publishedCourseBelongsToProvider(course, {
+        id: id || null,
+        slug,
+      })
     );
     return { courses, total: courses.length };
   }
@@ -397,11 +474,12 @@ export class CourseService {
           ? `${baseSlug}-${Date.now().toString(36)}`
           : baseSlug;
     const now = new Date().toISOString();
+    const providerId = await resolveOwnerProviderId(ownerId, input.providerId);
 
     const record: CourseRecord = {
       id: `crs-${Date.now()}`,
       owner_id: ownerId,
-      provider_id: input.providerId ?? null,
+      provider_id: providerId,
       category_id: input.categoryId ?? null,
       title: input.title,
       slug,
@@ -430,7 +508,7 @@ export class CourseService {
       const { data, error } = await (supabase.from("courses") as any)
         .insert({
           owner_id: ownerId,
-          provider_id: input.providerId ?? null,
+          provider_id: providerId,
           category_id: input.categoryId ?? null,
           title: input.title,
           slug,
@@ -528,6 +606,10 @@ export class CourseService {
           patch.status = nextStatus;
           if (nextStatus === "published" && !current.data.published_at) {
             patch.published_at = now;
+          }
+          if (nextStatus === "published" && !current.data.provider_id) {
+            const providerId = await resolveOwnerProviderId(ownerId, input.providerId);
+            if (providerId) patch.provider_id = providerId;
           }
         }
 
@@ -781,6 +863,59 @@ export class CourseService {
     return courses.some((course) => course.id === courseId);
   }
 
+  private static async fetchPublishedCourseRowsForProvider(
+    supabase: ReturnType<typeof createPublicServerSupabaseClient>,
+    params: {
+      providerId?: string | null;
+      ownerId?: string | null;
+      limit: number;
+      offset: number;
+    }
+  ): Promise<Array<Record<string, unknown>> | null> {
+    const take = Math.max(params.limit + params.offset, params.limit);
+    const queries: Array<Promise<{ data: unknown; error: { message?: string } | null }>> = [];
+
+    if (params.providerId) {
+      queries.push(
+        (supabase.from("courses") as any)
+          .select("*")
+          .eq("status", "published")
+          .eq("provider_id", params.providerId)
+          .order("published_at", { ascending: false })
+          .limit(take)
+      );
+    }
+
+    if (params.ownerId) {
+      queries.push(
+        (supabase.from("courses") as any)
+          .select("*")
+          .eq("status", "published")
+          .eq("owner_id", params.ownerId)
+          .order("published_at", { ascending: false })
+          .limit(take)
+      );
+    }
+
+    if (queries.length === 0) return [];
+
+    const results = await Promise.all(queries);
+    if (results.every((result) => result.error)) return null;
+
+    const byId = new Map<string, Record<string, unknown>>();
+    for (const result of results) {
+      if (result.error || !Array.isArray(result.data)) continue;
+      for (const row of result.data as Array<Record<string, unknown>>) {
+        const rowId = String(row.id || "");
+        if (rowId) byId.set(rowId, row);
+      }
+    }
+
+    return [...byId.values()]
+      .sort((a, b) => String(b.published_at || "").localeCompare(String(a.published_at || "")))
+      .slice(params.offset, params.offset + params.limit);
+  }
+
   private static async attachInstructorNames(
     supabase: ReturnType<typeof createPublicServerSupabaseClient>,
     rows: Array<Record<string, unknown>>
@@ -809,7 +944,7 @@ export class CourseService {
         ...row,
         instructor_name: profile?.display_name ?? provider?.business_name ?? "Instrutor",
         instructor_avatar_url: profile?.avatar_url ?? null,
-        provider_slug: provider?.slug ?? null,
+        provider_slug: provider?.slug ?? (row.provider_slug as string | null) ?? null,
         category_name: category?.name ?? null,
         category_slug: category?.slug ?? null,
       });

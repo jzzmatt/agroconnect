@@ -21,6 +21,10 @@ async function writableClient() {
   return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 }
 
+function looksLikeProviderId(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+}
+
 function mapSource(row: Record<string, unknown>, extras: Partial<PublicProviderSource> = {}): PublicProviderSource {
   const provinces = row.provinces as { name?: string } | null | undefined;
   const municipalities = row.municipalities as { name?: string } | null | undefined;
@@ -124,9 +128,41 @@ export class PublicProviderIdentityService {
         .eq("publication_state", "published")
         .maybeSingle();
 
-      if (error || !data) return null;
+      let rowData = data as Record<string, unknown> | null;
+      if ((error || !rowData) && looksLikeProviderId(normalized)) {
+        const byId = await supabase
+          .from("provider_profiles")
+          .select(
+            `
+          id,
+          profile_id,
+          slug,
+          publication_state,
+          business_name,
+          provider_type,
+          headline,
+          description,
+          avatar_url,
+          website,
+          email,
+          phone,
+          verification_status,
+          published_at,
+          provinces(name),
+          municipalities(name)
+        `
+          )
+          .eq("id", normalized)
+          .eq("publication_state", "published")
+          .maybeSingle();
+        if (!byId.error && byId.data) {
+          rowData = byId.data as Record<string, unknown>;
+        }
+      }
 
-      const row = data as Record<string, unknown>;
+      if (!rowData) return null;
+
+      const row = rowData;
       const profileId = String(row.profile_id || "");
       let extras: Partial<PublicProviderSource> = {};
 
