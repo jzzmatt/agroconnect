@@ -67,7 +67,7 @@ export function TransportRequestModal({ transport, onClose }: TransportRequestMo
           <p className="text-xs text-muted-foreground mt-1">{transport.title}</p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-3">
+        <form onSubmit={handleSubmit} className="space-y-3" aria-busy={submitting || submitted}>
           <div>
             <label className="text-xs font-bold text-muted-foreground">{copy.messageLabel}</label>
             <textarea

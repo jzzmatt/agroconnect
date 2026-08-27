@@ -14,11 +14,13 @@ import {
 } from "@/lib/transport/transport-lifecycle";
 import {
   buildTransportRequestInsert,
+  isOpenPendingDuplicate,
   isTransportServiceId,
   isVisibleOnSendingRequests,
   requirePersistedRequestId,
   resolveTransportRequestActor,
   resolveTransportRequestStatusChange,
+  transportRequestStatusLock,
 } from "@/lib/transport/transport-request-lifecycle";
 import { transportRequestStatusPatch } from "@/lib/transport/transport-booking-boundary";
 import { canPermanentlyDeleteTransport } from "@/lib/transport/transport-delete-flow";
@@ -77,7 +79,7 @@ async function listTransportRequests(
   column: "provider_id" | "customer_id",
   value: string,
   options?: { excludeCancelled?: boolean }
-): Promise<TransportRequestItem[]> {
+): Promise<{ requests: TransportRequestItem[]; error: string | null }> {
   const supabase = await createServerSupabaseClient();
   let query = (supabase.from("transport_requests") as any)
     .select(TRANSPORT_REQUEST_SELECT)
@@ -89,32 +91,19 @@ async function listTransportRequests(
   }
 
   const { data, error } = await query;
-  if (!error && data) {
-    return data
+  if (error || !data) {
+    console.warn("[listTransportRequests] query failed:", error);
+    return { requests: [], error: "Não foi possível carregar os pedidos de transporte." };
+  }
+
+  return {
+    requests: data
       .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
       .filter((row: TransportRequestItem) =>
         options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
-      );
-  }
-
-  console.warn("[listTransportRequests] embed query failed, retrying without joins:", error);
-  let fallbackQuery = (supabase.from("transport_requests") as any)
-    .select("*")
-    .eq(column, value)
-    .order("created_at", { ascending: false });
-
-  if (options?.excludeCancelled) {
-    fallbackQuery = fallbackQuery.neq("status", "cancelled");
-  }
-
-  const fallback = await fallbackQuery;
-
-  if (fallback.error || !fallback.data) return [];
-  return fallback.data
-    .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
-    .filter((row: TransportRequestItem) =>
-      options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
-    );
+      ),
+    error: null,
+  };
 }
 
 async function notifyTransportRequest(params: {
@@ -524,6 +513,25 @@ export async function createTransportRequestAction(params: {
     return { success: false, message: "Não pode solicitar o seu próprio transporte." };
   }
 
+  const supabase = await createServerSupabaseClient();
+  const { data: openPending } = await (supabase.from("transport_requests") as any)
+    .select("id, customer_id, transport_service_id, status")
+    .eq("customer_id", userProfile.id)
+    .eq("transport_service_id", transport.id)
+    .eq("status", "pending")
+    .maybeSingle();
+
+  if (
+    openPending &&
+    isOpenPendingDuplicate({
+      customerId: userProfile.id,
+      transportServiceId: transport.id,
+      existing: [openPending],
+    })
+  ) {
+    return { success: false, message: "Já tem um pedido pendente para este transporte." };
+  }
+
   const insert = buildTransportRequestInsert({
     customerId: userProfile.id,
     transport,
@@ -533,7 +541,6 @@ export async function createTransportRequestAction(params: {
     requestedDate,
   });
 
-  const supabase = await createServerSupabaseClient();
   const { data, error } = await (supabase.from("transport_requests") as any)
     .insert(insert)
     .select("id")
@@ -542,7 +549,13 @@ export async function createTransportRequestAction(params: {
   const persisted = requirePersistedRequestId(data, error);
   if (!persisted.ok) {
     console.warn("[createTransportRequestAction] DB error:", error);
-    return { success: false, message: persisted.error };
+    const duplicate =
+      String(error?.code || "").includes("23505") ||
+      String(error?.message || "").includes("idx_transport_requests_one_pending_per_service");
+    return {
+      success: false,
+      message: duplicate ? "Já tem um pedido pendente para este transporte." : persisted.error,
+    };
   }
 
   revalidateTransportPaths(transport.slug);
@@ -573,19 +586,26 @@ export async function createTransportRequestAction(params: {
   };
 }
 
-export async function getTransportRequestsForProviderAction(): Promise<TransportRequestItem[]> {
+export type TransportRequestQueryResult = {
+  requests: TransportRequestItem[];
+  error: string | null;
+};
+
+export async function getTransportRequestsForProviderAction(): Promise<TransportRequestQueryResult> {
   const subject = await getCurrentSubject();
-  if (!subject || !can(subject, "service.manage")) return [];
+  if (!subject || !can(subject, "service.manage")) {
+    return { requests: [], error: null };
+  }
 
   const providerId = await getCurrentProviderId(subject.profileId);
-  if (!providerId) return [];
+  if (!providerId) return { requests: [], error: null };
 
   return listTransportRequests("provider_id", providerId);
 }
 
-export async function getCustomerTransportRequestsAction(): Promise<TransportRequestItem[]> {
+export async function getCustomerTransportRequestsAction(): Promise<TransportRequestQueryResult> {
   const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  if (!userProfile) return { requests: [], error: null };
 
   return listTransportRequests("customer_id", userProfile.id, { excludeCancelled: true });
 }
@@ -644,9 +664,12 @@ export async function updateTransportRequestStatusAction(params: {
     }
   }
 
-  const lockColumn = actor === "transporter" ? "provider_id" : "customer_id";
-  const lockValue = actor === "transporter" ? providerId : userProfile.id;
-  if (!lockValue) {
+  const lock = transportRequestStatusLock({
+    actor,
+    providerId,
+    profileId: userProfile.id,
+  });
+  if (!lock) {
     return { success: false, message: "Não autorizado." };
   }
 
@@ -654,7 +677,7 @@ export async function updateTransportRequestStatusAction(params: {
     .update(transportRequestStatusPatch(params.status))
     .eq("id", params.requestId)
     .eq("status", existing.status)
-    .eq(lockColumn, lockValue)
+    .eq(lock.column, lock.value)
     .select("id")
     .maybeSingle();
 
