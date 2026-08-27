@@ -6,6 +6,8 @@ import { useRouter } from "next/navigation";
 import {
   Archive,
   Check,
+  ChevronDown,
+  ChevronUp,
   Eye,
   Pause,
   Play,
@@ -22,7 +24,7 @@ import {
   deriveAuthoringProgress,
   type AuthoringNextAction,
 } from "@/lib/academy/authoring-progress";
-import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
+import { formatChapterNumber, formatLessonNumber, moveOrderedId } from "@/lib/academy/lesson-numbering";
 import { courseEditorFingerprint } from "@/lib/academy/editor-snapshot";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import {
@@ -49,6 +51,8 @@ import {
   getCourseEditorAction,
   pauseCourseAction,
   publishCourseAction,
+  reorderLessonsAction,
+  reorderSectionsAction,
   resumeCourseAction,
   updateCourseAction,
   updateLessonAction,
@@ -81,6 +85,18 @@ function formatSavedTime(date: Date, locale: string): string {
 
 function isMutationResult(value: unknown): value is CourseMutationResult<unknown> {
   return Boolean(value) && typeof value === "object" && "success" in (value as object);
+}
+
+function withEditorHeader(title: string, content: React.ReactNode) {
+  return (
+    <div className="space-y-4">
+      <div>
+        <span className="text-xs font-bold text-primary uppercase tracking-wider">AgriAcademy</span>
+        <h1 className="text-2xl font-black mt-1">{title}</h1>
+      </div>
+      {content}
+    </div>
+  );
 }
 
 export function CourseEditor({ courseId }: { courseId: string }) {
@@ -309,6 +325,38 @@ export function CourseEditor({ courseId }: { courseId: string }) {
     }
   };
 
+  const moveChapter = async (sectionId: string, direction: -1 | 1) => {
+    if (!course) return;
+    const nextIds = moveOrderedId(
+      course.sections.map((section) => section.id),
+      sectionId,
+      direction
+    );
+    if (!nextIds) return;
+    await runAction(
+      () => reorderSectionsAction(course.id, nextIds),
+      dict.agriacademy.chapterReordered,
+      { require: (data) => Array.isArray(data) && data.length === nextIds.length }
+    );
+  };
+
+  const moveLesson = async (sectionId: string, lessonId: string, direction: -1 | 1) => {
+    if (!course) return;
+    const section = course.sections.find((item) => item.id === sectionId);
+    if (!section) return;
+    const nextIds = moveOrderedId(
+      section.lessons.map((lesson) => lesson.id),
+      lessonId,
+      direction
+    );
+    if (!nextIds) return;
+    await runAction(
+      () => reorderLessonsAction(sectionId, nextIds),
+      dict.agriacademy.lessonReordered,
+      { require: (data) => Array.isArray(data) && data.length === nextIds.length }
+    );
+  };
+
   const openDeleteDialog = () => {
     if (!course || isSaving) return;
     setDeleteError(null);
@@ -367,11 +415,15 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   };
 
   if (loadState === "loading") {
-    return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;
+    return withEditorHeader(
+      dict.agriacademy.courseEditorTitle,
+      <p className="text-sm text-muted-foreground">{dict.common.loading}</p>
+    );
   }
 
   if (loadState === "not_found") {
-    return (
+    return withEditorHeader(
+      dict.agriacademy.courseEditorTitle,
       <div className="space-y-3 rounded-3xl border border-border bg-surface-card p-6">
         <p className="text-sm font-semibold text-destructive">{dict.agriacademy.courseNotFound}</p>
         <Link href="/dashboard/academy" className="text-xs font-bold text-primary hover:underline">
@@ -382,7 +434,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   }
 
   if (loadState === "error") {
-    return (
+    return withEditorHeader(
+      dict.agriacademy.courseEditorTitle,
       <div className="space-y-3 rounded-3xl border border-border bg-surface-card p-6">
         <p className="text-sm font-semibold text-destructive">
           {loadError || dict.agriacademy.unableToLoadCourse}
@@ -395,7 +448,10 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   }
 
   if (!course) {
-    return <p className="text-sm text-muted-foreground">{dict.common.loading}</p>;
+    return withEditorHeader(
+      dict.agriacademy.courseEditorTitle,
+      <p className="text-sm text-muted-foreground">{dict.common.loading}</p>
+    );
   }
 
   const saveButtonLabel =
@@ -442,7 +498,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
     }
   };
 
-  return (
+  return withEditorHeader(
+    dict.agriacademy.courseEditorTitle,
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="space-y-2 flex-1 min-w-0">
@@ -636,12 +693,35 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       ) : null}
 
       <div className="space-y-4">
-        {course.sections.map((section) => (
+        {course.sections.map((section, sectionIndex) => (
           <div key={section.id} className="rounded-3xl border border-border p-4 space-y-3">
             <div className="flex items-center gap-2">
               <span className="text-xs font-bold text-muted-foreground">
                 {formatChapterNumber(section.sort_order)}
               </span>
+              <div className="flex shrink-0">
+                <Button
+                  type="button"
+                  size="iconSm"
+                  variant="outline"
+                  aria-label={dict.agriacademy.moveChapterUp}
+                  disabled={isSaving || sectionIndex === 0}
+                  onClick={() => void moveChapter(section.id, -1)}
+                >
+                  <ChevronUp className="w-3.5 h-3.5" />
+                </Button>
+                <Button
+                  type="button"
+                  size="iconSm"
+                  variant="outline"
+                  className="ml-1"
+                  aria-label={dict.agriacademy.moveChapterDown}
+                  disabled={isSaving || sectionIndex === course.sections.length - 1}
+                  onClick={() => void moveChapter(section.id, 1)}
+                >
+                  <ChevronDown className="w-3.5 h-3.5" />
+                </Button>
+              </div>
               <input
                 value={section.title}
                 onChange={(event) =>
@@ -674,7 +754,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             </div>
 
             <div className="space-y-2 pl-4 border-l border-border">
-              {section.lessons.map((lesson) => {
+              {section.lessons.map((lesson, lessonIndex) => {
                 const missingYouTube = !isYouTubeVideoId(lesson.youtube_video_id);
                 return (
                 <div
@@ -687,6 +767,29 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   <span className="text-[11px] font-bold text-muted-foreground w-12">
                     {formatLessonNumber(section.sort_order, lesson.sort_order)}
                   </span>
+                  <div className="flex shrink-0">
+                    <Button
+                      type="button"
+                      size="iconSm"
+                      variant="outline"
+                      aria-label={dict.agriacademy.moveLessonUp}
+                      disabled={isSaving || lessonIndex === 0}
+                      onClick={() => void moveLesson(section.id, lesson.id, -1)}
+                    >
+                      <ChevronUp className="w-3.5 h-3.5" />
+                    </Button>
+                    <Button
+                      type="button"
+                      size="iconSm"
+                      variant="outline"
+                      className="ml-1"
+                      aria-label={dict.agriacademy.moveLessonDown}
+                      disabled={isSaving || lessonIndex === section.lessons.length - 1}
+                      onClick={() => void moveLesson(section.id, lesson.id, 1)}
+                    >
+                      <ChevronDown className="w-3.5 h-3.5" />
+                    </Button>
+                  </div>
                   <input
                     value={lesson.title}
                     onChange={(event) =>

@@ -53,3 +53,17 @@ export function sortOrdersAreSequential(items: Array<{ sort_order: number }>): b
   const orders = [...items.map((item) => item.sort_order)].sort((a, b) => a - b);
   return orders.every((order, index) => order === index + 1);
 }
+
+/** Swap an id one position up or down. Returns null when the move is out of range. */
+export function moveOrderedId(ids: string[], id: string, direction: -1 | 1): string[] | null {
+  const index = ids.indexOf(id);
+  const next = index + direction;
+  if (index < 0 || next < 0 || next >= ids.length) return null;
+  const copy = [...ids];
+  const current = copy[index];
+  const swap = copy[next];
+  if (current == null || swap == null) return null;
+  copy[index] = swap;
+  copy[next] = current;
+  return copy;
+}

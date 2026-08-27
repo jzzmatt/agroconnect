@@ -9,6 +9,8 @@ import {
   mutationFail,
   mutationOk,
   toCourseMutationFailure,
+  logAcademyError,
+  COURSE_MUTATION_MESSAGES,
   type CourseMutationResult,
 } from "@/lib/academy/course-errors";
 import type {
@@ -51,11 +53,17 @@ export async function listMyCoursesAction(includeDrafts = true): Promise<CourseL
 export async function createCourseAction(
   input: CreateCourseInput
 ): Promise<{ id: string; slug: string }> {
-  await authorize("academy.course.create");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) throw new Error("Perfil não encontrado.");
-  const course = await CourseService.createCourse(userProfile.id, input);
-  return { id: course.id, slug: course.slug };
+  try {
+    await authorize("academy.course.create");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) throw new Error("Perfil não encontrado.");
+    const course = await CourseService.createCourse(userProfile.id, input);
+    if (!course?.id) throw new Error(COURSE_MUTATION_MESSAGES.DATABASE_ERROR);
+    return { id: course.id, slug: course.slug };
+  } catch (err: unknown) {
+    logAcademyError("createCourseAction", err);
+    throw new Error(err instanceof Error ? err.message : COURSE_MUTATION_MESSAGES.UNKNOWN_ERROR);
+  }
 }
 
 export async function updateCourseAction(
@@ -72,10 +80,15 @@ export async function updateCourseAction(
 }
 
 export async function getCourseEditorAction(courseId: string) {
-  await authorize("academy.course.update");
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return null;
-  return AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return null;
+    return AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
+  } catch (err: unknown) {
+    logAcademyError("getCourseEditorAction", err);
+    throw new Error(err instanceof Error ? err.message : COURSE_MUTATION_MESSAGES.UNKNOWN_ERROR);
+  }
 }
 
 export async function publishCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
@@ -216,6 +229,9 @@ export async function reorderSectionsAction(courseId: string, orderedSectionIds:
       courseId,
       orderedSectionIds
     );
+    if (!Array.isArray(sections) || sections.length !== orderedSectionIds.length) {
+      return mutationFail("DATABASE_ERROR");
+    }
     return mutationOk(sections);
   } catch (err: unknown) {
     return toCourseMutationFailure(err);
@@ -301,6 +317,9 @@ export async function reorderLessonsAction(sectionId: string, orderedLessonIds: 
       sectionId,
       orderedLessonIds
     );
+    if (!Array.isArray(lessons) || lessons.length !== orderedLessonIds.length) {
+      return mutationFail("DATABASE_ERROR");
+    }
     return mutationOk(lessons);
   } catch (err: unknown) {
     return toCourseMutationFailure(err);
