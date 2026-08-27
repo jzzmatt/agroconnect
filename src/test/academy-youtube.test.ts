@@ -1,6 +1,12 @@
 import { existsSync, readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
-import { buildYouTubeEmbedUrl, extractYouTubeVideoId, isYouTubeVideoId } from "@/lib/academy/youtube";
+import {
+  analyzeYouTubeInput,
+  buildYouTubeEmbedUrl,
+  buildYouTubeThumbnailUrl,
+  extractYouTubeVideoId,
+  isYouTubeVideoId,
+} from "@/lib/academy/youtube";
 import { isMissingYoutubeColumnError, mutationRecordHasYouTubeId } from "@/lib/academy/db-errors";
 import { buildAuthorizedEmbedUrl, canAccessLessonVideo } from "@/lib/academy/video-playback";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
@@ -60,7 +66,49 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
     expect(extractYouTubeVideoId(`youtube.com/watch?v=${YT_ID}&t=12s`)).toBe(YT_ID);
     expect(extractYouTubeVideoId("https://vimeo.com/123")).toBeNull();
     expect(extractYouTubeVideoId("not-a-youtube-url")).toBeNull();
+    expect(extractYouTubeVideoId(`https://www.youtube.com/watch?v=${YT_ID}&list=PLtest`)).toBe(YT_ID);
     expect(isYouTubeVideoId(YT_ID)).toBe(true);
+  });
+
+  it("rejects channels, playlists, malformed URLs and non-YouTube hosts", () => {
+    expect(analyzeYouTubeInput("https://www.youtube.com/playlist?list=PLtest")).toEqual({
+      ok: false,
+      reason: "playlist",
+    });
+    expect(analyzeYouTubeInput("https://www.youtube.com/watch?list=PLtest")).toEqual({
+      ok: false,
+      reason: "playlist",
+    });
+    expect(analyzeYouTubeInput("https://www.youtube.com/@canal-agro")).toEqual({
+      ok: false,
+      reason: "channel",
+    });
+    expect(analyzeYouTubeInput("https://www.youtube.com/channel/UCxxxxxxxxxxxxxxxxxxxxxx")).toEqual({
+      ok: false,
+      reason: "channel",
+    });
+    expect(analyzeYouTubeInput("https://www.youtube.com/c/AgroConnect")).toEqual({
+      ok: false,
+      reason: "channel",
+    });
+    expect(analyzeYouTubeInput("https://www.youtube.com/user/agroconnect")).toEqual({
+      ok: false,
+      reason: "channel",
+    });
+    expect(analyzeYouTubeInput("https://vimeo.com/123")).toEqual({
+      ok: false,
+      reason: "not_youtube",
+    });
+    expect(analyzeYouTubeInput("not-a-youtube-url")).toEqual({
+      ok: false,
+      reason: "malformed",
+    });
+    expect(analyzeYouTubeInput(`https://www.youtube.com/watch?v=${YT_ID}`)).toEqual({
+      ok: true,
+      videoId: YT_ID,
+      normalizedUrl: `https://www.youtube.com/watch?v=${YT_ID}`,
+    });
+    expect(buildYouTubeThumbnailUrl(YT_ID)).toBe(`https://i.ytimg.com/vi/${YT_ID}/hqdefault.jpg`);
   });
 
   it("builds a YouTube nocookie embed URL", () => {
@@ -71,7 +119,12 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
 
   it("requires a YouTube Video ID on every lesson before publication", () => {
     expect(validateCourseForPublication(courseWithLesson(YT_ID)).ok).toBe(true);
-    expect(validateCourseForPublication(courseWithLesson(null)).ok).toBe(false);
+    const missing = validateCourseForPublication(courseWithLesson(null));
+    expect(missing.ok).toBe(false);
+    expect(missing.issues.some((issue) => issue.code === "MISSING_YOUTUBE" && issue.lessonNumber === "01.01")).toBe(
+      true
+    );
+    expect(missing.errors.some((error) => error.includes("01.01"))).toBe(true);
     expect(validateCourseForPublication(courseWithLesson("vid-bunny")).ok).toBe(false);
   });
 
@@ -132,6 +185,7 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
 
     const editor = readFileSync("src/components/academy/CourseEditor.tsx", "utf8");
     expect(editor).toContain("LessonYouTubeModal");
+    expect(editor).toContain("CourseAuthoringGuide");
     expect(editor).not.toContain("MediaLibraryModal");
   });
 });
