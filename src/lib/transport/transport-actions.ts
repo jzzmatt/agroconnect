@@ -3,6 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { createServerSupabaseClient, isSupabaseConfigured, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import { can, getCurrentSubject } from "@/lib/authorization/server";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { getOrCreateCurrentProviderProfileAction } from "@/lib/services/marketplace-actions";
 import { NotificationService } from "@/lib/services/notification-service";
@@ -15,6 +16,7 @@ import {
   buildTransportRequestInsert,
   canActorChangeTransportRequestStatus,
   isTransportServiceId,
+  isVisibleOnSendingRequests,
   requirePersistedRequestId,
   resolveTransportRequestActor,
 } from "@/lib/transport/transport-request-lifecycle";
@@ -72,27 +74,46 @@ async function getCurrentProviderId(profileId: string): Promise<string | null> {
 
 async function listTransportRequests(
   column: "provider_id" | "customer_id",
-  value: string
+  value: string,
+  options?: { excludeCancelled?: boolean }
 ): Promise<TransportRequestItem[]> {
   const supabase = await createServerSupabaseClient();
-  const query = (supabase.from("transport_requests") as any)
+  let query = (supabase.from("transport_requests") as any)
     .select(TRANSPORT_REQUEST_SELECT)
     .eq(column, value)
     .order("created_at", { ascending: false });
 
+  if (options?.excludeCancelled) {
+    query = query.neq("status", "cancelled");
+  }
+
   const { data, error } = await query;
   if (!error && data) {
-    return data.map((row: Record<string, unknown>) => TransportService.mapRequestRow(row));
+    return data
+      .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
+      .filter((row: TransportRequestItem) =>
+        options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
+      );
   }
 
   console.warn("[listTransportRequests] embed query failed, retrying without joins:", error);
-  const fallback = await (supabase.from("transport_requests") as any)
+  let fallbackQuery = (supabase.from("transport_requests") as any)
     .select("*")
     .eq(column, value)
     .order("created_at", { ascending: false });
 
+  if (options?.excludeCancelled) {
+    fallbackQuery = fallbackQuery.neq("status", "cancelled");
+  }
+
+  const fallback = await fallbackQuery;
+
   if (fallback.error || !fallback.data) return [];
-  return fallback.data.map((row: Record<string, unknown>) => TransportService.mapRequestRow(row));
+  return fallback.data
+    .map((row: Record<string, unknown>) => TransportService.mapRequestRow(row))
+    .filter((row: TransportRequestItem) =>
+      options?.excludeCancelled ? isVisibleOnSendingRequests(row.status) : true
+    );
 }
 
 async function notifyTransportRequest(params: {
@@ -552,10 +573,10 @@ export async function createTransportRequestAction(params: {
 }
 
 export async function getTransportRequestsForProviderAction(): Promise<TransportRequestItem[]> {
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  const subject = await getCurrentSubject();
+  if (!subject || !can(subject, "service.manage")) return [];
 
-  const providerId = await getCurrentProviderId(userProfile.id);
+  const providerId = await getCurrentProviderId(subject.profileId);
   if (!providerId) return [];
 
   return listTransportRequests("provider_id", providerId);
@@ -565,7 +586,7 @@ export async function getCustomerTransportRequestsAction(): Promise<TransportReq
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
 
-  return listTransportRequests("customer_id", userProfile.id);
+  return listTransportRequests("customer_id", userProfile.id, { excludeCancelled: true });
 }
 
 export async function updateTransportRequestStatusAction(params: {
@@ -608,6 +629,13 @@ export async function updateTransportRequestStatusAction(params: {
     })
   ) {
     return { success: false, message: "Não autorizado." };
+  }
+
+  if (actor === "transporter") {
+    const subject = await getCurrentSubject();
+    if (!subject || !can(subject, "service.manage")) {
+      return { success: false, message: "Não autorizado." };
+    }
   }
 
   const lockColumn = actor === "transporter" ? "provider_id" : "customer_id";

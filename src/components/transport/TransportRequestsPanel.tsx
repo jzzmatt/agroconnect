@@ -16,7 +16,7 @@ import {
   getTransportRequestsForProviderAction,
   updateTransportRequestStatusAction,
 } from "@/lib/transport/transport-actions";
-import { transportRequestDisplayStatus } from "@/lib/transport/transport-request-lifecycle";
+import { transportRequestDisplayStatus, isVisibleOnSendingRequests } from "@/lib/transport/transport-request-lifecycle";
 import { useI18n } from "@/i18n/provider";
 import type { TransportRequestItem, TransportRequestStatus } from "@/types/transport";
 
@@ -62,9 +62,11 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
   }, [load]);
 
   const filtered = useMemo(() => {
-    if (filter === "all") return requests;
-    return requests.filter((req) => transportRequestDisplayStatus(req.status) === filter);
-  }, [filter, requests]);
+    const visible =
+      view === "sending" ? requests.filter((req) => isVisibleOnSendingRequests(req.status)) : requests;
+    if (filter === "all") return visible;
+    return visible.filter((req) => transportRequestDisplayStatus(req.status) === filter);
+  }, [filter, requests, view]);
 
   const confirmCopy = pendingAction
     ? pendingAction.status === "accepted"
@@ -86,11 +88,18 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
       setActionError(result.message || copy.actionError);
       return;
     }
+    const cancelledId = pendingAction.status === "cancelled" ? pendingAction.requestId : null;
     setPendingAction(null);
+    if (cancelledId) {
+      setRequests((prev) => prev.filter((req) => req.id !== cancelledId));
+    }
     await load();
   };
 
-  const filters: StatusFilter[] = ["all", "pending", "confirmed", "rejected", "completed", "cancelled"];
+  const filters: StatusFilter[] =
+    view === "sending"
+      ? ["all", "pending", "confirmed", "rejected", "completed"]
+      : ["all", "pending", "confirmed", "rejected", "completed", "cancelled"];
 
   return (
     <div className="space-y-6">

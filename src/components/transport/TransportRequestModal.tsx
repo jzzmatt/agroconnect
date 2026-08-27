@@ -5,6 +5,7 @@ import { useAuth } from "@clerk/nextjs";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { createTransportRequestAction } from "@/lib/transport/transport-actions";
+import { TRANSPORT_SENDING_REQUESTS_PATH } from "@/lib/transport/transport-request-lifecycle";
 import { useI18n } from "@/i18n/provider";
 import type { TransportListItem } from "@/types/transport";
 
@@ -54,7 +55,7 @@ export function TransportRequestModal({ transport, onClose }: TransportRequestMo
     setSuccess(result.success);
     if (result.success) {
       setSubmitted(true);
-      window.setTimeout(onClose, 1500);
+      router.push(TRANSPORT_SENDING_REQUESTS_PATH);
     }
   };
 

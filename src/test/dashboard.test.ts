@@ -33,6 +33,9 @@ describe("Dashboard Navigation & Role Adaptation", () => {
       pt.navDash.receivingRequests,
       pt.navDash.sendingRequests,
     ]);
+    expect(transportRequests?.items[0]?.requiredPermission).toBe("service.manage");
+    expect(transportRequests?.items[0]?.neverLock).toBeUndefined();
+    expect(transportRequests?.items[1]?.neverLock).toBe(true);
 
     const academySection = getDashboardNavigation(pt).find((s) => s.pillar === "agriAcademy");
     expect(academySection?.items.map((i) => i.href)).toEqual([

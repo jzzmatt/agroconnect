@@ -6,10 +6,12 @@ import {
   canActorChangeTransportRequestStatus,
   canTransitionTransportRequestStatus,
   isTransportServiceId,
+  isVisibleOnSendingRequests,
   requirePersistedRequestId,
   resolveTransportRequestActor,
   transportRequestDisplayStatus,
 } from "@/lib/transport/transport-request-lifecycle";
+import { can, subjectFromProfile } from "@/lib/authorization";
 import type { TransportListItem } from "@/types/transport";
 
 const publishedTransport: TransportListItem = {
@@ -146,5 +148,65 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
     expect(en.navDash.sendingRequests).toBe("Sending Requests");
     expect(en.transportRequests.receivingEmpty).toBe("No transport requests received yet.");
     expect(en.transportRequests.sendingEmpty).toBe("You have not sent any transport requests yet.");
+    expect(section?.items[0]?.requiredPermission).toBe("service.manage");
+    expect(section?.items[0]?.neverLock).toBeUndefined();
+    expect(section?.items[1]?.neverLock).toBe(true);
+  });
+
+  it("locks receiving requests behind service.manage and keeps sending requests available", () => {
+    const basic = subjectFromProfile({
+      id: "p-basic",
+      clerk_user_id: "clerk-basic",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "basic",
+      subscription_status: "active",
+    });
+    const professional = subjectFromProfile({
+      id: "p-pro",
+      clerk_user_id: "clerk-pro",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "professional",
+      subscription_status: "active",
+    });
+    const business = subjectFromProfile({
+      id: "p-biz",
+      clerk_user_id: "clerk-biz",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "business",
+      subscription_status: "active",
+    });
+    const enterprise = subjectFromProfile({
+      id: "p-ent",
+      clerk_user_id: "clerk-ent",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "enterprise",
+      subscription_status: "active",
+    });
+    const unsubscribed = subjectFromProfile({
+      id: "p-none",
+      clerk_user_id: "clerk-none",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: null,
+      subscription_status: "active",
+    });
+
+    expect(can(basic, "service.manage")).toBe(false);
+    expect(can(unsubscribed, "service.manage")).toBe(false);
+    expect(can(professional, "service.manage")).toBe(true);
+    expect(can(business, "service.manage")).toBe(true);
+    expect(can(enterprise, "service.manage")).toBe(true);
+  });
+
+  it("removes cancelled requests from the sending list", () => {
+    expect(isVisibleOnSendingRequests("pending")).toBe(true);
+    expect(isVisibleOnSendingRequests("accepted")).toBe(true);
+    expect(isVisibleOnSendingRequests("rejected")).toBe(true);
+    expect(isVisibleOnSendingRequests("completed")).toBe(true);
+    expect(isVisibleOnSendingRequests("cancelled")).toBe(false);
   });
 });

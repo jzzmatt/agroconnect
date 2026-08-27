@@ -25,6 +25,13 @@ export function transportRequestDisplayStatus(
   return status === "accepted" ? "confirmed" : status;
 }
 
+export function isVisibleOnSendingRequests(status: TransportRequestStatus): boolean {
+  return status !== "cancelled";
+}
+
+export const TRANSPORT_SENDING_REQUESTS_PATH = "/dashboard/transport/requests/sending";
+export const TRANSPORT_RECEIVING_REQUESTS_PATH = "/dashboard/transport/requests/receiving";
+
 export function canTransitionTransportRequestStatus(
   from: TransportRequestStatus,
   to: TransportRequestStatus

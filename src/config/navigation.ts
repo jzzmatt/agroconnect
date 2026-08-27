@@ -111,7 +111,7 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.receivingRequests,
         href: "/dashboard/transport/requests/receiving",
         icon: Inbox,
-        neverLock: true,
+        requiredPermission: "service.manage",
       },
       {
         title: dict.navDash.sendingRequests,
