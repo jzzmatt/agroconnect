@@ -25,6 +25,8 @@ import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { CourseAccessService } from "@/lib/academy/course-access";
 import { resolveLearnAccess } from "@/lib/academy/learn-access";
 import { deriveDashboardAuthoringProgress, type AuthoringProgress } from "@/lib/academy/authoring-progress";
+import { deriveCoursesRequiringAttention } from "@/lib/academy/course-attention";
+import { requireOwnedCourseId } from "@/lib/academy/instructor-access";
 
 export async function searchPublishedCoursesAction(
   params: SearchCoursesFilterParams = {}
@@ -403,9 +405,10 @@ export async function listCourseEnrollmentsAction(courseId: string) {
   if (!userProfile) return [];
 
   const owned = await CourseService.listByOwner(userProfile.id, true);
-  if (!owned.some((course) => course.id === courseId)) {
-    throw new Error("Acesso negado.");
-  }
+  requireOwnedCourseId(
+    owned.map((course) => course.id),
+    courseId
+  );
 
   return EnrollmentService.listByCourse(courseId);
 }
@@ -416,9 +419,10 @@ export async function listOwnedCourseStudentsAction(courseId: string) {
   if (!userProfile) return [];
 
   const owned = await CourseService.listByOwner(userProfile.id, true);
-  if (!owned.some((course) => course.id === courseId)) {
-    throw new Error("Acesso negado.");
-  }
+  requireOwnedCourseId(
+    owned.map((course) => course.id),
+    courseId
+  );
 
   return EnrollmentService.listStudentsWithProfiles(courseId);
 }
@@ -426,55 +430,70 @@ export async function listOwnedCourseStudentsAction(courseId: string) {
 export async function getCourseCreatorDashboardAction() {
   await authorize("academy.course.create");
   const userProfile = await getCurrentUserProfile();
-  if (!userProfile) {
-    return {
-      draftCourses: [] as Array<CourseListItem & { progress: AuthoringProgress }>,
-      publishedCourses: [] as Array<CourseListItem & { studentCount: number }>,
-    };
-  }
+  const empty = {
+    draftCourses: [] as Array<CourseListItem & { progress: AuthoringProgress }>,
+    pausedCourses: [] as Array<CourseListItem & { progress: AuthoringProgress; studentCount: number }>,
+    publishedCourses: [] as Array<CourseListItem & { studentCount: number }>,
+    archivedCourses: [] as CourseListItem[],
+    attentionCourses: [] as Array<CourseListItem & { progress: AuthoringProgress }>,
+  };
+  if (!userProfile) return empty;
 
   const courses = await CourseService.listByOwner(userProfile.id, true);
   const published = courses.filter((course) => course.status === "published");
-  const drafts = courses.filter((course) => course.status !== "published" && course.status !== "archived");
-  const counts = await EnrollmentService.countActiveByCourseIds(published.map((course) => course.id));
-
-  const draftCourses = await Promise.all(
-    drafts.map(async (course) => {
-      const tree = await AcademyAuthoringService.getCourseEditorTree(course.id, userProfile.id);
-      const progressSource: CourseWithSections = {
-        id: course.id,
-        owner_id: course.instructor_id,
-        title: course.title,
-        slug: course.slug,
-        description: course.description,
-        short_description: course.short_description,
-        level: course.level,
-        price: course.price,
-        currency: course.currency,
-        status: course.status,
-        thumbnail_url: course.thumbnail_url,
-        duration_hours: course.duration_hours,
-        lessons_count: course.lessons_count ?? 0,
-        students_count: course.students_count ?? 0,
-        is_featured: course.is_featured ?? false,
-        created_at: course.created_at,
-        updated_at: course.created_at,
-        published_at: course.published_at ?? undefined,
-        sections: tree?.sections ?? [],
-      };
-      return {
-        ...course,
-        progress: deriveDashboardAuthoringProgress(progressSource),
-      };
-    })
+  const drafts = courses.filter((course) => course.status === "draft");
+  const paused = courses.filter((course) => course.status === "paused");
+  const archived = courses.filter((course) => course.status === "archived");
+  const counts = await EnrollmentService.countActiveByCourseIds(
+    [...published, ...paused].map((course) => course.id)
   );
+
+  const withProgress = async (course: CourseListItem) => {
+    const tree = await AcademyAuthoringService.getCourseEditorTree(course.id, userProfile.id);
+    const progressSource: CourseWithSections = {
+      id: course.id,
+      owner_id: course.instructor_id,
+      title: course.title,
+      slug: course.slug,
+      description: course.description,
+      short_description: course.short_description,
+      level: course.level,
+      price: course.price,
+      currency: course.currency,
+      status: course.status,
+      thumbnail_url: course.thumbnail_url,
+      duration_hours: course.duration_hours,
+      lessons_count: course.lessons_count ?? 0,
+      students_count: course.students_count ?? 0,
+      is_featured: course.is_featured ?? false,
+      created_at: course.created_at,
+      updated_at: course.created_at,
+      published_at: course.published_at ?? undefined,
+      sections: tree?.sections ?? [],
+    };
+    return {
+      ...course,
+      progress: deriveDashboardAuthoringProgress(progressSource),
+    };
+  };
+
+  const draftCourses = await Promise.all(drafts.map(withProgress));
+  const pausedCourses = (await Promise.all(paused.map(withProgress))).map((course) => ({
+    ...course,
+    studentCount: counts[course.id] ?? 0,
+  }));
+
+  const attentionCourses = deriveCoursesRequiringAttention([...draftCourses, ...pausedCourses]);
 
   return {
     draftCourses,
+    pausedCourses,
     publishedCourses: published.map((course) => ({
       ...course,
       studentCount: counts[course.id] ?? 0,
     })),
+    archivedCourses: archived,
+    attentionCourses,
   };
 }
 

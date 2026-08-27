@@ -24,14 +24,26 @@ import type { CourseListItem } from "@/types/agriacademy";
 
 type PublishedCourse = CourseListItem & { studentCount: number };
 type DraftCourse = CourseListItem & { progress: AuthoringProgress };
+type PausedCourse = DraftCourse & { studentCount: number };
+
+const EMPTY_DASHBOARD = {
+  draftCourses: [] as DraftCourse[],
+  pausedCourses: [] as PausedCourse[],
+  publishedCourses: [] as PublishedCourse[],
+  archivedCourses: [] as CourseListItem[],
+  attentionCourses: [] as DraftCourse[],
+};
 
 export default function CourseCreatorPage() {
   const { dict } = useI18n();
   const router = useRouter();
   const { plan } = useAuthoritativePlan();
   const [draftCourses, setDraftCourses] = useState<DraftCourse[]>([]);
+  const [pausedCourses, setPausedCourses] = useState<PausedCourse[]>([]);
   const [publishedCourses, setPublishedCourses] = useState<PublishedCourse[]>([]);
-  const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | null>(null);
+  const [archivedCourses, setArchivedCourses] = useState<CourseListItem[]>([]);
+  const [attentionCourses, setAttentionCourses] = useState<DraftCourse[]>([]);
+  const [studentsCourse, setStudentsCourse] = useState<PublishedCourse | PausedCourse | null>(null);
   const [isCreating, setIsCreating] = useState(false);
   const [createError, setCreateError] = useState<string | null>(null);
   const [deletedNotice, setDeletedNotice] = useState(false);
@@ -54,13 +66,13 @@ export default function CourseCreatorPage() {
 
   const refresh = useCallback(async () => {
     const dashboard = canManage
-      ? await getCourseCreatorDashboardAction().catch(() => ({
-          draftCourses: [] as DraftCourse[],
-          publishedCourses: [] as PublishedCourse[],
-        }))
-      : { draftCourses: [] as DraftCourse[], publishedCourses: [] as PublishedCourse[] };
+      ? await getCourseCreatorDashboardAction().catch(() => EMPTY_DASHBOARD)
+      : EMPTY_DASHBOARD;
     setDraftCourses(dashboard.draftCourses);
+    setPausedCourses(dashboard.pausedCourses);
     setPublishedCourses(dashboard.publishedCourses);
+    setArchivedCourses(dashboard.archivedCourses);
+    setAttentionCourses(dashboard.attentionCourses);
   }, [canManage]);
 
   useEffect(() => {
@@ -115,7 +127,11 @@ export default function CourseCreatorPage() {
     );
   }
 
-  const hasNoCourses = draftCourses.length === 0 && publishedCourses.length === 0;
+  const hasNoCourses =
+    draftCourses.length === 0 &&
+    pausedCourses.length === 0 &&
+    publishedCourses.length === 0 &&
+    archivedCourses.length === 0;
 
   return (
     <div className="space-y-6">
@@ -146,6 +162,29 @@ export default function CourseCreatorPage() {
             {dict.agriacademy.createNewCourse}
           </Button>
         </div>
+      ) : null}
+
+      {attentionCourses.length > 0 ? (
+        <section className="space-y-3">
+          <h2 className="text-sm font-black">{dict.agriacademy.coursesRequiringAttention}</h2>
+          <div className="grid gap-3">
+            {attentionCourses.map((course) => (
+              <Link
+                key={`attention-${course.id}`}
+                href={`/dashboard/academy/courses/${course.id}/edit`}
+                className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl border border-amber-300 dark:border-amber-800 p-5 hover:border-primary transition-colors space-y-2"
+              >
+                <div className="flex items-center justify-between gap-3">
+                  <h3 className="font-bold">{course.title}</h3>
+                  <Badge variant="pillarAcademy">{statusLabels[course.status] || course.status}</Badge>
+                </div>
+                <p className="text-xs text-muted-foreground">
+                  {formatAuthoringNextAction(course.progress.nextAction, dict.agriacademy)}
+                </p>
+              </Link>
+            ))}
+          </div>
+        </section>
       ) : null}
 
       <section className="space-y-3">
@@ -215,6 +254,71 @@ export default function CourseCreatorPage() {
                   </Link>
                 </div>
               </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-black">{dict.agriacademy.pausedCourses}</h2>
+        {pausedCourses.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{dict.agriacademy.noPausedCourses}</p>
+        ) : (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {pausedCourses.map((course) => (
+              <div
+                key={course.id}
+                className="bg-surface-card rounded-3xl border border-border p-5 space-y-4"
+              >
+                <div className="space-y-1">
+                  <div className="flex items-center justify-between gap-3">
+                    <h3 className="font-bold">{course.title}</h3>
+                    <Badge variant="outline">{statusLabels.paused}</Badge>
+                  </div>
+                  <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                    <Users className="w-3.5 h-3.5" />
+                    {dict.agriacademy.studentsCount.replace("{count}", String(course.studentCount))}
+                  </p>
+                </div>
+                <div className="flex flex-wrap gap-2">
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    onClick={() => setStudentsCourse(course)}
+                  >
+                    {dict.agriacademy.viewStudents}
+                  </Button>
+                  <Link href={`/dashboard/academy/courses/${course.id}/edit`}>
+                    <Button type="button" size="sm" variant="outline">
+                      {dict.common.edit}
+                    </Button>
+                  </Link>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-sm font-black">{dict.agriacademy.archivedCourses}</h2>
+        {archivedCourses.length === 0 ? (
+          <p className="text-xs text-muted-foreground">{dict.agriacademy.noArchivedCourses}</p>
+        ) : (
+          <div className="grid gap-3">
+            {archivedCourses.map((course) => (
+              <Link
+                key={course.id}
+                href={`/dashboard/academy/courses/${course.id}/edit`}
+                className="bg-surface-card rounded-3xl border border-border p-5 hover:border-primary transition-colors flex items-center justify-between gap-3"
+              >
+                <div>
+                  <h3 className="font-bold">{course.title}</h3>
+                  <p className="text-xs text-muted-foreground mt-1">{course.slug}</p>
+                </div>
+                <Badge variant="outline">{statusLabels.archived}</Badge>
+              </Link>
             ))}
           </div>
         )}

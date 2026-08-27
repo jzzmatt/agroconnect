@@ -233,4 +233,91 @@ describe("CourseEditor guided YouTube authoring", () => {
     });
     expect(await screen.findByText("Não foi possível concluir a operação. Tente novamente.")).toBeInTheDocument();
   });
+
+  it("collapses a chapter and hides its lessons", async () => {
+    getCourseEditorAction.mockResolvedValue(
+      draftTree({
+        sections: [
+          {
+            id: "sec-1",
+            course_id: "crs-ui",
+            title: "Capítulo A",
+            sort_order: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            lessons: [
+              {
+                id: "les-1",
+                course_id: "crs-ui",
+                section_id: "sec-1",
+                title: "Aula A",
+                sort_order: 1,
+                youtube_video_id: "dQw4w9WgXcQ",
+                is_free_preview: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(
+      <I18nProvider initialLocale="pt">
+        <CourseEditor courseId="crs-ui" />
+      </I18nProvider>
+    );
+
+    await screen.findByDisplayValue("Aula A");
+    expect(screen.getByRole("button", { name: "Adicionar aula" })).toBeInTheDocument();
+    expect(screen.getByText("Preparação do curso")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Recolher capítulo" }));
+    expect(screen.queryByDisplayValue("Aula A")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Adicionar aula" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Expandir capítulo" })).toBeInTheDocument();
+  });
+
+  it("opens a YouTube preview for a lesson with a video id", async () => {
+    getCourseEditorAction.mockResolvedValue(
+      draftTree({
+        sections: [
+          {
+            id: "sec-1",
+            course_id: "crs-ui",
+            title: "Capítulo A",
+            sort_order: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            lessons: [
+              {
+                id: "les-1",
+                course_id: "crs-ui",
+                section_id: "sec-1",
+                title: "Aula A",
+                sort_order: 1,
+                youtube_video_id: "dQw4w9WgXcQ",
+                is_free_preview: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(
+      <I18nProvider initialLocale="pt">
+        <CourseEditor courseId="crs-ui" />
+      </I18nProvider>
+    );
+
+    await screen.findByDisplayValue("Aula A");
+    fireEvent.click(screen.getByRole("button", { name: "Pré-visualizar aula" }));
+    const preview = await screen.findByTitle("Aula A");
+    expect(preview).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
+    fireEvent.click(screen.getByRole("button", { name: "Fechar pré-visualização" }));
+    expect(screen.queryByTitle("Aula A")).not.toBeInTheDocument();
+  });
 });

@@ -75,7 +75,10 @@ describe("Course Creator dashboard guided progress", () => {
   it("prompts the instructor to create the first course when none exist", async () => {
     getCourseCreatorDashboardAction.mockResolvedValue({
       draftCourses: [],
+      pausedCourses: [],
       publishedCourses: [],
+      archivedCourses: [],
+      attentionCourses: [],
     });
 
     render(
@@ -91,7 +94,10 @@ describe("Course Creator dashboard guided progress", () => {
     const progress = deriveDashboardAuthoringProgress(treeWithoutChapters());
     getCourseCreatorDashboardAction.mockResolvedValue({
       draftCourses: [{ ...listItem(), progress }],
+      pausedCourses: [],
       publishedCourses: [],
+      archivedCourses: [],
+      attentionCourses: [{ ...listItem(), progress }],
     });
 
     render(
@@ -109,12 +115,15 @@ describe("Course Creator dashboard guided progress", () => {
   it("shows student count and View Students on published course cards", async () => {
     getCourseCreatorDashboardAction.mockResolvedValue({
       draftCourses: [],
+      pausedCourses: [],
       publishedCourses: [
         {
           ...listItem({ status: "published", title: "Curso publicado" }),
           studentCount: 3,
         },
       ],
+      archivedCourses: [],
+      attentionCourses: [],
     });
 
     render(
@@ -126,6 +135,41 @@ describe("Course Creator dashboard guided progress", () => {
     expect(await screen.findByText("Curso publicado")).toBeInTheDocument();
     expect(screen.getByText("3 estudantes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /Ver estudantes/i })).toBeInTheDocument();
+  });
+
+  it("shows paused, archived and attention buckets separately", async () => {
+    const progress = deriveDashboardAuthoringProgress(treeWithoutChapters());
+    getCourseCreatorDashboardAction.mockResolvedValue({
+      draftCourses: [],
+      pausedCourses: [
+        {
+          ...listItem({ id: "crs-paused", title: "Curso em pausa", status: "paused" }),
+          progress,
+          studentCount: 2,
+        },
+      ],
+      publishedCourses: [],
+      archivedCourses: [listItem({ id: "crs-arch", title: "Curso arquivado", status: "archived" })],
+      attentionCourses: [
+        {
+          ...listItem({ id: "crs-paused", title: "Curso em pausa", status: "paused" }),
+          progress,
+        },
+      ],
+    });
+
+    render(
+      <I18nProvider initialLocale="pt">
+        <CourseCreatorPage />
+      </I18nProvider>
+    );
+
+    expect(await screen.findByText("Cursos que requerem atenção")).toBeInTheDocument();
+    expect(screen.getAllByText("Curso em pausa").length).toBeGreaterThan(0);
+    expect(screen.getByText("Cursos em pausa")).toBeInTheDocument();
+    expect(screen.getByText("Cursos arquivados")).toBeInTheDocument();
+    expect(screen.getByText("Curso arquivado")).toBeInTheDocument();
+    expect(screen.getByText("2 estudantes")).toBeInTheDocument();
   });
 });
 

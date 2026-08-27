@@ -1,5 +1,6 @@
 import type { Dictionary } from "@/i18n";
 import type { AuthoringNextAction, AuthoringStepId } from "@/lib/academy/authoring-progress";
+import type { ReadinessItemId } from "@/lib/academy/course-readiness";
 
 type AcademyCopy = Dictionary["agriacademy"];
 
@@ -47,6 +48,16 @@ export function formatAuthoringNextAction(action: AuthoringNextAction, dict: Aca
     case "none":
       return dict.authoringNextNone;
   }
+}
+
+export function readinessItemLabels(dict: AcademyCopy): Record<ReadinessItemId, string> {
+  return {
+    course_info: dict.readinessCourseInfo,
+    chapters: dict.readinessChapters,
+    lessons: dict.readinessLessons,
+    youtube: dict.readinessYouTube,
+    structure: dict.readinessStructure,
+  };
 }
 
 export function authoringNextActionLabel(
