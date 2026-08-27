@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserProfile } from "@/lib/clerk/auth";
 import { CourseAccessService } from "@/lib/academy/course-access";
+import { isAllowedYouTubeEmbedUrl } from "@/lib/academy/youtube";
 
 export const runtime = "nodejs";
 
@@ -19,9 +20,9 @@ export async function GET(
     profileId: profile.id,
   });
 
-  if (!result.allowed) {
+  if (!result.allowed || !isAllowedYouTubeEmbedUrl(result.embedUrl)) {
     return NextResponse.json(
-      { allowed: false, code: result.reason || "ACCESS_DENIED" },
+      { allowed: false, code: result.allowed ? "INVALID_EMBED" : result.reason || "ACCESS_DENIED" },
       { status: 403 }
     );
   }

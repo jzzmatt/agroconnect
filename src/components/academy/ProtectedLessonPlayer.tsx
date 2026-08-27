@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react";
 import { YouTubePlayer } from "@/components/academy/YouTubePlayer";
 import { useI18n } from "@/i18n/provider";
+import { isAllowedYouTubeEmbedUrl } from "@/lib/academy/youtube";
 
 export function ProtectedLessonPlayer({
   lessonId,
@@ -34,7 +35,7 @@ export function ProtectedLessonPlayer({
       .then(async (res) => {
         const payload = await res.json().catch(() => null);
         if (cancelled) return;
-        if (!res.ok || !payload?.allowed) {
+        if (!res.ok || !payload?.allowed || !isAllowedYouTubeEmbedUrl(payload.embedUrl)) {
           setDenied(true);
           setReady(false);
           setEmbedUrl(null);

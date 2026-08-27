@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LocationMap } from "@/components/location";
 import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
-import { BunnyPlayer } from "@/components/academy/BunnyPlayer";
+import { BunnyPlayer } from "@/components/shopping/BunnyPlayer";
 import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
 import type { ProductListItem } from "@/types/domain";
 

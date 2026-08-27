@@ -60,7 +60,7 @@ export async function uploadToBunnyTus(params: {
         ),
       metadata: {
         filetype: params.file.type || "video/mp4",
-        title: params.file.name || "academy-video",
+        title: params.file.name || "product-video",
       },
       onBeforeRequest: applyBunnyHeaders,
       onProgress(bytesUploaded, bytesTotal) {

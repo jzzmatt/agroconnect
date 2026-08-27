@@ -4,7 +4,7 @@ import {
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
-import { buildAuthorizedEmbedUrl, canAccessLessonVideo } from "@/lib/academy/video-playback";
+import { authorizeLessonPlayback } from "@/lib/academy/video-playback";
 
 function hasLiveSupabase(): boolean {
   return Boolean(
@@ -51,26 +51,14 @@ export class CourseAccessService {
       return { allowed: false, reason: "course_not_found" };
     }
 
-    const isOwner = course.owner_id === params.profileId;
     const isEnrolled = await EnrollmentService.isEnrolled(params.profileId, course.id);
 
-    if (
-      !canAccessLessonVideo({
-        courseStatus: course.status,
-        isEnrolled,
-        isOwner,
-        isFreePreview: lesson.is_free_preview,
-      })
-    ) {
-      return { allowed: false, reason: "not_enrolled" };
-    }
-
-    const embedUrl = buildAuthorizedEmbedUrl(lesson.youtube_video_id);
-    if (!embedUrl) {
-      return { allowed: false, reason: "no_video" };
-    }
-
-    return { allowed: true, embedUrl };
+    return authorizeLessonPlayback({
+      profileId: params.profileId,
+      lesson,
+      course,
+      enrolled: isEnrolled,
+    });
   }
 
   public static async getEnrollmentStatus(

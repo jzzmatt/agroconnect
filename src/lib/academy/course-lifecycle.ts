@@ -15,6 +15,11 @@ export function isPubliclyVisibleCourseStatus(status: CourseStatus): boolean {
   return status === "published";
 }
 
+/** Generic course updates must not publish; YouTube validation lives on publish/resume. */
+export function canSetCourseStatusViaGenericUpdate(status: CourseStatus): boolean {
+  return status !== "published";
+}
+
 export function canTransitionCourseStatus(from: CourseStatus, to: CourseStatus): boolean {
   if (from === to) return true;
   return COURSE_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
