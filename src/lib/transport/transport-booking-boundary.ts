@@ -19,6 +19,15 @@ const COMMERCE_FIELDS = [
   "checkout_session_id",
 ] as const;
 
+const PRIVATE_TRANSPORT_REQUEST_KEYS = [
+  "email",
+  "phone",
+  "whatsapp_phone",
+  "clerk_user_id",
+  "subscription_plan",
+  "student_email",
+] as const;
+
 export function isTransportPaymentEnabled(): boolean {
   return false;
 }
@@ -37,7 +46,10 @@ export function collectForbiddenTransportCommerceKeys(payload: unknown): string[
       return;
     }
     for (const [key, nested] of Object.entries(value as Record<string, unknown>)) {
-      if ((COMMERCE_FIELDS as readonly string[]).includes(key)) {
+      if (
+        (COMMERCE_FIELDS as readonly string[]).includes(key) ||
+        (PRIVATE_TRANSPORT_REQUEST_KEYS as readonly string[]).includes(key)
+      ) {
         found.add(key);
       }
       walk(nested);

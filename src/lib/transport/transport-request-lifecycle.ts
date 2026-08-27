@@ -122,6 +122,37 @@ export function groupTransportRequestsByDisplayStatus<T extends { status: Transp
   return groups;
 }
 
+export function canReadTransportRequestAs(actor: TransportRequestActor): boolean {
+  return actor === "requester" || actor === "transporter";
+}
+
+export function transportRequestStatusLock(params: {
+  actor: TransportRequestActor;
+  providerId: string | null;
+  profileId: string;
+}): { column: "provider_id" | "customer_id"; value: string } | null {
+  if (params.actor === "transporter" && params.providerId) {
+    return { column: "provider_id", value: params.providerId };
+  }
+  if (params.actor === "requester" && params.profileId) {
+    return { column: "customer_id", value: params.profileId };
+  }
+  return null;
+}
+
+export function isOpenPendingDuplicate(params: {
+  customerId: string;
+  transportServiceId: string;
+  existing: Array<{ customer_id: string; transport_service_id?: string | null; status: TransportRequestStatus }>;
+}): boolean {
+  return params.existing.some(
+    (row) =>
+      row.status === "pending" &&
+      row.customer_id === params.customerId &&
+      row.transport_service_id === params.transportServiceId
+  );
+}
+
 export function requirePersistedRequestId(
   data: { id?: string } | null | undefined,
   error: { message?: string } | null | undefined

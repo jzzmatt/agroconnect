@@ -39,6 +39,7 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
   const copy = dict.transportRequests;
   const [requests, setRequests] = useState<TransportRequestItem[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [filter, setFilter] = useState<StatusFilter>("all");
   const [pendingAction, setPendingAction] = useState<{
     requestId: string;
@@ -49,11 +50,13 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const rows =
+    setLoadError(null);
+    const result =
       view === "receiving"
         ? await getTransportRequestsForProviderAction()
         : await getCustomerTransportRequestsAction();
-    setRequests(rows);
+    setRequests(result.requests);
+    setLoadError(result.error);
     setLoading(false);
   }, [view]);
 
@@ -165,12 +168,22 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
 
       {loading ? (
         <p className="text-sm text-muted-foreground">{copy.loading}</p>
+      ) : loadError ? (
+        <div className="bg-surface-card rounded-3xl p-12 text-center border border-border space-y-3">
+          <p className="text-sm font-semibold text-destructive">{loadError || copy.loadError}</p>
+          <Button type="button" size="sm" variant="outline" onClick={() => void load()}>
+            {dict.common.retry}
+          </Button>
+        </div>
       ) : filtered.length === 0 ? (
         <div className="bg-surface-card rounded-3xl p-12 text-center border border-border space-y-3">
           <Inbox className="w-8 h-8 text-muted-foreground mx-auto" />
           <h4 className="text-base font-bold text-foreground">
             {view === "receiving" ? copy.receivingEmpty : copy.sendingEmpty}
           </h4>
+          <p className="text-xs text-muted-foreground max-w-sm mx-auto">
+            {view === "receiving" ? copy.receivingEmptyHint : copy.sendingEmptyHint}
+          </p>
         </div>
       ) : groupedReceiving ? (
         <div className="space-y-8">

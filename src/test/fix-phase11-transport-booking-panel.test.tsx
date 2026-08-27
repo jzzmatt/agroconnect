@@ -45,8 +45,8 @@ const requests: TransportRequestItem[] = [
 ];
 
 vi.mock("@/lib/transport/transport-actions", () => ({
-  getTransportRequestsForProviderAction: vi.fn(async () => requests),
-  getCustomerTransportRequestsAction: vi.fn(async () => requests),
+  getTransportRequestsForProviderAction: vi.fn(async () => ({ requests, error: null })),
+  getCustomerTransportRequestsAction: vi.fn(async () => ({ requests, error: null })),
   updateTransportRequestStatusAction: vi.fn(),
 }));
 
