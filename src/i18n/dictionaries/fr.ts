@@ -942,6 +942,7 @@ export const fr: Dictionary = {
     totalStudents: "Total d'étudiants",
     fromProfessional: "Disponible à partir du plan Professionnel",
     vsLastMonth: "par rapport au mois précédent",
+    fromYourAccount: "Données de votre compte",
     upcoming: "Prochains rendez-vous",
     noAppointments: "Aucun rendez-vous actif.",
     recentActivity: "Activité récente",

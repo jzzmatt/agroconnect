@@ -41,3 +41,21 @@ export interface OwnerProviderPublication {
 }
 
 export type PublicProviderPublicationAction = "publish" | "pause" | "resume";
+
+export interface AgriprofileUpcomingAppointment {
+  id: string;
+  title: string;
+  requestedAt: string;
+  location: string | null;
+}
+
+export interface AgriprofileOverview {
+  currency: string;
+  productEarnings: number;
+  courseSales: number;
+  totalEarnings: number;
+  activeConsultations: number;
+  productsSold: number;
+  totalStudents: number;
+  upcoming: AgriprofileUpcomingAppointment[];
+}

@@ -941,6 +941,7 @@ export const pt = {
     totalStudents: "Total de estudantes",
     fromProfessional: "Disponível a partir do plano Profissional",
     vsLastMonth: "em relação ao mês anterior",
+    fromYourAccount: "Dados da sua conta",
     upcoming: "Próximos agendamentos",
     noAppointments: "Nenhum agendamento ativo.",
     recentActivity: "Atividade recente",
