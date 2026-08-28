@@ -30,8 +30,32 @@ import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
 import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
+import { getAgriprofileOverviewAction } from "@/lib/agriprofile/overview-actions";
+import { emptyAgriprofileOverview, formatDashboardAmount } from "@/lib/agriprofile/overview";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import type { AgriprofileOverview } from "@/types/agriprofile";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
+
+function formatAppointmentWhen(value: string, locale: string): string {
+  const dateLocale = locale === "en" ? "en-GB" : locale === "fr" ? "fr-FR" : "pt-AO";
+  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
+  let date: Date;
+  if (dateOnly) {
+    const [year, month, day] = value.trim().split("-").map(Number);
+    date = new Date(year, month - 1, day);
+  } else {
+    date = new Date(value);
+  }
+  if (Number.isNaN(date.getTime())) return value;
+  return new Intl.DateTimeFormat(dateLocale, {
+    weekday: "short",
+    day: "numeric",
+    month: "short",
+    ...(dateOnly || (date.getHours() === 0 && date.getMinutes() === 0)
+      ? {}
+      : { hour: "2-digit", minute: "2-digit" }),
+  }).format(date);
+}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -54,6 +78,8 @@ export default function DashboardPage() {
   const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
   const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
+  const [overview, setOverview] = useState<AgriprofileOverview>(emptyAgriprofileOverview);
+  const [overviewLoaded, setOverviewLoaded] = useState(false);
 
   const loadServerProfile = useCallback(async () => {
     const serverProfile = await fetchClientProfileDetails();
@@ -79,6 +105,11 @@ export default function DashboardPage() {
     getMyProductStatsAction().then((stats) => {
       setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
     }).catch(() => undefined);
+
+    getAgriprofileOverviewAction()
+      .then((result) => setOverview(result))
+      .catch(() => setOverview(emptyAgriprofileOverview()))
+      .finally(() => setOverviewLoaded(true));
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
@@ -192,41 +223,37 @@ export default function DashboardPage() {
     );
   }
 
-  // KPIs
+  const currency = overview.currency || "AOA";
+  const kpiValue = (value: string) => (overviewLoaded ? value : "—");
   const kpiCards = [
     {
       title: dict.dash.totalEarnings,
-      value: isBasic ? "0 Kz" : "2.450.000 Kz",
-      description: isBasic ? dict.dash.fromProfessional : dict.dash.vsLastMonth,
-      trend: isBasic ? undefined : { value: "12.5% este mês", isPositive: true },
+      value: kpiValue(formatDashboardAmount(overview.totalEarnings, currency)),
+      description: dict.dash.fromYourAccount,
       icon: DollarSign,
     },
     {
       title: dict.dash.courseSales,
-      value: isBasic ? "0 Kz" : "1.250.000 Kz",
+      value: kpiValue(formatDashboardAmount(overview.courseSales, currency)),
       description: dict.navigation.agriAcademy,
-      trend: isBasic ? undefined : { value: "18.3% este mês", isPositive: true },
       icon: BookOpen,
     },
     {
       title: dict.dash.activeConsults,
-      value: isBasic ? "0" : "32",
+      value: kpiValue(String(overview.activeConsultations)),
       description: dict.navigation.agriExpert,
-      trend: isBasic ? undefined : { value: "4.7% este mês", isPositive: true },
       icon: Calendar,
     },
     {
       title: dict.dash.productsSold,
-      value: isBasic ? "0" : "56",
+      value: kpiValue(String(overview.productsSold)),
       description: dict.navigation.agriShopping,
-      trend: isBasic ? undefined : { value: "8.2% este mês", isPositive: true },
       icon: ShoppingBag,
     },
     {
       title: dict.dash.totalStudents,
-      value: isBasic ? "0" : "124",
+      value: kpiValue(String(overview.totalStudents)),
       description: dict.dash.manageCourses,
-      trend: isBasic ? undefined : { value: "15.4% este mês", isPositive: true },
       icon: Users,
     },
   ];
@@ -518,7 +545,6 @@ export default function DashboardPage() {
             title={kpi.title}
             value={kpi.value}
             description={kpi.description}
-            trend={kpi.trend}
             icon={kpi.icon}
           />
         ))}
@@ -535,27 +561,40 @@ export default function DashboardPage() {
               <h3 className="font-bold text-base text-foreground">{dict.dash.upcoming}</h3>
             </div>
             <Link href="/dashboard/requests" className="text-xs font-bold text-primary hover:underline">
-              Ver pedidos
+              {dict.dash.seeRequests}
             </Link>
           </div>
 
           <div className="space-y-3">
-            {isBasic ? (
+            {!overviewLoaded ? (
+              <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
+                <p className="text-xs text-muted-foreground">…</p>
+              </div>
+            ) : overview.upcoming.length === 0 ? (
               <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
                 <p className="text-xs text-muted-foreground">{dict.dash.noAppointments}</p>
               </div>
             ) : (
-              <div className="p-4 rounded-2xl bg-surface border border-border space-y-1">
-                <div className="flex items-center gap-2">
-                  <Clock className="w-3.5 h-3.5 text-primary" />
-                  <span className="text-xs font-bold text-foreground">Amanhã, 09:00</span>
+              overview.upcoming.map((appointment) => (
+                <div
+                  key={appointment.id}
+                  className="p-4 rounded-2xl bg-surface border border-border space-y-1"
+                >
+                  <div className="flex items-center gap-2">
+                    <Clock className="w-3.5 h-3.5 text-primary" />
+                    <span className="text-xs font-bold text-foreground">
+                      {formatAppointmentWhen(appointment.requestedAt, locale)}
+                    </span>
+                  </div>
+                  <h4 className="text-sm font-bold text-foreground">{appointment.title}</h4>
+                  {appointment.location ? (
+                    <p className="text-xs text-muted-foreground flex items-center gap-1">
+                      <MapPin className="w-3 h-3 text-primary" />
+                      <span>{appointment.location}</span>
+                    </p>
+                  ) : null}
                 </div>
-                <h4 className="text-sm font-bold text-foreground">Visita Técnica • Fazenda Huambo</h4>
-                <p className="text-xs text-muted-foreground flex items-center gap-1">
-                  <MapPin className="w-3 h-3 text-primary" />
-                  <span>Caála, Huambo</span>
-                </p>
-              </div>
+              ))
             )}
           </div>
         </div>
@@ -576,8 +615,10 @@ export default function DashboardPage() {
                 <Package className="w-4 h-4" />
               </div>
               <div className="flex-1 space-y-0.5">
-                <p className="font-semibold text-foreground leading-snug">Conta criada com sucesso no plano {currentPlanDef.name}</p>
-                <span className="text-[11px] text-muted-foreground block">Hoje</span>
+                <p className="font-semibold text-foreground leading-snug">
+                  {dict.dash.accountCreated.replace("{plan}", planCopy.name)}
+                </p>
+                <span className="text-[11px] text-muted-foreground block">{dict.dash.today}</span>
               </div>
             </div>
           </div>
