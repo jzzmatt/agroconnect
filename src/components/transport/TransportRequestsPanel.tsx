@@ -16,7 +16,7 @@ import {
   getTransportRequestsForProviderAction,
   updateTransportRequestStatusAction,
 } from "@/lib/transport/transport-actions";
-import { transportRequestDisplayStatus, isVisibleOnSendingRequests } from "@/lib/transport/transport-request-lifecycle";
+import { transportRequestDisplayStatus, isVisibleOnSendingRequests, groupTransportRequestsByDisplayStatus, TRANSPORTER_BOOKING_GROUPS } from "@/lib/transport/transport-request-lifecycle";
 import { useI18n } from "@/i18n/provider";
 import type { TransportRequestItem, TransportRequestStatus } from "@/types/transport";
 
@@ -75,7 +75,13 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
         ? { title: copy.rejectConfirmTitle, message: copy.rejectConfirmMessage, confirm: copy.reject }
         : pendingAction.status === "completed"
           ? { title: copy.completeConfirmTitle, message: copy.completeConfirmMessage, confirm: copy.complete }
-          : { title: copy.cancelConfirmTitle, message: copy.cancelConfirmMessage, confirm: copy.cancelRequest }
+          : requests.find((req) => req.id === pendingAction.requestId)?.status === "accepted"
+            ? {
+                title: copy.cancelBookingConfirmTitle,
+                message: copy.cancelBookingConfirmMessage,
+                confirm: copy.cancelBooking,
+              }
+            : { title: copy.cancelConfirmTitle, message: copy.cancelConfirmMessage, confirm: copy.cancelRequest }
     : null;
 
   const runStatusUpdate = async () => {
@@ -95,6 +101,31 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
     }
     await load();
   };
+
+  const groupedReceiving =
+    view === "receiving" && filter === "all" ? groupTransportRequestsByDisplayStatus(filtered) : null;
+
+  const groupTitle: Record<(typeof TRANSPORTER_BOOKING_GROUPS)[number], string> = {
+    pending: copy.pendingRequests,
+    confirmed: copy.confirmedBookings,
+    rejected: copy.rejectedRequests,
+    completed: copy.completedBookings,
+    cancelled: copy.cancelledBookings,
+  };
+
+  const renderCards = (items: TransportRequestItem[]) =>
+    items.map((req) => (
+      <RequestCard
+        key={req.id}
+        request={req}
+        view={view}
+        locale={locale}
+        onAction={(status) => {
+          setActionError(null);
+          setPendingAction({ requestId: req.id, status });
+        }}
+      />
+    ));
 
   const filters: StatusFilter[] =
     view === "sending"
@@ -141,21 +172,21 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
             {view === "receiving" ? copy.receivingEmpty : copy.sendingEmpty}
           </h4>
         </div>
-      ) : (
-        <div className="space-y-4">
-          {filtered.map((req) => (
-            <RequestCard
-              key={req.id}
-              request={req}
-              view={view}
-              locale={locale}
-              onAction={(status) => {
-                setActionError(null);
-                setPendingAction({ requestId: req.id, status });
-              }}
-            />
-          ))}
+      ) : groupedReceiving ? (
+        <div className="space-y-8">
+          {TRANSPORTER_BOOKING_GROUPS.map((group) => {
+            const items = groupedReceiving[group];
+            if (items.length === 0) return null;
+            return (
+              <section key={group} className="space-y-4" aria-label={groupTitle[group]}>
+                <h2 className="text-lg font-black text-foreground">{groupTitle[group]}</h2>
+                {renderCards(items)}
+              </section>
+            );
+          })}
         </div>
+      ) : (
+        <div className="space-y-4">{renderCards(filtered)}</div>
       )}
 
       {pendingAction && confirmCopy ? (
@@ -306,12 +337,20 @@ function RequestCard({
       ) : null}
 
       {view === "receiving" && request.status === "accepted" ? (
-        <div className="flex items-center justify-end gap-2 pt-2">
-          <Button variant="primary" size="sm" onClick={() => onAction("completed")} className="text-xs font-bold">
-            {copy.complete}
-          </Button>
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-2">
+          <ComingSoonPaymentNote />
+          <div className="flex items-center justify-end gap-2">
+            <Button variant="outline" size="sm" onClick={() => onAction("cancelled")} className="text-xs font-semibold">
+              {copy.cancelBooking}
+            </Button>
+            <Button variant="primary" size="sm" onClick={() => onAction("completed")} className="text-xs font-bold">
+              {copy.complete}
+            </Button>
+          </div>
         </div>
       ) : null}
+
+      {view === "sending" && request.status === "accepted" ? <ComingSoonPaymentNote /> : null}
 
       {view === "sending" && request.status === "pending" ? (
         <div className="flex items-center justify-end gap-2 pt-2">
@@ -320,6 +359,19 @@ function RequestCard({
           </Button>
         </div>
       ) : null}
+    </div>
+  );
+}
+
+function ComingSoonPaymentNote() {
+  const { dict } = useI18n();
+  const copy = dict.transportRequests;
+  return (
+    <div className="rounded-2xl border border-dashed border-border bg-surface px-3 py-2 space-y-1">
+      <Button type="button" size="sm" variant="outline" disabled aria-disabled="true" className="text-xs font-bold">
+        {copy.paymentComingSoon}
+      </Button>
+      <p className="text-[11px] text-muted-foreground leading-relaxed">{copy.paymentComingSoonHint}</p>
     </div>
   );
 }

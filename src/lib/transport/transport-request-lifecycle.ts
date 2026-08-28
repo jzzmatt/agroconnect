@@ -78,6 +78,50 @@ export function canActorChangeTransportRequestStatus(params: {
   return false;
 }
 
+export type TransportRequestStatusChangeFailure = "unauthorized" | "conflict";
+
+export function resolveTransportRequestStatusChange(params: {
+  actor: TransportRequestActor;
+  from: TransportRequestStatus;
+  to: TransportRequestStatus;
+}): { ok: true } | { ok: false; reason: TransportRequestStatusChangeFailure } {
+  if (params.actor === "other") return { ok: false, reason: "unauthorized" };
+  if (params.from === params.to) return { ok: false, reason: "conflict" };
+  if (!canActorChangeTransportRequestStatus(params)) {
+    return {
+      ok: false,
+      reason: canTransitionTransportRequestStatus(params.from, params.to) ? "unauthorized" : "conflict",
+    };
+  }
+  return { ok: true };
+}
+
+export const TRANSPORTER_BOOKING_GROUPS = [
+  "pending",
+  "confirmed",
+  "rejected",
+  "completed",
+  "cancelled",
+] as const;
+
+export type TransporterBookingGroup = (typeof TRANSPORTER_BOOKING_GROUPS)[number];
+
+export function groupTransportRequestsByDisplayStatus<T extends { status: TransportRequestStatus }>(
+  requests: T[]
+): Record<TransporterBookingGroup, T[]> {
+  const groups: Record<TransporterBookingGroup, T[]> = {
+    pending: [],
+    confirmed: [],
+    rejected: [],
+    completed: [],
+    cancelled: [],
+  };
+  for (const request of requests) {
+    groups[transportRequestDisplayStatus(request.status)].push(request);
+  }
+  return groups;
+}
+
 export function requirePersistedRequestId(
   data: { id?: string } | null | undefined,
   error: { message?: string } | null | undefined
