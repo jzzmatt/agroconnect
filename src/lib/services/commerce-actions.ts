@@ -1,102 +1,143 @@
 "use server";
 
-import { requireAuth } from "@/lib/clerk/auth";
+import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import { tryCreateAdminServerSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   CommerceService,
   type AddToCartInput,
   type CheckoutOrderInput,
 } from "@/lib/services/commerce-service";
-import type { ShoppingCart, OrderDescriptor } from "@/types/domain";
+import type { ShoppingCart, OrderDescriptor, SellerEarningsSummary } from "@/types/commerce";
 
-/**
- * Server Action: Get Cart
- */
+const PERSIST = { persist: true as const };
+
+async function requireCustomer() {
+  await requireAuth();
+  const profile = await getCurrentUserProfile();
+  if (!profile) {
+    throw new Error("Não autorizado: Perfil de utilizador não encontrado.");
+  }
+  return profile;
+}
+
+async function resolveSessionSellerId(): Promise<string | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+  const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+  const { data } = await (supabase.from("provider_profiles") as any)
+    .select("id")
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+  return data?.id ? String(data.id) : null;
+}
+
+function emptyCart(): ShoppingCart {
+  return {
+    id: "cart-anonymous",
+    customer_id: null,
+    currency: "AOA",
+    items: [],
+    items_count: 0,
+    subtotal: 0,
+    delivery_fee: 0,
+    discount: 0,
+    total: 0,
+    sellers_count: 0,
+  };
+}
+
 export async function getCartAction(): Promise<ShoppingCart> {
-  return CommerceService.getCart();
+  const profile = await getCurrentUserProfile();
+  if (!profile) return emptyCart();
+  return CommerceService.getCart({ customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Add item to cart
- */
 export async function addToCartAction(input: AddToCartInput): Promise<ShoppingCart> {
-  return CommerceService.addToCart(input);
+  const profile = await requireCustomer();
+  return CommerceService.addToCart(input, { customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Update cart item quantity
- */
 export async function updateCartItemQuantityAction(
   productId: string,
   quantity: number
 ): Promise<ShoppingCart> {
-  return CommerceService.updateCartItemQuantity(productId, quantity);
+  const profile = await requireCustomer();
+  return CommerceService.updateCartItemQuantity(productId, quantity, {
+    customerId: profile.id,
+    ...PERSIST,
+  });
 }
 
-/**
- * Server Action: Remove item from cart
- */
 export async function removeFromCartAction(productId: string): Promise<ShoppingCart> {
-  return CommerceService.removeFromCart(productId);
+  const profile = await requireCustomer();
+  return CommerceService.removeFromCart(productId, { customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Clear cart
- */
 export async function clearCartAction(): Promise<ShoppingCart> {
-  return CommerceService.clearCart();
+  const profile = await requireCustomer();
+  return CommerceService.clearCart({ customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Checkout Order
- */
 export async function checkoutOrderAction(input: CheckoutOrderInput): Promise<{
   success: boolean;
   order: OrderDescriptor;
-  paymentResult: any;
+  paymentResult: unknown;
 }> {
-  await requireAuth();
-  return CommerceService.checkoutOrder(input);
+  const profile = await requireCustomer();
+  return CommerceService.checkoutOrder(input, { customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Get Order by orderNumber
- */
 export async function getOrderByNumberAction(orderNumber: string): Promise<OrderDescriptor | null> {
-  return CommerceService.getOrderByNumber(orderNumber);
+  const profile = await requireCustomer();
+  const sellerId = await resolveSessionSellerId();
+  return CommerceService.getOrderByNumber(orderNumber, {
+    customerId: profile.id,
+    sellerId: sellerId || undefined,
+    ...PERSIST,
+  });
 }
 
-/**
- * Server Action: Get customer orders
- */
 export async function getCustomerOrdersAction(): Promise<OrderDescriptor[]> {
-  await requireAuth();
-  return CommerceService.getCustomerOrders();
+  const profile = await requireCustomer();
+  return CommerceService.getCustomerOrders({ customerId: profile.id, ...PERSIST });
 }
 
-/**
- * Server Action: Get seller orders
- */
-export async function getSellerOrdersAction(sellerId?: string): Promise<OrderDescriptor[]> {
+export async function getSellerOrdersAction(): Promise<OrderDescriptor[]> {
   await requireAuth();
-  return CommerceService.getSellerOrders(sellerId);
+  const sellerId = await resolveSessionSellerId();
+  if (!sellerId) return [];
+  return CommerceService.getSellerOrders(sellerId, PERSIST);
 }
 
-/**
- * Server Action: Update seller fulfillment status
- */
 export async function updateFulfillmentStatusAction(
   orderNumber: string,
-  sellerId: string,
+  _sellerId: string,
   nextStatus: "pending" | "processing" | "ready_for_pickup" | "shipped" | "completed" | "cancelled"
 ): Promise<boolean> {
   await requireAuth();
-  return CommerceService.updateFulfillmentStatus(orderNumber, sellerId, nextStatus);
+  const sellerId = await resolveSessionSellerId();
+  if (!sellerId) return false;
+  return CommerceService.updateFulfillmentStatus(orderNumber, sellerId, nextStatus, PERSIST);
 }
 
-/**
- * Server Action: Cancel Order
- */
 export async function cancelOrderAction(orderNumber: string, reason?: string): Promise<boolean> {
+  const profile = await requireCustomer();
+  return CommerceService.cancelOrder(orderNumber, reason, { customerId: profile.id, ...PERSIST });
+}
+
+export async function getSellerEarningsAction(): Promise<SellerEarningsSummary> {
   await requireAuth();
-  return CommerceService.cancelOrder(orderNumber, reason);
+  const sellerId = await resolveSessionSellerId();
+  if (!sellerId) {
+    return {
+      seller_id: "",
+      currency: "AOA",
+      total_earned: 0,
+      total_processing: 0,
+      completed_count: 0,
+      processing_count: 0,
+      entries: [],
+    };
+  }
+  return CommerceService.getSellerEarnings(sellerId, PERSIST);
 }

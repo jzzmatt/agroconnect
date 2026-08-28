@@ -1,6 +1,7 @@
 "use server";
 
-import { requireAuth } from "@/lib/clerk/auth";
+import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import { tryCreateAdminServerSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
 import { LogisticsService } from "@/lib/services/logistics-service";
 import { NotificationService } from "@/lib/services/notification-service";
 import type {
@@ -11,44 +12,50 @@ import type {
 } from "@/types/domain";
 import type { DeliveryStatus } from "@/types/database";
 
-/**
- * Server Action: Get Delivery Zones
- */
+async function resolveSessionSellerId(): Promise<string | null> {
+  const profile = await getCurrentUserProfile();
+  if (!profile) return null;
+  const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+  const { data } = await (supabase.from("provider_profiles") as any)
+    .select("id")
+    .eq("profile_id", profile.id)
+    .maybeSingle();
+  return data?.id ? String(data.id) : null;
+}
+
 export async function getDeliveryZonesAction(): Promise<DeliveryZoneDescriptor[]> {
   return LogisticsService.getDeliveryZones();
 }
 
-/**
- * Server Action: Get Couriers
- */
 export async function getCouriersAction(provinceName?: string): Promise<CourierDescriptor[]> {
   return LogisticsService.getCouriers(provinceName);
 }
 
-/**
- * Server Action: Get Order Tracking Events
- */
 export async function getOrderTrackingEventsAction(
   orderNumber: string
 ): Promise<OrderTrackingEventDescriptor[]> {
-  return LogisticsService.getOrderTrackingEvents(orderNumber);
+  const profile = await getCurrentUserProfile();
+  if (!profile) return [];
+  return LogisticsService.getOrderTrackingEvents(orderNumber, { persist: true });
 }
 
-/**
- * Server Action: Assign Courier to Order Fulfillment Group
- */
 export async function assignCourierAction(params: {
   orderNumber: string;
   sellerId: string;
   courierId: string;
 }): Promise<{ success: boolean; courier: CourierDescriptor }> {
   await requireAuth();
-  return LogisticsService.assignCourier(params);
+  const sellerId = await resolveSessionSellerId();
+  if (!sellerId) {
+    throw new Error("Não autorizado: perfil de vendedor não encontrado.");
+  }
+  return LogisticsService.assignCourier({
+    orderNumber: params.orderNumber,
+    sellerId,
+    courierId: params.courierId,
+  });
 }
 
-/**
- * Server Action: Update Courier Delivery Status
- */
 export async function updateCourierDeliveryStatusAction(params: {
   orderNumber: string;
   sellerId: string;
@@ -61,33 +68,36 @@ export async function updateCourierDeliveryStatusAction(params: {
   failedReason?: string;
 }): Promise<{ success: boolean; message: string }> {
   await requireAuth();
-  return LogisticsService.updateCourierDeliveryStatus(params);
+  const sellerId = await resolveSessionSellerId();
+  if (!sellerId) {
+    throw new Error("Não autorizado: perfil de vendedor não encontrado.");
+  }
+  return LogisticsService.updateCourierDeliveryStatus({
+    ...params,
+    sellerId,
+  });
 }
 
-/**
- * Server Action: Get User Notifications
- */
 export async function getUserNotificationsAction(): Promise<AppNotification[]> {
-  return NotificationService.getUserNotifications();
+  const profile = await getCurrentUserProfile();
+  if (!profile) return [];
+  return NotificationService.getUserNotifications(profile.id, { persist: true });
 }
 
-/**
- * Server Action: Get Unread Notification Count
- */
 export async function getUnreadNotificationCountAction(): Promise<number> {
-  return NotificationService.getUnreadCount();
+  const profile = await getCurrentUserProfile();
+  if (!profile) return 0;
+  return NotificationService.getUnreadCount(profile.id, { persist: true });
 }
 
-/**
- * Server Action: Mark Notification as Read
- */
 export async function markNotificationAsReadAction(notificationId: string): Promise<boolean> {
-  return NotificationService.markAsRead(notificationId);
+  const profile = await requireAuth().then(() => getCurrentUserProfile());
+  if (!profile) return false;
+  return NotificationService.markAsRead(notificationId, profile.id, { persist: true });
 }
 
-/**
- * Server Action: Mark All Notifications as Read
- */
 export async function markAllNotificationsAsReadAction(): Promise<boolean> {
-  return NotificationService.markAllAsRead();
+  const profile = await requireAuth().then(() => getCurrentUserProfile());
+  if (!profile) return false;
+  return NotificationService.markAllAsRead(profile.id, { persist: true });
 }

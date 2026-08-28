@@ -259,9 +259,15 @@ export default function ProductDetailPage() {
                   variant="primary"
                   size="lg"
                   onClick={async () => {
-                    const { addToCartAction } = await import("@/lib/services/commerce-actions");
-                    await addToCartAction({ productId: product.id, quantity: 1 });
-                    alert("Produto adicionado ao carrinho!");
+                    try {
+                      const { addToCartAction } = await import("@/lib/services/commerce-actions");
+                      await addToCartAction({ productId: product.id, quantity: 1 });
+                      alert("Produto adicionado ao carrinho!");
+                    } catch (error: unknown) {
+                      const message =
+                        error instanceof Error ? error.message : "Não foi possível adicionar ao carrinho.";
+                      alert(message);
+                    }
                   }}
                   className="w-full gap-2 font-bold h-12 text-sm shadow-md cursor-pointer"
                 >

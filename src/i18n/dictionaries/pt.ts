@@ -1040,6 +1040,14 @@ export const pt = {
     planMismatch: "O plano gravado na base de dados não corresponde ao plano selecionado.",
     waitingMessage: "A aguardar confirmação da subscrição...",
   },
+  commerceEarnings: {
+    title: "Ganhos",
+    subtitle: "Receitas das encomendas de produtos, geridas pelo domínio Commerce.",
+    totalEarned: "Total ganho",
+    completedOrders: "Encomendas concluídas",
+    processing: "Em processamento",
+    empty: "Ainda não há transacções de venda para apresentar.",
+  },
 };
 
 export type Dictionary = typeof pt;

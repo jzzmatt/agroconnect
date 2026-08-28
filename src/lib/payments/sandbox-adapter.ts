@@ -1,3 +1,4 @@
+import { paymentWebhookSecretMatches } from "@/lib/commerce/webhook-secret";
 import type {
   IPaymentProvider,
   CreatePaymentIntentParams,
@@ -74,6 +75,16 @@ export class SandboxPaymentAdapter implements IPaymentProvider {
     payload: string,
     headers: Record<string, string>
   ): Promise<WebhookValidationResult> {
+    if (!paymentWebhookSecretMatches(headers)) {
+      return {
+        isValid: false,
+        provider: this.id,
+        eventId: "",
+        eventType: "unauthorized",
+        error: "Assinatura de webhook inválida.",
+      };
+    }
+
     try {
       const parsed = JSON.parse(payload);
       return {

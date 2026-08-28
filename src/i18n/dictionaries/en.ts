@@ -1042,4 +1042,12 @@ export const en: Dictionary = {
     planMismatch: "The plan saved in the database does not match the selected plan.",
     waitingMessage: "Waiting for subscription confirmation...",
   },
+  commerceEarnings: {
+    title: "Earnings",
+    subtitle: "Product-order revenue managed by the Commerce domain.",
+    totalEarned: "Total earned",
+    completedOrders: "Completed orders",
+    processing: "In processing",
+    empty: "There are no seller transactions to show yet.",
+  },
 };

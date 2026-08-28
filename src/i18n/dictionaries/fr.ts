@@ -1042,4 +1042,12 @@ export const fr: Dictionary = {
     planMismatch: "Le plan enregistré dans la base de données ne correspond pas au plan sélectionné.",
     waitingMessage: "En attente de confirmation de l'abonnement...",
   },
+  commerceEarnings: {
+    title: "Gains",
+    subtitle: "Revenus des commandes de produits, gérés par le domaine Commerce.",
+    totalEarned: "Total gagné",
+    completedOrders: "Commandes terminées",
+    processing: "En traitement",
+    empty: "Aucune transaction de vente à afficher pour le moment.",
+  },
 };
