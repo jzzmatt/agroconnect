@@ -1,15 +1,85 @@
 "use server";
 
-import { createServerSupabaseClient, tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
+import { revalidatePath } from "next/cache";
+import {
+  createServerSupabaseClient,
+  isSupabaseConfigured,
+  tryCreateAdminServerSupabaseClient,
+} from "@/lib/supabase/server";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import { getUserEntitlements } from "@/lib/services/pricing-service";
 import {
   MarketplaceService,
+  slugify,
   type CreateServiceInput,
   type UpdateServiceInput,
   type CreateProviderProfileInput,
   type SearchServicesFilterParams,
 } from "@/lib/services/marketplace-service";
 import type { ServiceListItem, ProviderPublicProfile, ServiceRequestItem } from "@/types/domain";
+
+async function getMarketplaceWritableClient() {
+  return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+}
+
+function revalidateServicePaths(slug?: string) {
+  revalidatePath("/agriservice");
+  revalidatePath("/dashboard/services");
+  if (slug) {
+    revalidatePath(`/services/${slug}`);
+  }
+}
+
+async function resolveCategoryId(
+  supabase: Awaited<ReturnType<typeof getMarketplaceWritableClient>>,
+  slug?: string | null
+): Promise<string | null> {
+  const normalized = (slug || "").trim();
+  if (!normalized) return null;
+  const { data } = await (supabase.from("categories") as any)
+    .select("id")
+    .eq("slug", normalized)
+    .maybeSingle();
+  return data?.id ? String(data.id) : null;
+}
+
+async function resolveServiceGeography(
+  supabase: Awaited<ReturnType<typeof getMarketplaceWritableClient>>,
+  params: { provinceName?: string | null; municipalityName?: string | null }
+): Promise<{
+  province_id?: string;
+  municipality_id?: string;
+  latitude?: number;
+  longitude?: number;
+}> {
+  const provinceName = (params.provinceName || "").trim();
+  if (!provinceName) return {};
+
+  const { data: province } = await (supabase.from("provinces") as any)
+    .select("id, name, latitude, longitude")
+    .ilike("name", provinceName)
+    .maybeSingle();
+
+  if (!province?.id) return {};
+
+  const municipalityName = (params.municipalityName || "").trim();
+  let municipalityId: string | undefined;
+  if (municipalityName) {
+    const { data: municipality } = await (supabase.from("municipalities") as any)
+      .select("id, name")
+      .eq("province_id", province.id)
+      .ilike("name", municipalityName)
+      .maybeSingle();
+    municipalityId = municipality?.id ? String(municipality.id) : undefined;
+  }
+
+  return {
+    province_id: String(province.id),
+    municipality_id: municipalityId,
+    latitude: province.latitude != null ? Number(province.latitude) : undefined,
+    longitude: province.longitude != null ? Number(province.longitude) : undefined,
+  };
+}
 
 /**
  * Server Action: Search marketplace services
@@ -49,6 +119,15 @@ export async function getProviderServicesAction(
 }
 
 /**
+ * Server Action: List services owned by the authenticated provider
+ */
+export async function listMyServicesAction(): Promise<ServiceListItem[]> {
+  await requireAuth();
+  const provider = await getOrCreateCurrentProviderProfileAction();
+  return MarketplaceService.getProviderServices(provider.id, false);
+}
+
+/**
  * Server Action: Create or get provider profile for logged-in user
  */
 export async function getOrCreateCurrentProviderProfileAction(
@@ -60,8 +139,7 @@ export async function getOrCreateCurrentProviderProfileAction(
     throw new Error("Perfil de utilizador não encontrado.");
   }
 
-  const supabase =
-    tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+  const supabase = await getMarketplaceWritableClient();
   const { data: existing } = await (supabase.from("provider_profiles") as any)
     .select("*")
     .eq("profile_id", userProfile.id)
@@ -118,13 +196,18 @@ export async function getOrCreateCurrentProviderProfileAction(
     .single();
 
   if (error || !created) {
+    if (isSupabaseConfigured()) {
+      throw new Error(
+        error?.message
+          ? `Não foi possível criar o perfil de prestador: ${error.message}`
+          : "Não foi possível criar o perfil de prestador. Tente novamente."
+      );
+    }
     return MarketplaceService.getOrCreateCurrentProviderProfile(input);
   }
 
   return created as ProviderPublicProfile;
 }
-
-import { getUserEntitlements } from "@/lib/services/pricing-service";
 
 /**
  * Server Action: Create service with strict Plan Entitlements
@@ -150,7 +233,7 @@ export async function createServiceAction(
   }
 
   const provider = await getOrCreateCurrentProviderProfileAction();
-  const supabase = await createServerSupabaseClient();
+  const supabase = await getMarketplaceWritableClient();
 
   if (!input.title || input.title.trim().length < 3) {
     throw new Error("O título do serviço deve conter pelo menos 3 caracteres.");
@@ -159,13 +242,19 @@ export async function createServiceAction(
     throw new Error("O preço do serviço deve ser um valor positivo.");
   }
 
-  const slugBase = input.title.toLowerCase().replace(/\s+/g, "-");
+  const slugBase = slugify(input.title) || "servico";
   const uniqueSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+  const categoryId =
+    input.categoryId || (await resolveCategoryId(supabase, input.categorySlug));
+  const geography = await resolveServiceGeography(supabase, {
+    provinceName: input.provinceName,
+    municipalityName: input.municipalityName,
+  });
 
   const { data, error } = await (supabase.from("services") as any)
     .insert({
       provider_id: provider.id,
-      category_id: input.categoryId || null,
+      category_id: categoryId,
       title: input.title.trim(),
       slug: uniqueSlug,
       short_description: input.shortDescription || input.title,
@@ -175,10 +264,10 @@ export async function createServiceAction(
       currency: input.currency || "AOA",
       location_type: input.locationType || "service_area",
       contact_preference: input.contactPreference || "platform",
-      province_id: input.provinceId || null,
-      municipality_id: input.municipalityId || null,
-      latitude: input.latitude || null,
-      longitude: input.longitude || null,
+      province_id: input.provinceId || geography.province_id || null,
+      municipality_id: input.municipalityId || geography.municipality_id || null,
+      latitude: input.latitude ?? geography.latitude ?? null,
+      longitude: input.longitude ?? geography.longitude ?? null,
       service_radius_km: input.serviceRadiusKm || 50,
       status: input.status || "published",
       is_featured: input.isFeatured || false,
@@ -187,8 +276,17 @@ export async function createServiceAction(
     .single();
 
   if (error || !data) {
+    if (isSupabaseConfigured()) {
+      throw new Error(
+        error?.message
+          ? `Não foi possível publicar o serviço: ${error.message}`
+          : "Não foi possível publicar o serviço. Tente novamente."
+      );
+    }
     return MarketplaceService.createService(input);
   }
+
+  revalidateServicePaths(data.slug);
 
   return {
     id: data.id,
@@ -224,7 +322,7 @@ export async function updateServiceAction(
 ): Promise<boolean> {
   await requireAuth();
   const provider = await getOrCreateCurrentProviderProfileAction();
-  const supabase = await createServerSupabaseClient();
+  const supabase = await getMarketplaceWritableClient();
 
   const updates: Record<string, any> = {};
   if (input.title !== undefined) updates.title = input.title;
@@ -244,7 +342,9 @@ export async function updateServiceAction(
     .eq("id", input.id)
     .eq("provider_id", provider.id);
 
-  return !error;
+  if (error) return false;
+  revalidateServicePaths();
+  return true;
 }
 
 /**

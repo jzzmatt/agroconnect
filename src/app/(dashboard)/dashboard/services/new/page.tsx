@@ -98,12 +98,15 @@ export default function NewServicePage() {
     try {
       await createServiceAction({
         title,
+        categorySlug: category,
         shortDescription,
         description,
         pricingType,
         price,
         currency,
         locationType,
+        provinceName: selectedProvince,
+        municipalityName: selectedMunicipality,
         serviceRadiusKm,
         status: "published",
       });

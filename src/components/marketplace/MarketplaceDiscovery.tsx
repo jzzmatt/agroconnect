@@ -4,18 +4,18 @@ import React, { useState, useEffect, useCallback, useTransition } from "react";
 import { EmptyState } from "@/components/ui";
 import { LocationMap, type MapMarkerItem } from "@/components/location";
 import { ServiceCard, ServiceFilters } from "@/components/marketplace";
-import { toggleFavoriteAction } from "@/lib/services/marketplace-actions";
-import { MarketplaceService, INITIAL_SERVICES } from "@/lib/services/marketplace-service";
+import { searchServicesAction, toggleFavoriteAction } from "@/lib/services/marketplace-actions";
 import type { ServiceListItem } from "@/types/domain";
 import type { PricingType } from "@/types/database";
 import { MapPin, SlidersHorizontal, Map as MapIcon, List } from "lucide-react";
 import { useGeolocation } from "@/lib/location/use-geolocation";
 
 export function MarketplaceDiscovery() {
-  const [services, setServices] = useState<ServiceListItem[]>(INITIAL_SERVICES);
-  const [totalCount, setTotalCount] = useState<number>(INITIAL_SERVICES.length);
+  const [services, setServices] = useState<ServiceListItem[]>([]);
+  const [totalCount, setTotalCount] = useState(0);
   const [selectedService, setSelectedService] = useState<ServiceListItem | null>(null);
   const [favorites, setFavorites] = useState<Set<string>>(new Set());
+  const [hasLoaded, setHasLoaded] = useState(false);
 
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedCategory, setSelectedCategory] = useState("");
@@ -30,22 +30,24 @@ export function MarketplaceDiscovery() {
   const { coordinates: userCoords } = useGeolocation();
   const userLatitude = userCoords?.latitude ?? null;
   const userLongitude = userCoords?.longitude ?? null;
+  const hasUserCoords = userLatitude != null && userLongitude != null;
 
   const loadServices = useCallback(async () => {
-    const res = await MarketplaceService.searchServices({
-      query: searchQuery,
+    const res = await searchServicesAction({
+      query: searchQuery || undefined,
       categorySlug: selectedCategory || undefined,
       provinceName: selectedProvince || undefined,
       municipalityName: selectedMunicipality || undefined,
       pricingType: (selectedPricingType as PricingType) || undefined,
-      latitude: userLatitude ?? undefined,
-      longitude: userLongitude ?? undefined,
-      radiusKm: selectedRadius,
+      latitude: hasUserCoords ? userLatitude : undefined,
+      longitude: hasUserCoords ? userLongitude : undefined,
+      radiusKm: hasUserCoords ? selectedRadius : undefined,
       sortBy: sortBy as "relevance" | "distance" | "price_asc" | "price_desc" | "newest" | "rating",
     });
 
     setServices(res.services);
     setTotalCount(res.total);
+    setHasLoaded(true);
   }, [
     searchQuery,
     selectedCategory,
@@ -54,6 +56,7 @@ export function MarketplaceDiscovery() {
     selectedPricingType,
     selectedRadius,
     sortBy,
+    hasUserCoords,
     userLatitude,
     userLongitude,
   ]);
@@ -158,7 +161,10 @@ export function MarketplaceDiscovery() {
           <MapIcon className="w-3.5 h-3.5" />
           <span>Mapa</span>
         </button>
-        {isPending && <span className="text-[11px] text-muted-foreground px-2">A atualizar…</span>}
+        {isPending && !hasLoaded && (
+          <span className="text-[11px] text-muted-foreground px-2">A carregar…</span>
+        )}
+        {isPending && hasLoaded && <span className="text-[11px] text-muted-foreground px-2">A atualizar…</span>}
       </div>
 
       <ServiceFilters
@@ -183,7 +189,11 @@ export function MarketplaceDiscovery() {
       <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
         {(viewMode === "split" || viewMode === "list") && (
           <div className={`space-y-4 ${viewMode === "split" ? "lg:col-span-7" : "lg:col-span-12"}`}>
-            {services.length > 0 ? (
+            {!hasLoaded ? (
+              <div className="text-center py-16 text-sm text-muted-foreground">
+                A carregar serviços...
+              </div>
+            ) : services.length > 0 ? (
               <div
                 className={`grid gap-4 ${
                   viewMode === "list"
