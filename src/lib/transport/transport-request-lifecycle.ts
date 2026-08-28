@@ -40,6 +40,27 @@ export function canTransitionTransportRequestStatus(
   return TRANSPORT_REQUEST_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+export function isTransportRequestStatusAlreadyApplied(
+  from: TransportRequestStatus | string | null | undefined,
+  to: TransportRequestStatus | string
+): boolean {
+  return Boolean(from) && String(from) === String(to);
+}
+
+export function interpretTransportRequestStatusWrite(params: {
+  error?: { message?: string | null; code?: string | null } | null;
+  updatedId?: string | null;
+  currentStatus?: string | null;
+  targetStatus: string;
+}): { ok: true } | { ok: false; reason: "error" | "not_updated" } {
+  if (params.updatedId) return { ok: true };
+  if (params.currentStatus && params.currentStatus === params.targetStatus) {
+    return { ok: true };
+  }
+  if (params.error) return { ok: false, reason: "error" };
+  return { ok: false, reason: "not_updated" };
+}
+
 export function resolveTransportRequestActor(params: {
   profileId: string;
   providerId: string | null;
@@ -107,6 +128,10 @@ export function buildTransportRequestInsert(params: {
   originNotes?: string;
   destinationNotes?: string;
   requestedDate?: string | null;
+  orderId?: string | null;
+  sellerGroupId?: string | null;
+  requestSource?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): {
   customer_id: string;
   provider_id: string;
@@ -119,12 +144,32 @@ export function buildTransportRequestInsert(params: {
   estimated_load_price: number;
   status: "pending";
   currency: string;
+  order_id?: string;
+  seller_group_id?: string;
+  request_source?: string;
+  metadata?: Record<string, unknown>;
 } {
   const originNotes = params.originNotes?.trim() || params.transport.origin_label || null;
   const destinationNotes =
     params.destinationNotes?.trim() || params.transport.destination_label || null;
 
-  return {
+  const row: {
+    customer_id: string;
+    provider_id: string;
+    transport_service_id: string;
+    message: string;
+    origin_notes: string | null;
+    destination_notes: string | null;
+    requested_date: string | null;
+    estimated_trip_price: number;
+    estimated_load_price: number;
+    status: "pending";
+    currency: string;
+    order_id?: string;
+    seller_group_id?: string;
+    request_source?: string;
+    metadata?: Record<string, unknown>;
+  } = {
     customer_id: params.customerId,
     provider_id: params.transport.provider_id,
     transport_service_id: params.transport.id,
@@ -137,4 +182,11 @@ export function buildTransportRequestInsert(params: {
     status: "pending",
     currency: params.transport.currency || "AOA",
   };
+
+  if (params.orderId) row.order_id = params.orderId;
+  if (params.sellerGroupId) row.seller_group_id = params.sellerGroupId;
+  if (params.requestSource) row.request_source = params.requestSource;
+  if (params.metadata) row.metadata = params.metadata;
+
+  return row;
 }

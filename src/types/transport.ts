@@ -40,6 +40,8 @@ export interface TransportListItem {
   created_at: string;
 }
 
+export type TransportRequestSource = "order_expedition";
+
 export interface TransportRequestItem {
   id: string;
   customer_id: string;
@@ -49,6 +51,10 @@ export interface TransportRequestItem {
   transport_service_id?: string | null;
   transport_title?: string | null;
   transport_slug?: string | null;
+  order_id?: string | null;
+  seller_group_id?: string | null;
+  request_source?: TransportRequestSource | string | null;
+  order_number?: string | null;
   status: TransportRequestStatus;
   message?: string | null;
   origin_notes?: string | null;
