@@ -22,6 +22,130 @@ async function getMarketplaceWritableClient() {
   return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 }
 
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+function nestedRecord(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    return value[0] && typeof value[0] === "object"
+      ? (value[0] as Record<string, unknown>)
+      : null;
+  }
+  if (typeof value === "object") return value as Record<string, unknown>;
+  return null;
+}
+
+function mapServiceRequestRow(item: Record<string, unknown>): ServiceRequestItem {
+  const service = nestedRecord(item.services);
+  const provider = nestedRecord(item.provider_profiles);
+  const customer = nestedRecord(item.profiles);
+  return {
+    id: String(item.id),
+    customer_id: String(item.customer_id),
+    customer_name: customer?.display_name != null ? String(customer.display_name) : null,
+    customer_email: customer?.email != null ? String(customer.email) : null,
+    customer_phone: customer?.phone != null ? String(customer.phone) : null,
+    provider_id: String(item.provider_id),
+    provider_name: provider?.business_name != null ? String(provider.business_name) : null,
+    service_id: item.service_id != null ? String(item.service_id) : null,
+    service_title: service?.title != null ? String(service.title) : "Serviço",
+    service_slug: service?.slug != null ? String(service.slug) : null,
+    status: (item.status as ServiceRequestItem["status"]) || "pending",
+    requested_date: item.requested_date != null ? String(item.requested_date) : null,
+    message: item.message != null ? String(item.message) : null,
+    location_notes: item.location_notes != null ? String(item.location_notes) : null,
+    estimated_price: item.estimated_price != null ? Number(item.estimated_price) : null,
+    currency: String(item.currency || "AOA"),
+    created_at: String(item.created_at),
+    updated_at: String(item.updated_at),
+  };
+}
+
+const SERVICE_REQUEST_SELECT = `
+  id,
+  customer_id,
+  provider_id,
+  service_id,
+  status,
+  requested_date,
+  message,
+  location_notes,
+  estimated_price,
+  currency,
+  created_at,
+  updated_at,
+  services(title, slug),
+  provider_profiles(business_name),
+  profiles:customer_id(display_name, email, phone)
+`;
+
+async function listServiceRequests(
+  column: "provider_id" | "customer_id",
+  value: string
+): Promise<ServiceRequestItem[]> {
+  const supabase = await getMarketplaceWritableClient();
+  const { data, error } = await (supabase.from("service_requests") as any)
+    .select(SERVICE_REQUEST_SELECT)
+    .eq(column, value)
+    .order("created_at", { ascending: false });
+
+  if (!error && Array.isArray(data)) {
+    return data.map((row: Record<string, unknown>) => mapServiceRequestRow(row));
+  }
+
+  const fallback = await (supabase.from("service_requests") as any)
+    .select("*")
+    .eq(column, value)
+    .order("created_at", { ascending: false });
+
+  if (fallback.error || !Array.isArray(fallback.data)) {
+    console.warn("[listServiceRequests] query failed:", error || fallback.error);
+    return [];
+  }
+  return fallback.data.map((row: Record<string, unknown>) => mapServiceRequestRow(row));
+}
+
+async function getExistingProviderProfile(): Promise<ProviderPublicProfile | null> {
+  const userProfile = await getCurrentUserProfile();
+  if (!userProfile) return null;
+
+  const supabase = await getMarketplaceWritableClient();
+  const { data, error } = await (supabase.from("provider_profiles") as any)
+    .select("*")
+    .eq("profile_id", userProfile.id)
+    .maybeSingle();
+
+  if (error || !data?.id) return null;
+
+  return {
+    id: data.id,
+    profile_id: data.profile_id,
+    business_name: data.business_name,
+    slug: data.slug,
+    headline: data.headline,
+    description: data.description,
+    provider_type: data.provider_type,
+    avatar_url: userProfile.avatar_url,
+    phone: data.phone,
+    email: data.email,
+    website: data.website,
+    verification_status: data.verification_status,
+    status: data.status,
+    rating: Number(data.rating || 5.0),
+    reviews_count: Number(data.reviews_count || 0),
+    service_radius_km: Number(data.service_radius_km || 50),
+    created_at: data.created_at,
+  };
+}
+
+function revalidateServiceRequestPaths() {
+  revalidatePath("/dashboard/requests");
+}
+
 export type CreateServiceActionResult =
   | { success: true; service: ServiceListItem }
   | { success: false; error: string };
@@ -431,38 +555,102 @@ export async function createServiceRequestAction(params: {
   message: string;
   requestedDate?: string;
   locationNotes?: string;
-}): Promise<{ success: boolean; message: string; requestId?: string }> {
-  await requireAuth();
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) {
-    throw new Error("É necessário ter perfil ativo para solicitar serviços.");
+}): Promise<{ success: boolean; message: string; requestId?: string; error?: string }> {
+  try {
+    await requireAuth();
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) {
+      return {
+        success: false,
+        message: "É necessário ter perfil ativo para solicitar serviços.",
+        error: "É necessário ter perfil ativo para solicitar serviços.",
+      };
+    }
+
+    const message = (params.message || "").trim();
+    if (!message) {
+      return {
+        success: false,
+        message: "Descreva o que necessita para este serviço.",
+        error: "Descreva o que necessita para este serviço.",
+      };
+    }
+    if (!looksLikeUuid(params.serviceId) || !looksLikeUuid(params.providerId)) {
+      return {
+        success: false,
+        message: "Serviço inválido. Atualize a página e tente novamente.",
+        error: "Serviço inválido. Atualize a página e tente novamente.",
+      };
+    }
+
+    const supabase = await getMarketplaceWritableClient();
+    const { data: service, error: serviceError } = await (supabase.from("services") as any)
+      .select("id, provider_id")
+      .eq("id", params.serviceId)
+      .maybeSingle();
+
+    if (serviceError || !service?.id) {
+      return {
+        success: false,
+        message: "Serviço não encontrado.",
+        error: "Serviço não encontrado.",
+      };
+    }
+
+    const providerId = String(service.provider_id);
+    if (providerId !== params.providerId) {
+      return {
+        success: false,
+        message: "Prestador inválido para este serviço.",
+        error: "Prestador inválido para este serviço.",
+      };
+    }
+
+    const { data, error } = await (supabase.from("service_requests") as any)
+      .insert({
+        customer_id: userProfile.id,
+        provider_id: providerId,
+        service_id: service.id,
+        message,
+        requested_date: params.requestedDate || null,
+        location_notes: params.locationNotes || null,
+        status: "pending",
+        currency: "AOA",
+      })
+      .select("id")
+      .single();
+
+    if (error || !data?.id) {
+      console.warn("[createServiceRequestAction] DB error:", error);
+      if (!isSupabaseConfigured()) {
+        return {
+          success: true,
+          message: "Pedido de serviço enviado com sucesso ao prestador!",
+          requestId: `req-${Math.random().toString(36).substring(2, 8)}`,
+        };
+      }
+      return {
+        success: false,
+        message: "Não foi possível enviar o pedido. Tente novamente.",
+        error: error?.message
+          ? `Não foi possível enviar o pedido: ${error.message}`
+          : "Não foi possível enviar o pedido. Tente novamente.",
+      };
+    }
+
+    revalidateServiceRequestPaths();
+    return {
+      success: true,
+      message: "Pedido de serviço enviado com sucesso ao prestador!",
+      requestId: String(data.id),
+    };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Não foi possível enviar o pedido. Tente novamente.";
+    return { success: false, message, error: message };
   }
-
-  const supabase = await createServerSupabaseClient();
-
-  const { data, error } = await (supabase.from("service_requests") as any)
-    .insert({
-      customer_id: userProfile.id,
-      provider_id: params.providerId,
-      service_id: params.serviceId,
-      message: params.message.trim(),
-      requested_date: params.requestedDate || null,
-      location_notes: params.locationNotes || null,
-      status: "pending",
-      currency: "AOA",
-    })
-    .select("id")
-    .single();
-
-  if (error) {
-    console.warn("[createServiceRequestAction] DB error:", error);
-  }
-
-  return {
-    success: true,
-    message: "Pedido de serviço enviado com sucesso ao prestador!",
-    requestId: data?.id || `req-${Math.random().toString(36).substring(2, 8)}`,
-  };
 }
 
 /**
@@ -503,112 +691,73 @@ export async function toggleFavoriteAction(
 export async function getCustomerRequestsAction(): Promise<ServiceRequestItem[]> {
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
-
-  try {
-    const supabase = await createServerSupabaseClient();
-    const { data, error } = await supabase
-      .from("service_requests")
-      .select(`
-        id,
-        customer_id,
-        provider_id,
-        service_id,
-        status,
-        requested_date,
-        message,
-        location_notes,
-        estimated_price,
-        currency,
-        created_at,
-        updated_at,
-        services(title, slug),
-        provider_profiles(business_name)
-      `)
-      .eq("customer_id", userProfile.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      return data.map((item: any) => ({
-        id: item.id,
-        customer_id: item.customer_id,
-        provider_id: item.provider_id,
-        provider_name: item.provider_profiles?.business_name || "Prestador",
-        service_id: item.service_id,
-        service_title: item.services?.title || "Serviço",
-        service_slug: item.services?.slug || null,
-        status: item.status,
-        requested_date: item.requested_date,
-        message: item.message,
-        location_notes: item.location_notes,
-        estimated_price: item.estimated_price ? Number(item.estimated_price) : null,
-        currency: item.currency || "AOA",
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-      }));
-    }
-  } catch (e) {
-    console.warn("[getCustomerRequestsAction] fallback:", e);
-  }
-
-  return [];
+  return listServiceRequests("customer_id", userProfile.id);
 }
 
 /**
- * Server Action: Get provider requests
+ * Server Action: Get provider incoming requests
  */
 export async function getProviderRequestsAction(): Promise<ServiceRequestItem[]> {
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) return [];
+  await requireAuth();
+  const provider = await getExistingProviderProfile();
+  if (!provider) return [];
+  return listServiceRequests("provider_id", provider.id);
+}
 
+/**
+ * Server Action: Provider accepts or rejects an incoming service request
+ */
+export async function updateServiceRequestStatusAction(input: {
+  id: string;
+  status: "accepted" | "rejected";
+}): Promise<{ success: boolean; error?: string }> {
   try {
-    const provider = await ensureCurrentProviderProfile();
-    const supabase = await createServerSupabaseClient();
-
-    const { data, error } = await supabase
-      .from("service_requests")
-      .select(`
-        id,
-        customer_id,
-        provider_id,
-        service_id,
-        status,
-        requested_date,
-        message,
-        location_notes,
-        estimated_price,
-        currency,
-        created_at,
-        updated_at,
-        services(title, slug),
-        profiles:customer_id(display_name, email, phone)
-      `)
-      .eq("provider_id", provider.id)
-      .order("created_at", { ascending: false });
-
-    if (!error && data && data.length > 0) {
-      return data.map((item: any) => ({
-        id: item.id,
-        customer_id: item.customer_id,
-        customer_name: item.profiles?.display_name || "Cliente",
-        customer_email: item.profiles?.email || null,
-        customer_phone: item.profiles?.phone || null,
-        provider_id: item.provider_id,
-        service_id: item.service_id,
-        service_title: item.services?.title || "Serviço",
-        service_slug: item.services?.slug || null,
-        status: item.status,
-        requested_date: item.requested_date,
-        message: item.message,
-        location_notes: item.location_notes,
-        estimated_price: item.estimated_price ? Number(item.estimated_price) : null,
-        currency: item.currency || "AOA",
-        created_at: item.created_at,
-        updated_at: item.updated_at,
-      }));
+    await requireAuth();
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) {
+      return { success: false, error: "Não autorizado: Sessão não encontrada." };
     }
-  } catch (e) {
-    console.warn("[getProviderRequestsAction] fallback:", e);
-  }
 
-  return [];
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: userProfile.subscription_plan,
+      roles: userProfile.roles,
+      accountType: userProfile.account_type,
+    });
+    if (!entitlements.can_manage_services) {
+      return {
+        success: false,
+        error: "O seu plano não permite gerir pedidos de serviço.",
+      };
+    }
+
+    if (!looksLikeUuid(input.id)) {
+      return { success: false, error: "Pedido inválido." };
+    }
+
+    const provider = await getExistingProviderProfile();
+    if (!provider) {
+      return { success: false, error: "Perfil de prestador não encontrado." };
+    }
+
+    const supabase = await getMarketplaceWritableClient();
+    const { data, error } = await (supabase.from("service_requests") as any)
+      .update({ status: input.status })
+      .eq("id", input.id)
+      .eq("provider_id", provider.id)
+      .select("id")
+      .maybeSingle();
+
+    if (error || !data?.id) {
+      return { success: false, error: "Pedido não encontrado ou sem permissão." };
+    }
+
+    revalidateServiceRequestPaths();
+    return { success: true };
+  } catch (error) {
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Não foi possível atualizar o pedido.";
+    return { success: false, error: message };
+  }
 }
