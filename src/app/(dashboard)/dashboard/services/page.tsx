@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import {
   Plus,
@@ -22,18 +22,37 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { updateServiceAction } from "@/lib/services/marketplace-actions";
-import { INITIAL_SERVICES } from "@/lib/services/marketplace-service";
+import { listMyServicesAction, updateServiceAction } from "@/lib/services/marketplace-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function MyServicesDashboardPage() {
-  const [services, setServices] = useState<ServiceListItem[]>(INITIAL_SERVICES);
+  const [services, setServices] = useState<ServiceListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [isLoadingList, setIsLoadingList] = useState(true);
   const { entitlements, loading } = useAuthoritativePlan();
   const isBasic = !loading && !entitlements.can_manage_services;
+
+  useEffect(() => {
+    if (isBasic) return;
+    let cancelled = false;
+    setIsLoadingList(true);
+    listMyServicesAction()
+      .then((rows) => {
+        if (!cancelled) setServices(rows);
+      })
+      .catch(() => {
+        if (!cancelled) setServices([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingList(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [isBasic]);
 
   if (isBasic) {
     return (
@@ -218,7 +237,11 @@ export default function MyServicesDashboardPage() {
 
       {/* Services List Table / Cards */}
       <div className="space-y-3">
-        {filteredServices.length > 0 ? (
+        {isLoadingList ? (
+          <div className="bg-surface-card rounded-3xl p-12 text-center border border-border">
+            <p className="text-sm text-muted-foreground">A carregar os seus serviços...</p>
+          </div>
+        ) : filteredServices.length > 0 ? (
           filteredServices.map((service) => (
             <div
               key={service.id}

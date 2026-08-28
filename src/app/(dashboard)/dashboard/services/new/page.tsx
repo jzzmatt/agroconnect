@@ -96,24 +96,38 @@ export default function NewServicePage() {
     setError(null);
 
     try {
-      await createServiceAction({
+      const result = await createServiceAction({
         title,
+        categorySlug: category,
         shortDescription,
         description,
         pricingType,
         price,
         currency,
         locationType,
+        provinceName: selectedProvince,
+        municipalityName: selectedMunicipality,
         serviceRadiusKm,
         status: "published",
       });
 
+      if (!result.success) {
+        setError(result.error);
+        return;
+      }
+
       setSuccess(true);
       setTimeout(() => {
         router.push("/dashboard/services");
+        router.refresh();
       }, 1500);
-    } catch (err: any) {
-      setError(err?.message || "Erro ao publicar serviço. Tente novamente.");
+    } catch (err: unknown) {
+      const raw = err instanceof Error ? err.message : "";
+      if (!raw || /minified react error|#441|server components render/i.test(raw)) {
+        setError("Não foi possível publicar o serviço. Tente novamente.");
+      } else {
+        setError(raw);
+      }
     } finally {
       setIsLoading(false);
     }

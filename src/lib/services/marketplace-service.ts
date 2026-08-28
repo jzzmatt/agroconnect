@@ -1,4 +1,5 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
+import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import type { ServiceListItem, ProviderPublicProfile, ServiceRequestItem } from "@/types/domain";
 import type { ServiceStatus, PricingType, ServiceLocationType, ServiceContactPreference } from "@/types/database";
 
@@ -24,6 +25,7 @@ export interface SearchServicesFilterParams {
 export interface CreateServiceInput {
   title: string;
   categoryId?: string;
+  categorySlug?: string;
   shortDescription?: string;
   description?: string;
   pricingType: PricingType;
@@ -32,7 +34,9 @@ export interface CreateServiceInput {
   locationType?: ServiceLocationType;
   contactPreference?: ServiceContactPreference;
   provinceId?: string;
+  provinceName?: string;
   municipalityId?: string;
+  municipalityName?: string;
   latitude?: number;
   longitude?: number;
   serviceRadiusKm?: number;
@@ -72,6 +76,153 @@ export function slugify(text: string): string {
     .replace(/[^a-z0-9 -]/g, "") // Remove invalid chars
     .replace(/\s+/g, "-") // Collapse whitespace and replace by -
     .replace(/-+/g, "-"); // Collapse dashes
+}
+
+function isLiveSupabase(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+  );
+}
+
+function looksLikeUuid(value: string): boolean {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-8][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    value
+  );
+}
+
+const PUBLISHED_SERVICE_STATUSES = ["published", "active"] as const;
+
+const SERVICE_PUBLIC_SELECT = `
+  id,
+  provider_id,
+  category_id,
+  title,
+  slug,
+  short_description,
+  description,
+  pricing_type,
+  price,
+  currency,
+  location_type,
+  province_id,
+  municipality_id,
+  latitude,
+  longitude,
+  service_radius_km,
+  status,
+  is_featured,
+  created_at,
+  provider_profiles(id, business_name, slug, rating, reviews_count, verification_status, status),
+  categories(id, name, slug),
+  provinces(id, name),
+  municipalities(id, name)
+`;
+
+function mapJoinedServiceRow(item: Record<string, unknown>): ServiceListItem {
+  const provider = item.provider_profiles as {
+    business_name?: string;
+    slug?: string;
+    rating?: number | string;
+    reviews_count?: number;
+    verification_status?: string;
+  } | null;
+  const category = item.categories as { id?: string; name?: string; slug?: string } | null;
+  const province = item.provinces as { name?: string } | null;
+  const municipality = item.municipalities as { name?: string } | null;
+
+  return {
+    id: String(item.id),
+    provider_id: String(item.provider_id),
+    provider_name: provider?.business_name || String(item.provider_name || "Prestador"),
+    provider_slug: provider?.slug || String(item.provider_slug || ""),
+    provider_rating: provider?.rating != null ? Number(provider.rating) : item.provider_rating != null ? Number(item.provider_rating) : null,
+    provider_reviews_count: provider?.reviews_count ?? (item.provider_reviews_count as number | undefined) ?? 0,
+    provider_verified:
+      provider?.verification_status === "verified" ||
+      item.provider_verified === "verified" ||
+      item.provider_verified === true,
+    category_id: (item.category_id as string) || category?.id || "",
+    category_name: category?.name || (item.category_name as string) || "",
+    category_slug: category?.slug || (item.category_slug as string) || null,
+    title: String(item.title),
+    slug: String(item.slug),
+    short_description: (item.short_description as string | null) ?? null,
+    description: (item.description as string | null) ?? null,
+    pricing_type: item.pricing_type as PricingType,
+    price: Number(item.price),
+    currency: String(item.currency || "AOA"),
+    location_type: (item.location_type as ServiceLocationType) || "service_area",
+    province_id: (item.province_id as string) || "",
+    province_name: province?.name || (item.province_name as string | null) || null,
+    municipality_id: (item.municipality_id as string) || null,
+    municipality_name: municipality?.name || (item.municipality_name as string | null) || null,
+    latitude: item.latitude != null ? Number(item.latitude) : null,
+    longitude: item.longitude != null ? Number(item.longitude) : null,
+    service_radius_km: item.service_radius_km != null ? Number(item.service_radius_km) : null,
+    distance_km: item.distance_km != null ? Number(Number(item.distance_km).toFixed(1)) : null,
+    is_within_service_area: (item.is_within_service_area as boolean | undefined) ?? undefined,
+    status: item.status as ServiceStatus,
+    is_featured: Boolean(item.is_featured),
+    created_at: String(item.created_at),
+  };
+}
+
+async function queryPublishedServicesFromTable(
+  params: SearchServicesFilterParams = {}
+): Promise<{ services: ServiceListItem[]; total: number } | null> {
+  const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+  const limit = params.limit || 50;
+  const offset = params.offset || 0;
+
+  let { data, error } = await (supabase.from("services") as any)
+    .select(SERVICE_PUBLIC_SELECT)
+    .in("status", PUBLISHED_SERVICE_STATUSES)
+    .order("created_at", { ascending: false })
+    .range(offset, offset + limit - 1);
+
+  if (error) {
+    const retry = await (supabase.from("services") as any)
+      .select("*")
+      .in("status", PUBLISHED_SERVICE_STATUSES)
+      .order("created_at", { ascending: false })
+      .range(offset, offset + limit - 1);
+    if (retry.error || !Array.isArray(retry.data)) return null;
+    data = retry.data;
+    error = null;
+  }
+
+  if (!Array.isArray(data)) return null;
+
+  let services = data.map((row: Record<string, unknown>) => mapJoinedServiceRow(row));
+
+  if (params.query) {
+    const q = params.query.toLowerCase();
+    services = services.filter(
+      (s: ServiceListItem) =>
+        s.title.toLowerCase().includes(q) ||
+        (s.short_description && s.short_description.toLowerCase().includes(q)) ||
+        s.provider_name.toLowerCase().includes(q)
+    );
+  }
+  if (params.categorySlug) {
+    services = services.filter((s: ServiceListItem) => s.category_slug === params.categorySlug);
+  }
+  if (params.provinceName) {
+    services = services.filter(
+      (s: ServiceListItem) => s.province_name?.toLowerCase() === params.provinceName?.toLowerCase()
+    );
+  }
+  if (params.municipalityName) {
+    services = services.filter(
+      (s: ServiceListItem) => s.municipality_name?.toLowerCase() === params.municipalityName?.toLowerCase()
+    );
+  }
+  if (params.pricingType) {
+    services = services.filter((s: ServiceListItem) => s.pricing_type === params.pricingType);
+  }
+
+  return { services, total: services.length };
 }
 
 function isMissingRpcError(error: { message?: string; code?: string } | null | undefined): boolean {
@@ -394,9 +545,9 @@ export class MarketplaceService {
     services: ServiceListItem[];
     total: number;
   }> {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+    if (isLiveSupabase()) {
       try {
-        const supabase = createPublicServerSupabaseClient();
+        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
         const { data, error } = await (supabase.rpc as any)("search_marketplace_services", {
           p_query: params.query || null,
           p_category_id: params.categoryId || null,
@@ -407,9 +558,9 @@ export class MarketplaceService {
           p_max_price: params.maxPrice ?? null,
           p_latitude: params.latitude ?? null,
           p_longitude: params.longitude ?? null,
-          p_radius_km: params.radiusKm ?? null,
+          p_radius_km: params.latitude != null && params.longitude != null ? params.radiusKm ?? null : null,
           p_sort_by: params.sortBy || "relevance",
-          p_limit: params.limit || 20,
+          p_limit: params.limit || 50,
           p_offset: params.offset || 0,
         });
 
@@ -421,13 +572,16 @@ export class MarketplaceService {
               : "[MarketplaceService.searchServices] RPC error:",
             error.message || error
           );
-        } else if (Array.isArray(data)) {
+        } else if (Array.isArray(data) && data.length > 0) {
           const total = data[0]?.total_count ? Number(data[0].total_count) : data.length;
           return {
             services: data.map((item: Parameters<typeof mapMarketplaceServiceRow>[0]) => mapMarketplaceServiceRow(item)),
             total,
           };
         }
+
+        const fromTable = await queryPublishedServicesFromTable(params);
+        if (fromTable) return fromTable;
       } catch (err) {
         console.warn("[MarketplaceService.searchServices] Fallback to in-memory dataset:", err);
       }
@@ -524,74 +678,20 @@ export class MarketplaceService {
   public static async getServiceBySlug(slug: string): Promise<ServiceListItem | null> {
     const seedMatch = INITIAL_SERVICES.find((s) => s.slug === slug);
 
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+    if (isLiveSupabase()) {
       try {
-        const supabase = createPublicServerSupabaseClient();
-        const { data, error } = await supabase
-          .from("services")
-          .select(`
-            id,
-            provider_id,
-            category_id,
-            title,
-            slug,
-            short_description,
-            description,
-            pricing_type,
-            price,
-            currency,
-            location_type,
-            province_id,
-            municipality_id,
-            latitude,
-            longitude,
-            service_radius_km,
-            status,
-            is_featured,
-            created_at,
-            provider_profiles!inner(id, business_name, slug, rating, reviews_count, verification_status, status),
-            categories(id, name, slug),
-            provinces(id, name),
-            municipalities(id, name)
-          `)
+        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        const { data, error } = await (supabase.from("services") as any)
+          .select(SERVICE_PUBLIC_SELECT)
           .eq("slug", slug)
-          .single();
+          .in("status", PUBLISHED_SERVICE_STATUSES)
+          .maybeSingle();
 
         if (!error && data) {
-          const item: any = data;
-          return {
-            id: item.id,
-            provider_id: item.provider_id,
-            provider_name: item.provider_profiles?.business_name || "Prestador",
-            provider_slug: item.provider_profiles?.slug || "",
-            provider_rating: item.provider_profiles?.rating ? Number(item.provider_profiles.rating) : null,
-            provider_reviews_count: item.provider_profiles?.reviews_count || 0,
-            provider_verified: item.provider_profiles?.verification_status === "verified",
-            category_id: item.category_id,
-            category_name: item.categories?.name || null,
-            category_slug: item.categories?.slug || null,
-            title: item.title,
-            slug: item.slug,
-            short_description: item.short_description,
-            description: item.description,
-            pricing_type: item.pricing_type,
-            price: Number(item.price),
-            currency: item.currency || "AOA",
-            location_type: item.location_type || "service_area",
-            province_id: item.province_id,
-            province_name: item.provinces?.name || null,
-            municipality_id: item.municipality_id,
-            municipality_name: item.municipalities?.name || null,
-            latitude: item.latitude ? Number(item.latitude) : null,
-            longitude: item.longitude ? Number(item.longitude) : null,
-            service_radius_km: item.service_radius_km ? Number(item.service_radius_km) : null,
-            status: item.status,
-            is_featured: item.is_featured,
-            created_at: item.created_at,
-          };
+          return mapJoinedServiceRow(data as Record<string, unknown>);
         }
       } catch {
-        // Fallback
+        // Fallback to seed
       }
     }
 
@@ -677,80 +777,32 @@ export class MarketplaceService {
    * Get all services for a specific provider
    */
   public static async getProviderServices(providerId: string, onlyPublished = true): Promise<ServiceListItem[]> {
-    if (process.env.NEXT_PUBLIC_SUPABASE_URL && !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")) {
+    const seed = INITIAL_SERVICES.filter((s) => s.provider_id === providerId);
+
+    if (isLiveSupabase()) {
       try {
-        const supabase = createPublicServerSupabaseClient();
-        let query = supabase
-          .from("services")
-          .select(`
-            id,
-            provider_id,
-            category_id,
-            title,
-            slug,
-            short_description,
-            description,
-            pricing_type,
-            price,
-            currency,
-            location_type,
-            province_id,
-            municipality_id,
-            latitude,
-            longitude,
-            service_radius_km,
-            status,
-            is_featured,
-            created_at,
-            provider_profiles(id, business_name, slug, rating, verification_status),
-            categories(id, name, slug),
-            provinces(id, name),
-            municipalities(id, name)
-          `)
-          .eq("provider_id", providerId);
+        const supabase = tryCreateAdminSupabaseClient() || createPublicServerSupabaseClient();
+        let query = (supabase.from("services") as any)
+          .select(SERVICE_PUBLIC_SELECT)
+          .eq("provider_id", providerId)
+          .order("created_at", { ascending: false });
 
         if (onlyPublished) {
-          query = query.in("status", ["published", "active"]);
+          query = query.in("status", PUBLISHED_SERVICE_STATUSES);
         }
 
         const { data, error } = await query;
-        if (!error && data && data.length > 0) {
-          return data.map((item: any) => ({
-            id: item.id,
-            provider_id: item.provider_id,
-            provider_name: item.provider_profiles?.business_name || "Prestador",
-            provider_slug: item.provider_profiles?.slug || "",
-            provider_rating: item.provider_profiles?.rating ? Number(item.provider_profiles.rating) : null,
-            provider_verified: item.provider_profiles?.verification_status === "verified",
-            category_id: item.category_id,
-            category_name: item.categories?.name || null,
-            category_slug: item.categories?.slug || null,
-            title: item.title,
-            slug: item.slug,
-            short_description: item.short_description,
-            description: item.description,
-            pricing_type: item.pricing_type,
-            price: Number(item.price),
-            currency: item.currency || "AOA",
-            location_type: item.location_type || "service_area",
-            province_id: item.province_id,
-            province_name: item.provinces?.name || null,
-            municipality_id: item.municipality_id,
-            municipality_name: item.municipalities?.name || null,
-            latitude: item.latitude ? Number(item.latitude) : null,
-            longitude: item.longitude ? Number(item.longitude) : null,
-            service_radius_km: item.service_radius_km ? Number(item.service_radius_km) : null,
-            status: item.status,
-            is_featured: item.is_featured,
-            created_at: item.created_at,
-          }));
+        if (!error && Array.isArray(data)) {
+          if (data.length > 0 || looksLikeUuid(providerId)) {
+            return data.map((row: Record<string, unknown>) => mapJoinedServiceRow(row));
+          }
         }
       } catch (err) {
         console.warn("[MarketplaceService.getProviderServices] Fallback to in-memory:", err);
       }
     }
 
-    return INITIAL_SERVICES.filter((s) => s.provider_id === providerId);
+    return looksLikeUuid(providerId) ? [] : seed;
   }
 
   /**

@@ -153,12 +153,15 @@ describe("FIX 4 — search_marketplace_services RPC", () => {
     expect(src).toMatch("NOTIFY pgrst, 'reload schema'");
   });
 
-  it("treats an empty RPC result as valid instead of forcing seed data", () => {
+  it("falls back to a published/active table query when RPC is empty or missing", () => {
     const src = read("src/lib/services/marketplace-service.ts");
     expect(src).toMatch("isMissingRpcError");
+    expect(src).toMatch("queryPublishedServicesFromTable");
+    expect(src).toMatch("PUBLISHED_SERVICE_STATUSES");
     const searchFn = src.slice(src.indexOf("public static async searchServices"), src.indexOf("High performance fallback"));
     expect(searchFn).toMatch("Array.isArray(data)");
-    expect(searchFn).not.toMatch("data.length > 0");
+    expect(searchFn).toMatch("queryPublishedServicesFromTable");
+    expect(searchFn).not.toMatch("return { services: [], total: 0 }");
   });
 });
 

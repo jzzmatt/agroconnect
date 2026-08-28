@@ -61,6 +61,8 @@ export function ServiceRequestModal({
           setRequestedDate("");
           setLocationNotes("");
         }, 1800);
+      } else {
+        setError(res.error || res.message || "Não foi possível enviar o pedido. Tente novamente.");
       }
     } catch (err: any) {
       setError(err?.message || "Não foi possível enviar o pedido. Inicie sessão para continuar.");
