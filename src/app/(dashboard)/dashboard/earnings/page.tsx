@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
@@ -13,17 +13,23 @@ function formatAmount(value: number, currency: string) {
 }
 
 export default function CommerceEarningsPage() {
-  const { dict } = useI18n();
+  const { dict, locale } = useI18n();
   const [summary, setSummary] = useState<SellerEarningsSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const copy = dict.commerceEarnings;
+  const dateLocale = locale === "en" ? "en-GB" : locale === "fr" ? "fr-FR" : "pt-AO";
 
   useEffect(() => {
     getSellerEarningsAction()
       .then((result) => setSummary(result))
+      .catch(() => setSummary(null))
       .finally(() => setIsLoading(false));
   }, []);
 
-  const copy = dict.commerceEarnings;
+  const completedEntries = useMemo(
+    () => (summary?.entries || []).filter((entry) => entry.status === "completed"),
+    [summary]
+  );
 
   return (
     <div className="space-y-6">
@@ -49,7 +55,12 @@ export default function CommerceEarningsPage() {
         </div>
         <div className="bg-surface-card rounded-2xl border border-border p-6 space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">{copy.completedOrders}</span>
-          <p className="text-2xl font-black text-foreground">{isLoading ? "—" : summary?.completed_count || 0}</p>
+          <p className="text-2xl font-black text-foreground">
+            {isLoading ? "—" : formatAmount(summary?.total_earned || 0, summary?.currency || "AOA")}
+          </p>
+          <p className="text-[11px] text-muted-foreground">
+            {isLoading ? "" : summary?.completed_count || 0}
+          </p>
         </div>
         <div className="bg-surface-card rounded-2xl border border-border p-6 space-y-1">
           <span className="text-xs font-semibold text-muted-foreground">{copy.processing}</span>
@@ -58,6 +69,34 @@ export default function CommerceEarningsPage() {
           </p>
         </div>
       </div>
+
+      {!isLoading && completedEntries.length > 0 ? (
+        <div className="bg-surface-card rounded-2xl border border-border p-6 space-y-4">
+          <h2 className="text-sm font-bold text-foreground">{copy.completedList}</h2>
+          <div className="divide-y divide-border">
+            {completedEntries.map((entry, index) => (
+              <div key={`${entry.order_number}-${entry.created_at}-${index}`} className="py-3 flex items-center justify-between gap-3 first:pt-0 last:pb-0">
+                <div>
+                  <Link
+                    href={`/orders/${entry.order_number}`}
+                    className="text-xs font-mono font-bold text-primary hover:underline"
+                  >
+                    {entry.order_number}
+                  </Link>
+                  {entry.created_at ? (
+                    <p className="text-[11px] text-muted-foreground mt-0.5">
+                      {new Date(entry.created_at).toLocaleDateString(dateLocale)}
+                    </p>
+                  ) : null}
+                </div>
+                <span className="text-sm font-black text-foreground">
+                  {formatAmount(entry.total, summary?.currency || "AOA")}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      ) : null}
 
       {!isLoading && (summary?.entries.length || 0) === 0 ? (
         <div className="bg-surface-card rounded-2xl border border-border p-8 text-center text-sm text-muted-foreground">

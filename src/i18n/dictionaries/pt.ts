@@ -1138,6 +1138,7 @@ export const pt = {
     totalEarned: "Total ganho",
     completedOrders: "Encomendas concluídas",
     processing: "Em processamento",
+    completedList: "Valor das encomendas concluídas",
     empty: "Ainda não há transacções de venda para apresentar.",
   },
   commerceReceipt: {

@@ -1140,6 +1140,7 @@ export const fr: Dictionary = {
     totalEarned: "Total gagné",
     completedOrders: "Commandes terminées",
     processing: "En traitement",
+    completedList: "Valeur des commandes terminées",
     empty: "Aucune transaction de vente à afficher pour le moment.",
   },
   commerceReceipt: {

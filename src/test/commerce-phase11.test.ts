@@ -18,7 +18,8 @@ describe("AGROCONNECT Phase 11 — Commerce authorization and persistence", () =
     expect(actions).toMatch(/export async function getSellerOrdersAction\(\)/);
     expect(actions).not.toMatch(/getSellerOrdersAction\(sellerId/);
     expect(actions).toContain("CommerceService.getSellerOrders(sellerIds, {");
-    expect(actions).toContain("updateFulfillmentStatus(orderNumber, sellerId, nextStatus, PERSIST)");
+    expect(actions).toContain("updateFulfillmentStatus(orderNumber, sellerId, nextStatus, {");
+    expect(actions).toContain("resolveSessionSellerIds");
     expect(actions).toContain("_sellerId");
   });
 

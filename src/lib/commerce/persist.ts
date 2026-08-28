@@ -841,12 +841,15 @@ export async function persistUpdateFulfillmentStatus(
   if (!order) return false;
   const group = order.seller_groups.find((entry) => entry.seller_id === sellerId);
   if (!group) return false;
-  const { error } = await supabase
+  const { data, error } = await supabase
     .from("order_seller_groups")
     .update({ status: nextStatus })
     .eq("id", group.id)
-    .eq("seller_id", sellerId);
+    .eq("seller_id", sellerId)
+    .select("id")
+    .maybeSingle();
   if (error) throw new Error(error.message);
+  if (!data?.id) return false;
   if (nextStatus === "completed") {
     const remaining = order.seller_groups.filter((entry) => entry.seller_id !== sellerId && entry.status !== "completed");
     if (remaining.length === 0) {
@@ -1090,36 +1093,222 @@ export async function persistCancelOrder(
   return true;
 }
 
+async function fallbackSellerEarnings(sellerIds: string[]): Promise<SellerEarningsSummary | null> {
+  try {
+    const orders = await persistGetSellerOrders(sellerIds);
+    if (orders === null) return null;
+    return summarizeSellerEarnings(sellerIds, orders);
+  } catch (error) {
+    console.warn("[persistGetSellerEarnings.fallback]", error);
+    return null;
+  }
+}
+
 export async function persistGetSellerEarnings(
   sellerId: string | string[]
 ): Promise<SellerEarningsSummary | null> {
-  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
-  const orders = await persistGetSellerOrders(sellerIds);
-  if (orders === null) return null;
-  return summarizeSellerEarnings(sellerIds[0] || "", orders);
+  const supabase = persistClient();
+  if (!supabase) return null;
+  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter((id) => isUuid(id));
+  if (sellerIds.length === 0) return summarizeSellerEarnings(sellerId, []);
+
+  try {
+    const [{ data: groupRows, error: groupError }, { data: itemRows, error: itemsError }] = await Promise.all([
+      supabase.from("order_seller_groups").select("id, order_id, seller_id, status, subtotal, total").in("seller_id", sellerIds),
+      supabase.from("order_items").select("order_id, seller_group_id, seller_id, subtotal").in("seller_id", sellerIds),
+    ]);
+
+    if (groupError) return fallbackSellerEarnings(sellerIds);
+
+    const productValueByGroup = new Map<string, number>();
+    const productValueByOrderSeller = new Map<string, number>();
+    if (!itemsError) {
+      for (const item of itemRows || []) {
+        const amount = asNumber(item.subtotal);
+        if (item.seller_group_id) {
+          const groupKey = String(item.seller_group_id);
+          productValueByGroup.set(groupKey, (productValueByGroup.get(groupKey) || 0) + amount);
+        }
+        if (item.order_id && item.seller_id) {
+          const orderSellerKey = `${item.order_id}:${item.seller_id}`;
+          productValueByOrderSeller.set(
+            orderSellerKey,
+            (productValueByOrderSeller.get(orderSellerKey) || 0) + amount
+          );
+        }
+      }
+    }
+
+    const orderIds = [
+      ...new Set(
+        [...(groupRows || []), ...(itemRows || [])]
+          .map((row: { order_id?: string }) => row.order_id)
+          .filter((id): id is string => Boolean(id))
+      ),
+    ];
+    if (orderIds.length === 0) return summarizeSellerEarnings(sellerIds, []);
+
+    const { data: orderRows, error: orderError } = await supabase
+      .from("orders")
+      .select("id, order_number, payment_status, status, currency, created_at, subtotal, total")
+      .in("id", orderIds);
+    if (orderError) return fallbackSellerEarnings(sellerIds);
+
+    const ordersById = new Map<string, Record<string, unknown>>(
+      (orderRows || []).map((row: Record<string, unknown>) => [String(row.id), row])
+    );
+    const groupsByOrder = new Map<string, Array<Record<string, unknown>>>();
+    for (const row of (groupRows || []) as Array<Record<string, unknown>>) {
+      const orderId = String(row.order_id);
+      const list = groupsByOrder.get(orderId) || [];
+      list.push(row);
+      groupsByOrder.set(orderId, list);
+    }
+
+    const orders: OrderDescriptor[] = [];
+    for (const orderId of orderIds) {
+      const orderRow = ordersById.get(orderId);
+      if (!orderRow) continue;
+      const groups = groupsByOrder.get(orderId) || [];
+      const sellerGroups: OrderSellerGroupDescriptor[] =
+        groups.length > 0
+          ? groups.map((group) => {
+              const sellerKey = String(group.seller_id || "");
+              const productValue =
+                productValueByGroup.get(String(group.id)) ||
+                productValueByOrderSeller.get(`${orderId}:${sellerKey}`) ||
+                asNumber(group.subtotal) ||
+                asNumber(group.total);
+              return {
+                id: String(group.id),
+                order_id: orderId,
+                seller_id: sellerKey,
+                seller_name: "",
+                status: group.status as OrderSellerGroupDescriptor["status"],
+                delivery_status: "not_assigned",
+                fulfillment_method: "delivery",
+                subtotal: productValue,
+                delivery_fee: 0,
+                total: productValue,
+                items: [],
+              };
+            })
+          : sellerIds
+              .filter((sellerKey) => productValueByOrderSeller.has(`${orderId}:${sellerKey}`))
+              .map((sellerKey) => {
+                const productValue = productValueByOrderSeller.get(`${orderId}:${sellerKey}`) || 0;
+                const orderStatus = String(orderRow.status || "");
+                return {
+                  id: `${orderId}:${sellerKey}`,
+                  order_id: orderId,
+                  seller_id: sellerKey,
+                  seller_name: "",
+                  status: (orderStatus === "completed" || orderStatus === "cancelled"
+                    ? orderStatus
+                    : "processing") as OrderSellerGroupDescriptor["status"],
+                  delivery_status: "not_assigned",
+                  fulfillment_method: "delivery",
+                  subtotal: productValue,
+                  delivery_fee: 0,
+                  total: productValue,
+                  items: [],
+                };
+              });
+      if (sellerGroups.length === 0) continue;
+      orders.push({
+        id: orderId,
+        order_number: String(orderRow.order_number || ""),
+        customer_id: "",
+        status: orderRow.status as OrderDescriptor["status"],
+        payment_status: orderRow.payment_status as OrderDescriptor["payment_status"],
+        fulfillment_method: "delivery",
+        currency: String(orderRow.currency || "AOA"),
+        subtotal: asNumber(orderRow.subtotal),
+        delivery_fee: 0,
+        discount: 0,
+        tax: 0,
+        total: asNumber(orderRow.total),
+        shipping_address: null,
+        items: [],
+        seller_groups: sellerGroups,
+        payment: null,
+        created_at: String(orderRow.created_at || ""),
+        updated_at: String(orderRow.created_at || ""),
+      });
+    }
+
+    return summarizeSellerEarnings(sellerIds, orders);
+  } catch (error) {
+    console.warn("[persistGetSellerEarnings]", error);
+    return fallbackSellerEarnings(sellerIds);
+  }
 }
 
-export function summarizeSellerEarnings(sellerId: string, orders: OrderDescriptor[]): SellerEarningsSummary {
+export function sellerGroupProductValue(group: {
+  subtotal?: number;
+  total?: number;
+  items?: Array<{ subtotal?: number }>;
+}): number {
+  if (Array.isArray(group.items) && group.items.length > 0) {
+    const fromItems = group.items.reduce((sum, item) => sum + asNumber(item.subtotal), 0);
+    if (fromItems > 0) return fromItems;
+  }
+  const fromSubtotal = asNumber(group.subtotal);
+  if (fromSubtotal > 0) return fromSubtotal;
+  return asNumber(group.total);
+}
+
+export function isCompletedPaidProductGroup(params: {
+  paymentStatus?: string | null;
+  fulfillmentStatus?: string | null;
+  orderStatus?: string | null;
+}): boolean {
+  const fulfillment = String(params.fulfillmentStatus || "");
+  const orderStatus = String(params.orderStatus || "");
+  const payment = String(params.paymentStatus || "");
+  if (fulfillment === "cancelled" || orderStatus === "cancelled") return false;
+  if (payment === "failed" || payment === "cancelled" || payment === "refunded" || payment === "partially_refunded") {
+    return false;
+  }
+  return fulfillment === "completed" || orderStatus === "completed";
+}
+
+export function summarizeSellerEarnings(
+  sellerId: string | string[],
+  orders: OrderDescriptor[]
+): SellerEarningsSummary {
+  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
+  const allowed = new Set(sellerIds);
+
   const groups = orders.flatMap((order) =>
     order.seller_groups
-      .filter((group) => group.seller_id === sellerId)
-      .map((group) => ({
-        order_number: order.order_number,
-        status: group.status,
-        payment_status: order.payment_status,
-        total: group.total,
-        created_at: order.created_at,
-      }))
+      .filter((group) => allowed.has(group.seller_id))
+      .map((group) => {
+        const cancelled = group.status === "cancelled" || order.status === "cancelled";
+        const completed =
+          !cancelled &&
+          isCompletedPaidProductGroup({
+            paymentStatus: order.payment_status,
+            fulfillmentStatus: group.status,
+            orderStatus: order.status,
+          });
+        const productValue = sellerGroupProductValue(group) || asNumber(order.subtotal);
+        return {
+          order_number: order.order_number,
+          status: cancelled ? "cancelled" : completed ? "completed" : group.status,
+          payment_status: order.payment_status,
+          total: productValue,
+          created_at: order.created_at,
+        };
+      })
   );
 
-  const countable = groups.filter(
-    (group) => group.payment_status === "paid" && group.status !== "cancelled"
-  );
+  const countable = groups.filter((group) => group.status !== "cancelled");
   const completed = countable.filter((group) => group.status === "completed");
   const processing = countable.filter((group) => group.status !== "completed");
 
   return {
-    seller_id: sellerId,
+    seller_id: sellerIds[0] || "",
     currency: orders[0]?.currency || "AOA",
     total_earned: completed.reduce((sum, group) => sum + group.total, 0),
     total_processing: processing.reduce((sum, group) => sum + group.total, 0),
