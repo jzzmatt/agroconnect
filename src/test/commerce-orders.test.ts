@@ -1,8 +1,6 @@
 import { describe, it, expect, beforeEach } from "vitest";
 import {
   CommerceService,
-  INITIAL_ORDERS,
-  recalculateCart,
 } from "@/lib/services/commerce-service";
 import { PaymentService, SandboxPaymentAdapter } from "@/lib/payments";
 import { MarketplaceService } from "@/lib/services/marketplace-service";
@@ -10,7 +8,7 @@ import { ShoppingService } from "@/lib/services/shopping-service";
 
 describe("AGROCONNECT Phase 8 — Commerce, Cart, Orders & Payments Foundation", () => {
   beforeEach(async () => {
-    await CommerceService.clearCart();
+    CommerceService.resetMemoryStore();
   });
 
   it("1. Adds products to cart and calculates subtotal/total server-side", async () => {
@@ -137,7 +135,7 @@ describe("AGROCONNECT Phase 8 — Commerce, Cart, Orders & Payments Foundation",
         status: "paid",
         amount: 50000,
       }),
-      {}
+      { "x-payment-webhook-secret": "sandbox-dev-secret" }
     );
 
     expect(webhookResult.isValid).toBe(true);
@@ -185,5 +183,62 @@ describe("AGROCONNECT Phase 8 — Commerce, Cart, Orders & Payments Foundation",
 
     const products = await ShoppingService.searchProducts({ query: "milho" });
     expect(products.products.length).toBeGreaterThan(0);
+  });
+
+  it("10. Does not dump every order when sellerId is omitted", async () => {
+    const leaked = await CommerceService.getSellerOrders();
+    expect(leaked).toEqual([]);
+  });
+
+  it("11. Checkout snapshots the catalog price, not a tampered cart price", async () => {
+    await CommerceService.addToCart({ productId: "prd-seed-1", quantity: 1 });
+    const cart = await CommerceService.getCart();
+    cart.items[0].unit_price = 1;
+    cart.items[0].subtotal = 1;
+
+    const result = await CommerceService.checkoutOrder({
+      fulfillmentMethod: "pickup",
+      paymentMethod: "mock_sandbox",
+    });
+
+    expect(result.order.items[0].unit_price).toBe(28500);
+    expect(result.order.items[0].subtotal).toBe(28500);
+  });
+
+  it("12. Rejects sandbox payment webhooks without a shared secret", async () => {
+    const denied = await PaymentService.handleWebhook(
+      JSON.stringify({
+        eventId: "evt_forged",
+        eventType: "payment.confirmed",
+        orderId: "ord-test-1",
+        status: "paid",
+        amount: 1,
+      }),
+      {}
+    );
+    expect(denied.isValid).toBe(false);
+  });
+
+  it("13. Scopes customer orders and seller earnings to the actor", async () => {
+    await CommerceService.addToCart({ productId: "prd-seed-1", quantity: 1 });
+    const { order } = await CommerceService.checkoutOrder({
+      fulfillmentMethod: "pickup",
+      paymentMethod: "mock_sandbox",
+    });
+
+    const mine = await CommerceService.getCustomerOrders({ customerId: "demo-user" });
+    expect(mine.some((entry) => entry.order_number === order.order_number)).toBe(true);
+
+    const other = await CommerceService.getCustomerOrders({ customerId: "someone-else" });
+    expect(other.some((entry) => entry.order_number === order.order_number)).toBe(false);
+
+    const sellerOrders = await CommerceService.getSellerOrders("prov-seed-1");
+    expect(sellerOrders.some((entry) => entry.order_number === order.order_number)).toBe(true);
+    expect(sellerOrders.every((entry) => entry.seller_groups.every((group) => group.seller_id === "prov-seed-1"))).toBe(
+      true
+    );
+
+    const earnings = await CommerceService.getSellerEarnings("prov-seed-1");
+    expect(earnings.processing_count + earnings.completed_count).toBeGreaterThan(0);
   });
 });

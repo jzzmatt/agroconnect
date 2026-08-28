@@ -1,6 +1,7 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
-import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import { isSupabaseConfigured, tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isPublicProductStatus } from "@/lib/products/publication";
+import { canPermanentlyDeleteProduct } from "@/lib/products/delete-flow";
 import { buildInventoryPatch, type ProductInventoryUpdate } from "@/lib/products/inventory";
 import type { ProductListItem, SellerPublicProfile, ProductRequestItem } from "@/types/domain";
 import type { ProductCondition, ProductStatus, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
@@ -987,6 +988,52 @@ export class ShoppingService {
       message: "Pedido de produto enviado com sucesso ao vendedor!",
       requestId: `preq-${Math.random().toString(36).substring(2, 8)}`,
     };
+  }
+
+  /**
+   * Permanently delete an unpublished product owned by the seller.
+   */
+  public static async deleteProduct(
+    productId: string,
+    sellerId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const product = await this.getProductById(productId, sellerId);
+    if (!product || product.seller_id !== sellerId) {
+      return { success: false, error: "Produto não encontrado." };
+    }
+    if (!canPermanentlyDeleteProduct(product.status)) {
+      return {
+        success: false,
+        error: "Pausa ou arquiva o produto publicado antes de o eliminar.",
+      };
+    }
+
+    if (isSupabaseConfigured()) {
+      try {
+        const admin = tryCreateAdminSupabaseClient();
+        const client = admin || createPublicServerSupabaseClient();
+        const { error } = await (client.from("products") as any)
+          .delete()
+          .eq("id", productId)
+          .eq("seller_id", sellerId);
+        if (error) {
+          return { success: false, error: error.message || "Não foi possível eliminar o produto." };
+        }
+        return { success: true };
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : "Não foi possível eliminar o produto.",
+        };
+      }
+    }
+
+    const index = INITIAL_PRODUCTS.findIndex(
+      (entry) => entry.id === productId && entry.seller_id === sellerId
+    );
+    if (index < 0) return { success: false, error: "Produto não encontrado." };
+    INITIAL_PRODUCTS.splice(index, 1);
+    return { success: true };
   }
 
   /**

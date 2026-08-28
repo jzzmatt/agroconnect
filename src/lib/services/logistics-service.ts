@@ -1,65 +1,14 @@
-import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
-import {
-  canTransitionOrderStatus,
-  canTransitionDeliveryStatus,
-  generateDeliveryOTP,
-} from "@/lib/logistics/state-machine";
 import { NotificationService } from "@/lib/services/notification-service";
+import { calculateDeliveryFee, INITIAL_DELIVERY_ZONES } from "@/lib/logistics/delivery-fee";
+import { isUuid } from "@/lib/commerce/ids";
 import type {
-  DeliveryZoneDescriptor,
   CourierDescriptor,
+  DeliveryZoneDescriptor,
   OrderTrackingEventDescriptor,
-  OrderDescriptor,
-  OrderSellerGroupDescriptor,
 } from "@/types/domain";
-import type { DeliveryStatus, OrderStatus } from "@/types/database";
+import type { DeliveryStatus } from "@/types/database";
 
-export const INITIAL_DELIVERY_ZONES: DeliveryZoneDescriptor[] = [
-  {
-    id: "zone-hua",
-    name: "Zona Huambo Central (Caála & Huambo)",
-    description: "Entrega rápida no Planalto Central de Angola",
-    province_name: "Huambo",
-    municipality_name: "Caála",
-    base_fee: 2000,
-    per_km_fee: 100,
-    estimated_hours: 12,
-    is_active: true,
-  },
-  {
-    id: "zone-bgu",
-    name: "Zona Litoral Benguela (Lobito & Catumbela)",
-    description: "Entrega expressa litoral de Benguela",
-    province_name: "Benguela",
-    municipality_name: "Lobito",
-    base_fee: 2500,
-    per_km_fee: 120,
-    estimated_hours: 18,
-    is_active: true,
-  },
-  {
-    id: "zone-mal",
-    name: "Zona Malanje Agrícola (Cacuso & Malanje)",
-    description: "Rotas rurais e entregas em fazendas",
-    province_name: "Malanje",
-    municipality_name: "Cacuso",
-    base_fee: 3000,
-    per_km_fee: 150,
-    estimated_hours: 24,
-    is_active: true,
-  },
-  {
-    id: "zone-lua",
-    name: "Zona Luanda Metropolitana & Cintura Verde",
-    description: "Distribuição na capital e cinturão hortícola de Viana/Cacuaco",
-    province_name: "Luanda",
-    municipality_name: "Viana",
-    base_fee: 3500,
-    per_km_fee: 200,
-    estimated_hours: 24,
-    is_active: true,
-  },
-];
+export { INITIAL_DELIVERY_ZONES, calculateDeliveryFee };
 
 export const INITIAL_COURIERS: CourierDescriptor[] = [
   {
@@ -159,24 +108,7 @@ export class LogisticsService {
     zoneName: string;
     estimatedHours: number;
   } {
-    if (!provinceName) {
-      return { fee: 2500, zoneName: "Zona Padrão Angola", estimatedHours: 24 };
-    }
-
-    const zone = INITIAL_DELIVERY_ZONES.find(
-      (z) => z.province_name?.toLowerCase() === provinceName.toLowerCase()
-    );
-
-    if (zone) {
-      const distanceExtra = distanceKm ? Math.max(0, distanceKm - 10) * zone.per_km_fee : 0;
-      return {
-        fee: Math.round(zone.base_fee + distanceExtra),
-        zoneName: zone.name,
-        estimatedHours: zone.estimated_hours,
-      };
-    }
-
-    return { fee: 2500, zoneName: "Zona Geral Angola", estimatedHours: 24 };
+    return calculateDeliveryFee(provinceName, distanceKm);
   }
 
   /**
@@ -194,7 +126,15 @@ export class LogisticsService {
   /**
    * Get tracking audit trail events for an order
    */
-  public static async getOrderTrackingEvents(orderNumber: string): Promise<OrderTrackingEventDescriptor[]> {
+  public static async getOrderTrackingEvents(
+    orderNumber: string,
+    options?: { persist?: boolean }
+  ): Promise<OrderTrackingEventDescriptor[]> {
+    if (options?.persist && !process.env.VITEST && !process.env.VITEST_WORKER_ID) {
+      const { persistGetTrackingEvents } = await import("@/lib/commerce/persist");
+      const persisted = await persistGetTrackingEvents(orderNumber);
+      if (persisted && persisted.length > 0) return persisted;
+    }
     return memoryTrackingEvents
       .filter((e) => e.order_number === orderNumber)
       .sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
@@ -215,7 +155,12 @@ export class LogisticsService {
     locationName?: string;
     latitude?: number;
     longitude?: number;
+    persist?: boolean;
   }): Promise<OrderTrackingEventDescriptor> {
+    if (event.persist && isUuid(event.orderId) && !process.env.VITEST && !process.env.VITEST_WORKER_ID) {
+      const { persistRecordTrackingEvent } = await import("@/lib/commerce/persist");
+      await persistRecordTrackingEvent(event);
+    }
     const created: OrderTrackingEventDescriptor = {
       id: `evt-${Math.random().toString(36).substring(2, 8)}`,
       order_id: event.orderId,

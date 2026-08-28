@@ -25,6 +25,7 @@ import { LocationMap } from "@/components/location";
 import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { BunnyPlayer } from "@/components/shopping/BunnyPlayer";
+import { AddToCartControl } from "@/components/commerce/AddToCartControl";
 import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
 import type { ProductListItem } from "@/types/domain";
 
@@ -255,19 +256,11 @@ export default function ProductDetailPage() {
 
               {/* Action Buttons: Add to Cart + Direct Request */}
               <div className="space-y-2">
-                <Button
-                  variant="primary"
+                <AddToCartControl
+                  productId={product.id}
+                  disabled={product.availability_status === "out_of_stock"}
                   size="lg"
-                  onClick={async () => {
-                    const { addToCartAction } = await import("@/lib/services/commerce-actions");
-                    await addToCartAction({ productId: product.id, quantity: 1 });
-                    alert("Produto adicionado ao carrinho!");
-                  }}
-                  className="w-full gap-2 font-bold h-12 text-sm shadow-md cursor-pointer"
-                >
-                  <Package className="w-4 h-4" />
-                  <span>Adicionar ao Carrinho</span>
-                </Button>
+                />
 
                 <Button
                   variant="outline"

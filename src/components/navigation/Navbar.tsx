@@ -21,6 +21,7 @@ import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
 import { ControlPanelLink } from "./ControlPanelLink";
+import { NavbarCartLink } from "@/components/commerce/NavbarCartLink";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -83,9 +84,7 @@ export function Navbar() {
             <LanguageSelector compact />
             <ThemeSwitcher />
 
-            <Link href="/cart" className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors" title={dict.navigation.cart}>
-              <ShoppingBag className="w-5 h-5 text-primary" />
-            </Link>
+            <NavbarCartLink />
 
             {isSignedIn ? (
               <>
@@ -121,14 +120,7 @@ export function Navbar() {
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden shrink-0">
-            <Link
-              href="/cart"
-              className="p-2 rounded-xl text-foreground hover:bg-muted relative transition-colors"
-              title={dict.navigation.cart}
-              aria-label={dict.navigation.cart}
-            >
-              <ShoppingBag className="w-5 h-5 text-primary" />
-            </Link>
+            <NavbarCartLink />
 
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}

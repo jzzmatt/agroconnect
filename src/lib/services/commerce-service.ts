@@ -1,55 +1,60 @@
-import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { PaymentService } from "@/lib/payments";
 import { INITIAL_PRODUCTS, ShoppingService } from "@/lib/services/shopping-service";
+import { calculateDeliveryFee } from "@/lib/logistics/delivery-fee";
+import { LogisticsService } from "@/lib/services/logistics-service";
+import { NotificationService } from "@/lib/services/notification-service";
+import { isUuid } from "@/lib/commerce/ids";
+import {
+  persistAddToCart,
+  persistCancelOrder,
+  persistCheckoutOrder,
+  persistClearCart,
+  persistGetCart,
+  persistGetCustomerOrders,
+  persistGetOrderByNumber,
+  persistGetSellerEarnings,
+  persistGetSellerOrders,
+  persistRemoveFromCart,
+  persistUpdateCartItemQuantity,
+  persistUpdateFulfillmentStatus,
+  persistRecordTrackingEvent,
+  summarizeSellerEarnings,
+} from "@/lib/commerce/persist";
 import type {
   ShoppingCart,
   CartItemDescriptor,
+  CheckoutOrderInput,
+  AddToCartInput,
+  CommerceActor,
   OrderDescriptor,
-  CustomerAddress,
   OrderItemDescriptor,
   OrderSellerGroupDescriptor,
-  PaymentRecordDescriptor,
-} from "@/types/domain";
-import type {
-  OrderStatus,
-  PaymentStatus,
-  OrderFulfillmentMethod,
-  PaymentMethod,
-} from "@/types/database";
+  SellerEarningsSummary,
+} from "@/types/commerce";
+import type { OrderStatus, PaymentStatus } from "@/types/database";
 
-export interface AddToCartInput {
-  productId: string;
-  quantity?: number;
+export type { AddToCartInput, CheckoutOrderInput, CommerceActor };
+
+const DEFAULT_MEMORY_CUSTOMER = "demo-user";
+
+function cloneOrders(orders: OrderDescriptor[]): OrderDescriptor[] {
+  return JSON.parse(JSON.stringify(orders)) as OrderDescriptor[];
 }
 
-export interface CheckoutOrderInput {
-  fulfillmentMethod: OrderFulfillmentMethod;
-  shippingAddressId?: string;
-  shippingAddressSnapshot?: {
-    recipient_name: string;
-    phone: string;
-    address_line: string;
-    province_name?: string;
-    municipality_name?: string;
-    notes?: string;
+function emptyCart(customerId: string): ShoppingCart {
+  return {
+    id: `cart-${customerId}`,
+    customer_id: customerId,
+    currency: "AOA",
+    items: [],
+    items_count: 0,
+    subtotal: 0,
+    delivery_fee: 0,
+    discount: 0,
+    total: 0,
+    sellers_count: 0,
   };
-  paymentMethod: PaymentMethod;
-  notes?: string;
 }
-
-// In-memory persistent cart session for sandbox/guest/tests
-let memoryCart: ShoppingCart = {
-  id: "cart-session-default",
-  customer_id: "demo-user",
-  currency: "AOA",
-  items: [],
-  items_count: 0,
-  subtotal: 0,
-  delivery_fee: 0,
-  discount: 0,
-  total: 0,
-  sellers_count: 0,
-};
 
 export const INITIAL_ORDERS: OrderDescriptor[] = [
   {
@@ -148,46 +153,94 @@ export const INITIAL_ORDERS: OrderDescriptor[] = [
   },
 ];
 
-let memoryOrders: OrderDescriptor[] = [...INITIAL_ORDERS];
-
+const memoryCarts = new Map<string, ShoppingCart>();
+let memoryOrders: OrderDescriptor[] = cloneOrders(INITIAL_ORDERS);
 let orderSeq = 2;
 
-export function recalculateCart(items: CartItemDescriptor[]): ShoppingCart {
-  const sellers = new Set(items.map((i) => i.seller_id));
-  const subtotal = items.reduce((acc, item) => acc + item.unit_price * item.quantity, 0);
-  const delivery_fee = 0;
-  const discount = 0;
-  const total = subtotal + delivery_fee - discount;
+function customerKey(actor?: CommerceActor): string {
+  return actor?.customerId || DEFAULT_MEMORY_CUSTOMER;
+}
 
+function hasPersistableActorId(actor?: CommerceActor): boolean {
+  if (actor?.customerId && isUuid(actor.customerId)) return true;
+  const sellerIds = Array.isArray(actor?.sellerId)
+    ? actor.sellerId
+    : actor?.sellerId
+      ? [actor.sellerId]
+      : [];
+  return sellerIds.some((id) => isUuid(id));
+}
+
+function shouldPersist(actor?: CommerceActor): boolean {
+  if (process.env.VITEST || process.env.VITEST_WORKER_ID) return false;
+  return Boolean(actor?.persist && hasPersistableActorId(actor));
+}
+
+export function recalculateCart(items: CartItemDescriptor[], customerId = DEFAULT_MEMORY_CUSTOMER): ShoppingCart {
+  const sellers = new Set(items.map((item) => item.seller_id));
+  const subtotal = items.reduce((acc, item) => acc + item.unit_price * item.quantity, 0);
+  const existing = memoryCarts.get(customerId);
   return {
-    id: memoryCart.id,
-    customer_id: memoryCart.customer_id,
+    id: existing?.id || `cart-${customerId}`,
+    customer_id: customerId,
     currency: "AOA",
     items,
     items_count: items.reduce((acc, item) => acc + item.quantity, 0),
     subtotal,
-    delivery_fee,
-    discount,
-    total,
+    delivery_fee: 0,
+    discount: 0,
+    total: subtotal,
     sellers_count: sellers.size,
   };
 }
 
+function memoryGetCart(customerId: string): ShoppingCart {
+  const existing = memoryCarts.get(customerId);
+  if (existing) return existing;
+  const created = emptyCart(customerId);
+  memoryCarts.set(customerId, created);
+  return created;
+}
+
+function memorySetCart(customerId: string, cart: ShoppingCart): ShoppingCart {
+  memoryCarts.set(customerId, cart);
+  return cart;
+}
+
+async function resolveProduct(productId: string) {
+  const byId = await ShoppingService.getProductById(productId);
+  if (byId) return byId;
+  const bySlug = await ShoppingService.getProductBySlug(productId);
+  if (bySlug) return bySlug;
+  return INITIAL_PRODUCTS.find((product) => product.id === productId || product.slug === productId) || null;
+}
+
 export class CommerceService {
-  /**
-   * Get active cart
-   */
-  public static async getCart(): Promise<ShoppingCart> {
-    return memoryCart;
+  public static resetMemoryStore(): void {
+    memoryCarts.clear();
+    memoryOrders = cloneOrders(INITIAL_ORDERS);
+    orderSeq = 2;
   }
 
-  /**
-   * Add or increment item in cart with server-side price validation
-   */
-  public static async addToCart(input: AddToCartInput): Promise<ShoppingCart> {
-    const product = await ShoppingService.getProductBySlug(input.productId) ||
-      INITIAL_PRODUCTS.find((p) => p.id === input.productId || p.slug === input.productId);
+  public static async getCart(actor?: CommerceActor): Promise<ShoppingCart> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistGetCart(actor.customerId);
+      if (persisted) return persisted;
+    }
+    return memoryGetCart(customerKey(actor));
+  }
 
+  public static async addToCart(input: AddToCartInput, actor?: CommerceActor): Promise<ShoppingCart> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistAddToCart(
+        actor.customerId,
+        input.productId,
+        input.quantity && input.quantity > 0 ? input.quantity : 1
+      );
+      if (persisted) return persisted;
+    }
+
+    const product = await resolveProduct(input.productId);
     if (!product) {
       throw new Error("Produto não encontrado.");
     }
@@ -195,10 +248,11 @@ export class CommerceService {
       throw new Error("Este produto encontra-se temporariamente sem stock.");
     }
 
+    const customerId = customerKey(actor);
+    const cart = memoryGetCart(customerId);
     const qtyToAdd = input.quantity && input.quantity > 0 ? input.quantity : 1;
-    const existingIndex = memoryCart.items.findIndex((item) => item.product_id === product.id);
-
-    let updatedItems = [...memoryCart.items];
+    const existingIndex = cart.items.findIndex((item) => item.product_id === product.id);
+    const updatedItems = [...cart.items];
 
     if (existingIndex >= 0) {
       const existing = updatedItems[existingIndex];
@@ -209,7 +263,7 @@ export class CommerceService {
       updatedItems[existingIndex] = {
         ...existing,
         quantity: nextQty,
-        unit_price: product.price, // Revalidate with official price
+        unit_price: product.price,
         subtotal: nextQty * product.price,
       };
     } else {
@@ -228,111 +282,169 @@ export class CommerceService {
         currency: product.currency,
         max_available_quantity: product.quantity,
         is_available: true,
+        image_url: product.image_url,
       });
     }
 
-    memoryCart = recalculateCart(updatedItems);
-    return memoryCart;
+    return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
   }
 
-  /**
-   * Update item quantity in cart
-   */
-  public static async updateCartItemQuantity(productId: string, quantity: number): Promise<ShoppingCart> {
+  public static async updateCartItemQuantity(
+    productId: string,
+    quantity: number,
+    actor?: CommerceActor
+  ): Promise<ShoppingCart> {
     if (quantity <= 0) {
-      return this.removeFromCart(productId);
+      return this.removeFromCart(productId, actor);
     }
 
-    const product = INITIAL_PRODUCTS.find((p) => p.id === productId || p.slug === productId);
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistUpdateCartItemQuantity(actor.customerId, productId, quantity);
+      if (persisted) return persisted;
+    }
+
+    const customerId = customerKey(actor);
+    const cart = memoryGetCart(customerId);
+    const product = await resolveProduct(productId);
     if (product && product.quantity && quantity > product.quantity) {
       throw new Error(`Apenas ${product.quantity} ${product.unit} disponíveis em stock.`);
     }
 
-    const updatedItems = memoryCart.items.map((item) => {
+    const unitPrice = product?.price;
+    const updatedItems = cart.items.map((item) => {
       if (item.product_id === productId || item.slug === productId) {
+        const nextPrice = unitPrice ?? item.unit_price;
         return {
           ...item,
           quantity,
-          subtotal: quantity * item.unit_price,
+          unit_price: nextPrice,
+          subtotal: quantity * nextPrice,
         };
       }
       return item;
     });
 
-    memoryCart = recalculateCart(updatedItems);
-    return memoryCart;
+    return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
   }
 
-  /**
-   * Remove item from cart
-   */
-  public static async removeFromCart(productId: string): Promise<ShoppingCart> {
-    const updatedItems = memoryCart.items.filter(
+  public static async removeFromCart(productId: string, actor?: CommerceActor): Promise<ShoppingCart> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistRemoveFromCart(actor.customerId, productId);
+      if (persisted) return persisted;
+    }
+    const customerId = customerKey(actor);
+    const cart = memoryGetCart(customerId);
+    const updatedItems = cart.items.filter(
       (item) => item.product_id !== productId && item.slug !== productId
     );
-    memoryCart = recalculateCart(updatedItems);
-    return memoryCart;
+    return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
   }
 
-  /**
-   * Clear all items in cart
-   */
-  public static async clearCart(): Promise<ShoppingCart> {
-    memoryCart = recalculateCart([]);
-    return memoryCart;
+  public static async clearCart(actor?: CommerceActor): Promise<ShoppingCart> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistClearCart(actor.customerId);
+      if (persisted) return persisted;
+    }
+    const customerId = customerKey(actor);
+    return memorySetCart(customerId, recalculateCart([], customerId));
   }
 
-  /**
-   * Create order, process payment intent, deduct inventory atomically, and group sellers
-   */
-  public static async checkoutOrder(input: CheckoutOrderInput): Promise<{
+  public static async checkoutOrder(
+    input: CheckoutOrderInput,
+    actor?: CommerceActor
+  ): Promise<{
     success: boolean;
     order: OrderDescriptor;
-    paymentResult: any;
+    paymentResult: Awaited<ReturnType<typeof PaymentService.createPayment>>;
   }> {
-    if (memoryCart.items.length === 0) {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistCheckoutOrder(
+        { customerId: actor.customerId },
+        input
+      );
+      if (persisted) {
+        await persistRecordTrackingEvent({
+          orderId: persisted.order.id,
+          orderNumber: persisted.order.order_number,
+          status: persisted.order.payment_status,
+          title: persisted.order.payment_status === "paid" ? "Pagamento Confirmado" : "Pedido criado",
+          description:
+            persisted.order.payment_status === "paid"
+              ? `Pagamento de ${persisted.order.total} ${persisted.order.currency} confirmado.`
+              : "Pedido registado. Aguardando pagamento.",
+          actorType: "system",
+        }).catch(() => false);
+        await NotificationService.createNotification(
+          {
+            profileId: actor.customerId,
+            type: persisted.order.payment_status === "paid" ? "order.paid" : "order.created",
+            title: persisted.order.payment_status === "paid" ? "Pagamento Confirmado" : "Pedido criado",
+            message: `O seu pedido #${persisted.order.order_number} foi registado.`,
+            linkUrl: `/orders/${persisted.order.order_number}`,
+          },
+          { persist: true }
+        ).catch(() => null);
+        return persisted;
+      }
+    }
+
+    const customerId = customerKey(actor);
+    const cart = memoryGetCart(customerId);
+    if (cart.items.length === 0) {
       throw new Error("O seu carrinho está vazio.");
     }
 
-    // Server-side validation: Re-verify all product prices, stock, and availability
-    for (const item of memoryCart.items) {
-      const freshProduct = INITIAL_PRODUCTS.find((p) => p.id === item.product_id);
-      if (freshProduct && freshProduct.availability_status === "out_of_stock") {
+    const pricedItems: OrderItemDescriptor[] = [];
+    for (const item of cart.items) {
+      const freshProduct = await resolveProduct(item.product_id);
+      if (!freshProduct) {
+        throw new Error(`O produto "${item.title}" já não está disponível.`);
+      }
+      if (freshProduct.availability_status === "out_of_stock") {
         throw new Error(`O produto "${item.title}" já não está disponível em stock.`);
       }
+      const unitPrice = freshProduct.price;
+      pricedItems.push({
+        id: `oi-${Math.random().toString(36).substring(2, 8)}`,
+        order_id: "",
+        product_id: freshProduct.id,
+        seller_id: freshProduct.seller_id,
+        product_title: freshProduct.title,
+        product_slug: freshProduct.slug,
+        sku: freshProduct.sku,
+        unit: freshProduct.unit,
+        quantity: item.quantity,
+        unit_price: unitPrice,
+        subtotal: unitPrice * item.quantity,
+        currency: freshProduct.currency,
+      });
     }
 
     const year = new Date().getFullYear();
     const orderNumber = `AGC-${year}-${String(orderSeq++).padStart(6, "0")}`;
     const orderId = `ord-${Math.random().toString(36).substring(2, 9)}`;
-
-    // Build Order Items with Historical Price Snapshots
-    const orderItems: OrderItemDescriptor[] = memoryCart.items.map((item) => ({
-      id: `oi-${Math.random().toString(36).substring(2, 8)}`,
-      order_id: orderId,
-      product_id: item.product_id,
-      seller_id: item.seller_id,
-      product_title: item.title,
-      product_slug: item.slug,
-      unit: item.unit,
-      quantity: item.quantity,
-      unit_price: item.unit_price,
-      subtotal: item.subtotal,
-      currency: item.currency,
-    }));
-
-    // Multi-seller fulfillment grouping
-    const sellerGroupMap = new Map<string, OrderItemDescriptor[]>();
-    orderItems.forEach((oi) => {
-      const list = sellerGroupMap.get(oi.seller_id) || [];
-      list.push(oi);
-      sellerGroupMap.set(oi.seller_id, list);
+    pricedItems.forEach((item) => {
+      item.order_id = orderId;
     });
+
+    const sellerGroupMap = new Map<string, OrderItemDescriptor[]>();
+    pricedItems.forEach((item) => {
+      const list = sellerGroupMap.get(item.seller_id) || [];
+      list.push(item);
+      sellerGroupMap.set(item.seller_id, list);
+    });
+
+    const deliveryFee =
+      input.fulfillmentMethod === "delivery"
+        ? calculateDeliveryFee(input.shippingAddressSnapshot?.province_name).fee
+        : 0;
+    const subtotal = pricedItems.reduce((sum, item) => sum + item.subtotal, 0);
+    const total = subtotal + deliveryFee;
 
     const sellerGroups: OrderSellerGroupDescriptor[] = [];
     sellerGroupMap.forEach((items, sellerId) => {
-      const sellerItem = memoryCart.items.find((ci) => ci.seller_id === sellerId);
-      const sub = items.reduce((acc, i) => acc + i.subtotal, 0);
+      const sellerItem = cart.items.find((entry) => entry.seller_id === sellerId);
+      const sub = items.reduce((acc, item) => acc + item.subtotal, 0);
       sellerGroups.push({
         id: `osg-${Math.random().toString(36).substring(2, 8)}`,
         order_id: orderId,
@@ -350,12 +462,11 @@ export class CommerceService {
       });
     });
 
-    // Process Payment via PaymentService abstraction
     const paymentResult = await PaymentService.createPayment({
       orderId,
       orderNumber,
-      amount: memoryCart.total,
-      currency: memoryCart.currency,
+      amount: total,
+      currency: cart.currency,
       paymentMethod: input.paymentMethod || "mock_sandbox",
     });
 
@@ -365,22 +476,22 @@ export class CommerceService {
     const newOrder: OrderDescriptor = {
       id: orderId,
       order_number: orderNumber,
-      customer_id: memoryCart.customer_id || "cust-demo",
+      customer_id: customerId,
       customer_name: input.shippingAddressSnapshot?.recipient_name || "Cliente AgroConnect",
       customer_phone: input.shippingAddressSnapshot?.phone || "+244 923 000 000",
       status: orderStatus,
       payment_status: paymentStatus,
       fulfillment_method: input.fulfillmentMethod,
-      currency: memoryCart.currency,
-      subtotal: memoryCart.subtotal,
-      delivery_fee: memoryCart.delivery_fee,
-      discount: memoryCart.discount,
+      currency: cart.currency,
+      subtotal,
+      delivery_fee: deliveryFee,
+      discount: 0,
       tax: 0,
-      total: memoryCart.total,
+      total,
       shipping_address: input.shippingAddressSnapshot
         ? {
             id: "addr-curr",
-            profile_id: memoryCart.customer_id || "cust-demo",
+            profile_id: customerId,
             label: "Endereço de Entrega",
             recipient_name: input.shippingAddressSnapshot.recipient_name,
             phone: input.shippingAddressSnapshot.phone,
@@ -393,7 +504,7 @@ export class CommerceService {
           }
         : null,
       notes: input.notes || null,
-      items: orderItems,
+      items: pricedItems,
       seller_groups: sellerGroups,
       payment: {
         id: `pay-${Math.random().toString(36).substring(2, 8)}`,
@@ -401,8 +512,8 @@ export class CommerceService {
         provider: paymentResult.provider,
         provider_payment_id: paymentResult.providerPaymentId,
         payment_method: input.paymentMethod,
-        amount: memoryCart.total,
-        currency: memoryCart.currency,
+        amount: total,
+        currency: cart.currency,
         status: paymentStatus,
         paid_at: paymentStatus === "paid" ? new Date().toISOString() : null,
         created_at: new Date().toISOString(),
@@ -413,8 +524,38 @@ export class CommerceService {
 
     memoryOrders.unshift(newOrder);
 
-    // Empty cart on successful order creation
-    await this.clearCart();
+    if (paymentStatus === "paid") {
+      for (const item of pricedItems) {
+        if (!item.product_id) continue;
+        const product = await resolveProduct(item.product_id);
+        const remaining = Math.max(0, (product?.quantity || 0) - item.quantity);
+        await ShoppingService.updateInventory(item.product_id, item.seller_id, {
+          quantity: remaining,
+        });
+      }
+    }
+
+    await this.clearCart(actor);
+
+    await LogisticsService.recordTrackingEvent({
+      orderId,
+      orderNumber,
+      status: paymentStatus,
+      title: paymentStatus === "paid" ? "Pagamento Confirmado" : "Pedido criado",
+      description:
+        paymentStatus === "paid"
+          ? `Pagamento de ${total} ${cart.currency} confirmado via gateway.`
+          : "Pedido registado. Aguardando pagamento.",
+      actorType: "system",
+    });
+
+    await NotificationService.createNotification({
+      profileId: customerId,
+      type: paymentStatus === "paid" ? "order.paid" : "order.created",
+      title: paymentStatus === "paid" ? "Pagamento Confirmado" : "Pedido criado",
+      message: `O seu pedido #${orderNumber} foi registado.`,
+      linkUrl: `/orders/${orderNumber}`,
+    });
 
     return {
       success: true,
@@ -423,66 +564,122 @@ export class CommerceService {
     };
   }
 
-  /**
-   * Get order by orderNumber
-   */
-  public static async getOrderByNumber(orderNumber: string): Promise<OrderDescriptor | null> {
-    const found = memoryOrders.find((o) => o.order_number === orderNumber);
-    return found || null;
+  public static async getOrderByNumber(
+    orderNumber: string,
+    actor?: CommerceActor & { sellerId?: string }
+  ): Promise<OrderDescriptor | null> {
+    if (shouldPersist(actor) && (actor?.customerId || actor?.sellerId)) {
+      const persisted = await persistGetOrderByNumber(orderNumber, {
+        customerId: actor.customerId || undefined,
+        sellerId: actor.sellerId,
+      });
+      if (persisted !== null) return persisted;
+    }
+    const found = memoryOrders.find((order) => order.order_number === orderNumber);
+    if (!found) return null;
+    if (actor?.customerId && found.customer_id !== actor.customerId && !actor.sellerId) {
+      return null;
+    }
+    if (actor?.sellerId) {
+      const groups = found.seller_groups.filter((group) => group.seller_id === actor.sellerId);
+      if (groups.length === 0) return null;
+      return {
+        ...found,
+        seller_groups: groups,
+        items: found.items.filter((item) => item.seller_id === actor.sellerId),
+      };
+    }
+    return found;
   }
 
-  /**
-   * Get all customer orders
-   */
-  public static async getCustomerOrders(): Promise<OrderDescriptor[]> {
-    return memoryOrders;
+  public static async getCustomerOrders(actor?: CommerceActor): Promise<OrderDescriptor[]> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistGetCustomerOrders(actor.customerId);
+      if (persisted) return persisted;
+    }
+    const customerId = actor?.customerId;
+    if (!customerId) return memoryOrders;
+    return memoryOrders.filter((order) => order.customer_id === customerId);
   }
 
-  /**
-   * Get seller's incoming orders
-   */
-  public static async getSellerOrders(sellerId?: string): Promise<OrderDescriptor[]> {
-    if (!sellerId) return memoryOrders;
-    return memoryOrders.filter((o) =>
-      o.seller_groups.some((sg) => sg.seller_id === sellerId)
-    );
+  public static async getSellerOrders(
+    sellerId?: string | string[],
+    actor?: CommerceActor
+  ): Promise<OrderDescriptor[]> {
+    const sellerIds = (Array.isArray(sellerId) ? sellerId : sellerId ? [sellerId] : []).filter(Boolean);
+    if (sellerIds.length === 0) return [];
+    if (shouldPersist(actor)) {
+      const persisted = await persistGetSellerOrders(sellerIds);
+      if (persisted !== null) return persisted;
+    }
+    return memoryOrders
+      .filter((order) =>
+        order.seller_groups.some((group) => sellerIds.includes(group.seller_id)) ||
+        order.items.some((item) => sellerIds.includes(item.seller_id))
+      )
+      .map((order) => ({
+        ...order,
+        seller_groups: order.seller_groups.filter((group) => sellerIds.includes(group.seller_id)),
+        items: order.items.filter((item) => sellerIds.includes(item.seller_id)),
+      }));
   }
 
-  /**
-   * Update seller fulfillment status
-   */
   public static async updateFulfillmentStatus(
     orderNumber: string,
     sellerId: string,
-    nextStatus: "pending" | "processing" | "ready_for_pickup" | "shipped" | "completed" | "cancelled"
+    nextStatus: "pending" | "processing" | "ready_for_pickup" | "shipped" | "completed" | "cancelled",
+    actor?: CommerceActor
   ): Promise<boolean> {
-    const order = memoryOrders.find((o) => o.order_number === orderNumber);
-    if (!order) return false;
-
-    const group = order.seller_groups.find((sg) => sg.seller_id === sellerId);
-    if (group) {
-      group.status = nextStatus;
-      if (nextStatus === "completed") {
-        order.status = "completed";
-      }
-      return true;
+    if (!sellerId) return false;
+    const persistActor: CommerceActor = { ...actor, persist: actor?.persist, sellerId };
+    if (shouldPersist(persistActor)) {
+      const persisted = await persistUpdateFulfillmentStatus(orderNumber, sellerId, nextStatus);
+      if (persisted !== null) return persisted;
     }
-    return false;
+    const order = memoryOrders.find((entry) => entry.order_number === orderNumber);
+    if (!order) return false;
+    const group = order.seller_groups.find((entry) => entry.seller_id === sellerId);
+    if (!group) return false;
+    group.status = nextStatus;
+    if (nextStatus === "completed" && order.seller_groups.every((entry) => entry.status === "completed")) {
+      order.status = "completed";
+    }
+    return true;
   }
 
-  /**
-   * Customer cancel order
-   */
-  public static async cancelOrder(orderNumber: string, reason?: string): Promise<boolean> {
-    const order = memoryOrders.find((o) => o.order_number === orderNumber);
+  public static async cancelOrder(
+    orderNumber: string,
+    reason?: string,
+    actor?: CommerceActor
+  ): Promise<boolean> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistCancelOrder(orderNumber, actor.customerId, reason);
+      if (persisted !== null) return persisted;
+    }
+    const order = memoryOrders.find((entry) => entry.order_number === orderNumber);
     if (!order) return false;
-
+    if (actor?.customerId && order.customer_id !== actor.customerId) return false;
     if (order.status === "completed") {
       throw new Error("Não é possível cancelar um pedido já concluído.");
     }
-
     order.status = "cancelled";
     order.cancelled_reason = reason || "Cancelado pelo cliente";
     return true;
+  }
+
+  public static async getSellerEarnings(
+    sellerId: string | string[],
+    actor?: CommerceActor
+  ): Promise<SellerEarningsSummary> {
+    const sellerIds = (Array.isArray(sellerId) ? sellerId : sellerId ? [sellerId] : []).filter(Boolean);
+    if (sellerIds.length === 0) {
+      return summarizeSellerEarnings("", []);
+    }
+    if (shouldPersist({ ...actor, sellerId: sellerIds })) {
+      const persisted = await persistGetSellerEarnings(sellerIds);
+      if (persisted !== null) return persisted;
+    }
+    const orders = await this.getSellerOrders(sellerIds, { ...actor, persist: actor?.persist, sellerId: sellerIds });
+    return summarizeSellerEarnings(sellerIds[0], orders);
   }
 }

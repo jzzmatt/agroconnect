@@ -1013,6 +1013,18 @@ export const fr: Dictionary = {
     addedToCart: "Produit ajouté au panier.",
     viewDetails: "Voir les détails",
     videoBadge: "Vidéo",
+    cartUpdateError: "Impossible de mettre à jour le panier. Veuillez réessayer.",
+    cartAuthRequired: "Connectez-vous pour ajouter des produits au panier.",
+    decreaseQuantity: "Diminuer la quantité",
+    increaseQuantity: "Augmenter la quantité",
+    deleteProduct: "Supprimer",
+    deleteProductTitle: "Supprimer ce produit ?",
+    deleteProductConfirm: "Cette action supprimera le produit de façon permanente.",
+    deletePublishedTitle: "Mettre en pause avant de supprimer",
+    deletePublishedBlock:
+      "Ce produit est publié. Mettez-le en pause ou archivez-le avant de le supprimer.",
+    deleteFailed: "Impossible de supprimer le produit. Veuillez réessayer.",
+    confirmDeleteAction: "Confirmer la suppression",
   },
   ui: {
     upgradeTitle: "Disponible avec un plan supérieur",
@@ -1041,5 +1053,22 @@ export const fr: Dictionary = {
     errorMessage: "Impossible de terminer la mise à jour du compte. Veuillez réessayer.",
     planMismatch: "Le plan enregistré dans la base de données ne correspond pas au plan sélectionné.",
     waitingMessage: "En attente de confirmation de l'abonnement...",
+  },
+  commerceEarnings: {
+    title: "Gains",
+    subtitle: "Revenus des commandes de produits, gérés par le domaine Commerce.",
+    totalEarned: "Total gagné",
+    completedOrders: "Commandes terminées",
+    processing: "En traitement",
+    empty: "Aucune transaction de vente à afficher pour le moment.",
+  },
+  commerceReceipt: {
+    savePdf: "Enregistrer en PDF",
+    sendEmail: "Envoyer par e-mail",
+    emailPlaceholder: "Votre e-mail",
+    emailOpened: "Ouverture du client de messagerie avec le justificatif.",
+    emailPrepared:
+      "Justificatif HTML avec le logo AgriConnect créé. Ouvrez le fichier .eml dans votre messagerie pour l'envoyer.",
+    pdfDownloaded: "Le justificatif a été téléchargé. Ouvrez le fichier et choisissez Imprimer → Enregistrer en PDF.",
   },
 };

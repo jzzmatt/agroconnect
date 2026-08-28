@@ -143,6 +143,23 @@ export async function updateProductAction(
   return !error;
 }
 
+export async function deleteProductAction(
+  productId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const subject = await authorize("product.delete");
+    await requireProductOwnership(productId, subject);
+    const seller = await getOrCreateCurrentProviderProfileAction();
+    return ShoppingService.deleteProduct(productId, seller.id);
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Não foi possível eliminar o produto.";
+    if (/minified react error|#441|server components render/i.test(message)) {
+      return { success: false, error: "Não foi possível eliminar o produto. Tente novamente." };
+    }
+    return { success: false, error: message };
+  }
+}
+
 /**
  * Server Action: Update inventory without changing merchandising copy.
  */

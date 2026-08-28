@@ -17,6 +17,7 @@ import {
   Send,
   Bell,
   Building2,
+  DollarSign,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -155,6 +156,11 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.receivedOrders,
         href: "/dashboard/orders",
         icon: Package,
+      },
+      {
+        title: dict.navDash.earnings,
+        href: "/dashboard/earnings",
+        icon: DollarSign,
       },
       {
         title: dict.navDash.notifications,

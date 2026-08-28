@@ -1011,6 +1011,18 @@ export const pt = {
     addedToCart: "Produto adicionado ao carrinho.",
     viewDetails: "Ver detalhes",
     videoBadge: "Vídeo",
+    cartUpdateError: "Não foi possível atualizar o carrinho. Tente novamente.",
+    cartAuthRequired: "Inicie sessão para adicionar produtos ao carrinho.",
+    decreaseQuantity: "Diminuir quantidade",
+    increaseQuantity: "Aumentar quantidade",
+    deleteProduct: "Eliminar",
+    deleteProductTitle: "Eliminar produto?",
+    deleteProductConfirm:
+      "Esta ação eliminará o produto de forma permanente e não pode ser anulada.",
+    deletePublishedTitle: "Pausa antes de eliminar",
+    deletePublishedBlock: "Este produto está publicado. Pausa ou arquiva-o antes de o eliminar.",
+    deleteFailed: "Não foi possível eliminar o produto. Tente novamente.",
+    confirmDeleteAction: "Confirmar eliminação",
   },
   ui: {
     upgradeTitle: "Função disponível num plano superior",
@@ -1039,6 +1051,22 @@ export const pt = {
     errorMessage: "Não foi possível concluir a sincronização. Por favor, tente novamente.",
     planMismatch: "O plano gravado na base de dados não corresponde ao plano selecionado.",
     waitingMessage: "A aguardar confirmação da subscrição...",
+  },
+  commerceEarnings: {
+    title: "Ganhos",
+    subtitle: "Receitas das encomendas de produtos, geridas pelo domínio Commerce.",
+    totalEarned: "Total ganho",
+    completedOrders: "Encomendas concluídas",
+    processing: "Em processamento",
+    empty: "Ainda não há transacções de venda para apresentar.",
+  },
+  commerceReceipt: {
+    savePdf: "Guardar em PDF",
+    sendEmail: "Enviar por e-mail",
+    emailPlaceholder: "O seu e-mail",
+    emailOpened: "A abrir o cliente de e-mail com o comprovativo.",
+    emailPrepared: "Comprovativo HTML com o logótipo AgriConnect criado. Abra o ficheiro .eml no seu correio para enviar.",
+    pdfDownloaded: "O comprovativo foi descarregado. Abra o ficheiro e escolha Imprimir → Guardar em PDF.",
   },
 };
 

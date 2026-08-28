@@ -1,4 +1,48 @@
-import type { PaymentMethod } from "./database";
+import type { OrderFulfillmentMethod, PaymentMethod, PaymentStatus } from "./database";
+
+export interface AddToCartInput {
+  productId: string;
+  quantity?: number;
+}
+
+export interface CheckoutOrderInput {
+  fulfillmentMethod: OrderFulfillmentMethod;
+  shippingAddressId?: string;
+  shippingAddressSnapshot?: {
+    recipient_name: string;
+    phone: string;
+    address_line: string;
+    province_name?: string;
+    municipality_name?: string;
+    notes?: string;
+  };
+  paymentMethod: PaymentMethod;
+  notes?: string;
+}
+
+export interface CommerceActor {
+  customerId?: string | null;
+  sellerId?: string | string[] | null;
+  persist?: boolean;
+}
+
+export interface SellerEarningsEntry {
+  order_number: string;
+  status: string;
+  payment_status: PaymentStatus;
+  total: number;
+  created_at: string;
+}
+
+export interface SellerEarningsSummary {
+  seller_id: string;
+  currency: string;
+  total_earned: number;
+  total_processing: number;
+  completed_count: number;
+  processing_count: number;
+  entries: SellerEarningsEntry[];
+}
 
 export interface CustomerAddress {
   id: string;

@@ -5,6 +5,7 @@ import "./globals.css";
 import { I18nProvider } from "@/i18n/provider";
 import { LocaleHydrator } from "@/components/i18n/LocaleHydrator";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";
+import { CartProvider } from "@/components/commerce/CartProvider";
 
 export const metadata: Metadata = {
   title: "AGROCONNECT — Ecossistema Digital para Agricultura",
@@ -27,7 +28,7 @@ export default function RootLayout({
           <ThemeProvider defaultTheme="light">
             <I18nProvider initialLocale="pt">
               <LocaleHydrator />
-              {children}
+              <CartProvider>{children}</CartProvider>
             </I18nProvider>
           </ThemeProvider>
         </body>

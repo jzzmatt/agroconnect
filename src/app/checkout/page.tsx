@@ -80,9 +80,12 @@ export default function CheckoutPage() {
 
       if (res.success && res.order) {
         router.push(`/orders/${res.order.order_number}/success`);
+        return;
       }
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível concluir o checkout. Inicie sessão para continuar.");
+      setError(res.error || "Não foi possível concluir o checkout. Inicie sessão para continuar.");
+      setIsLoading(false);
+    } catch (err: unknown) {
+      setError(err instanceof Error ? err.message : "Não foi possível concluir o checkout. Inicie sessão para continuar.");
       setIsLoading(false);
     }
   };

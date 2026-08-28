@@ -21,6 +21,7 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button } from "@/components/ui/Button";
 import { OrderTimeline } from "@/components/commerce/OrderTimeline";
+import { OrderReceiptActions } from "@/components/commerce/OrderReceiptActions";
 import { DeliveryTracker } from "@/components/logistics/DeliveryTracker";
 import { getOrderByNumberAction, cancelOrderAction } from "@/lib/services/commerce-actions";
 import { getOrderTrackingEventsAction } from "@/lib/services/logistics-actions";
@@ -199,6 +200,11 @@ export default function OrderDetailPage() {
                   <span>{format(order.total)}</span>
                 </div>
               </div>
+            </div>
+
+            <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+              <h3 className="text-sm font-bold text-foreground">Comprovativo</h3>
+              <OrderReceiptActions order={order} />
             </div>
           </div>
         </div>
