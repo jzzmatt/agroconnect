@@ -17,6 +17,11 @@ import type {
   PaymentRecordDescriptor,
   SellerEarningsSummary,
 } from "@/types/commerce";
+import {
+  isMissingSchemaError,
+  mapTransportRequestStatusToOrderTransport,
+  sellerGroupIdFromTransportRequestRow,
+} from "@/lib/transport/order-expedition";
 import type { OrderStatus, PaymentStatus } from "@/types/database";
 
 export interface CommercePersistActor {
@@ -353,49 +358,69 @@ async function enrichSellerGroupsWithTransport(
   supabase: NonNullable<ReturnType<typeof persistClient>>,
   groups: OrderSellerGroupDescriptor[]
 ): Promise<void> {
-  const transporterIds = groups
-    .map((group) => group.transport_provider_id)
-    .filter((id): id is string => Boolean(id && isUuid(id)));
-  const requestIds = groups
-    .map((group) => group.transport_request_id)
-    .filter((id): id is string => Boolean(id && isUuid(id)));
+  if (groups.length === 0) return;
 
-  if (transporterIds.length === 0 && requestIds.length === 0) return;
+  const groupIds = groups.map((group) => group.id).filter(isUuid);
+  let requestRows: Array<Record<string, unknown>> = [];
 
-  const transporterNames = await loadProviderNames(supabase, transporterIds);
-  const requestDetails = new Map<
-    string,
-    { title: string | null; origin: string | null; destination: string | null }
-  >();
+  if (groupIds.length > 0) {
+    const byColumn = await supabase
+      .from("transport_requests")
+      .select("id, status, provider_id, seller_group_id, metadata, transport_services(title, origin_label, destination_label)")
+      .in("seller_group_id", groupIds)
+      .order("created_at", { ascending: false });
 
-  if (requestIds.length > 0) {
-    try {
-      const { data } = await supabase
+    if (!byColumn.error && byColumn.data) {
+      requestRows = byColumn.data as Array<Record<string, unknown>>;
+    } else {
+      const orFilter = groupIds.map((id) => `metadata->>seller_group_id.eq.${id}`).join(",");
+      const byMetadata = await supabase
         .from("transport_requests")
-        .select("id, transport_services(title, origin_label, destination_label)")
-        .in("id", requestIds);
-      for (const row of data || []) {
-        const service = asRelatedRecord((row as { transport_services?: unknown }).transport_services);
-        requestDetails.set(String((row as { id: string }).id), {
-          title: service?.title ? String(service.title) : null,
-          origin: service?.origin_label ? String(service.origin_label) : null,
-          destination: service?.destination_label ? String(service.destination_label) : null,
-        });
+        .select("id, status, provider_id, metadata, transport_services(title, origin_label, destination_label)")
+        .or(orFilter)
+        .order("created_at", { ascending: false });
+      if (!byMetadata.error && byMetadata.data) {
+        requestRows = byMetadata.data as Array<Record<string, unknown>>;
       }
-    } catch {
-      // Transport join is display-only; orders still assemble without it.
     }
   }
 
+  const latestByGroup = new Map<string, Record<string, unknown>>();
+  for (const row of requestRows) {
+    const groupId = sellerGroupIdFromTransportRequestRow({
+      seller_group_id: row.seller_group_id ? String(row.seller_group_id) : null,
+      metadata: row.metadata,
+    });
+    if (!groupId || latestByGroup.has(groupId)) continue;
+    latestByGroup.set(groupId, row);
+  }
+
+  const transporterIds = [
+    ...groups.map((group) => group.transport_provider_id),
+    ...[...latestByGroup.values()].map((row) => (row.provider_id ? String(row.provider_id) : null)),
+  ].filter((id): id is string => Boolean(id && isUuid(id)));
+
+  const transporterNames = await loadProviderNames(supabase, transporterIds);
+
   for (const group of groups) {
+    const row = latestByGroup.get(group.id);
+    if (!group.transport_status && row?.status) {
+      group.transport_request_id = String(row.id);
+      group.transport_status = mapTransportRequestStatusToOrderTransport(
+        String(row.status) as "pending" | "accepted" | "rejected" | "cancelled" | "completed"
+      );
+      group.transport_provider_id = row.provider_id ? String(row.provider_id) : null;
+    }
     if (group.transport_provider_id) {
       group.transport_provider_name = transporterNames.get(group.transport_provider_id)?.name || null;
     }
-    if (group.transport_request_id) {
-      const details = requestDetails.get(group.transport_request_id);
-      group.transport_title = details?.title || null;
-      group.transport_origin = details?.origin || null;
-      group.transport_destination = details?.destination || null;
+    if (row) {
+      const service = asRelatedRecord(row.transport_services);
+      group.transport_title = service?.title ? String(service.title) : group.transport_title || null;
+      group.transport_origin = service?.origin_label ? String(service.origin_label) : group.transport_origin || null;
+      group.transport_destination = service?.destination_label
+        ? String(service.destination_label)
+        : group.transport_destination || null;
     }
   }
 }
@@ -833,7 +858,8 @@ export async function persistFindActiveOrderTransportRequest(
   const supabase = persistClient();
   if (!supabase) return null;
   if (!isUuid(sellerGroupId)) return null;
-  const { data, error } = await supabase
+
+  const byColumn = await supabase
     .from("transport_requests")
     .select("id, status, provider_id")
     .eq("seller_group_id", sellerGroupId)
@@ -841,12 +867,37 @@ export async function persistFindActiveOrderTransportRequest(
     .order("created_at", { ascending: false })
     .limit(1)
     .maybeSingle();
-  if (error) throw new Error(error.message);
-  if (!data?.id) return null;
+
+  if (!byColumn.error && byColumn.data?.id) {
+    return {
+      id: String(byColumn.data.id),
+      status: String(byColumn.data.status),
+      provider_id: String(byColumn.data.provider_id),
+    };
+  }
+
+  if (byColumn.error && !isMissingSchemaError(byColumn.error)) {
+    throw new Error("Não foi possível verificar pedidos de transporte ativos.");
+  }
+
+  const byMetadata = await supabase
+    .from("transport_requests")
+    .select("id, status, provider_id, metadata")
+    .in("status", ["pending", "accepted"])
+    .contains("metadata", { seller_group_id: sellerGroupId })
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
+  if (byMetadata.error) {
+    if (isMissingSchemaError(byMetadata.error)) return null;
+    throw new Error("Não foi possível verificar pedidos de transporte ativos.");
+  }
+  if (!byMetadata.data?.id) return null;
   return {
-    id: String(data.id),
-    status: String(data.status),
-    provider_id: String(data.provider_id),
+    id: String(byMetadata.data.id),
+    status: String(byMetadata.data.status),
+    provider_id: String(byMetadata.data.provider_id),
   };
 }
 
@@ -872,7 +923,10 @@ export async function persistLinkSellerGroupTransport(params: {
     .in("seller_id", sellerIds)
     .select("id")
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingSchemaError(error)) return true;
+    throw new Error("Não foi possível associar o transporte à encomenda.");
+  }
   return Boolean(data?.id);
 }
 
@@ -902,7 +956,22 @@ export async function persistSyncSellerGroupTransport(params: {
     .eq("id", params.sellerGroupId)
     .select("id, status")
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error) {
+    if (isMissingSchemaError(error) && params.fulfillmentStatus) {
+      const shipped = await supabase
+        .from("order_seller_groups")
+        .update({ status: params.fulfillmentStatus })
+        .eq("id", params.sellerGroupId)
+        .select("id")
+        .maybeSingle();
+      if (shipped.error) {
+        throw new Error("Não foi possível atualizar a encomenda.");
+      }
+      return Boolean(shipped.data?.id);
+    }
+    if (isMissingSchemaError(error)) return true;
+    throw new Error("Não foi possível atualizar o transporte da encomenda.");
+  }
   return Boolean(data?.id);
 }
 
@@ -923,7 +992,22 @@ export async function persistGetSellerGroupById(
     .select("id, order_id, seller_id, status, transport_status")
     .eq("id", sellerGroupId)
     .maybeSingle();
-  if (error) throw new Error(error.message);
+  if (error && isMissingSchemaError(error)) {
+    const fallback = await supabase
+      .from("order_seller_groups")
+      .select("id, order_id, seller_id, status")
+      .eq("id", sellerGroupId)
+      .maybeSingle();
+    if (fallback.error || !fallback.data?.id) return null;
+    return {
+      id: String(fallback.data.id),
+      order_id: String(fallback.data.order_id),
+      seller_id: String(fallback.data.seller_id),
+      status: fallback.data.status as OrderSellerGroupDescriptor["status"],
+      transport_status: null,
+    };
+  }
+  if (error) throw new Error("Não foi possível ler o grupo da encomenda.");
   if (!data?.id) return null;
   return {
     id: String(data.id),

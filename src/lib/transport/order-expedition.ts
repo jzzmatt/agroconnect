@@ -145,3 +145,47 @@ export function matchesPublishedTransportQuery(
     .toLowerCase();
   return haystack.includes(needle);
 }
+
+export function isMissingSchemaError(
+  error: { code?: string | null; message?: string | null } | null | undefined
+): boolean {
+  if (!error) return false;
+  const code = String(error.code || "");
+  const message = String(error.message || "");
+  return (
+    code === "PGRST204" ||
+    code === "42703" ||
+    /schema cache|does not exist|could not find the .* column/i.test(message)
+  );
+}
+
+export function buildOrderExpeditionMetadata(params: {
+  orderId: string;
+  sellerGroupId: string;
+  orderNumber: string;
+}): Record<string, string> {
+  return {
+    order_id: params.orderId,
+    seller_group_id: params.sellerGroupId,
+    request_source: ORDER_EXPEDITION_REQUEST_SOURCE,
+    order_number: params.orderNumber,
+  };
+}
+
+export function sellerGroupIdFromTransportRequestRow(row: {
+  seller_group_id?: string | null;
+  metadata?: unknown;
+}): string | null {
+  if (row.seller_group_id) return String(row.seller_group_id);
+  if (!row.metadata || typeof row.metadata !== "object") return null;
+  const sellerGroupId = (row.metadata as { seller_group_id?: unknown }).seller_group_id;
+  return sellerGroupId ? String(sellerGroupId) : null;
+}
+
+export function withoutOrderLinkColumns<T extends Record<string, unknown>>(row: T): T {
+  const next = { ...row };
+  delete next.order_id;
+  delete next.seller_group_id;
+  delete next.request_source;
+  return next;
+}

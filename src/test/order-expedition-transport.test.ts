@@ -2,9 +2,11 @@ import { describe, expect, it } from "vitest";
 import { getDictionary } from "@/i18n";
 import {
   buildOrderExpeditionMessage,
+  buildOrderExpeditionMetadata,
   canSellerExpedirGroup,
   isActiveOrderTransportRequestStatus,
   isBlockingOrderTransportStatus,
+  isMissingSchemaError,
   isOrderExpeditionSource,
   isOrderGroupEligibleForExpedition,
   mapTransportRequestStatusToOrderTransport,
@@ -12,6 +14,7 @@ import {
   ORDER_EXPEDITION_REQUEST_SOURCE,
   preferredTransportPrice,
   shouldShipOnTransportComplete,
+  withoutOrderLinkColumns,
 } from "@/lib/transport/order-expedition";
 import { buildTransportRequestInsert } from "@/lib/transport/transport-request-lifecycle";
 import type { TransportListItem } from "@/types/transport";
@@ -138,6 +141,53 @@ describe("Order expedition transport integration", () => {
     expect(isOrderExpeditionSource("order_expedition")).toBe(true);
     expect(isOrderExpeditionSource(null)).toBe(false);
     expect(isOrderExpeditionSource("manual")).toBe(false);
+  });
+
+  it("falls back when order-link columns are not in the live schema yet", () => {
+    expect(isMissingSchemaError({ code: "PGRST204", message: "Could not find the seller_group_id column" })).toBe(
+      true
+    );
+    expect(isMissingSchemaError({ code: "42703", message: 'column "seller_group_id" does not exist' })).toBe(true);
+    expect(isMissingSchemaError({ code: "42501", message: "permission denied" })).toBe(false);
+
+    const row = withoutOrderLinkColumns({
+      customer_id: "cust-1",
+      order_id: "ord-1",
+      seller_group_id: "grp-1",
+      request_source: "order_expedition",
+      metadata: buildOrderExpeditionMetadata({
+        orderId: "ord-1",
+        sellerGroupId: "grp-1",
+        orderNumber: "AGC-000123",
+      }),
+    });
+    expect(row).not.toHaveProperty("order_id");
+    expect(row).not.toHaveProperty("seller_group_id");
+    expect(row).not.toHaveProperty("request_source");
+    expect(row.metadata).toEqual({
+      order_id: "ord-1",
+      seller_group_id: "grp-1",
+      request_source: "order_expedition",
+      order_number: "AGC-000123",
+    });
+  });
+
+  it("stores order linkage in metadata even for the column-backed insert", () => {
+    const row = buildTransportRequestInsert({
+      customerId: "seller-profile-1",
+      transport: publishedTransport,
+      message: "Pedido de transporte para a encomenda #AGC-000123.",
+      orderId: "33333333-3333-4333-8333-333333333333",
+      sellerGroupId: "44444444-4444-4444-8444-444444444444",
+      requestSource: ORDER_EXPEDITION_REQUEST_SOURCE,
+      metadata: buildOrderExpeditionMetadata({
+        orderId: "33333333-3333-4333-8333-333333333333",
+        sellerGroupId: "44444444-4444-4444-8444-444444444444",
+        orderNumber: "AGC-000123",
+      }),
+    });
+    expect(row.metadata?.request_source).toBe("order_expedition");
+    expect(row.metadata?.order_number).toBe("AGC-000123");
   });
 
   it("exposes PT/EN/FR copy for the expedition selector", () => {

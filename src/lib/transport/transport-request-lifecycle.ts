@@ -110,6 +110,7 @@ export function buildTransportRequestInsert(params: {
   orderId?: string | null;
   sellerGroupId?: string | null;
   requestSource?: string | null;
+  metadata?: Record<string, unknown> | null;
 }): {
   customer_id: string;
   provider_id: string;
@@ -125,6 +126,7 @@ export function buildTransportRequestInsert(params: {
   order_id?: string;
   seller_group_id?: string;
   request_source?: string;
+  metadata?: Record<string, unknown>;
 } {
   const originNotes = params.originNotes?.trim() || params.transport.origin_label || null;
   const destinationNotes =
@@ -145,6 +147,7 @@ export function buildTransportRequestInsert(params: {
     order_id?: string;
     seller_group_id?: string;
     request_source?: string;
+    metadata?: Record<string, unknown>;
   } = {
     customer_id: params.customerId,
     provider_id: params.transport.provider_id,
@@ -162,6 +165,7 @@ export function buildTransportRequestInsert(params: {
   if (params.orderId) row.order_id = params.orderId;
   if (params.sellerGroupId) row.seller_group_id = params.sellerGroupId;
   if (params.requestSource) row.request_source = params.requestSource;
+  if (params.metadata) row.metadata = params.metadata;
 
   return row;
 }

@@ -38,12 +38,15 @@ import {
 import { resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
   buildOrderExpeditionMessage,
+  buildOrderExpeditionMetadata,
+  isMissingSchemaError,
   isOrderExpeditionSource,
   isOrderGroupEligibleForExpedition,
   mapTransportRequestStatusToOrderTransport,
   ORDER_EXPEDITION_REQUEST_SOURCE,
   resolveOrderDestinationLabel,
   shouldShipOnTransportComplete,
+  withoutOrderLinkColumns,
 } from "@/lib/transport/order-expedition";
 import {
   TransportService,
@@ -528,12 +531,24 @@ async function insertTransportRequestAndNotify(params: {
   };
   revalidateOrders?: boolean;
   orderNumber?: string | null;
+  privileged?: boolean;
 }): Promise<{ success: true; requestId: string } | { success: false; message: string; code?: string }> {
-  const supabase = await createServerSupabaseClient();
-  const { data, error } = await (supabase.from("transport_requests") as any)
+  const supabase = params.privileged
+    ? await getTransportWritableClient()
+    : await createServerSupabaseClient();
+
+  let { data, error } = await (supabase.from("transport_requests") as any)
     .insert(params.insert)
     .select("id")
     .single();
+
+  if (params.privileged && isMissingSchemaError(error)) {
+    const fallbackInsert = withoutOrderLinkColumns(params.insert);
+    ({ data, error } = await (supabase.from("transport_requests") as any)
+      .insert(fallbackInsert)
+      .select("id")
+      .single());
+  }
 
   if (isDuplicateActiveTransportError(error)) {
     return {
@@ -775,12 +790,18 @@ export async function createOrderTransportRequestAction(params: {
       orderId: order.id,
       sellerGroupId: sellerGroup.id,
       requestSource: ORDER_EXPEDITION_REQUEST_SOURCE,
+      metadata: buildOrderExpeditionMetadata({
+        orderId: order.id,
+        sellerGroupId: sellerGroup.id,
+        orderNumber: order.order_number,
+      }),
     });
 
     const persisted = await insertTransportRequestAndNotify({
       insert,
       transport,
       revalidateOrders: true,
+      privileged: true,
       orderNumber: order.order_number,
       notify: {
         title: "Novo pedido de transporte",
