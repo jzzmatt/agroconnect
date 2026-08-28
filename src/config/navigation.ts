@@ -18,6 +18,7 @@ import {
   Bell,
   Building2,
   DollarSign,
+  MessageSquare,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -26,7 +27,7 @@ import { pt, type Dictionary } from "@/i18n/dictionaries/pt";
 
 export interface NavItem {
   title: string;
-  href: string;
+  href?: string;
   icon: LucideIcon;
   badge?: string;
   requiredRole?: UserRoleType;
@@ -35,6 +36,8 @@ export interface NavItem {
   requiredPermission?: Permission;
   /** When true, subscription/module lock never applies (e.g. student My Courses). */
   neverLock?: boolean;
+  /** Visual nested items. Groups have children and no destination href. */
+  children?: NavItem[];
 }
 
 export interface NavSection {
@@ -58,6 +61,10 @@ export interface NavSection {
  *   - Course Creator
  *   - My Courses
  */
+export function flattenNavItems(items: NavItem[]): NavItem[] {
+  return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])]);
+}
+
 export function getDashboardNavigation(dict: Dictionary): NavSection[] {
   return [
   {
@@ -88,37 +95,37 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         icon: ClipboardList,
       },
       {
-        title: dict.navDash.transport || "Transporte",
-        href: "/dashboard/transport",
-        icon: Truck,
-      },
-      {
         title: dict.navDash.serviceRequests,
         href: "/dashboard/requests",
         icon: Calendar,
       },
       {
+        title: dict.navDash.myTransport,
+        href: "/dashboard/transport",
+        icon: Truck,
+      },
+      {
+        title: dict.navDash.transportMessages,
+        icon: MessageSquare,
+        children: [
+          {
+            title: dict.navDash.receivingRequests,
+            href: "/dashboard/transport/requests/receiving",
+            icon: Inbox,
+            requiredPermission: "service.manage",
+          },
+          {
+            title: dict.navDash.sendingRequests,
+            href: "/dashboard/transport/requests/sending",
+            icon: Send,
+            neverLock: true,
+          },
+        ],
+      },
+      {
         title: dict.navDash.reviews,
         href: "/dashboard/expert/reviews",
         icon: Star,
-      },
-    ],
-  },
-  {
-    title: dict.navDash.transportServiceRequests,
-    pillar: "agriExpert",
-    items: [
-      {
-        title: dict.navDash.receivingRequests,
-        href: "/dashboard/transport/requests/receiving",
-        icon: Inbox,
-        requiredPermission: "service.manage",
-      },
-      {
-        title: dict.navDash.sendingRequests,
-        href: "/dashboard/transport/requests/sending",
-        icon: Send,
-        neverLock: true,
       },
     ],
   },

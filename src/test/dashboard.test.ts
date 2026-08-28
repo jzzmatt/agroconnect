@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
-import { getDashboardNavigation } from "@/config/navigation";
+import { readFileSync } from "node:fs";
+import { getDashboardNavigation, flattenNavItems } from "@/config/navigation";
 import { getDictionary } from "@/i18n";
 
 describe("Dashboard Navigation & Role Adaptation", () => {
@@ -16,26 +17,41 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     const pt = getDictionary("pt");
     const expertSection = getDashboardNavigation(pt).find((s) => s.pillar === "agriExpert");
     expect(expertSection).toBeDefined();
-    const expertHrefs = expertSection?.items.map((i) => i.href);
-    expect(expertHrefs).toContain("/dashboard/services");
-    expect(expertHrefs).toContain("/dashboard/transport");
-    expect(expertHrefs).toContain("/dashboard/requests");
-    expect(expertSection?.items.map((i) => i.title)).toContain(pt.navDash.myServices);
+    expect(expertSection?.title).toBe("AgriService");
+    expect(expertSection?.items.map((i) => i.title)).toEqual([
+      pt.navDash.myServices,
+      pt.navDash.serviceRequests,
+      pt.navDash.myTransport,
+      pt.navDash.transportMessages,
+      pt.navDash.reviews,
+    ]);
+    const expertHrefs = flattenNavItems(expertSection?.items || [])
+      .map((i) => i.href)
+      .filter(Boolean);
+    expect(expertHrefs).toEqual([
+      "/dashboard/services",
+      "/dashboard/requests",
+      "/dashboard/transport",
+      "/dashboard/transport/requests/receiving",
+      "/dashboard/transport/requests/sending",
+      "/dashboard/expert/reviews",
+    ]);
 
-    const transportRequests = getDashboardNavigation(pt).find(
-      (s) => s.title === pt.navDash.transportServiceRequests
-    );
-    expect(transportRequests?.items.map((i) => i.href)).toEqual([
+    const messages = expertSection?.items.find((item) => item.title === pt.navDash.transportMessages);
+    expect(messages?.href).toBeUndefined();
+    expect(messages?.children?.map((item) => item.href)).toEqual([
       "/dashboard/transport/requests/receiving",
       "/dashboard/transport/requests/sending",
     ]);
-    expect(transportRequests?.items.map((i) => i.title)).toEqual([
-      pt.navDash.receivingRequests,
-      pt.navDash.sendingRequests,
-    ]);
-    expect(transportRequests?.items[0]?.requiredPermission).toBe("service.manage");
-    expect(transportRequests?.items[0]?.neverLock).toBeUndefined();
-    expect(transportRequests?.items[1]?.neverLock).toBe(true);
+    const receiving = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/receiving");
+    const sending = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/sending");
+    expect(receiving?.requiredPermission).toBe("service.manage");
+    expect(receiving?.neverLock).toBeUndefined();
+    expect(sending?.neverLock).toBe(true);
+
+    const sectionTitles = getDashboardNavigation(pt).map((s) => s.title);
+    expect(sectionTitles).not.toContain(pt.navDash.transportServiceRequests);
+    expect(getDashboardNavigation(pt).filter((s) => s.pillar === "agriExpert")).toHaveLength(1);
 
     const academySection = getDashboardNavigation(pt).find((s) => s.pillar === "agriAcademy");
     expect(academySection?.items.map((i) => i.href)).toEqual([
@@ -46,6 +62,15 @@ describe("Dashboard Navigation & Role Adaptation", () => {
     const en = getDictionary("en");
     const enNav = getDashboardNavigation(en);
     expect(enNav.find((s) => s.pillar === "agriShopping")?.title).toBe(en.navDash.shoppingSales);
+  });
+
+  it("activates the longer AgriService request route instead of Transport", () => {
+    const sidebar = readFileSync("src/components/dashboard/Sidebar.tsx", "utf8");
+    expect(sidebar).toContain("function pathMatchesHref");
+    expect(sidebar).toContain("longestMatchingHref");
+    expect(sidebar).toContain("href.length > best.length");
+    expect(sidebar).toContain("item.children");
+    expect(sidebar).toContain("groupOpen");
   });
 
   it("keeps product creation on the Produtos page instead of a sidebar duplicate", () => {
