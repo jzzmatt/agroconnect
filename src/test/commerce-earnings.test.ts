@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import {
   isCompletedPaidProductGroup,
   sellerGroupProductValue,
@@ -38,12 +39,13 @@ function group(overrides: Partial<OrderSellerGroupDescriptor> & { seller_id: str
 function order(params: {
   payment_status: OrderDescriptor["payment_status"];
   groups: OrderSellerGroupDescriptor[];
+  status?: OrderDescriptor["status"];
 }): OrderDescriptor {
   return {
     id: "ord-1",
     order_number: "AGC-2026-000099",
     customer_id: "cust-1",
-    status: "paid",
+    status: params.status || "paid",
     payment_status: params.payment_status,
     fulfillment_method: "delivery",
     currency: "AOA",
@@ -62,7 +64,13 @@ function order(params: {
 }
 
 describe("Seller earnings KPI for completed products", () => {
-  it("counts only paid seller groups whose fulfillment is completed", () => {
+  it("counts completed product groups even when payment status lagged", () => {
+    expect(
+      isCompletedPaidProductGroup({
+        paymentStatus: "pending",
+        fulfillmentStatus: "completed",
+      })
+    ).toBe(true);
     expect(
       isCompletedPaidProductGroup({ paymentStatus: "paid", fulfillmentStatus: "completed" })
     ).toBe(true);
@@ -73,8 +81,12 @@ describe("Seller earnings KPI for completed products", () => {
       isCompletedPaidProductGroup({ paymentStatus: "paid", fulfillmentStatus: "processing" })
     ).toBe(false);
     expect(
-      isCompletedPaidProductGroup({ paymentStatus: "pending", fulfillmentStatus: "completed" })
-    ).toBe(false);
+      isCompletedPaidProductGroup({
+        paymentStatus: "paid",
+        fulfillmentStatus: "shipped",
+        orderStatus: "completed",
+      })
+    ).toBe(true);
   });
 
   it("uses product line value, not delivery fees, for the earnings KPI", () => {
@@ -83,6 +95,13 @@ describe("Seller earnings KPI for completed products", () => {
         subtotal: 30000,
         total: 35000,
         items: [{ subtotal: 12000 }, { subtotal: 18000 }],
+      })
+    ).toBe(30000);
+    expect(
+      sellerGroupProductValue({
+        subtotal: 30000,
+        total: 35000,
+        items: [{ subtotal: 0 }],
       })
     ).toBe(30000);
   });
@@ -127,5 +146,48 @@ describe("Seller earnings KPI for completed products", () => {
     expect(summary.total_earned).toBe(0);
     expect(summary.completed_count).toBe(0);
     expect(summary.total_processing).toBe(30000);
+  });
+
+  it("counts a parent order marked completed even if the group is still shipped", () => {
+    const summary = summarizeSellerEarnings("seller-a", [
+      order({
+        payment_status: "paid",
+        status: "completed",
+        groups: [group({ seller_id: "seller-a", status: "shipped", subtotal: 30000 })],
+      }),
+    ]);
+    expect(summary.total_earned).toBe(30000);
+    expect(summary.completed_count).toBe(1);
+    expect(summary.entries[0]?.status).toBe("completed");
+    expect(summary.entries[0]?.total).toBe(30000);
+  });
+
+  it("does not treat a cancelled parent order as processing or earned", () => {
+    const summary = summarizeSellerEarnings("seller-a", [
+      order({
+        payment_status: "paid",
+        status: "cancelled",
+        groups: [group({ seller_id: "seller-a", status: "processing", subtotal: 30000 })],
+      }),
+    ]);
+    expect(summary.total_earned).toBe(0);
+    expect(summary.total_processing).toBe(0);
+    expect(summary.completed_count).toBe(0);
+  });
+});
+
+describe("Earnings page displays completed order value", () => {
+  it("renders completed product amounts on the KPI and the completed list", () => {
+    const page = readFileSync("src/app/(dashboard)/dashboard/earnings/page.tsx", "utf8");
+    const persist = readFileSync("src/lib/commerce/persist.ts", "utf8");
+    const actions = readFileSync("src/lib/services/commerce-actions.ts", "utf8");
+    expect(page).toContain("copy.completedOrders");
+    expect(page).toContain("summary?.total_earned");
+    expect(page).toContain("copy.completedList");
+    expect(page).toContain("formatAmount(entry.total");
+    expect(persist).toContain("orderStatus: order.status");
+    expect(persist).toContain("fulfillment === \"completed\" || orderStatus === \"completed\"");
+    expect(actions).toContain("Number(summary.total_earned)");
+    expect(actions).toContain("Number(entry.total)");
   });
 });

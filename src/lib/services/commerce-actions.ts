@@ -174,18 +174,39 @@ export async function cancelOrderAction(orderNumber: string, reason?: string): P
 }
 
 export async function getSellerEarningsAction(): Promise<SellerEarningsSummary> {
-  await requireAuth();
-  const sellerIds = await resolveSessionSellerIds();
-  if (sellerIds.length === 0) {
+  const empty: SellerEarningsSummary = {
+    seller_id: "",
+    currency: "AOA",
+    total_earned: 0,
+    total_processing: 0,
+    completed_count: 0,
+    processing_count: 0,
+    entries: [],
+  };
+  try {
+    await requireAuth();
+    const sellerIds = await resolveSessionSellerIds();
+    if (sellerIds.length === 0) return empty;
+    const summary = await CommerceService.getSellerEarnings(sellerIds, { persist: true, sellerId: sellerIds });
     return {
-      seller_id: "",
-      currency: "AOA",
-      total_earned: 0,
-      total_processing: 0,
-      completed_count: 0,
-      processing_count: 0,
-      entries: [],
+      seller_id: String(summary.seller_id || ""),
+      currency: String(summary.currency || "AOA"),
+      total_earned: Number(summary.total_earned) || 0,
+      total_processing: Number(summary.total_processing) || 0,
+      completed_count: Number(summary.completed_count) || 0,
+      processing_count: Number(summary.processing_count) || 0,
+      entries: Array.isArray(summary.entries)
+        ? summary.entries.map((entry) => ({
+            order_number: String(entry.order_number || ""),
+            status: String(entry.status || ""),
+            payment_status: String(entry.payment_status || "pending") as SellerEarningsSummary["entries"][number]["payment_status"],
+            total: Number(entry.total) || 0,
+            created_at: String(entry.created_at || ""),
+          }))
+        : [],
     };
+  } catch (error) {
+    console.warn("[getSellerEarningsAction]", error);
+    return empty;
   }
-  return CommerceService.getSellerEarnings(sellerIds, { persist: true, sellerId: sellerIds });
 }
