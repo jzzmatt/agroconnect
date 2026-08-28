@@ -691,6 +691,21 @@ export const fr: Dictionary = {
   },
   agriexpert: {
     experts: "Experts",
+    editService: "Modifier",
+    deleteService: "Supprimer",
+    deleteServiceTitle: "Supprimer ce service ?",
+    deleteServiceConfirm: "Cette action supprimera le service de façon permanente.",
+    deletePublishedTitle: "Mettre en pause avant de supprimer",
+    deletePublishedBlock:
+      "Ce service est publié. Mettez-le en pause avant de le supprimer.",
+    deleteFailed: "Impossible de supprimer le service. Réessayez.",
+    confirmDeleteAction: "Confirmer la suppression",
+    editServiceTitle: "Modifier le service",
+    editServiceSubtitle: "Mettez à jour les détails de votre service et enregistrez.",
+    saveService: "Enregistrer",
+    savingService: "Enregistrement...",
+    serviceSaved: "Service mis à jour avec succès.",
+    serviceNotFound: "Service introuvable.",
   },
   agrilocalization: {
     title: "AgriLocalização",

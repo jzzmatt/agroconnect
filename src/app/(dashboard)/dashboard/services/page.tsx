@@ -5,33 +5,40 @@ import Link from "next/link";
 import {
   Plus,
   Search,
-  SlidersHorizontal,
-  MoreVertical,
   CheckCircle2,
   PauseCircle,
   Archive,
   Eye,
   Edit,
+  Trash2,
   DollarSign,
   MapPin,
   AlertCircle,
-  Loader2,
   Sparkles,
   Lock,
   ArrowRight,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { listMyServicesAction, updateServiceAction } from "@/lib/services/marketplace-actions";
+import {
+  listMyServicesAction,
+  updateServiceAction,
+  deleteServiceAction,
+} from "@/lib/services/marketplace-actions";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
+import { useI18n } from "@/i18n/provider";
+import { deleteDialogForServiceStatus } from "@/lib/services/service-delete-flow";
+import { ServiceDeleteDialog } from "@/components/marketplace/ServiceDeleteDialog";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function MyServicesDashboardPage() {
+  const { dict } = useI18n();
   const [services, setServices] = useState<ServiceListItem[]>([]);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [deleteTarget, setDeleteTarget] = useState<ServiceListItem | null>(null);
   const { entitlements, loading } = useAuthoritativePlan();
   const isBasic = !loading && !entitlements.can_manage_services;
 
@@ -114,6 +121,22 @@ export default function MyServicesDashboardPage() {
       );
     } catch (e) {
       console.warn("Failed to update status:", e);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsUpdating(deleteTarget.id);
+    try {
+      const result = await deleteServiceAction(deleteTarget.id);
+      if (!result.success) {
+        window.alert(result.error || dict.agriexpert.deleteFailed);
+        return;
+      }
+      setServices((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } finally {
       setIsUpdating(null);
     }
@@ -281,7 +304,14 @@ export default function MyServicesDashboardPage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
+              <div className="flex items-center gap-2 flex-wrap shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
+                <Link href={`/dashboard/services/${service.id}/edit`}>
+                  <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
+                    <Edit className="w-3.5 h-3.5" />
+                    <span>{dict.agriexpert.editService}</span>
+                  </Button>
+                </Link>
+
                 <Link href={`/services/${service.slug}`}>
                   <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
                     <Eye className="w-3.5 h-3.5" />
@@ -323,6 +353,17 @@ export default function MyServicesDashboardPage() {
                   <Archive className="w-3.5 h-3.5" />
                   <span>Arquivar</span>
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isUpdating === service.id}
+                  onClick={() => setDeleteTarget(service)}
+                  className="gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{dict.agriexpert.deleteService}</span>
+                </Button>
               </div>
             </div>
           ))
@@ -342,6 +383,17 @@ export default function MyServicesDashboardPage() {
           </div>
         )}
       </div>
+
+      <ServiceDeleteDialog
+        open={Boolean(deleteTarget)}
+        kind={deleteDialogForServiceStatus(deleteTarget?.status)}
+        busy={Boolean(deleteTarget && isUpdating === deleteTarget.id)}
+        onClose={() => {
+          if (deleteTarget && isUpdating === deleteTarget.id) return;
+          setDeleteTarget(null);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   );
 }

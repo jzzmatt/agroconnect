@@ -689,6 +689,22 @@ export const pt = {
   },
   agriexpert: {
     experts: "Especialistas",
+    editService: "Editar",
+    deleteService: "Eliminar",
+    deleteServiceTitle: "Eliminar serviço?",
+    deleteServiceConfirm:
+      "Esta ação eliminará o serviço de forma permanente e não pode ser anulada.",
+    deletePublishedTitle: "Pausa antes de eliminar",
+    deletePublishedBlock:
+      "Este serviço está publicado. Pausa a publicação antes de o eliminar.",
+    deleteFailed: "Não foi possível eliminar o serviço. Tente novamente.",
+    confirmDeleteAction: "Confirmar eliminação",
+    editServiceTitle: "Editar serviço",
+    editServiceSubtitle: "Atualize os detalhes do seu serviço e grave as alterações.",
+    saveService: "Guardar alterações",
+    savingService: "A guardar...",
+    serviceSaved: "Serviço actualizado com sucesso.",
+    serviceNotFound: "Serviço não encontrado.",
   },
   agrilocalization: {
     title: "AgriLocalização",

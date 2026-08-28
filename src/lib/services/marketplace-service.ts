@@ -1,5 +1,6 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
+import { canPermanentlyDeleteService } from "@/lib/services/service-delete-flow";
 import type { ServiceListItem, ProviderPublicProfile, ServiceRequestItem } from "@/types/domain";
 import type { ServiceStatus, PricingType, ServiceLocationType, ServiceContactPreference } from "@/types/database";
 
@@ -859,6 +860,31 @@ export class MarketplaceService {
    */
   public static async updateService(input: UpdateServiceInput): Promise<boolean> {
     return true;
+  }
+
+  /**
+   * Permanently delete an unpublished service owned by the provider.
+   */
+  public static async deleteService(
+    serviceId: string,
+    providerId: string
+  ): Promise<{ success: boolean; error?: string }> {
+    const service = INITIAL_SERVICES.find((entry) => entry.id === serviceId && entry.provider_id === providerId);
+    if (!service) {
+      return { success: false, error: "Serviço não encontrado." };
+    }
+    if (!canPermanentlyDeleteService(service.status)) {
+      return {
+        success: false,
+        error: "Pausa a publicação do serviço antes de o eliminar.",
+      };
+    }
+    const index = INITIAL_SERVICES.findIndex(
+      (entry) => entry.id === serviceId && entry.provider_id === providerId
+    );
+    if (index < 0) return { success: false, error: "Serviço não encontrado." };
+    INITIAL_SERVICES.splice(index, 1);
+    return { success: true };
   }
 
   /**

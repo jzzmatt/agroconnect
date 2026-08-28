@@ -16,6 +16,7 @@ import {
   type CreateProviderProfileInput,
   type SearchServicesFilterParams,
 } from "@/lib/services/marketplace-service";
+import { canPermanentlyDeleteService } from "@/lib/services/service-delete-flow";
 import type { ServiceListItem, ProviderPublicProfile, ServiceRequestItem } from "@/types/domain";
 
 async function getMarketplaceWritableClient() {
@@ -308,6 +309,16 @@ export async function listMyServicesAction(): Promise<ServiceListItem[]> {
   return MarketplaceService.getProviderServices(provider.id, false);
 }
 
+/**
+ * Server Action: Load one owned service for the editor
+ */
+export async function getMyServiceAction(serviceId: string): Promise<ServiceListItem | null> {
+  await requireAuth();
+  const provider = await ensureCurrentProviderProfile();
+  const services = await MarketplaceService.getProviderServices(provider.id, false);
+  return services.find((service) => service.id === serviceId) || null;
+}
+
 async function ensureCurrentProviderProfile(
   input?: CreateProviderProfileInput
 ): Promise<ProviderPublicProfile> {
@@ -530,6 +541,21 @@ export async function updateServiceAction(
   if (input.price !== undefined) updates.price = input.price;
   if (input.status !== undefined) updates.status = input.status;
   if (input.serviceRadiusKm !== undefined) updates.service_radius_km = input.serviceRadiusKm;
+  if (input.locationType !== undefined) updates.location_type = input.locationType;
+  if (input.categoryId !== undefined || input.categorySlug !== undefined) {
+    updates.category_id =
+      input.categoryId || (await resolveCategoryId(supabase, input.categorySlug));
+  }
+  if (input.provinceName !== undefined || input.municipalityName !== undefined) {
+    const geography = await resolveServiceGeography(supabase, {
+      provinceName: input.provinceName,
+      municipalityName: input.municipalityName,
+    });
+    if (geography.province_id) updates.province_id = geography.province_id;
+    if (geography.municipality_id) updates.municipality_id = geography.municipality_id;
+    if (geography.latitude !== undefined) updates.latitude = geography.latitude;
+    if (geography.longitude !== undefined) updates.longitude = geography.longitude;
+  }
   if (input.provinceId !== undefined) updates.province_id = input.provinceId;
   if (input.municipalityId !== undefined) updates.municipality_id = input.municipalityId;
   if (input.latitude !== undefined) updates.latitude = input.latitude;
@@ -544,6 +570,83 @@ export async function updateServiceAction(
   revalidatePublishedServicePaths();
   revalidatePath("/dashboard/services");
   return true;
+}
+
+/**
+ * Server Action: Permanently delete an unpublished owned service
+ */
+export async function deleteServiceAction(
+  serviceId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    await requireAuth();
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) {
+      return { success: false, error: "Não autorizado: Sessão não encontrada." };
+    }
+
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: userProfile.subscription_plan,
+      roles: userProfile.roles,
+      accountType: userProfile.account_type,
+    });
+    if (!entitlements.can_manage_services) {
+      return {
+        success: false,
+        error: "O seu plano não permite gerir serviços.",
+      };
+    }
+
+    const provider = await ensureCurrentProviderProfile();
+    const supabase = await getMarketplaceWritableClient();
+    const { data, error: loadError } = looksLikeUuid(serviceId)
+      ? await (supabase.from("services") as any)
+          .select("id, status, slug, provider_id")
+          .eq("id", serviceId)
+          .eq("provider_id", provider.id)
+          .maybeSingle()
+      : { data: null, error: null };
+
+    if (loadError && isSupabaseConfigured()) {
+      return { success: false, error: "Não foi possível eliminar o serviço." };
+    }
+
+    if (!data?.id) {
+      if (!isSupabaseConfigured()) {
+        return MarketplaceService.deleteService(serviceId, provider.id);
+      }
+      return { success: false, error: "Serviço não encontrado." };
+    }
+
+    if (!canPermanentlyDeleteService(String(data.status))) {
+      return {
+        success: false,
+        error: "Pausa a publicação do serviço antes de o eliminar.",
+      };
+    }
+
+    const { error } = await (supabase.from("services") as any)
+      .delete()
+      .eq("id", serviceId)
+      .eq("provider_id", provider.id);
+
+    if (error) {
+      if (!isSupabaseConfigured()) {
+        return MarketplaceService.deleteService(serviceId, provider.id);
+      }
+      return { success: false, error: error.message || "Não foi possível eliminar o serviço." };
+    }
+
+    revalidatePublishedServicePaths(data.slug ? String(data.slug) : undefined);
+    revalidatePath("/dashboard/services");
+    return { success: true };
+  } catch (error) {
+    const message = error instanceof Error ? error.message : "Não foi possível eliminar o serviço.";
+    if (/minified react error|#441|server components render/i.test(message)) {
+      return { success: false, error: "Não foi possível eliminar o serviço. Tente novamente." };
+    }
+    return { success: false, error: message };
+  }
 }
 
 /**
