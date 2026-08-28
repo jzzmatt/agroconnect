@@ -15,6 +15,11 @@ describe("AgriService expert incoming service requests", () => {
     expect(src).not.toMatch("req-demo-1");
     expect(src).not.toMatch("Fazenda Agro-Kwanza");
     expect(src).toMatch("useEffect");
+    expect(src).toMatch("setInterval");
+    expect(src).toMatch('document.addEventListener("visibilitychange"');
+    expect(src).toMatch("loadRequests(true)");
+    expect(src).toMatch("setOutgoingRequests");
+    expect(src).toMatch('status: "accepted" | "rejected"');
   });
 
   it("requires auth before listing provider incoming requests", () => {
@@ -55,5 +60,22 @@ describe("AgriService expert incoming service requests", () => {
   it("surfaces create errors in the request modal", () => {
     const src = read("src/components/marketplace/ServiceRequestModal.tsx");
     expect(src).toMatch("res.error || res.message");
+  });
+
+  it("refreshes Os Meus Pedidos Enviados when a request is accepted or rejected", () => {
+    const src = read("src/app/(dashboard)/dashboard/requests/page.tsx");
+    expect(src).toMatch("Os Meus Pedidos Enviados");
+    expect(src).toMatch("LIVE_REFRESH_MS");
+    expect(src).toMatch("getCustomerRequestsAction");
+    expect(src).toMatch("void loadRequests(true)");
+    expect(src).not.toMatch(/window\.(add|remove)EventListener\("visibilitychange"/);
+  });
+
+  it("refreshes sent transport request status without a full page reload", () => {
+    const src = read("src/components/transport/TransportRequestsPanel.tsx");
+    expect(src).toMatch("setInterval");
+    expect(src).toMatch('document.addEventListener("visibilitychange"');
+    expect(src).toMatch("load(true)");
+    expect(src).toMatch("getCustomerTransportRequestsAction");
   });
 });
