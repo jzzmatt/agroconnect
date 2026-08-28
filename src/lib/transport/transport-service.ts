@@ -3,6 +3,7 @@ import "server-only";
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/services/marketplace-service";
 import { getTransportWritableClient } from "@/lib/transport/supabase-client";
+import { extractOrderExpeditionLink } from "@/lib/transport/order-expedition";
 import type {
   TransportListItem,
   TransportPublicationStatus,
@@ -443,6 +444,7 @@ export class TransportService {
     const destinationNotes = (row.destination_notes as string) || null;
     const originLabel = (transport?.origin_label as string) || null;
     const destinationLabel = (transport?.destination_label as string) || null;
+    const orderLink = extractOrderExpeditionLink(row);
 
     return {
       id: String(row.id),
@@ -453,13 +455,10 @@ export class TransportService {
       transport_service_id: row.transport_service_id ? String(row.transport_service_id) : null,
       transport_title: (transport?.title as string) || null,
       transport_slug: (transport?.slug as string) || null,
-      order_id: row.order_id ? String(row.order_id) : null,
-      seller_group_id: row.seller_group_id ? String(row.seller_group_id) : null,
-      request_source: row.request_source ? String(row.request_source) : null,
-      order_number:
-        (row.order_number as string) ||
-        (asRelatedRecord(row.orders)?.order_number as string) ||
-        null,
+      order_id: orderLink.orderId,
+      seller_group_id: orderLink.sellerGroupId,
+      request_source: orderLink.requestSource,
+      order_number: orderLink.orderNumber,
       status: row.status as TransportRequestStatus,
       message: (row.message as string) || null,
       origin_notes: originNotes,

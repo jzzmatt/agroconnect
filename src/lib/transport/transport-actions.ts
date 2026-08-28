@@ -39,6 +39,7 @@ import { resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
   buildOrderExpeditionMessage,
   buildOrderExpeditionMetadata,
+  extractOrderExpeditionLink,
   isMissingSchemaError,
   isOrderExpeditionSource,
   isOrderGroupEligibleForExpedition,
@@ -79,6 +80,15 @@ function revalidateOrderTransportPaths(orderNumber?: string | null) {
   }
 }
 
+const TRANSPORT_REQUEST_CORE_SELECT = `
+  id,
+  customer_id,
+  provider_id,
+  status,
+  metadata,
+  transport_services(title)
+`;
+
 const TRANSPORT_REQUEST_SELECT = `
   *,
   profiles:customer_id(display_name),
@@ -92,8 +102,7 @@ const TRANSPORT_REQUEST_SELECT = `
     vehicle_type,
     vehicle_model,
     capacity_load
-  ),
-  orders:order_id(order_number)
+  )
 `;
 
 async function getCurrentProviderId(profileId: string): Promise<string | null> {
@@ -105,6 +114,35 @@ async function getCurrentProviderId(profileId: string): Promise<string | null> {
 
   if (error || !data?.id) return null;
   return String(data.id);
+}
+
+async function loadTransportRequestRow(requestId: string): Promise<Record<string, unknown> | null> {
+  const clients = [
+    await createServerSupabaseClient(),
+    tryCreateAdminServerSupabaseClient(),
+  ].filter(Boolean);
+
+  const selects = [
+    `${TRANSPORT_REQUEST_CORE_SELECT}, order_id, seller_group_id, request_source, orders:order_id(order_number)`,
+    TRANSPORT_REQUEST_CORE_SELECT,
+    "*",
+  ];
+
+  for (const client of clients) {
+    for (const select of selects) {
+      const { data, error } = await (client as any)
+        .from("transport_requests")
+        .select(select)
+        .eq("id", requestId)
+        .maybeSingle();
+      if (!error && data?.id) return data as Record<string, unknown>;
+      if (error && !isMissingSchemaError(error)) {
+        console.warn("[loadTransportRequestRow]", error);
+      }
+    }
+  }
+
+  return null;
 }
 
 async function listTransportRequests(
@@ -895,28 +933,26 @@ export async function updateTransportRequestStatusAction(params: {
     return { success: false, message: "Pedido não encontrado." };
   }
 
-  const supabase = await createServerSupabaseClient();
-  const { data: existing, error: fetchError } = await (supabase.from("transport_requests") as any)
-    .select("id, customer_id, provider_id, status, order_id, seller_group_id, request_source, transport_services(title), orders(order_number)")
-    .eq("id", params.requestId)
-    .maybeSingle();
-
-  if (fetchError || !existing) {
+  const existing = await loadTransportRequestRow(params.requestId);
+  if (!existing) {
     return { success: false, message: "Pedido não encontrado." };
   }
 
-  const providerId = await getCurrentProviderId(userProfile.id);
+  const providerIds = await resolveSessionSellerIds();
+  const providerId =
+    providerIds.find((id) => id === String(existing.provider_id)) ||
+    (await getCurrentProviderId(userProfile.id));
   const actor = resolveTransportRequestActor({
     profileId: userProfile.id,
     providerId,
-    customerId: existing.customer_id,
-    requestProviderId: existing.provider_id,
+    customerId: String(existing.customer_id),
+    requestProviderId: String(existing.provider_id),
   });
 
   if (
     !canActorChangeTransportRequestStatus({
       actor,
-      from: existing.status,
+      from: existing.status as TransportRequestStatus,
       to: params.status,
     })
   ) {
@@ -936,7 +972,8 @@ export async function updateTransportRequestStatusAction(params: {
     return { success: false, message: "Não autorizado." };
   }
 
-  const { data: updated, error } = await (supabase.from("transport_requests") as any)
+  const writable = await getTransportWritableClient();
+  const { data: updated, error } = await (writable.from("transport_requests") as any)
     .update({ status: params.status })
     .eq("id", params.requestId)
     .eq("status", existing.status)
@@ -948,25 +985,26 @@ export async function updateTransportRequestStatusAction(params: {
     return { success: false, message: "Não foi possível atualizar o pedido." };
   }
 
-  const relatedOrder = Array.isArray(existing.orders) ? existing.orders[0] : existing.orders;
-  const orderNumber = relatedOrder?.order_number ? String(relatedOrder.order_number) : null;
-  const orderLinked = isOrderExpeditionSource(existing.request_source) || Boolean(existing.order_id);
+  const orderLink = extractOrderExpeditionLink(existing);
+  const orderNumber = orderLink.orderNumber;
+  const orderLinked =
+    isOrderExpeditionSource(orderLink.requestSource) || Boolean(orderLink.orderId || orderLink.sellerGroupId);
 
-  if (orderLinked && existing.seller_group_id) {
+  if (orderLinked && orderLink.sellerGroupId) {
     const transportStatus = mapTransportRequestStatusToOrderTransport(params.status);
     let fulfillmentStatus: "shipped" | undefined;
     if (params.status === "completed") {
-      const group = await persistGetSellerGroupById(String(existing.seller_group_id));
+      const group = await persistGetSellerGroupById(orderLink.sellerGroupId);
       if (group && shouldShipOnTransportComplete(group.status)) {
         fulfillmentStatus = "shipped";
       }
     }
     try {
       await persistSyncSellerGroupTransport({
-        sellerGroupId: String(existing.seller_group_id),
+        sellerGroupId: orderLink.sellerGroupId,
         transportRequestId: params.requestId,
         transportStatus,
-        transportProviderId: existing.provider_id,
+        transportProviderId: String(existing.provider_id),
         fulfillmentStatus,
       });
     } catch (syncError) {
@@ -981,7 +1019,7 @@ export async function updateTransportRequestStatusAction(params: {
     ? existing.transport_services[0]
     : existing.transport_services;
   const transportTitle = relatedTransport?.title ? ` para "${relatedTransport.title}"` : "";
-  const providerName = (await loadProviderNotificationName(existing.provider_id)) || "o transportador";
+  const providerName = (await loadProviderNotificationName(String(existing.provider_id))) || "o transportador";
 
   if (actor === "transporter") {
     if (orderLinked && orderNumber) {
@@ -1007,7 +1045,7 @@ export async function updateTransportRequestStatusAction(params: {
                 };
 
       await notifyTransportRequest({
-        profileId: existing.customer_id,
+        profileId: String(existing.customer_id),
         type: "transport.request_update",
         title: notice.title,
         message: notice.message,
@@ -1016,7 +1054,7 @@ export async function updateTransportRequestStatusAction(params: {
           requestId: params.requestId,
           status: params.status,
           orderNumber,
-          requestSource: existing.request_source,
+          requestSource: orderLink.requestSource,
         },
       });
     } else {
@@ -1030,7 +1068,7 @@ export async function updateTransportRequestStatusAction(params: {
               : "cancelado";
 
       await notifyTransportRequest({
-        profileId: existing.customer_id,
+        profileId: String(existing.customer_id),
         type: "transport.request_update",
         title: `Pedido de transporte ${statusLabel}`,
         message: `O seu pedido de transporte${transportTitle} foi ${statusLabel} pelo transportador.`,

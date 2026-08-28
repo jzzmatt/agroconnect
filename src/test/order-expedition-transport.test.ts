@@ -4,6 +4,7 @@ import {
   buildOrderExpeditionMessage,
   buildOrderExpeditionMetadata,
   canSellerExpedirGroup,
+  extractOrderExpeditionLink,
   isActiveOrderTransportRequestStatus,
   isBlockingOrderTransportStatus,
   isMissingSchemaError,
@@ -189,6 +190,32 @@ describe("Order expedition transport integration", () => {
     });
     expect(row.metadata?.request_source).toBe("order_expedition");
     expect(row.metadata?.order_number).toBe("AGC-000123");
+  });
+
+  it("reads order linkage from dedicated columns or metadata", () => {
+    expect(
+      extractOrderExpeditionLink({
+        metadata: {
+          order_id: "ord-1",
+          seller_group_id: "grp-1",
+          request_source: "order_expedition",
+          order_number: "AGC-2026-000001",
+        },
+      })
+    ).toEqual({
+      orderId: "ord-1",
+      sellerGroupId: "grp-1",
+      requestSource: "order_expedition",
+      orderNumber: "AGC-2026-000001",
+    });
+    expect(
+      extractOrderExpeditionLink({
+        order_id: "ord-col",
+        seller_group_id: "grp-col",
+        request_source: "order_expedition",
+        metadata: { order_number: "AGC-9" },
+      }).orderId
+    ).toBe("ord-col");
   });
 
   it("lets a seller use their own published fleet for order expedition, but not for marketplace booking", () => {

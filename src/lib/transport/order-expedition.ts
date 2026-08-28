@@ -184,14 +184,47 @@ export function buildOrderExpeditionMetadata(params: {
   };
 }
 
+export function extractOrderExpeditionLink(row: {
+  order_id?: unknown;
+  seller_group_id?: unknown;
+  request_source?: unknown;
+  order_number?: unknown;
+  metadata?: unknown;
+  orders?: unknown;
+}): {
+  orderId: string | null;
+  sellerGroupId: string | null;
+  requestSource: string | null;
+  orderNumber: string | null;
+} {
+  const metadata =
+    row.metadata && typeof row.metadata === "object" && !Array.isArray(row.metadata)
+      ? (row.metadata as Record<string, unknown>)
+      : {};
+  const relatedOrder = Array.isArray(row.orders) ? row.orders[0] : row.orders;
+  const relatedNumber =
+    relatedOrder && typeof relatedOrder === "object"
+      ? (relatedOrder as { order_number?: unknown }).order_number
+      : null;
+
+  const orderId = row.order_id || metadata.order_id;
+  const sellerGroupId = row.seller_group_id || metadata.seller_group_id;
+  const requestSource = row.request_source || metadata.request_source;
+  const orderNumber = row.order_number || relatedNumber || metadata.order_number;
+
+  return {
+    orderId: orderId ? String(orderId) : null,
+    sellerGroupId: sellerGroupId ? String(sellerGroupId) : null,
+    requestSource: requestSource ? String(requestSource) : null,
+    orderNumber: orderNumber ? String(orderNumber) : null,
+  };
+}
+
 export function sellerGroupIdFromTransportRequestRow(row: {
   seller_group_id?: string | null;
   metadata?: unknown;
 }): string | null {
-  if (row.seller_group_id) return String(row.seller_group_id);
-  if (!row.metadata || typeof row.metadata !== "object") return null;
-  const sellerGroupId = (row.metadata as { seller_group_id?: unknown }).seller_group_id;
-  return sellerGroupId ? String(sellerGroupId) : null;
+  return extractOrderExpeditionLink(row).sellerGroupId;
 }
 
 export function withoutOrderLinkColumns<T extends Record<string, unknown>>(row: T): T {
