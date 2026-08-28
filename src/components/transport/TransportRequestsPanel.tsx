@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Calendar,
   CheckCircle2,
@@ -46,19 +46,36 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
   } | null>(null);
   const [acting, setActing] = useState(false);
   const [actionError, setActionError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const rows =
-      view === "receiving"
-        ? await getTransportRequestsForProviderAction()
-        : await getCustomerTransportRequestsAction();
-    setRequests(rows);
-    setLoading(false);
+  const load = useCallback(async (silent = false) => {
+    const seq = ++loadSeq.current;
+    if (!silent) setLoading(true);
+    try {
+      const rows =
+        view === "receiving"
+          ? await getTransportRequestsForProviderAction()
+          : await getCustomerTransportRequestsAction();
+      if (seq !== loadSeq.current) return;
+      setRequests(rows);
+    } finally {
+      if (seq === loadSeq.current && !silent) setLoading(false);
+    }
   }, [view]);
 
   useEffect(() => {
-    void load();
+    void load(false);
+    const interval = window.setInterval(() => {
+      void load(true);
+    }, 4000);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void load(true);
+    };
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
   }, [load]);
 
   const filtered = useMemo(() => {
@@ -93,7 +110,7 @@ export function TransportRequestsPanel({ view }: { view: RequestView }) {
     if (cancelledId) {
       setRequests((prev) => prev.filter((req) => req.id !== cancelledId));
     }
-    await load();
+    await load(true);
   };
 
   const filters: StatusFilter[] =

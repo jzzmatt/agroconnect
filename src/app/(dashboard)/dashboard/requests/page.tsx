@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import {
   Inbox,
   Clock,
@@ -18,6 +18,8 @@ import {
 } from "@/lib/services/marketplace-actions";
 import type { ServiceRequestItem } from "@/types/domain";
 
+const LIVE_REFRESH_MS = 4000;
+
 export default function RequestsDashboardPage() {
   const [activeTab, setActiveTab] = useState<"incoming" | "outgoing">("incoming");
   const [incomingRequests, setIncomingRequests] = useState<ServiceRequestItem[]>([]);
@@ -25,29 +27,44 @@ export default function RequestsDashboardPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [updatingId, setUpdatingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const loadSeq = useRef(0);
+
+  const loadRequests = useCallback(async (silent = false) => {
+    const seq = ++loadSeq.current;
+    if (!silent) setIsLoading(true);
+    try {
+      const [incoming, outgoing] = await Promise.all([
+        getProviderRequestsAction(),
+        getCustomerRequestsAction(),
+      ]);
+      if (seq !== loadSeq.current) return;
+      setIncomingRequests(incoming);
+      setOutgoingRequests(outgoing);
+    } catch {
+      if (seq !== loadSeq.current) return;
+      if (!silent) {
+        setIncomingRequests([]);
+        setOutgoingRequests([]);
+      }
+    } finally {
+      if (seq === loadSeq.current && !silent) setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-    setIsLoading(true);
-    Promise.all([getProviderRequestsAction(), getCustomerRequestsAction()])
-      .then(([incoming, outgoing]) => {
-        if (cancelled) return;
-        setIncomingRequests(incoming);
-        setOutgoingRequests(outgoing);
-      })
-      .catch(() => {
-        if (!cancelled) {
-          setIncomingRequests([]);
-          setOutgoingRequests([]);
-        }
-      })
-      .finally(() => {
-        if (!cancelled) setIsLoading(false);
-      });
-    return () => {
-      cancelled = true;
+    void loadRequests(false);
+    const interval = window.setInterval(() => {
+      void loadRequests(true);
+    }, LIVE_REFRESH_MS);
+    const onVisible = () => {
+      if (document.visibilityState === "visible") void loadRequests(true);
     };
-  }, []);
+    document.addEventListener("visibilitychange", onVisible);
+    return () => {
+      window.clearInterval(interval);
+      document.removeEventListener("visibilitychange", onVisible);
+    };
+  }, [loadRequests]);
 
   const handleStatusChange = async (requestId: string, status: "accepted" | "rejected") => {
     setUpdatingId(requestId);
@@ -61,6 +78,10 @@ export default function RequestsDashboardPage() {
       setIncomingRequests((prev) =>
         prev.map((row) => (row.id === requestId ? { ...row, status } : row))
       );
+      setOutgoingRequests((prev) =>
+        prev.map((row) => (row.id === requestId ? { ...row, status } : row))
+      );
+      void loadRequests(true);
     } catch {
       setError("Não foi possível atualizar o pedido.");
     } finally {
@@ -113,7 +134,10 @@ export default function RequestsDashboardPage() {
         <div className="flex items-center gap-2 mt-6 pt-4 border-t border-border">
           <button
             type="button"
-            onClick={() => setActiveTab("incoming")}
+            onClick={() => {
+              setActiveTab("incoming");
+              void loadRequests(true);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === "incoming"
                 ? "bg-primary text-primary-foreground shadow-xs"
@@ -124,7 +148,10 @@ export default function RequestsDashboardPage() {
           </button>
           <button
             type="button"
-            onClick={() => setActiveTab("outgoing")}
+            onClick={() => {
+              setActiveTab("outgoing");
+              void loadRequests(true);
+            }}
             className={`px-4 py-2 rounded-xl text-xs font-bold transition-all ${
               activeTab === "outgoing"
                 ? "bg-primary text-primary-foreground shadow-xs"
