@@ -161,9 +161,19 @@ function customerKey(actor?: CommerceActor): string {
   return actor?.customerId || DEFAULT_MEMORY_CUSTOMER;
 }
 
+function hasPersistableActorId(actor?: CommerceActor): boolean {
+  if (actor?.customerId && isUuid(actor.customerId)) return true;
+  const sellerIds = Array.isArray(actor?.sellerId)
+    ? actor.sellerId
+    : actor?.sellerId
+      ? [actor.sellerId]
+      : [];
+  return sellerIds.some((id) => isUuid(id));
+}
+
 function shouldPersist(actor?: CommerceActor): boolean {
   if (process.env.VITEST || process.env.VITEST_WORKER_ID) return false;
-  return Boolean(actor?.persist && actor.customerId && isUuid(actor.customerId));
+  return Boolean(actor?.persist && hasPersistableActorId(actor));
 }
 
 export function recalculateCart(items: CartItemDescriptor[], customerId = DEFAULT_MEMORY_CUSTOMER): ShoppingCart {
@@ -592,18 +602,25 @@ export class CommerceService {
     return memoryOrders.filter((order) => order.customer_id === customerId);
   }
 
-  public static async getSellerOrders(sellerId?: string, actor?: CommerceActor): Promise<OrderDescriptor[]> {
-    if (!sellerId) return [];
+  public static async getSellerOrders(
+    sellerId?: string | string[],
+    actor?: CommerceActor
+  ): Promise<OrderDescriptor[]> {
+    const sellerIds = (Array.isArray(sellerId) ? sellerId : sellerId ? [sellerId] : []).filter(Boolean);
+    if (sellerIds.length === 0) return [];
     if (shouldPersist(actor)) {
-      const persisted = await persistGetSellerOrders(sellerId);
-      if (persisted) return persisted;
+      const persisted = await persistGetSellerOrders(sellerIds);
+      if (persisted !== null) return persisted;
     }
     return memoryOrders
-      .filter((order) => order.seller_groups.some((group) => group.seller_id === sellerId))
+      .filter((order) =>
+        order.seller_groups.some((group) => sellerIds.includes(group.seller_id)) ||
+        order.items.some((item) => sellerIds.includes(item.seller_id))
+      )
       .map((order) => ({
         ...order,
-        seller_groups: order.seller_groups.filter((group) => group.seller_id === sellerId),
-        items: order.items.filter((item) => item.seller_id === sellerId),
+        seller_groups: order.seller_groups.filter((group) => sellerIds.includes(group.seller_id)),
+        items: order.items.filter((item) => sellerIds.includes(item.seller_id)),
       }));
   }
 
@@ -614,7 +631,8 @@ export class CommerceService {
     actor?: CommerceActor
   ): Promise<boolean> {
     if (!sellerId) return false;
-    if (shouldPersist(actor)) {
+    const persistActor: CommerceActor = { ...actor, persist: actor?.persist, sellerId };
+    if (shouldPersist(persistActor)) {
       const persisted = await persistUpdateFulfillmentStatus(orderNumber, sellerId, nextStatus);
       if (persisted !== null) return persisted;
     }
@@ -650,17 +668,18 @@ export class CommerceService {
   }
 
   public static async getSellerEarnings(
-    sellerId: string,
+    sellerId: string | string[],
     actor?: CommerceActor
   ): Promise<SellerEarningsSummary> {
-    if (!sellerId) {
+    const sellerIds = (Array.isArray(sellerId) ? sellerId : sellerId ? [sellerId] : []).filter(Boolean);
+    if (sellerIds.length === 0) {
       return summarizeSellerEarnings("", []);
     }
-    if (shouldPersist(actor)) {
-      const persisted = await persistGetSellerEarnings(sellerId);
-      if (persisted) return persisted;
+    if (shouldPersist({ ...actor, sellerId: sellerIds })) {
+      const persisted = await persistGetSellerEarnings(sellerIds);
+      if (persisted !== null) return persisted;
     }
-    const orders = await this.getSellerOrders(sellerId, actor);
-    return summarizeSellerEarnings(sellerId, orders);
+    const orders = await this.getSellerOrders(sellerIds, { ...actor, persist: actor?.persist, sellerId: sellerIds });
+    return summarizeSellerEarnings(sellerIds[0], orders);
   }
 }

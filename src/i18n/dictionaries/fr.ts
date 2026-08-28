@@ -1067,5 +1067,8 @@ export const fr: Dictionary = {
     sendEmail: "Envoyer par e-mail",
     emailPlaceholder: "Votre e-mail",
     emailOpened: "Ouverture du client de messagerie avec le justificatif.",
+    emailPrepared:
+      "Justificatif HTML avec le logo AgriConnect créé. Ouvrez le fichier .eml dans votre messagerie pour l'envoyer.",
+    pdfDownloaded: "Le justificatif a été téléchargé. Ouvrez le fichier et choisissez Imprimer → Enregistrer en PDF.",
   },
 };

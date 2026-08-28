@@ -1066,5 +1066,7 @@ export const en: Dictionary = {
     sendEmail: "Send by email",
     emailPlaceholder: "Your email",
     emailOpened: "Opening your email client with the receipt.",
+    emailPrepared: "HTML receipt with the AgriConnect logo created. Open the .eml file in your mail app to send it.",
+    pdfDownloaded: "The receipt was downloaded. Open the file and choose Print → Save as PDF.",
   },
 };

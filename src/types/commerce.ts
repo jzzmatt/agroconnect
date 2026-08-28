@@ -22,6 +22,7 @@ export interface CheckoutOrderInput {
 
 export interface CommerceActor {
   customerId?: string | null;
+  sellerId?: string | string[] | null;
   persist?: boolean;
 }
 

@@ -332,10 +332,17 @@ async function loadProviderNames(
   return map;
 }
 
+function matchesSellerScope(sellerId: string | null | undefined, sellerScope?: string | string[]): boolean {
+  if (!sellerScope) return true;
+  if (!sellerId) return false;
+  const ids = Array.isArray(sellerScope) ? sellerScope : [sellerScope];
+  return ids.includes(sellerId);
+}
+
 async function assembleOrder(
   supabase: NonNullable<ReturnType<typeof persistClient>>,
   orderRow: Record<string, unknown>,
-  sellerScope?: string
+  sellerScope?: string | string[]
 ): Promise<OrderDescriptor> {
   const orderId = String(orderRow.id);
   const [{ data: groups }, { data: items }, { data: payments }, { data: customer }] = await Promise.all([
@@ -346,12 +353,15 @@ async function assembleOrder(
   ]);
 
   const scopedGroups = ((groups || []) as any[]).filter((group: any) =>
-    sellerScope ? group.seller_id === sellerScope : true
+    matchesSellerScope(group.seller_id, sellerScope)
   );
   const scopedGroupIds = new Set(scopedGroups.map((group: any) => group.id));
   const scopedItems = ((items || []) as any[]).filter((item: any) => {
     if (!sellerScope) return true;
-    return item.seller_id === sellerScope || (item.seller_group_id && scopedGroupIds.has(item.seller_group_id));
+    return (
+      matchesSellerScope(item.seller_id, sellerScope) ||
+      (item.seller_group_id && scopedGroupIds.has(item.seller_group_id))
+    );
   });
 
   const sellerNames = await loadProviderNames(
@@ -681,15 +691,26 @@ export async function persistGetCustomerOrders(customerId: string): Promise<Orde
   return orders;
 }
 
-export async function persistGetSellerOrders(sellerId: string): Promise<OrderDescriptor[] | null> {
+export async function persistGetSellerOrders(sellerId: string | string[]): Promise<OrderDescriptor[] | null> {
   const supabase = persistClient();
   if (!supabase) return null;
-  const { data: groups, error } = await supabase
-    .from("order_seller_groups")
-    .select("order_id")
-    .eq("seller_id", sellerId);
+  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
+  if (sellerIds.length === 0) return [];
+
+  const [{ data: groups, error }, { data: itemRows, error: itemsError }] = await Promise.all([
+    supabase.from("order_seller_groups").select("order_id").in("seller_id", sellerIds),
+    supabase.from("order_items").select("order_id").in("seller_id", sellerIds),
+  ]);
   if (error) throw new Error(error.message);
-  const orderIds = [...new Set((groups || []).map((group: any) => group.order_id))];
+  if (itemsError) throw new Error(itemsError.message);
+
+  const orderIds = [
+    ...new Set(
+      [...(groups || []), ...(itemRows || [])]
+        .map((row: { order_id?: string }) => row.order_id)
+        .filter((id): id is string => Boolean(id))
+    ),
+  ];
   if (orderIds.length === 0) return [];
   const { data, error: ordersError } = await supabase
     .from("orders")
@@ -698,7 +719,9 @@ export async function persistGetSellerOrders(sellerId: string): Promise<OrderDes
     .order("created_at", { ascending: false });
   if (ordersError) throw new Error(ordersError.message);
   return Promise.all(
-    (data || []).map((row: any) => assembleOrder(supabase, row as Record<string, unknown>, sellerId))
+    (data || []).map((row: Record<string, unknown>) =>
+      assembleOrder(supabase, row as Record<string, unknown>, sellerIds)
+    )
   );
 }
 
@@ -757,10 +780,13 @@ export async function persistCancelOrder(
   return true;
 }
 
-export async function persistGetSellerEarnings(sellerId: string): Promise<SellerEarningsSummary | null> {
-  const orders = await persistGetSellerOrders(sellerId);
+export async function persistGetSellerEarnings(
+  sellerId: string | string[]
+): Promise<SellerEarningsSummary | null> {
+  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
+  const orders = await persistGetSellerOrders(sellerIds);
   if (orders === null) return null;
-  return summarizeSellerEarnings(sellerId, orders);
+  return summarizeSellerEarnings(sellerIds[0] || "", orders);
 }
 
 export function summarizeSellerEarnings(sellerId: string, orders: OrderDescriptor[]): SellerEarningsSummary {

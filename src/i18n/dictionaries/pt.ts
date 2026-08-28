@@ -1065,6 +1065,8 @@ export const pt = {
     sendEmail: "Enviar por e-mail",
     emailPlaceholder: "O seu e-mail",
     emailOpened: "A abrir o cliente de e-mail com o comprovativo.",
+    emailPrepared: "Comprovativo HTML com o logótipo AgriConnect criado. Abra o ficheiro .eml no seu correio para enviar.",
+    pdfDownloaded: "O comprovativo foi descarregado. Abra o ficheiro e escolha Imprimir → Guardar em PDF.",
   },
 };
 

@@ -17,9 +17,17 @@ describe("AGROCONNECT Phase 11 — Commerce authorization and persistence", () =
     expect(actions).toContain("resolveSessionSellerId");
     expect(actions).toMatch(/export async function getSellerOrdersAction\(\)/);
     expect(actions).not.toMatch(/getSellerOrdersAction\(sellerId/);
-    expect(actions).toContain("CommerceService.getSellerOrders(sellerId, PERSIST)");
+    expect(actions).toContain("CommerceService.getSellerOrders(sellerIds, {");
     expect(actions).toContain("updateFulfillmentStatus(orderNumber, sellerId, nextStatus, PERSIST)");
     expect(actions).toContain("_sellerId");
+  });
+
+  it("loads persisted seller orders using the session seller id, not only the customer id", () => {
+    expect(service).toContain("hasPersistableActorId");
+    expect(service).toContain("actor.sellerId");
+    expect(actions).toContain("resolveSessionSellerIds");
+    expect(actions).toContain("toSerializableOrder");
+    expect(persist).toContain(".in(\"seller_id\", sellerIds)");
   });
 
   it("returns serializable cart mutation results instead of throwing across the client boundary", () => {

@@ -5,7 +5,7 @@ import {
   emptyShoppingCart,
   toSerializableCart,
 } from "@/lib/commerce/serialize";
-import { buildOrderReceiptHtml, buildOrderReceiptText } from "@/lib/commerce/order-receipt";
+import { buildOrderReceiptHtml, buildOrderReceiptText, buildOrderReceiptEml } from "@/lib/commerce/order-receipt";
 import {
   canPermanentlyDeleteProduct,
   deleteDialogForProductStatus,
@@ -116,14 +116,22 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(INITIAL_PRODUCTS.some((item) => item.id === draft!.id)).toBe(true);
   });
 
-  it("builds Portuguese receipt text and printable HTML", () => {
+  it("builds Portuguese receipt text and printable HTML with the AgriConnect logo", () => {
     const text = buildOrderReceiptText(sampleOrder);
     const html = buildOrderReceiptHtml(sampleOrder);
+    const eml = buildOrderReceiptEml(sampleOrder, "cliente@example.com");
     expect(text).toContain("AGC-1001");
+    expect(text).toContain("AGROCONNECT");
     expect(text).toContain("Semente de Milho");
     expect(html).toContain("AGC-1001");
+    expect(html).toContain("AGROCONNECT");
     expect(html).toContain("Semente de Milho");
+    expect(html).toContain("<svg");
+    expect(html).toContain("#15803d");
     expect(html).not.toContain("<script");
+    expect(eml).toContain("Content-Type: text/html");
+    expect(eml).toContain("AGROCONNECT");
+    expect(eml).toContain("cliente@example.com");
   });
 
   it("exposes cart, receipt and delete copy in pt/en/fr", () => {
@@ -147,6 +155,10 @@ describe("Commerce cart UX, product delete and receipts", () => {
     const products = readFileSync("src/components/shopping/ProductsWorkspacePage.tsx", "utf8");
     const editor = readFileSync("src/components/shopping/ProductEditWorkspacePage.tsx", "utf8");
     const actions = readFileSync("src/lib/services/shopping-actions.ts", "utf8");
+    const receipts = readFileSync("src/components/commerce/OrderReceiptActions.tsx", "utf8");
+    const dashboard = readFileSync("src/app/(dashboard)/dashboard/orders/page.tsx", "utf8");
+    const commerceService = readFileSync("src/lib/services/commerce-service.ts", "utf8");
+    const commerceActions = readFileSync("src/lib/services/commerce-actions.ts", "utf8");
 
     expect(navbar).toContain("NavbarCartLink");
     expect(card).toContain("AddToCartControl");
@@ -160,5 +172,13 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(editor).toContain("deleteProductAction");
     expect(actions).toContain("export async function deleteProductAction");
     expect(actions).toContain('authorize("product.delete")');
+    expect(receipts).toContain("printReceiptHtml");
+    expect(receipts).toContain("buildOrderReceiptEml");
+    expect(receipts).not.toContain("noopener,noreferrer");
+    expect(dashboard).toContain("fulfillmentStatus");
+    expect(dashboard).toContain("isLoading");
+    expect(commerceService).toContain("hasPersistableActorId");
+    expect(commerceActions).toContain("resolveSessionSellerIds");
+    expect(commerceActions).toContain("sellerId: sellerIds");
   });
 });

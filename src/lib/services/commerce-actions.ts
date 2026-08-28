@@ -11,6 +11,7 @@ import {
   cartErrorMessage,
   emptyShoppingCart,
   toSerializableCart,
+  toSerializableOrder,
 } from "@/lib/commerce/serialize";
 import type { ShoppingCart, OrderDescriptor, SellerEarningsSummary } from "@/types/commerce";
 
@@ -31,15 +32,33 @@ async function requireCustomer() {
   return profile;
 }
 
-async function resolveSessionSellerId(): Promise<string | null> {
+async function resolveSessionSellerIds(): Promise<string[]> {
   const profile = await getCurrentUserProfile();
-  if (!profile) return null;
+  if (!profile) return [];
   const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
+  const profileIds = new Set<string>([profile.id].filter(Boolean));
+  if (profile.clerk_user_id) {
+    const { data: profileRows } = await (supabase.from("profiles") as any)
+      .select("id")
+      .eq("clerk_user_id", profile.clerk_user_id);
+    for (const row of profileRows || []) {
+      if (row?.id) profileIds.add(String(row.id));
+    }
+  }
   const { data } = await (supabase.from("provider_profiles") as any)
     .select("id")
-    .eq("profile_id", profile.id)
-    .maybeSingle();
-  return data?.id ? String(data.id) : null;
+    .in("profile_id", [...profileIds]);
+  const ids: string[] = [];
+  for (const row of data || []) {
+    const id = String((row as { id?: string })?.id || "");
+    if (id) ids.push(id);
+  }
+  return [...new Set(ids)];
+}
+
+async function resolveSessionSellerId(): Promise<string | null> {
+  const ids = await resolveSessionSellerIds();
+  return ids[0] || null;
 }
 
 async function runCartMutation(
@@ -148,10 +167,18 @@ export async function getCustomerOrdersAction(): Promise<OrderDescriptor[]> {
 }
 
 export async function getSellerOrdersAction(): Promise<OrderDescriptor[]> {
-  await requireAuth();
-  const sellerId = await resolveSessionSellerId();
-  if (!sellerId) return [];
-  return CommerceService.getSellerOrders(sellerId, PERSIST);
+  try {
+    await requireAuth();
+    const sellerIds = await resolveSessionSellerIds();
+    if (sellerIds.length === 0) return [];
+    const orders = await CommerceService.getSellerOrders(sellerIds, {
+      persist: true,
+      sellerId: sellerIds,
+    });
+    return orders.map(toSerializableOrder);
+  } catch {
+    return [];
+  }
 }
 
 export async function updateFulfillmentStatusAction(
@@ -172,8 +199,8 @@ export async function cancelOrderAction(orderNumber: string, reason?: string): P
 
 export async function getSellerEarningsAction(): Promise<SellerEarningsSummary> {
   await requireAuth();
-  const sellerId = await resolveSessionSellerId();
-  if (!sellerId) {
+  const sellerIds = await resolveSessionSellerIds();
+  if (sellerIds.length === 0) {
     return {
       seller_id: "",
       currency: "AOA",
@@ -184,5 +211,5 @@ export async function getSellerEarningsAction(): Promise<SellerEarningsSummary> 
       entries: [],
     };
   }
-  return CommerceService.getSellerEarnings(sellerId, PERSIST);
+  return CommerceService.getSellerEarnings(sellerIds, { persist: true, sellerId: sellerIds });
 }
