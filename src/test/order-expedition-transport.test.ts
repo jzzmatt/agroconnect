@@ -14,6 +14,7 @@ import {
   ORDER_EXPEDITION_REQUEST_SOURCE,
   preferredTransportPrice,
   shouldShipOnTransportComplete,
+  shouldBlockSelfTransportRequest,
   withoutOrderLinkColumns,
 } from "@/lib/transport/order-expedition";
 import { buildTransportRequestInsert } from "@/lib/transport/transport-request-lifecycle";
@@ -188,6 +189,30 @@ describe("Order expedition transport integration", () => {
     });
     expect(row.metadata?.request_source).toBe("order_expedition");
     expect(row.metadata?.order_number).toBe("AGC-000123");
+  });
+
+  it("lets a seller use their own published fleet for order expedition, but not for marketplace booking", () => {
+    const ownProviderId = publishedTransport.provider_id;
+    expect(
+      shouldBlockSelfTransportRequest({
+        actorProviderIds: [ownProviderId],
+        transportProviderId: ownProviderId,
+      })
+    ).toBe(true);
+    expect(
+      shouldBlockSelfTransportRequest({
+        requestSource: ORDER_EXPEDITION_REQUEST_SOURCE,
+        actorProviderIds: [ownProviderId],
+        transportProviderId: ownProviderId,
+      })
+    ).toBe(false);
+    expect(
+      shouldBlockSelfTransportRequest({
+        requestSource: ORDER_EXPEDITION_REQUEST_SOURCE,
+        actorProviderIds: [ownProviderId],
+        transportProviderId: "55555555-5555-4555-8555-555555555555",
+      })
+    ).toBe(false);
   });
 
   it("exposes PT/EN/FR copy for the expedition selector", () => {

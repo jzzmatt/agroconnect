@@ -12,6 +12,18 @@ export function isOrderExpeditionSource(value?: string | null): boolean {
   return value === ORDER_EXPEDITION_REQUEST_SOURCE;
 }
 
+export function shouldBlockSelfTransportRequest(params: {
+  requestSource?: string | null;
+  actorProviderIds: string[];
+  transportProviderId: string;
+}): boolean {
+  if (!params.transportProviderId) return false;
+  if (!params.actorProviderIds.includes(params.transportProviderId)) return false;
+  // Marketplace customers cannot book their own published service.
+  // Order expedition may use the seller's own published fleet to ship goods.
+  return !isOrderExpeditionSource(params.requestSource);
+}
+
 export function isActiveOrderTransportRequestStatus(
   status?: string | null
 ): status is ActiveOrderTransportRequestStatus {

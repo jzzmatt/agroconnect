@@ -46,6 +46,7 @@ import {
   ORDER_EXPEDITION_REQUEST_SOURCE,
   resolveOrderDestinationLabel,
   shouldShipOnTransportComplete,
+  shouldBlockSelfTransportRequest,
   withoutOrderLinkColumns,
 } from "@/lib/transport/order-expedition";
 import {
@@ -653,7 +654,12 @@ export async function createTransportRequestAction(params: {
   }
 
   const actorProviderId = await getCurrentProviderId(userProfile.id);
-  if (actorProviderId && actorProviderId === transport.provider_id) {
+  if (
+    shouldBlockSelfTransportRequest({
+      actorProviderIds: actorProviderId ? [actorProviderId] : [],
+      transportProviderId: transport.provider_id,
+    })
+  ) {
     return { success: false, message: "Não pode solicitar o seu próprio transporte." };
   }
 
@@ -765,7 +771,13 @@ export async function createOrderTransportRequestAction(params: {
       };
     }
 
-    if (sellerIds.includes(transport.provider_id)) {
+    if (
+      shouldBlockSelfTransportRequest({
+        requestSource: ORDER_EXPEDITION_REQUEST_SOURCE,
+        actorProviderIds: sellerIds,
+        transportProviderId: transport.provider_id,
+      })
+    ) {
       return {
         success: false,
         message: "Não pode solicitar o seu próprio transporte.",
