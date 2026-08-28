@@ -38,6 +38,16 @@ describe("AgriService published service cards", () => {
     expect(createFn).toMatch("success: false");
     expect(createFn).toMatch("publishFailureMessage");
     expect(createFn).not.toMatch("throw new Error");
+    expect(createFn).not.toMatch("contact_preference");
+    expect(createFn).not.toMatch("contactPreference");
+    expect(createFn).toMatch("missingSchemaColumn");
+  });
+
+  it("adds missing service columns when 011 was never applied", () => {
+    const src = read("supabase/migrations/20260828000002_043_services_contact_preference.sql");
+    expect(src).toMatch("ADD COLUMN IF NOT EXISTS contact_preference");
+    expect(src).toMatch("ADD COLUMN IF NOT EXISTS location_type");
+    expect(src).toMatch("NOTIFY pgrst, 'reload schema'");
   });
 
   it("keeps publish errors on the form instead of throwing a minified React digest", () => {

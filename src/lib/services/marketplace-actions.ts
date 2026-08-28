@@ -72,6 +72,21 @@ function publishFailureMessage(error: { message?: string; code?: string } | null
   return "Não foi possível publicar o serviço. Tente novamente.";
 }
 
+function missingSchemaColumn(error: { message?: string; code?: string } | null | undefined): string | null {
+  const msg = error?.message || "";
+  const match = msg.match(/Could not find the '([^']+)' column/i);
+  if (match?.[1]) return match[1];
+  if (error?.code === "PGRST204") return "__unknown__";
+  return null;
+}
+
+function isPublishedStatusConstraintError(
+  error: { message?: string; code?: string } | null | undefined
+): boolean {
+  const msg = error?.message || "";
+  return /services_status_check|check constraint/i.test(msg) && /published/i.test(msg);
+}
+
 async function resolveCategoryId(
   supabase: Awaited<ReturnType<typeof getMarketplaceWritableClient>>,
   slug?: string | null
@@ -303,29 +318,45 @@ export async function createServiceAction(
       municipalityName: input.municipalityName,
     });
 
-    const { data, error } = await (supabase.from("services") as any)
-      .insert({
-        provider_id: provider.id,
-        category_id: categoryId,
-        title: input.title.trim(),
-        slug: uniqueSlug,
-        short_description: input.shortDescription || input.title,
-        description: input.description || "",
-        pricing_type: input.pricingType || "fixed",
-        price: input.price,
-        currency: input.currency || "AOA",
-        location_type: input.locationType || "service_area",
-        contact_preference: input.contactPreference || "platform",
-        province_id: input.provinceId || geography.province_id || null,
-        municipality_id: input.municipalityId || geography.municipality_id || null,
-        latitude: input.latitude ?? geography.latitude ?? null,
-        longitude: input.longitude ?? geography.longitude ?? null,
-        service_radius_km: input.serviceRadiusKm || 50,
-        status: input.status || "published",
-        is_featured: input.isFeatured || false,
-      })
-      .select("*")
-      .single();
+    const insertService = (row: Record<string, unknown>) =>
+      (supabase.from("services") as any).insert(row).select("*").single();
+
+    // Older live `services` tables omit later marketplace columns. PostgREST
+    // rejects unknown fields (PGRST204), so the payload stays on core columns
+    // and retries without any field missing from the schema cache.
+    const serviceRow: Record<string, unknown> = {
+      provider_id: provider.id,
+      category_id: categoryId,
+      title: input.title.trim(),
+      slug: uniqueSlug,
+      short_description: input.shortDescription || input.title,
+      description: input.description || "",
+      pricing_type: input.pricingType || "fixed",
+      price: input.price,
+      currency: input.currency || "AOA",
+      location_type: input.locationType || "service_area",
+      province_id: input.provinceId || geography.province_id || null,
+      municipality_id: input.municipalityId || geography.municipality_id || null,
+      latitude: input.latitude ?? geography.latitude ?? null,
+      longitude: input.longitude ?? geography.longitude ?? null,
+      service_radius_km: input.serviceRadiusKm || 50,
+      status: input.status || "published",
+      is_featured: input.isFeatured || false,
+    };
+
+    let { data, error } = await insertService(serviceRow);
+
+    while (error && missingSchemaColumn(error)) {
+      const column = missingSchemaColumn(error);
+      if (!column || column === "__unknown__" || !(column in serviceRow)) break;
+      delete serviceRow[column];
+      ({ data, error } = await insertService(serviceRow));
+    }
+
+    if (error && isPublishedStatusConstraintError(error) && serviceRow.status === "published") {
+      serviceRow.status = "active";
+      ({ data, error } = await insertService(serviceRow));
+    }
 
     if (error || !data) {
       console.warn("[createServiceAction] DB error:", error);
