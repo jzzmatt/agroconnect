@@ -123,6 +123,7 @@ export function toSerializableOrder(order: OrderDescriptor): OrderDescriptor {
         transport_status: group.transport_status || null,
         transport_provider_id: group.transport_provider_id ? String(group.transport_provider_id) : null,
         transport_provider_name: group.transport_provider_name ? String(group.transport_provider_name) : null,
+        transport_provider_phone: group.transport_provider_phone ? String(group.transport_provider_phone) : null,
         transport_title: group.transport_title ? String(group.transport_title) : null,
         transport_origin: group.transport_origin ? String(group.transport_origin) : null,
         transport_destination: group.transport_destination ? String(group.transport_destination) : null,

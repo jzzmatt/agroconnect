@@ -123,6 +123,7 @@ export interface OrderSellerGroupDescriptor {
   transport_status?: OrderTransportStatus | null;
   transport_provider_id?: string | null;
   transport_provider_name?: string | null;
+  transport_provider_phone?: string | null;
   transport_title?: string | null;
   transport_origin?: string | null;
   transport_destination?: string | null;

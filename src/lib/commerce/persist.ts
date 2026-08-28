@@ -321,18 +321,19 @@ function mapAddressSnapshot(
 async function loadProviderNames(
   supabase: NonNullable<ReturnType<typeof persistClient>>,
   sellerIds: string[]
-): Promise<Map<string, { name: string; slug?: string }>> {
-  const map = new Map<string, { name: string; slug?: string }>();
+): Promise<Map<string, { name: string; slug?: string; phone?: string | null }>> {
+  const map = new Map<string, { name: string; slug?: string; phone?: string | null }>();
   const ids = sellerIds.filter(isUuid);
   if (ids.length === 0) return map;
   const { data } = await supabase
     .from("provider_profiles")
-    .select("id, business_name, slug")
+    .select("id, business_name, slug, phone")
     .in("id", ids);
   for (const row of data || []) {
     map.set(row.id, {
       name: row.business_name || "Vendedor Agrícola",
       slug: row.slug || undefined,
+      phone: row.phone ? String(row.phone) : null,
     });
   }
   return map;
@@ -404,15 +405,17 @@ async function enrichSellerGroupsWithTransport(
 
   for (const group of groups) {
     const row = latestByGroup.get(group.id);
-    if (!group.transport_status && row?.status) {
+    if (row?.status) {
       group.transport_request_id = String(row.id);
       group.transport_status = mapTransportRequestStatusToOrderTransport(
         String(row.status) as "pending" | "accepted" | "rejected" | "cancelled" | "completed"
       );
-      group.transport_provider_id = row.provider_id ? String(row.provider_id) : null;
+      group.transport_provider_id = row.provider_id ? String(row.provider_id) : group.transport_provider_id || null;
     }
     if (group.transport_provider_id) {
-      group.transport_provider_name = transporterNames.get(group.transport_provider_id)?.name || null;
+      const transporter = transporterNames.get(group.transport_provider_id);
+      group.transport_provider_name = transporter?.name || group.transport_provider_name || null;
+      group.transport_provider_phone = transporter?.phone || group.transport_provider_phone || null;
     }
     if (row) {
       const service = asRelatedRecord(row.transport_services);
@@ -764,15 +767,16 @@ export async function persistGetOrderByNumber(
       ? [scope.sellerId]
       : [];
   const hasSellerScope = sellerIds.length > 0;
-  if (scope?.customerId && data.customer_id !== scope.customerId && !hasSellerScope) {
+  const isCustomerOwner = Boolean(scope?.customerId && data.customer_id === scope.customerId);
+  if (scope?.customerId && !isCustomerOwner && !hasSellerScope) {
     return null;
   }
   const order = await assembleOrder(
     supabase,
     data as Record<string, unknown>,
-    hasSellerScope ? sellerIds : undefined
+    isCustomerOwner ? undefined : hasSellerScope ? sellerIds : undefined
   );
-  if (hasSellerScope && order.seller_groups.length === 0) return null;
+  if (!isCustomerOwner && hasSellerScope && order.seller_groups.length === 0) return null;
   if (scope?.customerId && order.customer_id !== scope.customerId && !hasSellerScope) return null;
   return order;
 }

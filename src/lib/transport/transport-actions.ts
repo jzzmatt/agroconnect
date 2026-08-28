@@ -35,6 +35,7 @@ import {
   persistGetOrderByNumber,
   persistGetSellerGroupById,
   persistLinkSellerGroupTransport,
+  persistRecordTrackingEvent,
   persistSyncSellerGroupTransport,
   persistUpdateTransportRequestStatus,
 } from "@/lib/commerce/persist";
@@ -42,6 +43,7 @@ import { resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
   buildOrderExpeditionMessage,
   buildOrderExpeditionMetadata,
+  buildOrderTransportTrackingEvent,
   extractOrderExpeditionLink,
   isMissingSchemaError,
   isOrderExpeditionSource,
@@ -221,6 +223,35 @@ async function notifyTransportRequest(params: {
     await NotificationService.createNotification(params);
   } catch (error) {
     console.warn("[notifyTransportRequest] notification failed:", error);
+  }
+}
+
+async function recordOrderTransportTrackingEvent(params: {
+  orderId?: string | null;
+  orderNumber?: string | null;
+  sellerGroupId?: string | null;
+  transportStatus: ReturnType<typeof mapTransportRequestStatusToOrderTransport>;
+  providerName?: string | null;
+}) {
+  if (!params.orderId || !params.orderNumber) return;
+  const copy = buildOrderTransportTrackingEvent({
+    transportStatus: params.transportStatus,
+    providerName: params.providerName,
+  });
+  if (!copy) return;
+  try {
+    await persistRecordTrackingEvent({
+      orderId: params.orderId,
+      orderNumber: params.orderNumber,
+      sellerGroupId: params.sellerGroupId || undefined,
+      status: copy.status,
+      title: copy.title,
+      description: copy.description,
+      actorName: params.providerName || undefined,
+      actorType: copy.actorType,
+    });
+  } catch (error) {
+    console.warn("[recordOrderTransportTrackingEvent]", error);
   }
 }
 
@@ -905,6 +936,14 @@ export async function createOrderTransportRequestAction(params: {
       };
     }
 
+    await recordOrderTransportTrackingEvent({
+      orderId: order.id,
+      orderNumber: order.order_number,
+      sellerGroupId: sellerGroup.id,
+      transportStatus: "requested",
+      providerName: transport.provider_name,
+    });
+
     revalidateOrderTransportPaths(order.order_number);
 
     return {
@@ -1068,6 +1107,16 @@ export async function updateTransportRequestStatusAction(params: {
 
   if (alreadyApplied) {
     return { success: true, message: "Estado do pedido atualizado." };
+  }
+
+  if (orderLinked) {
+    await recordOrderTransportTrackingEvent({
+      orderId: orderLink.orderId,
+      orderNumber,
+      sellerGroupId: orderLink.sellerGroupId,
+      transportStatus: mapTransportRequestStatusToOrderTransport(params.status),
+      providerName: providerName === "o transportador" ? null : providerName,
+    });
   }
 
   if (actor === "transporter") {

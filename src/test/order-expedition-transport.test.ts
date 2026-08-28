@@ -1,4 +1,5 @@
 import { describe, expect, it } from "vitest";
+import { readFileSync } from "node:fs";
 import { getDictionary } from "@/i18n";
 import {
   buildOrderExpeditionMessage,
@@ -14,9 +15,11 @@ import {
   matchesPublishedTransportQuery,
   ORDER_EXPEDITION_REQUEST_SOURCE,
   preferredTransportPrice,
+  resolveOrderShippingTracker,
   shouldShipOnTransportComplete,
   shouldBlockSelfTransportRequest,
   withoutOrderLinkColumns,
+  buildOrderTransportTrackingEvent,
 } from "@/lib/transport/order-expedition";
 import { buildTransportRequestInsert } from "@/lib/transport/transport-request-lifecycle";
 import type { TransportListItem } from "@/types/transport";
@@ -257,5 +260,73 @@ describe("Order expedition transport integration", () => {
     expect(en.dashboardOrders.noPublishedTransports).toBe("No transport available");
     expect(fr.dashboardOrders.chooseTransport).toBe("Choisir un transport");
     expect(fr.dashboardOrders.selectAnotherTransport).toContain("autre transport");
+  });
+
+  it("maps transport request status onto the customer shipping tracker", () => {
+    const requested = resolveOrderShippingTracker({
+      delivery_status: "not_assigned",
+      transport_status: "requested",
+      transport_provider_name: "ABC Transportes",
+      transport_provider_phone: "+244 923 000 111",
+    });
+    expect(requested.carrierState).toBe("requested");
+    expect(requested.carrierName).toBe("ABC Transportes");
+    expect(requested.carrierPhone).toBe("+244 923 000 111");
+
+    const accepted = resolveOrderShippingTracker({
+      delivery_status: "not_assigned",
+      transport_status: "accepted",
+      transport_provider_name: "ABC Transportes",
+    });
+    expect(accepted.carrierState).toBe("assigned");
+    expect(accepted.carrierName).toBe("ABC Transportes");
+
+    const completed = resolveOrderShippingTracker({
+      delivery_status: "not_assigned",
+      transport_status: "completed",
+      transport_provider_name: "ABC Transportes",
+    });
+    expect(completed.carrierState).toBe("in_transit");
+
+    const unassigned = resolveOrderShippingTracker({
+      delivery_status: "not_assigned",
+      transport_status: null,
+    });
+    expect(unassigned.carrierState).toBe("not_assigned");
+    expect(unassigned.carrierName).toBeNull();
+
+    const rejected = resolveOrderShippingTracker({
+      delivery_status: "not_assigned",
+      transport_status: "rejected",
+      transport_provider_name: "ABC Transportes",
+    });
+    expect(rejected.carrierState).toBe("not_assigned");
+    expect(rejected.carrierName).toBeNull();
+  });
+
+  it("records Portuguese tracking copy when a transporter is requested or assigned", () => {
+    expect(buildOrderTransportTrackingEvent({ transportStatus: "requested", providerName: "ABC" })?.title).toBe(
+      "Pedido de transporte enviado"
+    );
+    expect(buildOrderTransportTrackingEvent({ transportStatus: "accepted", providerName: "ABC" })?.status).toBe(
+      "assigned"
+    );
+    expect(buildOrderTransportTrackingEvent({ transportStatus: "completed" })?.status).toBe("in_transit");
+  });
+
+  it("exposes shipping tracker copy in PT/EN/FR", () => {
+    const pt = getDictionary("pt");
+    expect(pt.delivery.awaitingAssignment).toBe("A aguardar atribuição de transportador");
+    expect(pt.delivery.awaitingAcceptance).toBe("A aguardar aceitação do transportador");
+    expect(pt.delivery.assigned).toBe("Transportador atribuído");
+    expect(getDictionary("en").delivery.assigned).toBe("Carrier assigned");
+    expect(getDictionary("fr").delivery.awaitingAcceptance).toContain("acceptation");
+  });
+
+  it("does not hardcode a placeholder courier on the customer order page", () => {
+    const page = readFileSync("src/app/orders/[orderNumber]/page.tsx", "utf8");
+    expect(page).toContain("resolveOrderShippingTracker");
+    expect(page).not.toContain('courierName={firstSellerGroup?.courier_name || "Expresso Rural Huambo"}');
+    expect(page).not.toContain('deliveryOtp={firstSellerGroup?.delivery_otp || "483921"}');
   });
 });

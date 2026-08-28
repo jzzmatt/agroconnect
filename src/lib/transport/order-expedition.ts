@@ -234,3 +234,124 @@ export function withoutOrderLinkColumns<T extends Record<string, unknown>>(row: 
   delete next.request_source;
   return next;
 }
+
+export type OrderShippingCarrierState =
+  | "not_assigned"
+  | "requested"
+  | "assigned"
+  | "accepted"
+  | "picked_up"
+  | "in_transit"
+  | "delivered"
+  | "failed"
+  | "cancelled";
+
+export function resolveOrderShippingTracker(group?: {
+  status?: OrderSellerGroupDescriptor["status"] | string | null;
+  delivery_status?: OrderSellerGroupDescriptor["delivery_status"] | string | null;
+  transport_status?: OrderTransportStatus | null;
+  transport_provider_name?: string | null;
+  transport_provider_phone?: string | null;
+  courier_name?: string | null;
+  courier_phone?: string | null;
+} | null): {
+  carrierState: OrderShippingCarrierState;
+  carrierName: string | null;
+  carrierPhone: string | null;
+} {
+  if (!group) {
+    return { carrierState: "not_assigned", carrierName: null, carrierPhone: null };
+  }
+
+  const transportName = group.transport_provider_name?.trim() || null;
+  const transportPhone = group.transport_provider_phone?.trim() || null;
+
+  if (group.transport_status === "requested") {
+    return {
+      carrierState: "requested",
+      carrierName: transportName,
+      carrierPhone: transportPhone,
+    };
+  }
+
+  if (group.transport_status === "accepted") {
+    return {
+      carrierState: "assigned",
+      carrierName: transportName,
+      carrierPhone: transportPhone,
+    };
+  }
+
+  if (group.transport_status === "completed") {
+    const delivery = String(group.delivery_status || "");
+    const carrierState: OrderShippingCarrierState =
+      delivery === "delivered" || delivery === "picked_up" || delivery === "in_transit"
+        ? (delivery as OrderShippingCarrierState)
+        : "in_transit";
+    return {
+      carrierState,
+      carrierName: transportName,
+      carrierPhone: transportPhone,
+    };
+  }
+
+  const deliveryStatus = (group.delivery_status || "not_assigned") as OrderShippingCarrierState;
+  return {
+    carrierState: deliveryStatus,
+    carrierName: group.courier_name?.trim() || null,
+    carrierPhone: group.courier_phone?.trim() || null,
+  };
+}
+
+export function buildOrderTransportTrackingEvent(params: {
+  transportStatus: OrderTransportStatus;
+  providerName?: string | null;
+}): {
+  status: string;
+  title: string;
+  description: string;
+  actorType: "seller" | "courier";
+} | null {
+  const provider = params.providerName?.trim() || null;
+  if (params.transportStatus === "requested") {
+    return {
+      status: "requested",
+      title: "Pedido de transporte enviado",
+      description: provider
+        ? `Pedido de transporte enviado a ${provider}. A aguardar aceitação.`
+        : "Pedido de transporte enviado. A aguardar aceitação do transportador.",
+      actorType: "seller",
+    };
+  }
+  if (params.transportStatus === "accepted") {
+    return {
+      status: "assigned",
+      title: "Transportador atribuído",
+      description: provider
+        ? `${provider} aceitou o transporte desta encomenda.`
+        : "O transportador aceitou o pedido de transporte.",
+      actorType: "courier",
+    };
+  }
+  if (params.transportStatus === "rejected") {
+    return {
+      status: "not_assigned",
+      title: "Pedido de transporte recusado",
+      description: provider
+        ? `${provider} recusou o pedido de transporte. O vendedor pode selecionar outro transporte.`
+        : "O pedido de transporte foi recusado. O vendedor pode selecionar outro transporte.",
+      actorType: "courier",
+    };
+  }
+  if (params.transportStatus === "completed") {
+    return {
+      status: "in_transit",
+      title: "Transporte concluído",
+      description: provider
+        ? `${provider} concluiu o transporte. A encomenda segue para entrega.`
+        : "O transporte foi concluído. A encomenda segue para entrega.",
+      actorType: "courier",
+    };
+  }
+  return null;
+}

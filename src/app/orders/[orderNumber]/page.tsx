@@ -25,6 +25,7 @@ import { OrderReceiptActions } from "@/components/commerce/OrderReceiptActions";
 import { DeliveryTracker } from "@/components/logistics/DeliveryTracker";
 import { getOrderByNumberAction, cancelOrderAction } from "@/lib/services/commerce-actions";
 import { getOrderTrackingEventsAction } from "@/lib/services/logistics-actions";
+import { resolveOrderShippingTracker } from "@/lib/transport/order-expedition";
 import type { OrderDescriptor, OrderTrackingEventDescriptor } from "@/types/domain";
 
 export default function OrderDetailPage() {
@@ -76,6 +77,7 @@ export default function OrderDetailPage() {
 
   const format = (v: number) => `${new Intl.NumberFormat("pt-AO").format(v)} ${order.currency}`;
   const firstSellerGroup = order.seller_groups?.[0];
+  const shippingTracker = resolveOrderShippingTracker(firstSellerGroup);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">
@@ -120,12 +122,12 @@ export default function OrderDetailPage() {
             {/* Delivery Tracking Card with Audit Trail & OTP */}
             <DeliveryTracker
               orderNumber={order.order_number}
-              deliveryStatus={firstSellerGroup?.delivery_status || "assigned"}
+              deliveryStatus={shippingTracker.carrierState}
               fulfillmentMethod={order.fulfillment_method}
-              deliveryOtp={firstSellerGroup?.delivery_otp || "483921"}
+              deliveryOtp={firstSellerGroup?.delivery_otp || null}
               trackingEvents={trackingEvents}
-              courierName={firstSellerGroup?.courier_name || "Expresso Rural Huambo"}
-              courierPhone={firstSellerGroup?.courier_phone || "+244 923 555 444"}
+              courierName={shippingTracker.carrierName}
+              courierPhone={shippingTracker.carrierPhone}
             />
 
             {/* Products Card */}
