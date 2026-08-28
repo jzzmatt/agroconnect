@@ -15,6 +15,11 @@ import { resolveAgriprofileNavHref } from "@/lib/agriprofile/paths";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import { cn } from "@/lib/utils";
 
+function pathMatchesHref(pathname: string | null | undefined, href: string): boolean {
+  if (!pathname) return false;
+  return pathname === href || (href !== "/planos" && pathname.startsWith(`${href}/`));
+}
+
 interface DashboardSidebarProps {
   userRoles?: UserRoleType[];
   availableProfiles?: ProfileType[];
@@ -124,9 +129,14 @@ export function DashboardSidebar({
             <div className="space-y-0.5 pt-1">
               {section.items.map((item) => {
                 const resolvedHref = resolveAgriprofileNavHref(item.href, clerkUserId);
-                const isActive =
-                  pathname === resolvedHref ||
-                  (resolvedHref !== "/planos" && pathname?.startsWith(`${resolvedHref}/`));
+                const matchingHrefs = section.items
+                  .map((entry) => resolveAgriprofileNavHref(entry.href, clerkUserId))
+                  .filter((href) => pathMatchesHref(pathname, href));
+                const longestMatch = matchingHrefs.reduce(
+                  (best, href) => (href.length > best.length ? href : best),
+                  ""
+                );
+                const isActive = longestMatch === resolvedHref;
                 const Icon = item.icon;
                 const sectionManagePermission = section.requiredModule
                   ? moduleManagePermission[section.requiredModule]

@@ -168,21 +168,36 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
   it("adds receiving and sending request routes to the dashboard sidebar", () => {
     const pt = getDictionary("pt");
     const en = getDictionary("en");
+    const fr = getDictionary("fr");
     const nav = getDashboardNavigation(pt);
-    const section = nav.find((item) => item.title === pt.navDash.transportServiceRequests);
-    expect(section).toBeDefined();
-    expect(section?.items.map((item) => item.href)).toEqual([
+    const agriService = nav.find((item) => item.title === "AgriService");
+    expect(agriService).toBeDefined();
+    expect(agriService?.items.map((item) => item.href)).toEqual([
+      "/dashboard/services",
+      "/dashboard/transport",
       "/dashboard/transport/requests/receiving",
       "/dashboard/transport/requests/sending",
+      "/dashboard/requests",
+      "/dashboard/expert/reviews",
     ]);
-    expect(en.navDash.transportServiceRequests).toBe("Transport Service Requests");
-    expect(en.navDash.receivingRequests).toBe("Receiving Requests");
-    expect(en.navDash.sendingRequests).toBe("Sending Requests");
+    const receiving = agriService?.items.find((item) => item.href === "/dashboard/transport/requests/receiving");
+    const sending = agriService?.items.find((item) => item.href === "/dashboard/transport/requests/sending");
+    expect(receiving?.icon).toBeDefined();
+    expect(sending?.icon).toBeDefined();
+    expect(en.navDash.receivingRequests).toBe("Transport Receiving Requests");
+    expect(en.navDash.sendingRequests).toBe("Transport Sending Requests");
+    expect(pt.navDash.receivingRequests).toBe("Pedidos de Transporte Recebidos");
+    expect(pt.navDash.sendingRequests).toBe("Pedidos de Transporte Enviados");
+    expect(fr.navDash.receivingRequests).toBe("Demandes de Transport Reçues");
+    expect(fr.navDash.sendingRequests).toBe("Demandes de Transport Envoyées");
+    expect(en.transportRequests.receivingTitle).toBe("Transport Receiving Requests");
+    expect(en.transportRequests.sendingTitle).toBe("Transport Sending Requests");
     expect(en.transportRequests.receivingEmpty).toBe("No transport requests received yet.");
     expect(en.transportRequests.sendingEmpty).toBe("You have not sent any transport requests yet.");
-    expect(section?.items[0]?.requiredPermission).toBe("service.manage");
-    expect(section?.items[0]?.neverLock).toBeUndefined();
-    expect(section?.items[1]?.neverLock).toBe(true);
+    expect(receiving?.requiredPermission).toBe("service.manage");
+    expect(receiving?.neverLock).toBeUndefined();
+    expect(sending?.neverLock).toBe(true);
+    expect(nav.find((item) => item.title === pt.navDash.transportServiceRequests)).toBeUndefined();
   });
 
   it("locks receiving requests behind service.manage and keeps sending requests available", () => {

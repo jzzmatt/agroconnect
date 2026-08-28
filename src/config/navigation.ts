@@ -93,22 +93,6 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         icon: Truck,
       },
       {
-        title: dict.navDash.serviceRequests,
-        href: "/dashboard/requests",
-        icon: Calendar,
-      },
-      {
-        title: dict.navDash.reviews,
-        href: "/dashboard/expert/reviews",
-        icon: Star,
-      },
-    ],
-  },
-  {
-    title: dict.navDash.transportServiceRequests,
-    pillar: "agriExpert",
-    items: [
-      {
         title: dict.navDash.receivingRequests,
         href: "/dashboard/transport/requests/receiving",
         icon: Inbox,
@@ -119,6 +103,16 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         href: "/dashboard/transport/requests/sending",
         icon: Send,
         neverLock: true,
+      },
+      {
+        title: dict.navDash.serviceRequests,
+        href: "/dashboard/requests",
+        icon: Calendar,
+      },
+      {
+        title: dict.navDash.reviews,
+        href: "/dashboard/expert/reviews",
+        icon: Star,
       },
     ],
   },
