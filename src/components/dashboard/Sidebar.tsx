@@ -4,7 +4,7 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { Sprout, X, LogOut, Lock } from "lucide-react";
-import { getDashboardNavigation } from "@/config/navigation";
+import { getDashboardNavigation, flattenNavItems, type NavItem } from "@/config/navigation";
 import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
 import { can, subjectFromProfile, type Permission } from "@/lib/authorization";
@@ -18,6 +18,19 @@ import { cn } from "@/lib/utils";
 function pathMatchesHref(pathname: string | null | undefined, href: string): boolean {
   if (!pathname) return false;
   return pathname === href || (href !== "/planos" && pathname.startsWith(`${href}/`));
+}
+
+function collectLeafHrefs(items: NavItem[], clerkUserId: string | null): string[] {
+  return flattenNavItems(items)
+    .map((item) => item.href)
+    .filter((href): href is string => Boolean(href))
+    .map((href) => resolveAgriprofileNavHref(href, clerkUserId));
+}
+
+function longestMatchingHref(pathname: string | null | undefined, hrefs: string[]): string {
+  return hrefs
+    .filter((href) => pathMatchesHref(pathname, href))
+    .reduce((best, href) => (href.length > best.length ? href : best), "");
 }
 
 interface DashboardSidebarProps {
@@ -127,66 +140,92 @@ export function DashboardSidebar({
               {section.title}
             </h4>
             <div className="space-y-0.5 pt-1">
-              {section.items.map((item) => {
-                const resolvedHref = resolveAgriprofileNavHref(item.href, clerkUserId);
-                const matchingHrefs = section.items
-                  .map((entry) => resolveAgriprofileNavHref(entry.href, clerkUserId))
-                  .filter((href) => pathMatchesHref(pathname, href));
-                const longestMatch = matchingHrefs.reduce(
-                  (best, href) => (href.length > best.length ? href : best),
-                  ""
-                );
-                const isActive = longestMatch === resolvedHref;
-                const Icon = item.icon;
+              {(() => {
+                const sectionHrefs = collectLeafHrefs(section.items, clerkUserId);
+                const longestMatch = longestMatchingHref(pathname, sectionHrefs);
                 const sectionManagePermission = section.requiredModule
                   ? moduleManagePermission[section.requiredModule]
                   : undefined;
-                const itemLocked = item.neverLock
-                  ? false
-                  : item.requiredPermission
-                    ? !can(subject, item.requiredPermission)
-                    : sectionManagePermission
-                      ? !can(subject, sectionManagePermission)
-                      : false;
-                const href = itemLocked ? "/planos" : resolvedHref;
-                return (
-                  <Link
-                    key={`${item.href}-${item.title}`}
-                    href={href}
-                    onClick={() => onClose && onClose()}
-                    className={cn(
-                      "flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-semibold transition-colors",
-                      isActive && !itemLocked
-                        ? "bg-sidebar-active text-sidebar-active-foreground shadow-xs font-bold"
-                        : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
-                    )}
-                  >
-                    <div className="flex items-center gap-2.5 truncate">
-                      <Icon
-                        className={cn(
-                          "w-4 h-4 shrink-0",
-                          isActive && !itemLocked ? "text-primary-foreground" : "text-primary"
-                        )}
-                      />
-                      <span className="truncate">{item.title}</span>
-                    </div>
-                    {itemLocked ? (
-                      <Lock className="w-3.5 h-3.5 text-amber-600" />
-                    ) : item.badge ? (
-                      <span
-                        className={cn(
-                          "px-1.5 py-0.2 rounded text-[9px] font-bold",
-                          isActive
-                            ? "bg-white/20 text-white"
-                            : "bg-secondary text-secondary-foreground"
-                        )}
-                      >
-                        {item.badge}
-                      </span>
-                    ) : null}
-                  </Link>
-                );
-              })}
+
+                const isItemLocked = (entry: NavItem): boolean => {
+                  if (entry.neverLock) return false;
+                  if (entry.requiredPermission) return !can(subject, entry.requiredPermission);
+                  if (sectionManagePermission) return !can(subject, sectionManagePermission);
+                  return false;
+                };
+
+                const renderLeaf = (entry: NavItem, nested = false) => {
+                  if (!entry.href) return null;
+                  const resolvedHref = resolveAgriprofileNavHref(entry.href, clerkUserId);
+                  const isActive = longestMatch === resolvedHref;
+                  const itemLocked = isItemLocked(entry);
+                  const href = itemLocked ? "/planos" : resolvedHref;
+                  const Icon = entry.icon;
+                  return (
+                    <Link
+                      key={`${entry.href}-${entry.title}`}
+                      href={href}
+                      onClick={() => onClose && onClose()}
+                      className={cn(
+                        "flex items-center justify-between py-2.5 rounded-xl text-xs font-semibold transition-colors",
+                        nested ? "px-2.5" : "px-3",
+                        isActive && !itemLocked
+                          ? "bg-sidebar-active text-sidebar-active-foreground shadow-xs font-bold"
+                          : "text-sidebar-foreground hover:bg-muted hover:text-foreground"
+                      )}
+                    >
+                      <div className="flex items-center gap-2.5 truncate">
+                        <Icon
+                          className={cn(
+                            "w-4 h-4 shrink-0",
+                            isActive && !itemLocked ? "text-primary-foreground" : "text-primary"
+                          )}
+                        />
+                        <span className="truncate">{entry.title}</span>
+                      </div>
+                      {itemLocked ? (
+                        <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      ) : entry.badge ? (
+                        <span
+                          className={cn(
+                            "px-1.5 py-0.2 rounded text-[9px] font-bold",
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-secondary text-secondary-foreground"
+                          )}
+                        >
+                          {entry.badge}
+                        </span>
+                      ) : null}
+                    </Link>
+                  );
+                };
+
+                return section.items.map((item) => {
+                  if (item.children && item.children.length > 0) {
+                    const GroupIcon = item.icon;
+                    const childHrefs = collectLeafHrefs(item.children, clerkUserId);
+                    const groupOpen = childHrefs.some((href) => pathMatchesHref(pathname, href));
+                    return (
+                      <div key={`group-${item.title}`} className="space-y-0.5">
+                        <div
+                          className={cn(
+                            "flex items-center gap-2.5 px-3 py-2 rounded-xl text-[11px] font-extrabold uppercase tracking-wider",
+                            groupOpen ? "text-foreground" : "text-muted-foreground"
+                          )}
+                        >
+                          <GroupIcon className={cn("w-4 h-4 shrink-0", groupOpen ? "text-primary" : "text-muted-foreground")} />
+                          <span className="truncate">{item.title}</span>
+                        </div>
+                        <div className="ml-3 pl-2 border-l border-sidebar-border space-y-0.5">
+                          {item.children.map((child) => renderLeaf(child, true))}
+                        </div>
+                      </div>
+                    );
+                  }
+                  return renderLeaf(item);
+                });
+              })()}
             </div>
           </div>
         ))}

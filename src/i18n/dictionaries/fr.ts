@@ -943,6 +943,8 @@ export const fr: Dictionary = {
     myProfile: "Mon profil",
     myServices: "Mes services",
     transport: "Transport",
+    myTransport: "Mes Transports",
+    transportMessages: "Messages de Transport",
     transportServiceRequests: "Demandes de transport",
     receivingRequests: "Demandes de Transport Reçues",
     sendingRequests: "Demandes de Transport Envoyées",

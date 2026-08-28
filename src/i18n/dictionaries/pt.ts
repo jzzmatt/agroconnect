@@ -941,6 +941,8 @@ export const pt = {
     myProfile: "Meu perfil",
     myServices: "Meus serviços",
     transport: "Transporte",
+    myTransport: "Meus Transportes",
+    transportMessages: "Mensagens de Transporte",
     transportServiceRequests: "Pedidos de transporte",
     receivingRequests: "Pedidos de Transporte Recebidos",
     sendingRequests: "Pedidos de Transporte Enviados",

@@ -172,18 +172,29 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
     const nav = getDashboardNavigation(pt);
     const agriService = nav.find((item) => item.title === "AgriService");
     expect(agriService).toBeDefined();
-    expect(agriService?.items.map((item) => item.href)).toEqual([
-      "/dashboard/services",
-      "/dashboard/transport",
+    expect(agriService?.items.map((item) => item.title)).toEqual([
+      pt.navDash.myServices,
+      pt.navDash.serviceRequests,
+      pt.navDash.myTransport,
+      pt.navDash.transportMessages,
+      pt.navDash.reviews,
+    ]);
+    const messages = agriService?.items.find((item) => item.title === pt.navDash.transportMessages);
+    expect(messages?.href).toBeUndefined();
+    expect(messages?.children?.map((item) => item.href)).toEqual([
       "/dashboard/transport/requests/receiving",
       "/dashboard/transport/requests/sending",
-      "/dashboard/requests",
-      "/dashboard/expert/reviews",
     ]);
-    const receiving = agriService?.items.find((item) => item.href === "/dashboard/transport/requests/receiving");
-    const sending = agriService?.items.find((item) => item.href === "/dashboard/transport/requests/sending");
+    const receiving = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/receiving");
+    const sending = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/sending");
     expect(receiving?.icon).toBeDefined();
     expect(sending?.icon).toBeDefined();
+    expect(en.navDash.myTransport).toBe("My Transport");
+    expect(en.navDash.transportMessages).toBe("Transport Messages");
+    expect(pt.navDash.myTransport).toBe("Meus Transportes");
+    expect(pt.navDash.transportMessages).toBe("Mensagens de Transporte");
+    expect(fr.navDash.myTransport).toBe("Mes Transports");
+    expect(fr.navDash.transportMessages).toBe("Messages de Transport");
     expect(en.navDash.receivingRequests).toBe("Transport Receiving Requests");
     expect(en.navDash.sendingRequests).toBe("Transport Sending Requests");
     expect(pt.navDash.receivingRequests).toBe("Pedidos de Transporte Recebidos");
