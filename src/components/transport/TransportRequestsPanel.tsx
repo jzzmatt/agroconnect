@@ -231,6 +231,12 @@ function RequestCard({
         <div>
           <div className="flex items-center gap-2 flex-wrap">
             <StatusBadge status={displayStatus} />
+            {request.request_source === "order_expedition" ? (
+              <span className="inline-flex items-center px-2 py-0.5 rounded-md text-[11px] font-bold bg-primary/10 text-primary">
+                {copy.orderExpeditionBadge}
+                {request.order_number ? ` #${request.order_number}` : ""}
+              </span>
+            ) : null}
           </div>
           <h3 className="text-base font-bold text-foreground mt-1.5">
             {request.transport_title || dict.navDash.transport}

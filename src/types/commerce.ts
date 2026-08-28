@@ -108,6 +108,8 @@ export interface OrderItemDescriptor {
   currency: string;
 }
 
+export type OrderTransportStatus = "requested" | "accepted" | "rejected" | "completed";
+
 export interface OrderSellerGroupDescriptor {
   id: string;
   order_id: string;
@@ -117,6 +119,13 @@ export interface OrderSellerGroupDescriptor {
   status: "pending" | "processing" | "ready_for_pickup" | "shipped" | "completed" | "cancelled";
   delivery_status: "not_assigned" | "assigned" | "accepted" | "picked_up" | "in_transit" | "delivered" | "failed" | "cancelled";
   fulfillment_method: "delivery" | "pickup";
+  transport_request_id?: string | null;
+  transport_status?: OrderTransportStatus | null;
+  transport_provider_id?: string | null;
+  transport_provider_name?: string | null;
+  transport_title?: string | null;
+  transport_origin?: string | null;
+  transport_destination?: string | null;
   courier_id?: string | null;
   courier_name?: string | null;
   courier_phone?: string | null;

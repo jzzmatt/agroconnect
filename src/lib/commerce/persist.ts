@@ -13,6 +13,7 @@ import type {
   OrderDescriptor,
   OrderItemDescriptor,
   OrderSellerGroupDescriptor,
+  OrderTransportStatus,
   PaymentRecordDescriptor,
   SellerEarningsSummary,
 } from "@/types/commerce";
@@ -339,6 +340,66 @@ function matchesSellerScope(sellerId: string | null | undefined, sellerScope?: s
   return ids.includes(sellerId);
 }
 
+function asRelatedRecord(value: unknown): Record<string, unknown> | null {
+  if (!value) return null;
+  if (Array.isArray(value)) {
+    return (value[0] as Record<string, unknown>) || null;
+  }
+  if (typeof value === "object") return value as Record<string, unknown>;
+  return null;
+}
+
+async function enrichSellerGroupsWithTransport(
+  supabase: NonNullable<ReturnType<typeof persistClient>>,
+  groups: OrderSellerGroupDescriptor[]
+): Promise<void> {
+  const transporterIds = groups
+    .map((group) => group.transport_provider_id)
+    .filter((id): id is string => Boolean(id && isUuid(id)));
+  const requestIds = groups
+    .map((group) => group.transport_request_id)
+    .filter((id): id is string => Boolean(id && isUuid(id)));
+
+  if (transporterIds.length === 0 && requestIds.length === 0) return;
+
+  const transporterNames = await loadProviderNames(supabase, transporterIds);
+  const requestDetails = new Map<
+    string,
+    { title: string | null; origin: string | null; destination: string | null }
+  >();
+
+  if (requestIds.length > 0) {
+    try {
+      const { data } = await supabase
+        .from("transport_requests")
+        .select("id, transport_services(title, origin_label, destination_label)")
+        .in("id", requestIds);
+      for (const row of data || []) {
+        const service = asRelatedRecord((row as { transport_services?: unknown }).transport_services);
+        requestDetails.set(String((row as { id: string }).id), {
+          title: service?.title ? String(service.title) : null,
+          origin: service?.origin_label ? String(service.origin_label) : null,
+          destination: service?.destination_label ? String(service.destination_label) : null,
+        });
+      }
+    } catch {
+      // Transport join is display-only; orders still assemble without it.
+    }
+  }
+
+  for (const group of groups) {
+    if (group.transport_provider_id) {
+      group.transport_provider_name = transporterNames.get(group.transport_provider_id)?.name || null;
+    }
+    if (group.transport_request_id) {
+      const details = requestDetails.get(group.transport_request_id);
+      group.transport_title = details?.title || null;
+      group.transport_origin = details?.origin || null;
+      group.transport_destination = details?.destination || null;
+    }
+  }
+}
+
 async function assembleOrder(
   supabase: NonNullable<ReturnType<typeof persistClient>>,
   orderRow: Record<string, unknown>,
@@ -432,9 +493,14 @@ async function assembleOrder(
       delivery_fee: asNumber(group.delivery_fee),
       total: asNumber(group.total),
       seller_notes: group.seller_notes,
+      transport_request_id: group.transport_request_id || null,
+      transport_status: (group.transport_status as OrderTransportStatus | null) || null,
+      transport_provider_id: group.transport_provider_id || null,
       items: itemsByGroup.get(group.id) || mappedItems.filter((item) => item.seller_id === group.seller_id),
     };
   });
+
+  await enrichSellerGroupsWithTransport(supabase, sellerGroups);
 
   return {
     id: orderId,
@@ -656,7 +722,7 @@ export async function persistCheckoutOrder(
 
 export async function persistGetOrderByNumber(
   orderNumber: string,
-  scope?: { customerId?: string; sellerId?: string }
+  scope?: { customerId?: string; sellerId?: string | string[] }
 ): Promise<OrderDescriptor | null> {
   const supabase = persistClient();
   if (!supabase) return null;
@@ -667,12 +733,22 @@ export async function persistGetOrderByNumber(
     .maybeSingle();
   if (error) throw new Error(error.message);
   if (!data) return null;
-  if (scope?.customerId && data.customer_id !== scope.customerId && !scope.sellerId) {
+  const sellerIds = Array.isArray(scope?.sellerId)
+    ? scope.sellerId.filter(Boolean)
+    : scope?.sellerId
+      ? [scope.sellerId]
+      : [];
+  const hasSellerScope = sellerIds.length > 0;
+  if (scope?.customerId && data.customer_id !== scope.customerId && !hasSellerScope) {
     return null;
   }
-  const order = await assembleOrder(supabase, data as Record<string, unknown>, scope?.sellerId);
-  if (scope?.sellerId && order.seller_groups.length === 0) return null;
-  if (scope?.customerId && order.customer_id !== scope.customerId && !scope.sellerId) return null;
+  const order = await assembleOrder(
+    supabase,
+    data as Record<string, unknown>,
+    hasSellerScope ? sellerIds : undefined
+  );
+  if (hasSellerScope && order.seller_groups.length === 0) return null;
+  if (scope?.customerId && order.customer_id !== scope.customerId && !hasSellerScope) return null;
   return order;
 }
 
@@ -749,6 +825,113 @@ export async function persistUpdateFulfillmentStatus(
     }
   }
   return true;
+}
+
+export async function persistFindActiveOrderTransportRequest(
+  sellerGroupId: string
+): Promise<{ id: string; status: string; provider_id: string } | null> {
+  const supabase = persistClient();
+  if (!supabase) return null;
+  if (!isUuid(sellerGroupId)) return null;
+  const { data, error } = await supabase
+    .from("transport_requests")
+    .select("id, status, provider_id")
+    .eq("seller_group_id", sellerGroupId)
+    .in("status", ["pending", "accepted"])
+    .order("created_at", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.id) return null;
+  return {
+    id: String(data.id),
+    status: String(data.status),
+    provider_id: String(data.provider_id),
+  };
+}
+
+export async function persistLinkSellerGroupTransport(params: {
+  sellerGroupId: string;
+  sellerIds: string[];
+  transportRequestId: string;
+  transportStatus: OrderTransportStatus;
+  transportProviderId: string;
+}): Promise<boolean | null> {
+  const supabase = persistClient();
+  if (!supabase) return null;
+  const sellerIds = params.sellerIds.filter(isUuid);
+  if (!isUuid(params.sellerGroupId) || sellerIds.length === 0) return false;
+  const { data, error } = await supabase
+    .from("order_seller_groups")
+    .update({
+      transport_request_id: params.transportRequestId,
+      transport_status: params.transportStatus,
+      transport_provider_id: params.transportProviderId,
+    })
+    .eq("id", params.sellerGroupId)
+    .in("seller_id", sellerIds)
+    .select("id")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data?.id);
+}
+
+export async function persistSyncSellerGroupTransport(params: {
+  sellerGroupId: string;
+  transportRequestId: string;
+  transportStatus: OrderTransportStatus;
+  transportProviderId?: string | null;
+  fulfillmentStatus?: OrderSellerGroupDescriptor["status"];
+}): Promise<boolean | null> {
+  const supabase = persistClient();
+  if (!supabase) return null;
+  if (!isUuid(params.sellerGroupId)) return false;
+  const patch: Record<string, unknown> = {
+    transport_request_id: params.transportRequestId,
+    transport_status: params.transportStatus,
+  };
+  if (params.transportProviderId) {
+    patch.transport_provider_id = params.transportProviderId;
+  }
+  if (params.fulfillmentStatus) {
+    patch.status = params.fulfillmentStatus;
+  }
+  const { data, error } = await supabase
+    .from("order_seller_groups")
+    .update(patch)
+    .eq("id", params.sellerGroupId)
+    .select("id, status")
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  return Boolean(data?.id);
+}
+
+export async function persistGetSellerGroupById(
+  sellerGroupId: string
+): Promise<{
+  id: string;
+  order_id: string;
+  seller_id: string;
+  status: OrderSellerGroupDescriptor["status"];
+  transport_status: OrderTransportStatus | null;
+} | null> {
+  const supabase = persistClient();
+  if (!supabase) return null;
+  if (!isUuid(sellerGroupId)) return null;
+  const { data, error } = await supabase
+    .from("order_seller_groups")
+    .select("id, order_id, seller_id, status, transport_status")
+    .eq("id", sellerGroupId)
+    .maybeSingle();
+  if (error) throw new Error(error.message);
+  if (!data?.id) return null;
+  return {
+    id: String(data.id),
+    order_id: String(data.order_id),
+    seller_id: String(data.seller_id),
+    status: data.status as OrderSellerGroupDescriptor["status"],
+    transport_status: (data.transport_status as OrderTransportStatus | null) || null,
+  };
 }
 
 export async function persistCancelOrder(

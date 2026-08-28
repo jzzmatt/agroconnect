@@ -1,7 +1,7 @@
 "use server";
 
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
-import { tryCreateAdminServerSupabaseClient, createServerSupabaseClient } from "@/lib/supabase/server";
+import { resolveSessionSellerId, resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
   CommerceService,
   type AddToCartInput,
@@ -30,35 +30,6 @@ async function requireCustomer() {
     throw new Error("Não autorizado: Perfil de utilizador não encontrado.");
   }
   return profile;
-}
-
-async function resolveSessionSellerIds(): Promise<string[]> {
-  const profile = await getCurrentUserProfile();
-  if (!profile) return [];
-  const supabase = tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
-  const profileIds = new Set<string>([profile.id].filter(Boolean));
-  if (profile.clerk_user_id) {
-    const { data: profileRows } = await (supabase.from("profiles") as any)
-      .select("id")
-      .eq("clerk_user_id", profile.clerk_user_id);
-    for (const row of profileRows || []) {
-      if (row?.id) profileIds.add(String(row.id));
-    }
-  }
-  const { data } = await (supabase.from("provider_profiles") as any)
-    .select("id")
-    .in("profile_id", [...profileIds]);
-  const ids: string[] = [];
-  for (const row of data || []) {
-    const id = String((row as { id?: string })?.id || "");
-    if (id) ids.push(id);
-  }
-  return [...new Set(ids)];
-}
-
-async function resolveSessionSellerId(): Promise<string | null> {
-  const ids = await resolveSessionSellerIds();
-  return ids[0] || null;
 }
 
 async function runCartMutation(

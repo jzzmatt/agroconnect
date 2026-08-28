@@ -119,6 +119,13 @@ export function toSerializableOrder(order: OrderDescriptor): OrderDescriptor {
         delivery_fee: asNumber(group.delivery_fee),
         total: asNumber(group.total),
         seller_notes: group.seller_notes ? String(group.seller_notes) : null,
+        transport_request_id: group.transport_request_id ? String(group.transport_request_id) : null,
+        transport_status: group.transport_status || null,
+        transport_provider_id: group.transport_provider_id ? String(group.transport_provider_id) : null,
+        transport_provider_name: group.transport_provider_name ? String(group.transport_provider_name) : null,
+        transport_title: group.transport_title ? String(group.transport_title) : null,
+        transport_origin: group.transport_origin ? String(group.transport_origin) : null,
+        transport_destination: group.transport_destination ? String(group.transport_destination) : null,
         items: Array.isArray(group.items) ? group.items.map(toSerializableOrderItem) : items.filter((item) => item.seller_id === group.seller_id),
       }))
     : [];

@@ -566,27 +566,32 @@ export class CommerceService {
 
   public static async getOrderByNumber(
     orderNumber: string,
-    actor?: CommerceActor & { sellerId?: string }
+    actor?: CommerceActor
   ): Promise<OrderDescriptor | null> {
     if (shouldPersist(actor) && (actor?.customerId || actor?.sellerId)) {
       const persisted = await persistGetOrderByNumber(orderNumber, {
         customerId: actor.customerId || undefined,
-        sellerId: actor.sellerId,
+        sellerId: actor.sellerId || undefined,
       });
       if (persisted !== null) return persisted;
     }
     const found = memoryOrders.find((order) => order.order_number === orderNumber);
     if (!found) return null;
-    if (actor?.customerId && found.customer_id !== actor.customerId && !actor.sellerId) {
+    const sellerIds = Array.isArray(actor?.sellerId)
+      ? actor.sellerId.filter(Boolean)
+      : actor?.sellerId
+        ? [actor.sellerId]
+        : [];
+    if (actor?.customerId && found.customer_id !== actor.customerId && sellerIds.length === 0) {
       return null;
     }
-    if (actor?.sellerId) {
-      const groups = found.seller_groups.filter((group) => group.seller_id === actor.sellerId);
+    if (sellerIds.length > 0) {
+      const groups = found.seller_groups.filter((group) => sellerIds.includes(group.seller_id));
       if (groups.length === 0) return null;
       return {
         ...found,
         seller_groups: groups,
-        items: found.items.filter((item) => item.seller_id === actor.sellerId),
+        items: found.items.filter((item) => sellerIds.includes(item.seller_id)),
       };
     }
     return found;

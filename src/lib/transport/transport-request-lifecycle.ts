@@ -107,6 +107,9 @@ export function buildTransportRequestInsert(params: {
   originNotes?: string;
   destinationNotes?: string;
   requestedDate?: string | null;
+  orderId?: string | null;
+  sellerGroupId?: string | null;
+  requestSource?: string | null;
 }): {
   customer_id: string;
   provider_id: string;
@@ -119,12 +122,30 @@ export function buildTransportRequestInsert(params: {
   estimated_load_price: number;
   status: "pending";
   currency: string;
+  order_id?: string;
+  seller_group_id?: string;
+  request_source?: string;
 } {
   const originNotes = params.originNotes?.trim() || params.transport.origin_label || null;
   const destinationNotes =
     params.destinationNotes?.trim() || params.transport.destination_label || null;
 
-  return {
+  const row: {
+    customer_id: string;
+    provider_id: string;
+    transport_service_id: string;
+    message: string;
+    origin_notes: string | null;
+    destination_notes: string | null;
+    requested_date: string | null;
+    estimated_trip_price: number;
+    estimated_load_price: number;
+    status: "pending";
+    currency: string;
+    order_id?: string;
+    seller_group_id?: string;
+    request_source?: string;
+  } = {
     customer_id: params.customerId,
     provider_id: params.transport.provider_id,
     transport_service_id: params.transport.id,
@@ -137,4 +158,10 @@ export function buildTransportRequestInsert(params: {
     status: "pending",
     currency: params.transport.currency || "AOA",
   };
+
+  if (params.orderId) row.order_id = params.orderId;
+  if (params.sellerGroupId) row.seller_group_id = params.sellerGroupId;
+  if (params.requestSource) row.request_source = params.requestSource;
+
+  return row;
 }

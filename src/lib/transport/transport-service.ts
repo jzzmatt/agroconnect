@@ -453,6 +453,13 @@ export class TransportService {
       transport_service_id: row.transport_service_id ? String(row.transport_service_id) : null,
       transport_title: (transport?.title as string) || null,
       transport_slug: (transport?.slug as string) || null,
+      order_id: row.order_id ? String(row.order_id) : null,
+      seller_group_id: row.seller_group_id ? String(row.seller_group_id) : null,
+      request_source: row.request_source ? String(row.request_source) : null,
+      order_number:
+        (row.order_number as string) ||
+        (asRelatedRecord(row.orders)?.order_number as string) ||
+        null,
       status: row.status as TransportRequestStatus,
       message: (row.message as string) || null,
       origin_notes: originNotes,
