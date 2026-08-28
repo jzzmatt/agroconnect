@@ -158,9 +158,14 @@ export async function updateFulfillmentStatusAction(
   nextStatus: "pending" | "processing" | "ready_for_pickup" | "shipped" | "completed" | "cancelled"
 ): Promise<boolean> {
   await requireAuth();
-  const sellerId = await resolveSessionSellerId();
-  if (!sellerId) return false;
-  return CommerceService.updateFulfillmentStatus(orderNumber, sellerId, nextStatus, PERSIST);
+  const sellerIds = await resolveSessionSellerIds();
+  if (sellerIds.length === 0) return false;
+  const requestedSellerId = String(_sellerId || "");
+  const sellerId = sellerIds.includes(requestedSellerId) ? requestedSellerId : sellerIds[0];
+  return CommerceService.updateFulfillmentStatus(orderNumber, sellerId, nextStatus, {
+    persist: true,
+    sellerId: sellerIds,
+  });
 }
 
 export async function cancelOrderAction(orderNumber: string, reason?: string): Promise<boolean> {

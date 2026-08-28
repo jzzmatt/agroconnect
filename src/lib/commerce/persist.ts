@@ -1096,18 +1096,43 @@ export async function persistGetSellerEarnings(
   const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
   const orders = await persistGetSellerOrders(sellerIds);
   if (orders === null) return null;
-  return summarizeSellerEarnings(sellerIds[0] || "", orders);
+  return summarizeSellerEarnings(sellerIds, orders);
 }
 
-export function summarizeSellerEarnings(sellerId: string, orders: OrderDescriptor[]): SellerEarningsSummary {
+export function sellerGroupProductValue(group: {
+  subtotal?: number;
+  total?: number;
+  items?: Array<{ subtotal?: number }>;
+}): number {
+  if (Array.isArray(group.items) && group.items.length > 0) {
+    return group.items.reduce((sum, item) => sum + asNumber(item.subtotal), 0);
+  }
+  if (group.subtotal != null) return asNumber(group.subtotal);
+  return asNumber(group.total);
+}
+
+export function isCompletedPaidProductGroup(params: {
+  paymentStatus?: string | null;
+  fulfillmentStatus?: string | null;
+}): boolean {
+  return params.paymentStatus === "paid" && params.fulfillmentStatus === "completed";
+}
+
+export function summarizeSellerEarnings(
+  sellerId: string | string[],
+  orders: OrderDescriptor[]
+): SellerEarningsSummary {
+  const sellerIds = (Array.isArray(sellerId) ? sellerId : [sellerId]).filter(Boolean);
+  const allowed = new Set(sellerIds);
+
   const groups = orders.flatMap((order) =>
     order.seller_groups
-      .filter((group) => group.seller_id === sellerId)
+      .filter((group) => allowed.has(group.seller_id))
       .map((group) => ({
         order_number: order.order_number,
         status: group.status,
         payment_status: order.payment_status,
-        total: group.total,
+        total: sellerGroupProductValue(group),
         created_at: order.created_at,
       }))
   );
@@ -1115,11 +1140,16 @@ export function summarizeSellerEarnings(sellerId: string, orders: OrderDescripto
   const countable = groups.filter(
     (group) => group.payment_status === "paid" && group.status !== "cancelled"
   );
-  const completed = countable.filter((group) => group.status === "completed");
+  const completed = countable.filter((group) =>
+    isCompletedPaidProductGroup({
+      paymentStatus: group.payment_status,
+      fulfillmentStatus: group.status,
+    })
+  );
   const processing = countable.filter((group) => group.status !== "completed");
 
   return {
-    seller_id: sellerId,
+    seller_id: sellerIds[0] || "",
     currency: orders[0]?.currency || "AOA",
     total_earned: completed.reduce((sum, group) => sum + group.total, 0),
     total_processing: processing.reduce((sum, group) => sum + group.total, 0),

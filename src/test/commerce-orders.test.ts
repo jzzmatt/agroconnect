@@ -240,5 +240,11 @@ describe("AGROCONNECT Phase 8 — Commerce, Cart, Orders & Payments Foundation",
 
     const earnings = await CommerceService.getSellerEarnings("prov-seed-1");
     expect(earnings.processing_count + earnings.completed_count).toBeGreaterThan(0);
+    expect(earnings.total_earned).toBe(0);
+
+    await CommerceService.updateFulfillmentStatus("AGC-2026-000001", "prov-seed-1", "completed");
+    const completedEarnings = await CommerceService.getSellerEarnings("prov-seed-1");
+    expect(completedEarnings.total_earned).toBe(57000);
+    expect(completedEarnings.completed_count).toBeGreaterThan(0);
   });
 });

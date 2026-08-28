@@ -685,6 +685,6 @@ export class CommerceService {
       if (persisted !== null) return persisted;
     }
     const orders = await this.getSellerOrders(sellerIds, { ...actor, persist: actor?.persist, sellerId: sellerIds });
-    return summarizeSellerEarnings(sellerIds[0], orders);
+    return summarizeSellerEarnings(sellerIds, orders);
   }
 }
