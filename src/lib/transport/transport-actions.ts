@@ -15,6 +15,8 @@ import {
 import {
   buildTransportRequestInsert,
   canActorChangeTransportRequestStatus,
+  interpretTransportRequestStatusWrite,
+  isTransportRequestStatusAlreadyApplied,
   isTransportServiceId,
   isVisibleOnSendingRequests,
   requirePersistedRequestId,
@@ -34,6 +36,7 @@ import {
   persistGetSellerGroupById,
   persistLinkSellerGroupTransport,
   persistSyncSellerGroupTransport,
+  persistUpdateTransportRequestStatus,
 } from "@/lib/commerce/persist";
 import { resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
@@ -110,6 +113,8 @@ async function getCurrentProviderId(profileId: string): Promise<string | null> {
   const { data, error } = await (supabase.from("provider_profiles") as any)
     .select("id")
     .eq("profile_id", profileId)
+    .order("created_at", { ascending: false })
+    .limit(1)
     .maybeSingle();
 
   if (error || !data?.id) return null;
@@ -145,16 +150,28 @@ async function loadTransportRequestRow(requestId: string): Promise<Record<string
   return null;
 }
 
+function applyTransportRequestOwnerFilter(
+  query: any,
+  column: "provider_id" | "customer_id",
+  value: string | string[]
+) {
+  if (Array.isArray(value)) return query.in(column, value);
+  return query.eq(column, value);
+}
+
 async function listTransportRequests(
   column: "provider_id" | "customer_id",
-  value: string,
+  value: string | string[],
   options?: { excludeCancelled?: boolean }
 ): Promise<TransportRequestItem[]> {
   const supabase = await createServerSupabaseClient();
-  let query = (supabase.from("transport_requests") as any)
-    .select(TRANSPORT_REQUEST_SELECT)
-    .eq(column, value)
-    .order("created_at", { ascending: false });
+  let query = applyTransportRequestOwnerFilter(
+    (supabase.from("transport_requests") as any)
+      .select(TRANSPORT_REQUEST_SELECT)
+      .order("created_at", { ascending: false }),
+    column,
+    value
+  );
 
   if (options?.excludeCancelled) {
     query = query.neq("status", "cancelled");
@@ -170,10 +187,13 @@ async function listTransportRequests(
   }
 
   console.warn("[listTransportRequests] embed query failed, retrying without joins:", error);
-  let fallbackQuery = (supabase.from("transport_requests") as any)
-    .select("*")
-    .eq(column, value)
-    .order("created_at", { ascending: false });
+  let fallbackQuery = applyTransportRequestOwnerFilter(
+    (supabase.from("transport_requests") as any)
+      .select("*")
+      .order("created_at", { ascending: false }),
+    column,
+    value
+  );
 
   if (options?.excludeCancelled) {
     fallbackQuery = fallbackQuery.neq("status", "cancelled");
@@ -906,10 +926,10 @@ export async function getTransportRequestsForProviderAction(): Promise<Transport
   const subject = await getCurrentSubject();
   if (!subject || !can(subject, "service.manage")) return [];
 
-  const providerId = await getCurrentProviderId(subject.profileId);
-  if (!providerId) return [];
+  const providerIds = await resolveSessionSellerIds();
+  if (providerIds.length === 0) return [];
 
-  return listTransportRequests("provider_id", providerId);
+  return listTransportRequests("provider_id", providerIds);
 }
 
 export async function getCustomerTransportRequestsAction(): Promise<TransportRequestItem[]> {
@@ -949,7 +969,17 @@ export async function updateTransportRequestStatusAction(params: {
     requestProviderId: String(existing.provider_id),
   });
 
+  if (actor === "other") {
+    return { success: false, message: "Não autorizado." };
+  }
+
+  const alreadyApplied = isTransportRequestStatusAlreadyApplied(
+    existing.status as TransportRequestStatus,
+    params.status
+  );
+
   if (
+    !alreadyApplied &&
     !canActorChangeTransportRequestStatus({
       actor,
       from: existing.status as TransportRequestStatus,
@@ -966,23 +996,38 @@ export async function updateTransportRequestStatusAction(params: {
     }
   }
 
-  const lockColumn = actor === "transporter" ? "provider_id" : "customer_id";
-  const lockValue = actor === "transporter" ? providerId : userProfile.id;
-  if (!lockValue) {
-    return { success: false, message: "Não autorizado." };
-  }
+  if (!alreadyApplied) {
+    const persistResult = await persistUpdateTransportRequestStatus({
+      requestId: params.requestId,
+      fromStatus: String(existing.status),
+      toStatus: params.status,
+    });
 
-  const writable = await getTransportWritableClient();
-  const { data: updated, error } = await (writable.from("transport_requests") as any)
-    .update({ status: params.status })
-    .eq("id", params.requestId)
-    .eq("status", existing.status)
-    .eq(lockColumn, lockValue)
-    .select("id")
-    .maybeSingle();
+    if (!persistResult.ok) {
+      const writable = await getTransportWritableClient();
+      const { data: updated, error } = await (writable.from("transport_requests") as any)
+        .update({ status: params.status })
+        .eq("id", params.requestId)
+        .eq("status", existing.status)
+        .select("id")
+        .maybeSingle();
 
-  if (error || !updated?.id) {
-    return { success: false, message: "Não foi possível atualizar o pedido." };
+      const current = await loadTransportRequestRow(params.requestId);
+      const interpreted = interpretTransportRequestStatusWrite({
+        error,
+        updatedId: updated?.id ? String(updated.id) : null,
+        currentStatus: current?.status ? String(current.status) : null,
+        targetStatus: params.status,
+      });
+
+      if (!interpreted.ok) {
+        console.warn("[updateTransportRequestStatusAction] status write failed", {
+          persistError: persistResult.error,
+          error,
+        });
+        return { success: false, message: "Não foi possível atualizar o pedido." };
+      }
+    }
   }
 
   const orderLink = extractOrderExpeditionLink(existing);
@@ -1020,6 +1065,10 @@ export async function updateTransportRequestStatusAction(params: {
     : existing.transport_services;
   const transportTitle = relatedTransport?.title ? ` para "${relatedTransport.title}"` : "";
   const providerName = (await loadProviderNotificationName(String(existing.provider_id))) || "o transportador";
+
+  if (alreadyApplied) {
+    return { success: true, message: "Estado do pedido atualizado." };
+  }
 
   if (actor === "transporter") {
     if (orderLinked && orderNumber) {

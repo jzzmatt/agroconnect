@@ -40,6 +40,27 @@ export function canTransitionTransportRequestStatus(
   return TRANSPORT_REQUEST_STATUS_TRANSITIONS[from]?.includes(to) ?? false;
 }
 
+export function isTransportRequestStatusAlreadyApplied(
+  from: TransportRequestStatus | string | null | undefined,
+  to: TransportRequestStatus | string
+): boolean {
+  return Boolean(from) && String(from) === String(to);
+}
+
+export function interpretTransportRequestStatusWrite(params: {
+  error?: { message?: string | null; code?: string | null } | null;
+  updatedId?: string | null;
+  currentStatus?: string | null;
+  targetStatus: string;
+}): { ok: true } | { ok: false; reason: "error" | "not_updated" } {
+  if (params.updatedId) return { ok: true };
+  if (params.currentStatus && params.currentStatus === params.targetStatus) {
+    return { ok: true };
+  }
+  if (params.error) return { ok: false, reason: "error" };
+  return { ok: false, reason: "not_updated" };
+}
+
 export function resolveTransportRequestActor(params: {
   profileId: string;
   providerId: string | null;

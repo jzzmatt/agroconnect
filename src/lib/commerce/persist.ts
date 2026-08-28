@@ -930,6 +930,45 @@ export async function persistLinkSellerGroupTransport(params: {
   return Boolean(data?.id);
 }
 
+export async function persistUpdateTransportRequestStatus(params: {
+  requestId: string;
+  fromStatus: string;
+  toStatus: string;
+}): Promise<{ ok: true } | { ok: false; error: string }> {
+  const supabase = persistClient();
+  if (!supabase) return { ok: false, error: "persist_unavailable" };
+  if (!isUuid(params.requestId)) return { ok: false, error: "invalid_id" };
+
+  const { data, error } = await supabase
+    .from("transport_requests")
+    .update({ status: params.toStatus })
+    .eq("id", params.requestId)
+    .eq("status", params.fromStatus)
+    .select("id")
+    .maybeSingle();
+
+  if (!error && data?.id) return { ok: true };
+
+  if (error) {
+    console.warn("[persistUpdateTransportRequestStatus]", error);
+  }
+
+  const current = await supabase
+    .from("transport_requests")
+    .select("id, status")
+    .eq("id", params.requestId)
+    .maybeSingle();
+
+  if (!current.error && current.data && String(current.data.status) === params.toStatus) {
+    return { ok: true };
+  }
+
+  return {
+    ok: false,
+    error: String(error?.message || current.error?.message || "update_failed"),
+  };
+}
+
 export async function persistSyncSellerGroupTransport(params: {
   sellerGroupId: string;
   transportRequestId: string;

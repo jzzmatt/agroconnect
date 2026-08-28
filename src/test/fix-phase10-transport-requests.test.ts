@@ -5,6 +5,8 @@ import {
   buildTransportRequestInsert,
   canActorChangeTransportRequestStatus,
   canTransitionTransportRequestStatus,
+  interpretTransportRequestStatusWrite,
+  isTransportRequestStatusAlreadyApplied,
   isTransportServiceId,
   isVisibleOnSendingRequests,
   requirePersistedRequestId,
@@ -74,6 +76,36 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
     expect(canTransitionTransportRequestStatus("pending", "accepted")).toBe(true);
     expect(transportRequestDisplayStatus("accepted")).toBe("confirmed");
     expect(transportRequestDisplayStatus("pending")).toBe("pending");
+  });
+
+  it("treats an already-applied status write as success", () => {
+    expect(isTransportRequestStatusAlreadyApplied("accepted", "accepted")).toBe(true);
+    expect(isTransportRequestStatusAlreadyApplied("pending", "accepted")).toBe(false);
+    expect(
+      interpretTransportRequestStatusWrite({
+        updatedId: "req-1",
+        targetStatus: "accepted",
+      }).ok
+    ).toBe(true);
+    expect(
+      interpretTransportRequestStatusWrite({
+        error: { message: "0 rows" },
+        currentStatus: "accepted",
+        targetStatus: "accepted",
+      }).ok
+    ).toBe(true);
+    expect(
+      interpretTransportRequestStatusWrite({
+        error: { message: "record new has no field order_id" },
+        targetStatus: "accepted",
+      }).ok
+    ).toBe(false);
+    expect(
+      interpretTransportRequestStatusWrite({
+        currentStatus: "pending",
+        targetStatus: "accepted",
+      }).ok
+    ).toBe(false);
   });
 
   it("enforces request authorization for requester, transporter, and other users", () => {
