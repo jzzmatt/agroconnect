@@ -75,4 +75,13 @@ describe("AGROCONNECT Phase 11 — Commerce authorization and persistence", () =
     const forB = await NotificationService.getUserNotifications("user-b");
     expect(forB.some((item) => item.profile_id === "user-a")).toBe(false);
   });
+
+  it("applies verified payment webhooks through the existing payments route", () => {
+    const route = readFileSync("src/app/api/payments/webhook/route.ts", "utf8");
+    expect(route).toContain("persistApplyPaymentWebhook");
+    expect(route).toContain("PaymentService.handleWebhook");
+    expect(readFileSync("src/app/api/webhooks/payments/route.ts", "utf8")).toContain(
+      'export { POST } from "@/app/api/payments/webhook/route"'
+    );
+  });
 });
