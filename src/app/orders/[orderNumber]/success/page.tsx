@@ -16,6 +16,7 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button } from "@/components/ui/Button";
 import { getOrderByNumberAction } from "@/lib/services/commerce-actions";
+import { OrderReceiptActions } from "@/components/commerce/OrderReceiptActions";
 import type { OrderDescriptor } from "@/types/domain";
 
 export default function OrderSuccessPage() {
@@ -73,7 +74,8 @@ export default function OrderSuccessPage() {
               </span>
             </div>
 
-            <div className="pt-2 text-center">
+            <div className="pt-2 space-y-4">
+              <OrderReceiptActions order={order} />
               <Link href={`/orders/${order.order_number}`}>
                 <Button variant="primary" className="w-full justify-center font-bold h-11">
                   <span>Acompanhar Pedido</span>

@@ -22,6 +22,17 @@ describe("AGROCONNECT Phase 11 — Commerce authorization and persistence", () =
     expect(actions).toContain("_sellerId");
   });
 
+  it("returns serializable cart mutation results instead of throwing across the client boundary", () => {
+    expect(actions).toContain("export type CartMutationResult");
+    expect(actions).toContain("runCartMutation");
+    expect(actions).toContain("toSerializableCart");
+    expect(actions).toContain("cartErrorMessage");
+    expect(actions).toMatch(/addToCartAction[\s\S]*runCartMutation/);
+    expect(actions).toMatch(/updateCartItemQuantityAction[\s\S]*runCartMutation/);
+    expect(actions).toMatch(/removeFromCartAction[\s\S]*runCartMutation/);
+    expect(actions).toContain("success: false");
+  });
+
   it("never trusts client-provided prices or seller ids at checkout persistence", () => {
     expect(persist).toContain("product.price");
     expect(persist).toContain("product.seller_id");

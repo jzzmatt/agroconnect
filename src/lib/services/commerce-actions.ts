@@ -7,9 +7,20 @@ import {
   type AddToCartInput,
   type CheckoutOrderInput,
 } from "@/lib/services/commerce-service";
+import {
+  cartErrorMessage,
+  emptyShoppingCart,
+  toSerializableCart,
+} from "@/lib/commerce/serialize";
 import type { ShoppingCart, OrderDescriptor, SellerEarningsSummary } from "@/types/commerce";
 
 const PERSIST = { persist: true as const };
+
+export type CartMutationResult = {
+  success: boolean;
+  cart: ShoppingCart;
+  error?: string;
+};
 
 async function requireCustomer() {
   await requireAuth();
@@ -31,75 +42,109 @@ async function resolveSessionSellerId(): Promise<string | null> {
   return data?.id ? String(data.id) : null;
 }
 
-function emptyCart(): ShoppingCart {
-  return {
-    id: "cart-anonymous",
-    customer_id: null,
-    currency: "AOA",
-    items: [],
-    items_count: 0,
-    subtotal: 0,
-    delivery_fee: 0,
-    discount: 0,
-    total: 0,
-    sellers_count: 0,
-  };
+async function runCartMutation(
+  work: () => Promise<ShoppingCart>
+): Promise<CartMutationResult> {
+  try {
+    return { success: true, cart: toSerializableCart(await work()) };
+  } catch (error) {
+    return {
+      success: false,
+      cart: emptyShoppingCart(),
+      error: cartErrorMessage(error, "Não foi possível atualizar o carrinho. Tente novamente."),
+    };
+  }
 }
 
 export async function getCartAction(): Promise<ShoppingCart> {
-  const profile = await getCurrentUserProfile();
-  if (!profile) return emptyCart();
-  return CommerceService.getCart({ customerId: profile.id, ...PERSIST });
+  try {
+    const profile = await getCurrentUserProfile();
+    if (!profile) return emptyShoppingCart();
+    return toSerializableCart(await CommerceService.getCart({ customerId: profile.id, ...PERSIST }));
+  } catch {
+    return emptyShoppingCart();
+  }
 }
 
-export async function addToCartAction(input: AddToCartInput): Promise<ShoppingCart> {
-  const profile = await requireCustomer();
-  return CommerceService.addToCart(input, { customerId: profile.id, ...PERSIST });
+export async function addToCartAction(input: AddToCartInput): Promise<CartMutationResult> {
+  return runCartMutation(async () => {
+    const profile = await requireCustomer();
+    return CommerceService.addToCart(input, { customerId: profile.id, ...PERSIST });
+  });
 }
 
 export async function updateCartItemQuantityAction(
   productId: string,
   quantity: number
-): Promise<ShoppingCart> {
-  const profile = await requireCustomer();
-  return CommerceService.updateCartItemQuantity(productId, quantity, {
-    customerId: profile.id,
-    ...PERSIST,
+): Promise<CartMutationResult> {
+  return runCartMutation(async () => {
+    const profile = await requireCustomer();
+    return CommerceService.updateCartItemQuantity(productId, quantity, {
+      customerId: profile.id,
+      ...PERSIST,
+    });
   });
 }
 
-export async function removeFromCartAction(productId: string): Promise<ShoppingCart> {
-  const profile = await requireCustomer();
-  return CommerceService.removeFromCart(productId, { customerId: profile.id, ...PERSIST });
+export async function removeFromCartAction(productId: string): Promise<CartMutationResult> {
+  return runCartMutation(async () => {
+    const profile = await requireCustomer();
+    return CommerceService.removeFromCart(productId, { customerId: profile.id, ...PERSIST });
+  });
 }
 
-export async function clearCartAction(): Promise<ShoppingCart> {
-  const profile = await requireCustomer();
-  return CommerceService.clearCart({ customerId: profile.id, ...PERSIST });
+export async function clearCartAction(): Promise<CartMutationResult> {
+  return runCartMutation(async () => {
+    const profile = await requireCustomer();
+    return CommerceService.clearCart({ customerId: profile.id, ...PERSIST });
+  });
 }
 
 export async function checkoutOrderAction(input: CheckoutOrderInput): Promise<{
   success: boolean;
-  order: OrderDescriptor;
+  order: OrderDescriptor | null;
   paymentResult: unknown;
+  error?: string;
 }> {
-  const profile = await requireCustomer();
-  return CommerceService.checkoutOrder(input, { customerId: profile.id, ...PERSIST });
+  try {
+    const profile = await requireCustomer();
+    const result = await CommerceService.checkoutOrder(input, { customerId: profile.id, ...PERSIST });
+    return {
+      success: true,
+      order: result.order,
+      paymentResult: result.paymentResult,
+    };
+  } catch (error) {
+    return {
+      success: false,
+      order: null,
+      paymentResult: null,
+      error: cartErrorMessage(error, "Não foi possível concluir o pedido. Tente novamente."),
+    };
+  }
 }
 
 export async function getOrderByNumberAction(orderNumber: string): Promise<OrderDescriptor | null> {
-  const profile = await requireCustomer();
-  const sellerId = await resolveSessionSellerId();
-  return CommerceService.getOrderByNumber(orderNumber, {
-    customerId: profile.id,
-    sellerId: sellerId || undefined,
-    ...PERSIST,
-  });
+  try {
+    const profile = await requireCustomer();
+    const sellerId = await resolveSessionSellerId();
+    return CommerceService.getOrderByNumber(orderNumber, {
+      customerId: profile.id,
+      sellerId: sellerId || undefined,
+      ...PERSIST,
+    });
+  } catch {
+    return null;
+  }
 }
 
 export async function getCustomerOrdersAction(): Promise<OrderDescriptor[]> {
-  const profile = await requireCustomer();
-  return CommerceService.getCustomerOrders({ customerId: profile.id, ...PERSIST });
+  try {
+    const profile = await requireCustomer();
+    return CommerceService.getCustomerOrders({ customerId: profile.id, ...PERSIST });
+  } catch {
+    return [];
+  }
 }
 
 export async function getSellerOrdersAction(): Promise<OrderDescriptor[]> {

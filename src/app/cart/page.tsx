@@ -20,36 +20,56 @@ import {
   removeFromCartAction,
   clearCartAction,
 } from "@/lib/services/commerce-actions";
+import { useCart } from "@/components/commerce/CartProvider";
 import type { ShoppingCart } from "@/types/domain";
 
 export default function CartPage() {
   const [cart, setCart] = useState<ShoppingCart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
+  const { applyCart } = useCart();
 
   useEffect(() => {
     getCartAction().then((res) => {
       setCart(res);
+      applyCart(res);
       setIsLoading(false);
     });
-  }, []);
+  }, [applyCart]);
+
+  const apply = (next: ShoppingCart) => {
+    setCart(next);
+    applyCart(next);
+  };
 
   const handleUpdateQuantity = async (productId: string, quantity: number) => {
     try {
       const updated = await updateCartItemQuantityAction(productId, quantity);
-      setCart(updated);
-    } catch (e: any) {
-      alert(e?.message || "Erro ao atualizar quantidade.");
+      if (!updated.success) {
+        alert(updated.error || "Erro ao atualizar quantidade.");
+        return;
+      }
+      apply(updated.cart);
+    } catch (e: unknown) {
+      alert(e instanceof Error ? e.message : "Erro ao atualizar quantidade.");
     }
   };
 
   const handleRemoveItem = async (productId: string) => {
     const updated = await removeFromCartAction(productId);
-    setCart(updated);
+    if (!updated.success) {
+      alert(updated.error || "Erro ao remover o produto.");
+      return;
+    }
+    apply(updated.cart);
   };
 
   const handleClearCart = async () => {
     const updated = await clearCartAction();
-    setCart(updated);
+    if (!updated.success) {
+      alert(updated.error || "Erro ao esvaziar o carrinho.");
+      return;
+    }
+    apply(updated.cart);
   };
 
   if (isLoading || !cart) {

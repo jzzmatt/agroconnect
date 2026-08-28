@@ -2,7 +2,7 @@
 
 import React, { useEffect, useState } from "react";
 import Link from "next/link";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import {
   ChevronLeft,
   CheckCircle2,
@@ -10,20 +10,25 @@ import {
   Archive,
   Loader2,
   AlertCircle,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import {
   getOwnedProductAction,
   updateProductAction,
   updateProductInventoryAction,
+  deleteProductAction,
 } from "@/lib/services/shopping-actions";
 import { useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
 import { useI18n } from "@/i18n/provider";
+import { deleteDialogForProductStatus } from "@/lib/products/delete-flow";
+import { ProductDeleteDialog } from "@/components/shopping/ProductDeleteDialog";
 import type { ProductListItem } from "@/types/domain";
 import type { ProductAvailabilityStatus, ProductStatus } from "@/types/database";
 
 export function ProductEditWorkspacePage() {
   const params = useParams();
+  const router = useRouter();
   const productId = params?.productId as string;
   const productsBase = useProductsWorkspaceBase();
   const { dict } = useI18n();
@@ -31,6 +36,7 @@ export function ProductEditWorkspacePage() {
   const [product, setProduct] = useState<ProductListItem | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
 
@@ -106,6 +112,25 @@ export function ProductEditWorkspacePage() {
       setError(e instanceof Error ? e.message : "Erro ao atualizar estado.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!product) return;
+    setSaving(true);
+    setError(null);
+    try {
+      const result = await deleteProductAction(product.id);
+      if (!result.success) {
+        setError(result.error || dict.shopping.deleteFailed);
+        return;
+      }
+      router.push(productsBase);
+    } catch (e: unknown) {
+      setError(e instanceof Error ? e.message : dict.shopping.deleteFailed);
+    } finally {
+      setSaving(false);
+      setDeleteOpen(false);
     }
   };
 
@@ -273,8 +298,29 @@ export function ProductEditWorkspacePage() {
           <Link href={`/agrishopping/products/${product.slug}`}>
             <Button variant="outline">Ver página pública</Button>
           </Link>
+
+          <Button
+            variant="outline"
+            disabled={saving}
+            onClick={() => setDeleteOpen(true)}
+            className="gap-1.5 text-destructive"
+          >
+            <Trash2 className="w-4 h-4" />
+            {dict.shopping.deleteProduct}
+          </Button>
         </div>
       </div>
+
+      <ProductDeleteDialog
+        open={deleteOpen}
+        kind={deleteDialogForProductStatus(product.status)}
+        busy={saving}
+        onClose={() => {
+          if (saving) return;
+          setDeleteOpen(false);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   );
 }

@@ -14,15 +14,18 @@ import {
   Sparkles,
   Lock,
   ArrowRight,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
-import { getMyProductStatsAction, updateProductAction } from "@/lib/services/shopping-actions";
+import { getMyProductStatsAction, updateProductAction, deleteProductAction } from "@/lib/services/shopping-actions";
 import { UpgradePlanModal } from "@/components/ui";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { countActiveProducts } from "@/lib/services/pricing-service";
 import { useI18n } from "@/i18n/provider";
 import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
+import { deleteDialogForProductStatus } from "@/lib/products/delete-flow";
+import { ProductDeleteDialog } from "@/components/shopping/ProductDeleteDialog";
 import type { ProductListItem } from "@/types/domain";
 
 export function ProductsWorkspacePage() {
@@ -33,6 +36,7 @@ export function ProductsWorkspacePage() {
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
+  const [deleteTarget, setDeleteTarget] = useState<ProductListItem | null>(null);
   const { entitlements, loading } = useAuthoritativePlan();
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
 
@@ -111,6 +115,22 @@ export function ProductsWorkspacePage() {
       );
     } catch (e) {
       console.warn("Failed to update status:", e);
+    } finally {
+      setIsUpdating(null);
+    }
+  };
+
+  const handleConfirmDelete = async () => {
+    if (!deleteTarget) return;
+    setIsUpdating(deleteTarget.id);
+    try {
+      const result = await deleteProductAction(deleteTarget.id);
+      if (!result.success) {
+        window.alert(result.error || dict.shopping.deleteFailed);
+        return;
+      }
+      setProducts((prev) => prev.filter((item) => item.id !== deleteTarget.id));
+      setDeleteTarget(null);
     } finally {
       setIsUpdating(null);
     }
@@ -325,6 +345,17 @@ export function ProductsWorkspacePage() {
                   <Archive className="w-3.5 h-3.5" />
                   <span>Arquivar</span>
                 </Button>
+
+                <Button
+                  variant="outline"
+                  size="sm"
+                  disabled={isUpdating === product.id}
+                  onClick={() => setDeleteTarget(product)}
+                  className="gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                  <span>{dict.shopping.deleteProduct}</span>
+                </Button>
               </div>
             </div>
           ))
@@ -344,6 +375,17 @@ export function ProductsWorkspacePage() {
           </div>
         )}
       </div>
+
+      <ProductDeleteDialog
+        open={Boolean(deleteTarget)}
+        kind={deleteDialogForProductStatus(deleteTarget?.status)}
+        busy={Boolean(deleteTarget && isUpdating === deleteTarget.id)}
+        onClose={() => {
+          if (deleteTarget && isUpdating === deleteTarget.id) return;
+          setDeleteTarget(null);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
+      />
     </div>
   );
 }

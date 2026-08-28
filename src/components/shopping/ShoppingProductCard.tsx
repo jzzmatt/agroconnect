@@ -10,11 +10,10 @@ import {
   Heart,
   Navigation,
   Sparkles,
-  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Badge } from "@/components/ui/Badge";
-import { Button } from "@/components/ui/Button";
+import { AddToCartControl } from "@/components/commerce/AddToCartControl";
 import type { ProductListItem } from "@/types/domain";
 import { useI18n } from "@/i18n/provider";
 import { isProductCategorySlug } from "@/config/product-catalog";
@@ -205,16 +204,17 @@ export function ShoppingProductCard({
           </span>
         </div>
 
-        <Link
-          href={`/agrishopping/products/${product.slug}`}
-          onClick={(e) => e.stopPropagation()}
+        <div
           className="shrink-0"
+          onClick={(event) => event.stopPropagation()}
+          onKeyDown={(event) => event.stopPropagation()}
         >
-          <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-9 px-3">
-            <span>Ver produto</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </Button>
-        </Link>
+          <AddToCartControl
+            productId={product.id}
+            disabled={product.availability_status === "out_of_stock"}
+            size="sm"
+          />
+        </div>
       </div>
     </div>
   );
