@@ -32,10 +32,19 @@ describe("AgriService published service cards", () => {
     expect(src).toMatch("Não foi possível publicar o serviço");
     expect(src).toMatch("revalidatePath(\"/agriservice\")");
     expect(src).toMatch("listMyServicesAction");
+    expect(src).toMatch("CreateServiceActionResult");
 
     const createFn = src.slice(src.indexOf("export async function createServiceAction"), src.indexOf("export async function updateServiceAction"));
-    expect(createFn).toMatch("isSupabaseConfigured()");
-    expect(createFn).toMatch("throw new Error");
+    expect(createFn).toMatch("success: false");
+    expect(createFn).toMatch("publishFailureMessage");
+    expect(createFn).not.toMatch("throw new Error");
+  });
+
+  it("keeps publish errors on the form instead of throwing a minified React digest", () => {
+    const src = read("src/app/(dashboard)/dashboard/services/new/page.tsx");
+    expect(src).toMatch("if (!result.success)");
+    expect(src).toMatch("setError(result.error)");
+    expect(src).toMatch("#441");
   });
 
   it("requires auth before listing the provider's own services", () => {

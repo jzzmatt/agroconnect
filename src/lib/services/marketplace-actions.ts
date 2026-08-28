@@ -22,12 +22,54 @@ async function getMarketplaceWritableClient() {
   return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 }
 
-function revalidateServicePaths(slug?: string) {
+export type CreateServiceActionResult =
+  | { success: true; service: ServiceListItem }
+  | { success: false; error: string };
+
+function revalidatePublishedServicePaths(slug?: string) {
   revalidatePath("/agriservice");
-  revalidatePath("/dashboard/services");
   if (slug) {
     revalidatePath(`/services/${slug}`);
   }
+}
+
+function toSerializableService(
+  data: Record<string, unknown>,
+  provider: ProviderPublicProfile
+): ServiceListItem {
+  return {
+    id: String(data.id),
+    provider_id: String(provider.id),
+    provider_name: provider.business_name,
+    provider_slug: provider.slug,
+    provider_verified: provider.verification_status === "verified",
+    category_id: data.category_id != null ? String(data.category_id) : null,
+    title: String(data.title),
+    slug: String(data.slug),
+    short_description: data.short_description != null ? String(data.short_description) : null,
+    description: data.description != null ? String(data.description) : null,
+    pricing_type: String(data.pricing_type || "fixed"),
+    price: Number(data.price),
+    currency: String(data.currency || "AOA"),
+    location_type: String(data.location_type || "service_area"),
+    province_id: data.province_id != null ? String(data.province_id) : null,
+    municipality_id: data.municipality_id != null ? String(data.municipality_id) : null,
+    latitude: data.latitude != null ? Number(data.latitude) : null,
+    longitude: data.longitude != null ? Number(data.longitude) : null,
+    service_radius_km: data.service_radius_km != null ? Number(data.service_radius_km) : null,
+    status: String(data.status || "published"),
+    is_featured: Boolean(data.is_featured),
+    created_at: data.created_at ? String(data.created_at) : new Date().toISOString(),
+  };
+}
+
+function publishFailureMessage(error: { message?: string; code?: string } | null | undefined): string {
+  const msg = error?.message || "";
+  if (/duplicate|unique/i.test(msg)) {
+    return "Já existe um serviço com este título. Altere o título e tente novamente.";
+  }
+  if (msg) return `Não foi possível publicar o serviço: ${msg}`;
+  return "Não foi possível publicar o serviço. Tente novamente.";
 }
 
 async function resolveCategoryId(
@@ -123,17 +165,13 @@ export async function getProviderServicesAction(
  */
 export async function listMyServicesAction(): Promise<ServiceListItem[]> {
   await requireAuth();
-  const provider = await getOrCreateCurrentProviderProfileAction();
+  const provider = await ensureCurrentProviderProfile();
   return MarketplaceService.getProviderServices(provider.id, false);
 }
 
-/**
- * Server Action: Create or get provider profile for logged-in user
- */
-export async function getOrCreateCurrentProviderProfileAction(
+async function ensureCurrentProviderProfile(
   input?: CreateProviderProfileInput
 ): Promise<ProviderPublicProfile> {
-  await requireAuth();
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) {
     throw new Error("Perfil de utilizador não encontrado.");
@@ -210,108 +248,113 @@ export async function getOrCreateCurrentProviderProfileAction(
 }
 
 /**
+ * Server Action: Create or get provider profile for logged-in user
+ */
+export async function getOrCreateCurrentProviderProfileAction(
+  input?: CreateProviderProfileInput
+): Promise<ProviderPublicProfile> {
+  await requireAuth();
+  return ensureCurrentProviderProfile(input);
+}
+
+/**
  * Server Action: Create service with strict Plan Entitlements
  */
 export async function createServiceAction(
   input: CreateServiceInput
-): Promise<ServiceListItem> {
-  await requireAuth();
-  const userProfile = await getCurrentUserProfile();
-  if (!userProfile) {
-    throw new Error("Não autorizado: Sessão não encontrada.");
-  }
-
-  // Enforce Plan Entitlements for Service Creation (Basic users cannot create services)
-  const entitlements = getUserEntitlements({
-    subscriptionPlan: userProfile.subscription_plan,
-    roles: userProfile.roles,
-    accountType: userProfile.account_type,
-  });
-
-  if (!entitlements.can_manage_services) {
-    throw new Error("SERVICE_CREATION_LOCKED: O seu plano Básico não permite criar serviços. Atualize para o plano Profissional ou Business.");
-  }
-
-  const provider = await getOrCreateCurrentProviderProfileAction();
-  const supabase = await getMarketplaceWritableClient();
-
-  if (!input.title || input.title.trim().length < 3) {
-    throw new Error("O título do serviço deve conter pelo menos 3 caracteres.");
-  }
-  if (input.price === undefined || input.price < 0) {
-    throw new Error("O preço do serviço deve ser um valor positivo.");
-  }
-
-  const slugBase = slugify(input.title) || "servico";
-  const uniqueSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
-  const categoryId =
-    input.categoryId || (await resolveCategoryId(supabase, input.categorySlug));
-  const geography = await resolveServiceGeography(supabase, {
-    provinceName: input.provinceName,
-    municipalityName: input.municipalityName,
-  });
-
-  const { data, error } = await (supabase.from("services") as any)
-    .insert({
-      provider_id: provider.id,
-      category_id: categoryId,
-      title: input.title.trim(),
-      slug: uniqueSlug,
-      short_description: input.shortDescription || input.title,
-      description: input.description || "",
-      pricing_type: input.pricingType || "fixed",
-      price: input.price,
-      currency: input.currency || "AOA",
-      location_type: input.locationType || "service_area",
-      contact_preference: input.contactPreference || "platform",
-      province_id: input.provinceId || geography.province_id || null,
-      municipality_id: input.municipalityId || geography.municipality_id || null,
-      latitude: input.latitude ?? geography.latitude ?? null,
-      longitude: input.longitude ?? geography.longitude ?? null,
-      service_radius_km: input.serviceRadiusKm || 50,
-      status: input.status || "published",
-      is_featured: input.isFeatured || false,
-    })
-    .select("*")
-    .single();
-
-  if (error || !data) {
-    if (isSupabaseConfigured()) {
-      throw new Error(
-        error?.message
-          ? `Não foi possível publicar o serviço: ${error.message}`
-          : "Não foi possível publicar o serviço. Tente novamente."
-      );
+): Promise<CreateServiceActionResult> {
+  try {
+    await requireAuth();
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) {
+      return { success: false, error: "Não autorizado: Sessão não encontrada." };
     }
-    return MarketplaceService.createService(input);
+
+    const entitlements = getUserEntitlements({
+      subscriptionPlan: userProfile.subscription_plan,
+      roles: userProfile.roles,
+      accountType: userProfile.account_type,
+    });
+
+    if (!entitlements.can_manage_services) {
+      return {
+        success: false,
+        error:
+          "SERVICE_CREATION_LOCKED: O seu plano não permite criar serviços. Atualize para o plano Profissional ou Business.",
+      };
+    }
+
+    if (!input.title || input.title.trim().length < 3) {
+      return { success: false, error: "O título do serviço deve conter pelo menos 3 caracteres." };
+    }
+    if (input.price === undefined || input.price < 0) {
+      return { success: false, error: "O preço do serviço deve ser um valor positivo." };
+    }
+
+    const provider = await ensureCurrentProviderProfile();
+    const supabase = await getMarketplaceWritableClient();
+
+    const slugBase = slugify(input.title) || "servico";
+    const uniqueSlug = `${slugBase}-${Math.random().toString(36).substring(2, 6)}`;
+    const categoryId =
+      input.categoryId || (await resolveCategoryId(supabase, input.categorySlug));
+    const geography = await resolveServiceGeography(supabase, {
+      provinceName: input.provinceName,
+      municipalityName: input.municipalityName,
+    });
+
+    const { data, error } = await (supabase.from("services") as any)
+      .insert({
+        provider_id: provider.id,
+        category_id: categoryId,
+        title: input.title.trim(),
+        slug: uniqueSlug,
+        short_description: input.shortDescription || input.title,
+        description: input.description || "",
+        pricing_type: input.pricingType || "fixed",
+        price: input.price,
+        currency: input.currency || "AOA",
+        location_type: input.locationType || "service_area",
+        contact_preference: input.contactPreference || "platform",
+        province_id: input.provinceId || geography.province_id || null,
+        municipality_id: input.municipalityId || geography.municipality_id || null,
+        latitude: input.latitude ?? geography.latitude ?? null,
+        longitude: input.longitude ?? geography.longitude ?? null,
+        service_radius_km: input.serviceRadiusKm || 50,
+        status: input.status || "published",
+        is_featured: input.isFeatured || false,
+      })
+      .select("*")
+      .single();
+
+    if (error || !data) {
+      console.warn("[createServiceAction] DB error:", error);
+      if (!isSupabaseConfigured()) {
+        return {
+          success: true,
+          service: await MarketplaceService.createService(input),
+        };
+      }
+      return { success: false, error: publishFailureMessage(error) };
+    }
+
+    revalidatePublishedServicePaths(String(data.slug));
+
+    return {
+      success: true,
+      service: toSerializableService(data as Record<string, unknown>, provider),
+    };
+  } catch (error) {
+    console.warn("[createServiceAction] failed:", error);
+    const message =
+      error instanceof Error && error.message
+        ? error.message
+        : "Não foi possível publicar o serviço. Tente novamente.";
+    if (/minified react error|#441|server components render/i.test(message)) {
+      return { success: false, error: "Não foi possível publicar o serviço. Tente novamente." };
+    }
+    return { success: false, error: message };
   }
-
-  revalidateServicePaths(data.slug);
-
-  return {
-    id: data.id,
-    provider_id: provider.id,
-    provider_name: provider.business_name,
-    provider_slug: provider.slug,
-    provider_verified: provider.verification_status === "verified",
-    category_id: data.category_id,
-    title: data.title,
-    slug: data.slug,
-    short_description: data.short_description,
-    description: data.description,
-    pricing_type: data.pricing_type,
-    price: Number(data.price),
-    currency: data.currency,
-    location_type: data.location_type,
-    province_id: data.province_id,
-    municipality_id: data.municipality_id,
-    latitude: data.latitude,
-    longitude: data.longitude,
-    service_radius_km: data.service_radius_km,
-    status: data.status,
-    is_featured: data.is_featured,
-    created_at: data.created_at,
-  };
 }
 
 /**
@@ -321,7 +364,7 @@ export async function updateServiceAction(
   input: UpdateServiceInput
 ): Promise<boolean> {
   await requireAuth();
-  const provider = await getOrCreateCurrentProviderProfileAction();
+  const provider = await ensureCurrentProviderProfile();
   const supabase = await getMarketplaceWritableClient();
 
   const updates: Record<string, any> = {};
@@ -343,7 +386,8 @@ export async function updateServiceAction(
     .eq("provider_id", provider.id);
 
   if (error) return false;
-  revalidateServicePaths();
+  revalidatePublishedServicePaths();
+  revalidatePath("/dashboard/services");
   return true;
 }
 
@@ -486,7 +530,7 @@ export async function getProviderRequestsAction(): Promise<ServiceRequestItem[]>
   if (!userProfile) return [];
 
   try {
-    const provider = await getOrCreateCurrentProviderProfileAction();
+    const provider = await ensureCurrentProviderProfile();
     const supabase = await createServerSupabaseClient();
 
     const { data, error } = await supabase
