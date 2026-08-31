@@ -15,9 +15,14 @@ Use capability checks such as:
 - requireEntitlement(user, entitlement)
 
 `control_panel.access` requires a stored subscription.
-Plan-specific feature flags (AgriExpert, AgriAcademy, AgriProduct, …) stay separate.
+Plan-specific feature flags stay separate.
+
+Public discovery (AgriService Expert, Services, Transport, published products, published courses, published provider pages) does not require a publishing plan.
+Publishing and management of public provider, marketplace, AgriService offerings and instructor-published courses require an eligible stored Pro, Business or Enterprise subscription (internal slug `professional` is Pro). Express this through entitlements; never scatter plan-name checks in UI or business logic.
 
 Never hardcode subscription names inside UI/business logic.
 Never treat a missing plan as Basic.
+Never use browser/local cache as the source of truth for subscription or authorization.
 Server-side authorization is mandatory.
 UI permission checks only control presentation.
+Enforce authorization at the server/action/API layer and at RLS where applicable.
