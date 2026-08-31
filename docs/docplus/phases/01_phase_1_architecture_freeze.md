@@ -1,5 +1,8 @@
 # Phase 1 — Architecture Freeze Prompt
 
+> Unchanged. Phases 0–6 keep their existing approved definitions. The AgriAcademy YouTube refactor starts at Phase 7 and supersedes the Phase 1 Bunny Stream decision **for AgriAcademy training video only**. See `docs/agroconnect-updated-phases.md`.
+
+
 @00-master
 
 This phase is documentation/rules only. Do not refactor application code.
