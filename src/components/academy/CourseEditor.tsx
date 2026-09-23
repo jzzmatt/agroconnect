@@ -19,6 +19,7 @@ import {
 import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
+import { CourseThumbnailUploader } from "@/components/academy/CourseThumbnailUploader";
 import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
 import { LessonVideoModal } from "@/components/academy/LessonVideoModal";
 import {
@@ -550,6 +551,16 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             onChange={(event) => setCourse({ ...course, description: event.target.value })}
             placeholder={dict.agriacademy.courseDescriptionPlaceholder}
             className="w-full min-h-20 text-sm bg-surface rounded-2xl border border-border p-3"
+          />
+          <CourseThumbnailUploader
+            courseId={course.id}
+            courseTitle={course.title}
+            course={course}
+            disabled={isSaving}
+            onCourseUpdated={(updated) => {
+              setCourse({ ...course, ...updated });
+              setMessage(dict.agriacademy.courseEditorThumbnailSaved);
+            }}
           />
         </div>
         <div className="flex flex-wrap gap-2">

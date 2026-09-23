@@ -33,7 +33,11 @@ export function EnrolledCourseCard({ item }: { item: EnrolledCourseListItem }) {
       <div className="sm:w-40 h-32 sm:h-auto bg-linear-to-br from-emerald-800 to-emerald-950 flex items-center justify-center shrink-0">
         {course.thumbnail_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={course.thumbnail_url} alt="" className="w-full h-full object-cover" />
+          <img
+            src={course.thumbnail_url}
+            alt={dict.agriacademy.courseEditorThumbnailAlt.replace("{title}", course.title)}
+            className="w-full h-full object-cover"
+          />
         ) : (
           <GraduationCap className="w-10 h-10 text-emerald-200" />
         )}

@@ -57,7 +57,17 @@ export function CourseCard({
       <div>
         {/* Banner Header */}
         <div className="relative h-40 w-full bg-linear-to-br from-emerald-800 to-emerald-950 p-4 flex flex-col justify-between overflow-hidden">
-          <div className="flex items-center justify-between z-10">
+          {thumbnailUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={thumbnailUrl}
+              alt=""
+              aria-hidden
+              className="absolute inset-0 h-full w-full object-cover"
+            />
+          ) : null}
+          <div className="absolute inset-0 bg-black/35" aria-hidden />
+          <div className="flex items-center justify-between z-10 relative">
             <Badge variant="pillarAcademy" className="bg-white/95 dark:bg-slate-900 text-blue-900 dark:text-blue-200">
               AgriAcademy
             </Badge>
@@ -66,7 +76,7 @@ export function CourseCard({
             </span>
           </div>
 
-          <div className="z-10 flex items-center gap-2 text-emerald-100 text-xs">
+          <div className="z-10 relative flex items-center gap-2 text-emerald-100 text-xs">
             <PlayCircle className="w-4 h-4 text-emerald-400" />
             <span className="font-medium">{category}</span>
           </div>

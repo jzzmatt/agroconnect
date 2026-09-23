@@ -22,6 +22,7 @@ import {
   mutationOk,
   type CourseMutationResult,
 } from "@/lib/academy/course-errors";
+import { enrichCourseListItemsWithSignedThumbnails } from "@/lib/academy/course-thumbnail-service";
 import { publishedCourseBelongsToProvider } from "@/lib/academy/public-provider-courses";
 import type {
   CourseListItem,
@@ -97,6 +98,10 @@ function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
     currency: String(row.currency ?? "AOA"),
     status: (row.status as CourseRecord["status"]) ?? "draft",
     thumbnail_url: (row.thumbnail_url as string | null) ?? null,
+    thumbnail_storage_path: (row.thumbnail_storage_path as string | null) ?? null,
+    thumbnail_original_filename: (row.thumbnail_original_filename as string | null) ?? null,
+    thumbnail_mime_type: (row.thumbnail_mime_type as string | null) ?? null,
+    thumbnail_size: row.thumbnail_size != null ? Number(row.thumbnail_size) : null,
     duration_hours: row.duration_hours != null ? Number(row.duration_hours) : null,
     lessons_count: Number(row.lessons_count ?? 0),
     students_count: Number(row.students_count ?? 0),
@@ -941,7 +946,7 @@ export class CourseService {
       }
     }
 
-    return rows.map((row) => {
+    const mapped = rows.map((row) => {
       const provider = row.provider_profiles as { slug?: string; business_name?: string } | null;
       const category = row.categories as { name?: string; slug?: string } | null;
       const profile = profileMap.get(String(row.owner_id));
@@ -954,5 +959,7 @@ export class CourseService {
         category_slug: category?.slug ?? null,
       });
     });
+
+    return enrichCourseListItemsWithSignedThumbnails(mapped);
   }
 }
