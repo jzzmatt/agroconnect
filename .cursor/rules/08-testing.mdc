@@ -16,4 +16,12 @@ Critical authorization paths require tests for:
 - insufficient entitlement
 - sufficient entitlement
 
+Publication and discovery paths also require tests for:
+- draft / unpublished is not public
+- published is public
+- paused is not public
+- eligible subscription can publish
+- ineligible or missing subscription cannot publish
+- public payloads expose only intended fields
+
 Do not delete existing tests without replacing their coverage.

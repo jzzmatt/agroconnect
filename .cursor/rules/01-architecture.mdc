@@ -5,11 +5,20 @@ alwaysApply: true
 # Architecture Rules
 
 Domains:
-Core Platform, AgriProfile, AgriShopping, AgriAcademy, AgriExpert, Localization, Commerce.
+Core Platform, AgriProfile, AgriShopping, AgriAcademy, AgriService, Localization, Commerce.
 
-AgriProfile is a user workspace/aggregation layer, not a duplicate business domain.
-AgriShopping owns products and seller product management.
-AgriAcademy owns courses and learning.
-Commerce owns cart/checkout/orders.
-Localization owns geographic primitives.
-Cross-domain access must use public contracts/services.
+AgriProfile is a user workspace and the owner of public provider identity (draft / published / paused) and the stable public slug. It is not a duplicate business domain.
+`/providers/[slug]` is a read-only aggregation of published profile, expert, services, transport, products and courses. It does not own those records.
+
+AgriShopping owns products, seller product management, inventory and product media. A product belongs to a user/provider; provider identity remains owned by AgriProfile.
+
+AgriAcademy owns courses and learning. Instructor identity references the existing user/profile identity.
+
+AgriService is a public discovery layer for Expert, Services and Transport. It does not own products, courses, profiles, commerce or payments. Transport is a distinct offering domain (origin, destination, vehicle, base location, price/trip and price/load), not a category inside Services.
+
+Commerce owns cart, checkout, orders, payments, commissions, earnings and financial reporting. Transport requests are not financial orders until Commerce converts them.
+
+Localization owns geographic primitives. Cross-domain access must use public contracts/services.
+Do not introduce a new architecture when an existing project abstraction already provides the capability.
+
+Phase 1 freeze artifacts in `docs/docplus/docs/` still name AgriExpert. Implementation of Phases 5–12 follows AgriService as defined in the phase files and `11-agridev.mdc`.

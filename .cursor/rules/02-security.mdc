@@ -8,7 +8,7 @@ Clerk authenticates identity.
 Application authorization determines capability.
 Supabase RLS protects database rows.
 
-Never trust client-provided user IDs, roles, plans, entitlements, ownership, prices or seller IDs.
+Never trust client-provided user IDs, roles, plans, entitlements, ownership, prices, seller IDs or transaction totals.
 Every protected API handler must authenticate and authorize independently.
 Provider credentials remain server-side.
 Webhook endpoints must verify signatures/secrets.
