@@ -6,6 +6,8 @@ export type CourseMutationCode =
   | "VALIDATION_ERROR"
   | "YOUTUBE_URL_INVALID"
   | "YOUTUBE_SCHEMA_MISSING"
+  | "VIDEO_FILE_TOO_LARGE"
+  | "VIDEO_FORMAT_UNSUPPORTED"
   | "DATABASE_ERROR"
   | "DEPENDENCY_ERROR"
   | "UNKNOWN_ERROR";
@@ -45,6 +47,8 @@ export const COURSE_MUTATION_MESSAGES: Record<CourseMutationCode, string> = {
   YOUTUBE_URL_INVALID: "URL ou ID do YouTube inválido.",
   YOUTUBE_SCHEMA_MISSING:
     "A base de dados ainda não está pronta para vídeos do YouTube. Aplique a migração da AgriAcademy.",
+  VIDEO_FILE_TOO_LARGE: "O vídeo excede o tamanho máximo permitido de 500 MB.",
+  VIDEO_FORMAT_UNSUPPORTED: "Os formatos de vídeo suportados são MP4, WebM e MOV.",
   DATABASE_ERROR: "Não foi possível concluir a operação. Tente novamente.",
   DEPENDENCY_ERROR: "Não foi possível concluir a operação porque o curso ainda tem dependências.",
   UNKNOWN_ERROR: "Ocorreu um erro inesperado. Tente novamente.",

@@ -121,9 +121,13 @@ describe("CourseEditor guided YouTube authoring", () => {
     );
 
     await screen.findByDisplayValue("Curso UI");
-    expect(screen.getByText(/Adicione um vídeo do YouTube à aula 01.01/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /A aula 01.01 \(Aula A\) precisa de um vídeo do YouTube/i }));
-    expect(await screen.findByText("Vídeo do YouTube")).toBeInTheDocument();
+    expect(screen.getByText(/Adicione um vídeo à aula 01.01/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /A aula 01.01 \(Aula A\) precisa de um vídeo \(YouTube ou carregamento\)/i,
+      })
+    );
+    expect(await screen.findByText("Vídeo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Publicar$/i })).toBeDisabled();
   });
 
@@ -319,5 +323,68 @@ describe("CourseEditor guided YouTube authoring", () => {
     expect(preview).toHaveAttribute("src", "https://www.youtube-nocookie.com/embed/dQw4w9WgXcQ");
     fireEvent.click(screen.getByRole("button", { name: "Fechar pré-visualização" }));
     expect(screen.queryByTitle("Aula A")).not.toBeInTheDocument();
+  });
+
+  it("opens an HTML5 preview for a lesson with an uploaded video", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ playbackUrl: "https://signed.example/lesson.mp4" }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+
+    getCourseEditorAction.mockResolvedValue(
+      draftTree({
+        sections: [
+          {
+            id: "sec-1",
+            course_id: "crs-ui",
+            title: "Capítulo A",
+            sort_order: 1,
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString(),
+            lessons: [
+              {
+                id: "les-upload",
+                course_id: "crs-ui",
+                section_id: "sec-1",
+                title: "Aula Upload",
+                sort_order: 1,
+                youtube_video_id: null,
+                video_source: "upload",
+                upload_storage_path: "owner/crs-ui/les-upload/vid/original.mp4",
+                upload_original_filename: "lesson.mp4",
+                upload_status: "ready",
+                upload_original_mime_type: "video/mp4",
+                is_free_preview: false,
+                created_at: new Date().toISOString(),
+                updated_at: new Date().toISOString(),
+              },
+            ],
+          },
+        ],
+      })
+    );
+
+    render(
+      <I18nProvider initialLocale="pt">
+        <CourseEditor courseId="crs-ui" />
+      </I18nProvider>
+    );
+
+    await screen.findByDisplayValue("Aula Upload");
+    fireEvent.click(screen.getByRole("button", { name: "Pré-visualizar aula" }));
+
+    await waitFor(() => {
+      expect(fetchMock).toHaveBeenCalledWith(
+        "/api/academy/lessons/les-upload/video/preview",
+        expect.objectContaining({ credentials: "same-origin" })
+      );
+    });
+
+    const preview = await screen.findByTitle("Aula Upload");
+    expect(preview.tagName.toLowerCase()).toBe("video");
+    expect(preview).toHaveAttribute("src", "https://signed.example/lesson.mp4");
+
+    vi.unstubAllGlobals();
   });
 });

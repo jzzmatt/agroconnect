@@ -110,6 +110,12 @@ export interface CourseLessonRecord {
   academy_video_id?: string | null;
   youtube_video_id?: string | null;
   youtube_source_url?: string | null;
+  video_source?: "youtube" | "upload";
+  upload_storage_path?: string | null;
+  upload_original_filename?: string | null;
+  upload_original_size?: number | null;
+  upload_original_mime_type?: string | null;
+  upload_status?: "uploading" | "ready" | "failed" | null;
   duration_seconds?: number | null;
   is_free_preview: boolean;
   created_at: string;
