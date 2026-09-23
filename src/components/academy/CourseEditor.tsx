@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
 import { CourseThumbnailUploader } from "@/components/academy/CourseThumbnailUploader";
+import { CourseLocationEditor } from "@/components/academy/CourseLocationEditor";
 import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
 import { LessonVideoModal } from "@/components/academy/LessonVideoModal";
 import {
@@ -560,6 +561,14 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             onCourseUpdated={(updated) => {
               setCourse({ ...course, ...updated });
               setMessage(dict.agriacademy.courseEditorThumbnailSaved);
+            }}
+          />
+          <CourseLocationEditor
+            course={course}
+            disabled={isSaving}
+            onCourseUpdated={(updated) => {
+              setCourse({ ...course, ...updated });
+              setMessage(dict.agriacademy.courseEditorLocationSaved);
             }}
           />
         </div>

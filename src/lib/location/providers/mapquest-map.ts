@@ -75,6 +75,8 @@ export class MapQuestProvider implements IMapProvider {
   private containerEl: HTMLElement | null = null;
   private leafletModule: any = null;
   private moveHandler: (() => void) | null = null;
+  private mapClickHandler: ((coordinates: GeoCoordinate) => void) | null = null;
+  private leafletClickHandler: ((event: { latlng: { lat: number; lng: number } }) => void) | null = null;
 
   constructor(apiKey?: string, initialLayer: MapLayerType = "map") {
     this.apiKey = apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
@@ -143,6 +145,10 @@ export class MapQuestProvider implements IMapProvider {
       };
       this.mapInstance.on("moveend", this.moveHandler);
 
+      if (options.onMapClick) {
+        this.setOnMapClick(options.onMapClick);
+      }
+
       this.isMapLoaded = true;
       this.flushPendingMarkers();
       this.resize();
@@ -169,6 +175,11 @@ export class MapQuestProvider implements IMapProvider {
       this.mapInstance.off("moveend", this.moveHandler);
       this.moveHandler = null;
     }
+    if (this.leafletClickHandler && this.mapInstance) {
+      this.mapInstance.off("click", this.leafletClickHandler);
+      this.leafletClickHandler = null;
+    }
+    this.mapClickHandler = null;
     this.clearMarkers();
     this.removeUserLocationMarker();
     if (this.mapInstance) {
@@ -393,6 +404,23 @@ export class MapQuestProvider implements IMapProvider {
         { padding: [padding, padding], maxZoom: 16 }
       );
     }
+  }
+
+  public setOnMapClick(handler: ((coordinates: GeoCoordinate) => void) | null): void {
+    this.mapClickHandler = handler;
+    if (!this.mapInstance) return;
+
+    if (this.leafletClickHandler) {
+      this.mapInstance.off("click", this.leafletClickHandler);
+      this.leafletClickHandler = null;
+    }
+
+    if (!handler) return;
+
+    this.leafletClickHandler = (event: { latlng: { lat: number; lng: number } }) => {
+      handler({ latitude: event.latlng.lat, longitude: event.latlng.lng });
+    };
+    this.mapInstance.on("click", this.leafletClickHandler);
   }
 
   public destroy(): void {

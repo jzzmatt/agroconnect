@@ -13,6 +13,7 @@ export interface MapOptions {
   interactive?: boolean;
   onLoad?: () => void;
   onError?: (error: Error) => void;
+  onMapClick?: (coordinates: GeoCoordinate) => void;
 }
 
 /**
@@ -55,6 +56,7 @@ export interface IMapProvider {
   fitBounds(bounds: [GeoCoordinate, GeoCoordinate], padding?: number): void;
   addUserLocationMarker(coordinates: GeoCoordinate): void;
   removeUserLocationMarker(): void;
+  setOnMapClick?(handler: ((coordinates: GeoCoordinate) => void) | null): void;
   destroy(): void;
 }
 

@@ -13,6 +13,7 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
 import { AgroConnectHeroBanner } from "@/components/landing/AgroConnectHeroBanner";
+import { LandingEcosystemCapabilities } from "@/components/landing/LandingEcosystemCapabilities";
 import { LandingPillarCard } from "@/components/landing/LandingPillarCard";
 import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
@@ -26,6 +27,8 @@ export default function LandingPage() {
 
       <main className="flex-1">
         <AgroConnectHeroBanner />
+
+        <LandingEcosystemCapabilities />
 
         <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
           <SectionHeader
