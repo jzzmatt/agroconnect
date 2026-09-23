@@ -32,7 +32,7 @@ export function AgroConnectHeroCard({
       initial={shouldReduceMotion ? false : { opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.55, delay: entranceDelay, ease: "easeOut" }}
-      className={cn("absolute z-20 w-[min(100%,11.5rem)] sm:w-44 lg:w-48", className)}
+      className={cn("relative z-20 w-full min-w-0", className)}
     >
       <motion.div
         animate={
