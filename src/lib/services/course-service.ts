@@ -22,6 +22,7 @@ import {
   mutationOk,
   type CourseMutationResult,
 } from "@/lib/academy/course-errors";
+import { validateCourseCoordinates } from "@/lib/academy/course-location";
 import { enrichCourseListItemsWithSignedThumbnails } from "@/lib/academy/course-thumbnail-service";
 import { publishedCourseBelongsToProvider } from "@/lib/academy/public-provider-courses";
 import type {
@@ -102,6 +103,10 @@ function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
     thumbnail_original_filename: (row.thumbnail_original_filename as string | null) ?? null,
     thumbnail_mime_type: (row.thumbnail_mime_type as string | null) ?? null,
     thumbnail_size: row.thumbnail_size != null ? Number(row.thumbnail_size) : null,
+    location_name: (row.location_name as string | null) ?? null,
+    location_address: (row.location_address as string | null) ?? null,
+    latitude: row.latitude != null ? Number(row.latitude) : null,
+    longitude: row.longitude != null ? Number(row.longitude) : null,
     duration_hours: row.duration_hours != null ? Number(row.duration_hours) : null,
     lessons_count: Number(row.lessons_count ?? 0),
     students_count: Number(row.students_count ?? 0),
@@ -612,6 +617,30 @@ export class CourseService {
         if (input.thumbnailUrl !== undefined) patch.thumbnail_url = input.thumbnailUrl;
         if (input.provinceName !== undefined) patch.province_name = input.provinceName;
         if (input.municipalityName !== undefined) patch.municipality_name = input.municipalityName;
+        if (input.clearLocation) {
+          patch.location_name = null;
+          patch.location_address = null;
+          patch.latitude = null;
+          patch.longitude = null;
+        } else if (
+          input.latitude !== undefined ||
+          input.longitude !== undefined ||
+          input.locationName !== undefined ||
+          input.locationAddress !== undefined
+        ) {
+          const lat = input.latitude ?? current.data.latitude ?? null;
+          const lng = input.longitude ?? current.data.longitude ?? null;
+          const coordCheck = validateCourseCoordinates(lat, lng);
+          if (!coordCheck.ok) {
+            return mutationFail("VALIDATION_ERROR");
+          }
+          if (lat != null && lng != null) {
+            patch.latitude = lat;
+            patch.longitude = lng;
+            patch.location_name = input.locationName ?? current.data.location_name ?? null;
+            patch.location_address = input.locationAddress ?? current.data.location_address ?? null;
+          }
+        }
         if (input.status) {
           patch.status = nextStatus;
           if (nextStatus === "published" && !current.data.published_at) {
@@ -653,6 +682,14 @@ export class CourseService {
       thumbnail_url: input.thumbnailUrl ?? current.data.thumbnail_url ?? null,
       province_name: input.provinceName ?? current.data.province_name ?? null,
       municipality_name: input.municipalityName ?? current.data.municipality_name ?? null,
+      location_name: input.clearLocation
+        ? null
+        : input.locationName ?? current.data.location_name ?? null,
+      location_address: input.clearLocation
+        ? null
+        : input.locationAddress ?? current.data.location_address ?? null,
+      latitude: input.clearLocation ? null : input.latitude ?? current.data.latitude ?? null,
+      longitude: input.clearLocation ? null : input.longitude ?? current.data.longitude ?? null,
       published_at: publishedAt,
       updated_at: now,
     };

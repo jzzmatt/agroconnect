@@ -31,6 +31,9 @@ export interface MapMarkerItem {
   provinceName: string;
   municipalityName?: string;
   description?: string;
+  thumbnailUrl?: string;
+  href?: string;
+  ctaLabel?: string;
 }
 
 interface LocationMapProps {
@@ -41,6 +44,7 @@ interface LocationMapProps {
   selectedLocation?: string | null;
   onSelectMarker?: (marker: MapMarkerItem | null) => void;
   onLocationSelect?: (marker: MapMarkerItem | null) => void;
+  onMapClick?: (coordinates: GeoCoordinate) => void;
   className?: string;
   height?: string;
   showControls?: boolean;
@@ -113,6 +117,7 @@ export function LocationMap({
   selectedLocation,
   onSelectMarker,
   onLocationSelect,
+  onMapClick,
   className,
   height = "h-[480px]",
   showControls = true,
@@ -275,7 +280,12 @@ export function LocationMap({
         element: el,
         onClick: () => handleMarkerClick(marker),
         popupHtml: `
-          <div style="padding:4px; font-family:sans-serif; min-width:140px;">
+          <div style="padding:4px; font-family:sans-serif; min-width:160px; max-width:220px;">
+            ${
+              marker.thumbnailUrl
+                ? `<img src="${marker.thumbnailUrl}" alt="" style="width:100%;height:72px;object-fit:cover;border-radius:6px;margin-bottom:6px;" />`
+                : ""
+            }
             <span style="display:inline-block; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:bold; background:${config.hex}; color:#fff; margin-bottom:4px;">
               ${config.label}
             </span>
@@ -285,11 +295,30 @@ export function LocationMap({
             <div style="font-size:11px; color:#0E6B38; margin-top:2px;">
               📍 ${marker.municipalityName ? `${marker.municipalityName}, ` : ""}${marker.provinceName}
             </div>
+            ${
+              marker.description
+                ? `<div style="font-size:10px; color:#555; margin-top:4px; line-height:1.35;">${marker.description.slice(0, 120)}</div>`
+                : ""
+            }
+            ${
+              marker.href
+                ? `<a href="${marker.href}" style="display:inline-block;margin-top:6px;font-size:11px;font-weight:bold;color:${config.hex};">${marker.ctaLabel || "Ver"}</a>`
+                : ""
+            }
           </div>
         `,
       });
     });
   }, [filteredMarkers, handleMarkerClick, theme, mapLoaded]);
+
+  useEffect(() => {
+    const provider = lifecycleRef.current?.instance;
+    if (!provider || !mapLoaded || !provider.setOnMapClick) return;
+    provider.setOnMapClick(onMapClick ?? null);
+    return () => {
+      provider.setOnMapClick?.(null);
+    };
+  }, [onMapClick, mapLoaded]);
 
   useEffect(() => {
     if (!resolvedSelectedId) return;

@@ -50,6 +50,10 @@ export interface CourseRecord {
   thumbnail_original_filename?: string | null;
   thumbnail_mime_type?: string | null;
   thumbnail_size?: number | null;
+  location_name?: string | null;
+  location_address?: string | null;
+  latitude?: number | null;
+  longitude?: number | null;
   duration_hours?: number | null;
   lessons_count: number;
   students_count: number;
@@ -183,11 +187,16 @@ export interface CreateCourseInput {
   municipalityName?: string;
   thumbnailUrl?: string;
   providerId?: string;
+  locationName?: string;
+  locationAddress?: string;
+  latitude?: number | null;
+  longitude?: number | null;
 }
 
 export interface UpdateCourseInput extends Partial<CreateCourseInput> {
   id: string;
   status?: CourseStatus;
+  clearLocation?: boolean;
 }
 
 export interface SearchCoursesFilterParams {

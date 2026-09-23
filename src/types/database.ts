@@ -1732,6 +1732,10 @@ export interface Database {
           municipality_id: string | null;
           province_name: string | null;
           municipality_name: string | null;
+          location_name: string | null;
+          location_address: string | null;
+          latitude: number | null;
+          longitude: number | null;
           is_featured: boolean;
           published_at: string | null;
           metadata: Json;
@@ -1764,6 +1768,10 @@ export interface Database {
           municipality_id?: string | null;
           province_name?: string | null;
           municipality_name?: string | null;
+          location_name?: string | null;
+          location_address?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           is_featured?: boolean;
           published_at?: string | null;
           metadata?: Json;
@@ -1796,6 +1804,10 @@ export interface Database {
           municipality_id?: string | null;
           province_name?: string | null;
           municipality_name?: string | null;
+          location_name?: string | null;
+          location_address?: string | null;
+          latitude?: number | null;
+          longitude?: number | null;
           is_featured?: boolean;
           published_at?: string | null;
           metadata?: Json;

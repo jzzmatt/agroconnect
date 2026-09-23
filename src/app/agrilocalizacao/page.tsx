@@ -1,14 +1,15 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
-import { SectionHeader, SearchBar, Badge } from "@/components/ui";
+import { SectionHeader } from "@/components/ui";
 import { LocationMap, LocationSelector, LocationSearch, type MapMarkerItem } from "@/components/location";
 import { useI18n } from "@/i18n/provider";
 import { MOCK_MAP_MARKERS } from "@/config/mock-data";
 import { ANGOLA_PROVINCES } from "@/config/locations";
-import { MapPin, Compass, Layers, ShieldCheck } from "lucide-react";
+import { listPublishedCourseMapMarkersAction } from "@/lib/services/course-actions";
+import { Compass } from "lucide-react";
 
 export default function AgriLocalizacaoPage() {
   const { dict } = useI18n();
@@ -16,12 +17,32 @@ export default function AgriLocalizacaoPage() {
   const [selectedMunicipality, setSelectedMunicipality] = useState<string>("");
   const [selectedRadius, setSelectedRadius] = useState<number>(50);
   const [selectedMarker, setSelectedMarker] = useState<MapMarkerItem | null>(null);
+  const [courseMarkers, setCourseMarkers] = useState<MapMarkerItem[]>([]);
+
+  useEffect(() => {
+    let cancelled = false;
+    void listPublishedCourseMapMarkersAction().then((markers) => {
+      if (cancelled) return;
+      setCourseMarkers(
+        markers.map((marker) => ({
+          ...marker,
+          ctaLabel: dict.agrilocalization.mapViewCourse,
+        }))
+      );
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [dict.agrilocalization.mapViewCourse]);
+
+  const baseMarkers = useMemo(() => {
+    const withoutMockAcademy = MOCK_MAP_MARKERS.filter((m) => m.category !== "academy");
+    return [...withoutMockAcademy, ...courseMarkers];
+  }, [courseMarkers]);
 
   const filteredMarkers = selectedProvince
-    ? MOCK_MAP_MARKERS.filter(
-        (m) => m.provinceName.toLowerCase() === selectedProvince.toLowerCase()
-      )
-    : MOCK_MAP_MARKERS;
+    ? baseMarkers.filter((m) => m.provinceName.toLowerCase() === selectedProvince.toLowerCase())
+    : baseMarkers;
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">

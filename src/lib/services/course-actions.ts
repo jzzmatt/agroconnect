@@ -97,6 +97,29 @@ export async function updateCourseAction(
   }
 }
 
+export async function updateCourseLocationAction(params: {
+  courseId: string;
+  clearLocation?: boolean;
+  locationName?: string;
+  locationAddress?: string;
+  latitude?: number;
+  longitude?: number;
+}): Promise<CourseMutationResult<CourseRecord>> {
+  return updateCourseAction({
+    id: params.courseId,
+    clearLocation: params.clearLocation,
+    locationName: params.locationName,
+    locationAddress: params.locationAddress,
+    latitude: params.latitude,
+    longitude: params.longitude,
+  });
+}
+
+export async function listPublishedCourseMapMarkersAction() {
+  const { listPublishedCourseMapMarkers } = await import("@/lib/academy/course-map-markers");
+  return listPublishedCourseMapMarkers();
+}
+
 export async function getCourseEditorAction(courseId: string) {
   try {
     await authorize("academy.course.update");
