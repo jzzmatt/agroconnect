@@ -46,6 +46,10 @@ export interface CourseRecord {
   currency: string;
   status: CourseStatus;
   thumbnail_url?: string | null;
+  thumbnail_storage_path?: string | null;
+  thumbnail_original_filename?: string | null;
+  thumbnail_mime_type?: string | null;
+  thumbnail_size?: number | null;
   duration_hours?: number | null;
   lessons_count: number;
   students_count: number;
@@ -77,6 +81,7 @@ export interface CourseListItem {
   price: number;
   currency: string;
   thumbnail_url?: string | null;
+  thumbnail_storage_path?: string | null;
   category?: string | null;
   category_slug?: string | null;
   duration_hours?: number | null;

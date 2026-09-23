@@ -78,6 +78,7 @@ export function mapCourseRow(row: Record<string, unknown>): CourseListItem {
     price: Number(row.price ?? 0),
     currency: String(row.currency ?? "AOA"),
     thumbnail_url: (row.thumbnail_url as string | null) ?? null,
+    thumbnail_storage_path: (row.thumbnail_storage_path as string | null) ?? null,
     category: (row.category_name as string | null) ?? (row.category as string | null) ?? null,
     category_slug: (row.category_slug as string | null) ?? null,
     duration_hours: row.duration_hours != null ? Number(row.duration_hours) : null,
