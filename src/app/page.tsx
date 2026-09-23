@@ -8,13 +8,11 @@ import {
   ShoppingBag,
   MapPin,
   ArrowRight,
-  ShieldCheck,
-  CheckCircle2,
-  CreditCard,
 } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
+import { AgroConnectHeroBanner } from "@/components/landing/AgroConnectHeroBanner";
 import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
 
@@ -26,64 +24,7 @@ export default function LandingPage() {
       <Navbar />
 
       <main className="flex-1">
-        <section className="relative overflow-hidden bg-gradient-to-b from-secondary/60 via-background to-background py-16 sm:py-24 lg:py-28 border-b border-border">
-          <div className="absolute inset-0 opacity-15 bg-[radial-gradient(var(--color-primary)_1px,transparent_1px)] [background-size:24px_24px] pointer-events-none" />
-
-          <div className="relative max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="text-center max-w-3xl mx-auto space-y-6">
-              <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-secondary text-secondary-foreground text-xs sm:text-sm font-bold border border-border-subtle shadow-2xs">
-                <span>{dict.landing.heroTag}</span>
-              </div>
-
-              <h1 className="text-3xl sm:text-5xl lg:text-6xl font-black text-foreground tracking-tight leading-[1.1]">
-                {dict.landing.heroTitle}
-              </h1>
-
-              <p className="text-sm sm:text-lg lg:text-xl text-muted-foreground leading-relaxed max-w-2xl mx-auto">
-                {dict.landing.heroSubtitle}
-              </p>
-
-              <div className="flex flex-col sm:flex-row items-center justify-center gap-3.5 pt-2">
-                <Link href="/sign-up" className="w-full sm:w-auto">
-                  <Button
-                    variant="primary"
-                    size="lg"
-                    className="w-full sm:w-auto gap-2 font-black shadow-lg h-12 px-8 text-sm"
-                  >
-                    <span>{dict.landing.ctaPrimary}</span>
-                    <ArrowRight className="w-4 h-4" />
-                  </Button>
-                </Link>
-
-                <Link href="#planos" className="w-full sm:w-auto">
-                  <Button
-                    variant="outline"
-                    size="lg"
-                    className="w-full sm:w-auto gap-2 font-bold h-12 px-8 shadow-2xs text-sm"
-                  >
-                    <CreditCard className="w-4 h-4 text-primary" />
-                    <span>{dict.landing.ctaSecondary}</span>
-                  </Button>
-                </Link>
-              </div>
-
-              <div className="pt-6 flex flex-wrap items-center justify-center gap-6 text-xs font-semibold text-muted-foreground">
-                <div className="flex items-center gap-1.5">
-                  <ShieldCheck className="w-4 h-4 text-primary" />
-                  <span className="text-foreground">{dict.landing.trustCertified}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <MapPin className="w-4 h-4 text-primary" />
-                  <span className="text-foreground">{dict.landing.trustProvinces}</span>
-                </div>
-                <div className="flex items-center gap-1.5">
-                  <CheckCircle2 className="w-4 h-4 text-primary" />
-                  <span className="text-foreground">{dict.landing.trustCommerce}</span>
-                </div>
-              </div>
-            </div>
-          </div>
-        </section>
+        <AgroConnectHeroBanner />
 
         <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
           <SectionHeader

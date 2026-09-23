@@ -173,6 +173,9 @@ export const fr: Dictionary = {
     heroTitle: "Connectez. Apprenez. Achetez. Vendez et prospérez sur le terrain.",
     heroSubtitle:
       "Découvrez des experts certifiés, suivez des formations pratiques, achetez des semences et des équipements ou vendez vos produits avec une couverture géographique en Angola.",
+    heroVisualAlt:
+      "Paysage agricole africain avec production sur le terrain, commerce et technologie numérique connectant l'écosystème AgroConnect en Angola.",
+    heroCardServiceDesc: "Découvrez les services et opportunités agricoles.",
     ctaPrimary: "Commencer maintenant",
     ctaSecondary: "Voir les plans et tarifs",
     stats: {

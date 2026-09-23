@@ -171,6 +171,9 @@ export const pt = {
     heroTitle: "Conecte. Aprenda. Compre. Venda e Prospere no Campo.",
     heroSubtitle:
       "Descubra especialistas certificados, aceda a formações práticas, compre sementes e equipamentos ou venda os seus produtos com localização em Angola.",
+    heroVisualAlt:
+      "Ambiente agrícola africano com produção no campo, comércio e tecnologia digital a conectar o ecossistema AgroConnect em Angola.",
+    heroCardServiceDesc: "Descubra serviços e oportunidades agrícolas.",
     ctaPrimary: "Começar agora",
     ctaSecondary: "Ver Planos e Preços",
     stats: {
