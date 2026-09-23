@@ -20,7 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
 import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
-import { LessonYouTubeModal } from "@/components/academy/LessonYouTubeModal";
+import { LessonVideoModal } from "@/components/academy/LessonVideoModal";
 import { YouTubePlayer } from "@/components/academy/YouTubePlayer";
 import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import {
@@ -37,6 +37,7 @@ import {
   readinessItemLabels,
 } from "@/lib/academy/authoring-copy";
 import { deriveReadinessChecklist } from "@/lib/academy/course-readiness";
+import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 import { buildYouTubeEmbedUrl, isYouTubeVideoId } from "@/lib/academy/youtube";
 import {
   deleteDialogForStatus,
@@ -63,7 +64,7 @@ import {
   updateLessonAction,
   updateSectionAction,
 } from "@/lib/services/course-actions";
-import type { CourseEditorTree } from "@/types/agriacademy";
+import type { CourseEditorTree, CourseLessonRecord } from "@/types/agriacademy";
 
 type SaveState = "idle" | "saving" | "success" | "error";
 type LoadState = "loading" | "ready" | "not_found" | "error";
@@ -804,7 +805,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             {collapsedSectionIds.has(section.id) ? null : (
             <div className="space-y-2 pl-4 border-l border-border">
               {section.lessons.map((lesson, lessonIndex) => {
-                const missingYouTube = !isYouTubeVideoId(lesson.youtube_video_id);
+                const missingYouTube = !lessonHasPlayableVideo(lesson);
                 return (
                 <div
                   key={lesson.id}
@@ -871,11 +872,12 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                     disabled={isSaving}
                     onClick={() => setVideoLessonId(lesson.id)}
                   >
-                    {isYouTubeVideoId(lesson.youtube_video_id)
+                    {lessonHasPlayableVideo(lesson)
                       ? dict.agriacademy.replaceVideo
                       : dict.agriacademy.selectVideo}
                   </Button>
-                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
+                  {(lesson.video_source ?? "youtube") === "youtube" &&
+                  isYouTubeVideoId(lesson.youtube_video_id) ? (
                     <Button
                       type="button"
                       size="sm"
@@ -891,7 +893,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       {dict.agriacademy.previewLesson}
                     </Button>
                   ) : null}
-                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
+                  {lessonHasPlayableVideo(lesson) ? (
                     <Button
                       type="button"
                       size="sm"
@@ -901,7 +903,10 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                         void runAction(
                           () => assignLessonYouTubeAction(lesson.id, null),
                           dict.agriacademy.videoRemoved,
-                          { require: (data) => (data as { youtube_video_id?: string | null }).youtube_video_id == null }
+                          {
+                            require: (data) =>
+                              !lessonHasPlayableVideo(data as CourseLessonRecord),
+                          }
                         )
                       }
                     >
@@ -919,9 +924,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                   >
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
-                  {isYouTubeVideoId(lesson.youtube_video_id) ? (
-                    <span className="text-[11px] text-muted-foreground truncate max-w-[180px]">
-                      {dict.agriacademy.youtubeVideoIdLabel}: {lesson.youtube_video_id}
+                  {lessonHasPlayableVideo(lesson) ? (
+                    <span className="text-[11px] text-muted-foreground truncate max-w-[220px]">
+                      {lesson.video_source === "upload"
+                        ? `${dict.agriacademy.courseEditorVideoUpload}: ${lesson.upload_original_filename || ""}`
+                        : `${dict.agriacademy.youtubeVideoIdLabel}: ${lesson.youtube_video_id}`}
                     </span>
                   ) : (
                     <span className="text-[11px] font-semibold text-amber-700 dark:text-amber-400">
@@ -974,18 +981,15 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         ← {dict.agriacademy.backToCourseCreator}
       </Link>
 
-      <LessonYouTubeModal
+      <LessonVideoModal
         open={Boolean(videoLessonId)}
-        initialUrl={
+        lesson={
           course?.sections
             .flatMap((section) => section.lessons)
-            .find((lesson) => lesson.id === videoLessonId)?.youtube_source_url
-          || course?.sections
-            .flatMap((section) => section.lessons)
-            .find((lesson) => lesson.id === videoLessonId)?.youtube_video_id
+            .find((lesson) => lesson.id === videoLessonId) ?? null
         }
         onClose={() => setVideoLessonId(null)}
-        onSave={(urlOrId) => {
+        onYouTubeSave={(urlOrId) => {
           if (!videoLessonId) return;
           const lessonId = videoLessonId;
           setVideoLessonId(null);
@@ -994,6 +998,20 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             dict.agriacademy.videoAssigned,
             { require: (data) => mutationRecordHasYouTubeId(data) }
           );
+        }}
+        onUploadComplete={(updatedLesson) => {
+          if (!course || !videoLessonId) return;
+          setCourse({
+            ...course,
+            sections: course.sections.map((section) => ({
+              ...section,
+              lessons: section.lessons.map((item) =>
+                item.id === updatedLesson.id ? { ...item, ...updatedLesson } : item
+              ),
+            })),
+          });
+          setVideoLessonId(null);
+          setMessage(dict.agriacademy.courseEditorVideoReadySuccess);
         }}
       />
 

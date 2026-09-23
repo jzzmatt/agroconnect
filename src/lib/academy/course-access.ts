@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 import { authorizeLessonPlayback } from "@/lib/academy/video-playback";
+import { createLessonVideoSignedPlaybackUrl } from "@/lib/academy/lesson-video-storage";
 
 function hasLiveSupabase(): boolean {
   return Boolean(
@@ -26,7 +27,15 @@ export class CourseAccessService {
   public static async getLessonPlayback(params: {
     lessonId: string;
     profileId: string;
-  }): Promise<{ allowed: boolean; embedUrl?: string; reason?: string }> {
+  }): Promise<{
+    allowed: boolean;
+    source?: "youtube" | "upload";
+    embedUrl?: string;
+    playbackUrl?: string;
+    mimeType?: string;
+    expiresAt?: string;
+    reason?: string;
+  }> {
     if (!hasLiveSupabase()) {
       return { allowed: false, reason: "unavailable" };
     }
@@ -34,7 +43,9 @@ export class CourseAccessService {
     const supabase = await getPlaybackSupabase();
 
     const { data: lesson } = await (supabase.from("course_lessons") as any)
-      .select("id, course_id, youtube_video_id, is_free_preview")
+      .select(
+        "id, course_id, youtube_video_id, is_free_preview, video_source, upload_storage_path, upload_status, upload_original_mime_type"
+      )
       .eq("id", params.lessonId)
       .maybeSingle();
 
@@ -53,12 +64,42 @@ export class CourseAccessService {
 
     const isEnrolled = await EnrollmentService.isEnrolled(params.profileId, course.id);
 
-    return authorizeLessonPlayback({
+    const auth = authorizeLessonPlayback({
       profileId: params.profileId,
       lesson,
       course,
       enrolled: isEnrolled,
     });
+
+    if (!auth.allowed) {
+      return { allowed: false, reason: auth.reason };
+    }
+
+    if (auth.source === "youtube" && "embedUrl" in auth) {
+      return { allowed: true, source: "youtube", embedUrl: auth.embedUrl };
+    }
+
+    if (
+      auth.source === "upload" &&
+      lesson.video_source === "upload" &&
+      lesson.upload_storage_path &&
+      lesson.upload_status === "ready"
+    ) {
+      try {
+        const signed = await createLessonVideoSignedPlaybackUrl(String(lesson.upload_storage_path));
+        return {
+          allowed: true,
+          source: "upload",
+          playbackUrl: signed.signedUrl,
+          mimeType: String(lesson.upload_original_mime_type || "video/mp4"),
+          expiresAt: signed.expiresAt,
+        };
+      } catch {
+        return { allowed: false, reason: "playback_unavailable" };
+      }
+    }
+
+    return { allowed: false, reason: "no_video" };
   }
 
   public static async getEnrollmentStatus(

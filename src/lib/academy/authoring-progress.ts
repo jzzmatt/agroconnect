@@ -1,7 +1,7 @@
-import type { CourseWithSections } from "@/types/agriacademy";
+import type { CourseLessonRecord, CourseWithSections } from "@/types/agriacademy";
 import { formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
-import { isYouTubeVideoId } from "@/lib/academy/youtube";
+import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 
 export const AUTHORING_STEP_IDS = [
   "create_course",
@@ -54,13 +54,15 @@ export interface AuthoringProgress {
   isPublished: boolean;
 }
 
-function flattenLessons(course: CourseWithSections): Array<MissingYouTubeLesson & { youtubeVideoId: string | null }> {
+function flattenLessons(
+  course: CourseWithSections
+): Array<MissingYouTubeLesson & { lesson: CourseLessonRecord }> {
   return course.sections.flatMap((section) =>
     (section.lessons || []).map((lesson) => ({
       lessonId: lesson.id,
       lessonNumber: formatLessonNumber(section.sort_order, lesson.sort_order),
       lessonTitle: lesson.title?.trim() || "",
-      youtubeVideoId: lesson.youtube_video_id ?? null,
+      lesson,
     }))
   );
 }
@@ -114,7 +116,7 @@ export function deriveAuthoringProgress(
   const lessons = flattenLessons(course);
   const hasLessons = lessons.length > 0;
   const missingYouTubeLessons: MissingYouTubeLesson[] = lessons
-    .filter((lesson) => !isYouTubeVideoId(lesson.youtubeVideoId))
+    .filter(({ lesson }) => !lessonHasPlayableVideo(lesson))
     .map(({ lessonId, lessonNumber, lessonTitle }) => ({ lessonId, lessonNumber, lessonTitle }));
   const allVideosAssigned = hasLessons && missingYouTubeLessons.length === 0;
   const validation = validateCourseForPublication(course);

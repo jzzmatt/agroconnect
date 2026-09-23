@@ -1,6 +1,6 @@
 import type { CourseWithSections } from "@/types/agriacademy";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
-import { isYouTubeVideoId } from "@/lib/academy/youtube";
+import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 
 export const READINESS_ITEM_IDS = [
   "course_info",
@@ -27,7 +27,7 @@ export function deriveReadinessChecklist(course: CourseWithSections): ReadinessC
   const hasChapters = course.sections.length > 0;
   const lessons = course.sections.flatMap((section) => section.lessons || []);
   const hasLessons = lessons.length > 0;
-  const hasYouTube = hasLessons && lessons.every((lesson) => isYouTubeVideoId(lesson.youtube_video_id));
+  const hasYouTube = hasLessons && lessons.every((lesson) => lessonHasPlayableVideo(lesson));
   const hasStructure =
     hasChapters && course.sections.every((section) => (section.lessons || []).length > 0);
   const validation = validateCourseForPublication(course);

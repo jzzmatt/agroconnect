@@ -114,17 +114,23 @@ describe("AGROCONNECT Phase 12 — YouTube Academy production hardening", () => 
     const lesson = { course_id: course.id, youtube_video_id: YT_ID };
     const courseRef = { id: course.id, owner_id: course.owner_id, status: course.status };
 
-    expect(authorizeLessonPlayback({ profileId: null, lesson, course: courseRef, enrolled: false }).reason).toBe(
-      "auth_required"
-    );
-    expect(
-      authorizeLessonPlayback({
-        profileId: "student-1",
-        lesson,
-        course: courseRef,
-        enrolled: false,
-      }).reason
-    ).toBe("not_enrolled");
+    const anonymous = authorizeLessonPlayback({
+      profileId: null,
+      lesson,
+      course: courseRef,
+      enrolled: false,
+    });
+    expect(anonymous.allowed).toBe(false);
+    if (!anonymous.allowed) expect(anonymous.reason).toBe("auth_required");
+
+    const unenrolled = authorizeLessonPlayback({
+      profileId: "student-1",
+      lesson,
+      course: courseRef,
+      enrolled: false,
+    });
+    expect(unenrolled.allowed).toBe(false);
+    if (!unenrolled.allowed) expect(unenrolled.reason).toBe("not_enrolled");
 
     const allowed = authorizeLessonPlayback({
       profileId: "student-1",
@@ -132,7 +138,7 @@ describe("AGROCONNECT Phase 12 — YouTube Academy production hardening", () => 
       course: courseRef,
       enrolled: true,
     });
-    expect(allowed).toEqual({ allowed: true, embedUrl: EMBED });
+    expect(allowed).toEqual({ allowed: true, source: "youtube", embedUrl: EMBED });
 
     expect(resolveLearnAccess({ course, profileId: null, enrolled: false, isOwner: false }).allowed).toBe(false);
     expect(

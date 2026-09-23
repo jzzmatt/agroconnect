@@ -4,6 +4,11 @@ import type { CourseListItem } from "@/types/agriacademy";
 const FORBIDDEN_PUBLIC_COURSE_KEYS = [
   "youtube_video_id",
   "youtube_source_url",
+  "upload_storage_path",
+  "upload_original_filename",
+  "upload_original_size",
+  "upload_original_mime_type",
+  "upload_status",
   "bunny_video_id",
   "bunny_library_id",
   "email",

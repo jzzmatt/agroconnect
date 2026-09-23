@@ -54,6 +54,12 @@ function seedMemoryStore(): void {
     academy_video_id: null,
     youtube_video_id: null,
     youtube_source_url: null,
+    video_source: "youtube",
+    upload_storage_path: null,
+    upload_original_filename: null,
+    upload_original_size: null,
+    upload_original_mime_type: null,
+    upload_status: null,
     duration_seconds: null,
     is_free_preview: false,
     created_at: new Date().toISOString(),
@@ -96,6 +102,12 @@ function normalizeLesson(row: Record<string, unknown>): CourseLessonRecord {
     academy_video_id: (row.academy_video_id as string | null) ?? null,
     youtube_video_id: (row.youtube_video_id as string | null) ?? null,
     youtube_source_url: (row.youtube_source_url as string | null) ?? null,
+    video_source: (row.video_source as "youtube" | "upload" | null) ?? "youtube",
+    upload_storage_path: (row.upload_storage_path as string | null) ?? null,
+    upload_original_filename: (row.upload_original_filename as string | null) ?? null,
+    upload_original_size: row.upload_original_size != null ? Number(row.upload_original_size) : null,
+    upload_original_mime_type: (row.upload_original_mime_type as string | null) ?? null,
+    upload_status: (row.upload_status as CourseLessonRecord["upload_status"]) ?? null,
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     is_free_preview: Boolean(row.is_free_preview),
     created_at: String(row.created_at ?? new Date().toISOString()),
@@ -528,8 +540,14 @@ export class AcademyAuthoringService {
 
       const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
         .update({
+          video_source: "youtube",
           youtube_video_id: youtubeVideoId,
           youtube_source_url: youtubeSourceUrl,
+          upload_storage_path: null,
+          upload_original_filename: null,
+          upload_original_size: null,
+          upload_original_mime_type: null,
+          upload_status: null,
           updated_at: new Date().toISOString(),
         })
         .eq("id", lessonId)
@@ -544,8 +562,14 @@ export class AcademyAuthoringService {
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
     memoryLessons[idx] = {
       ...memoryLessons[idx],
+      video_source: "youtube",
       youtube_video_id: youtubeVideoId,
       youtube_source_url: youtubeSourceUrl,
+      upload_storage_path: null,
+      upload_original_filename: null,
+      upload_original_size: null,
+      upload_original_mime_type: null,
+      upload_status: null,
       academy_video_id: null,
       updated_at: new Date().toISOString(),
     };

@@ -121,9 +121,13 @@ describe("CourseEditor guided YouTube authoring", () => {
     );
 
     await screen.findByDisplayValue("Curso UI");
-    expect(screen.getByText(/Adicione um vídeo do YouTube à aula 01.01/)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /A aula 01.01 \(Aula A\) precisa de um vídeo do YouTube/i }));
-    expect(await screen.findByText("Vídeo do YouTube")).toBeInTheDocument();
+    expect(screen.getByText(/Adicione um vídeo à aula 01.01/)).toBeInTheDocument();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /A aula 01.01 \(Aula A\) precisa de um vídeo \(YouTube ou carregamento\)/i,
+      })
+    );
+    expect(await screen.findByText("Vídeo")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /^Publicar$/i })).toBeDisabled();
   });
 
