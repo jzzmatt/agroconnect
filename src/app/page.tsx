@@ -168,19 +168,6 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section id="planos" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border scroll-mt-20">
-          <SectionHeader
-            badgeText={dict.landing.plansBadge}
-            title={dict.landing.plansTitle}
-            subtitle={dict.landing.plansSubtitle}
-            align="center"
-          />
-
-          <div className="mt-14">
-            <PlanCatalog embedded />
-          </div>
-        </section>
-
         <section className="py-16 sm:py-24 bg-surface border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionHeader
@@ -254,7 +241,7 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
           <SectionHeader
             badgeText={dict.landing.pillarsBadge}
             title={dict.landing.pillarsTitle}
@@ -314,6 +301,19 @@ export default function LandingPage() {
                 <span>{dict.landing.seeMap}</span> →
               </Link>
             </div>
+          </div>
+        </section>
+
+        <section id="planos" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20">
+          <SectionHeader
+            badgeText={dict.landing.plansBadge}
+            title={dict.landing.plansTitle}
+            subtitle={dict.landing.plansSubtitle}
+            align="center"
+          />
+
+          <div className="mt-14">
+            <PlanCatalog embedded />
           </div>
         </section>
       </main>
