@@ -13,6 +13,7 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
 import { AgroConnectHeroBanner } from "@/components/landing/AgroConnectHeroBanner";
+import { LandingPillarCard } from "@/components/landing/LandingPillarCard";
 import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
 
@@ -191,57 +192,38 @@ export default function LandingPage() {
           />
 
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3 text-center md:text-left">
-              <div className="w-10 h-10 rounded-2xl bg-emerald-100 dark:bg-emerald-950 text-emerald-800 dark:text-emerald-300 flex items-center justify-center font-bold mx-auto md:mx-0">
-                <Users className="w-5 h-5 text-emerald-600" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.navigation.agriExpert}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.pillarExpertDesc}
-              </p>
-              <Link href="/agriexpert" className="inline-flex items-center gap-1 text-xs font-bold text-primary hover:underline pt-1">
-                <span>{dict.landing.seeExperts}</span> →
-              </Link>
-            </div>
-
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3 text-center md:text-left">
-              <div className="w-10 h-10 rounded-2xl bg-blue-100 dark:bg-blue-950 text-blue-800 dark:text-blue-300 flex items-center justify-center font-bold mx-auto md:mx-0">
-                <GraduationCap className="w-5 h-5 text-blue-600" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.navigation.agriAcademy}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.pillarAcademyDesc}
-              </p>
-              <Link href="/agriacademy" className="inline-flex items-center gap-1 text-xs font-bold text-blue-600 hover:underline pt-1">
-                <span>{dict.landing.seeCourses}</span> →
-              </Link>
-            </div>
-
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3 text-center md:text-left">
-              <div className="w-10 h-10 rounded-2xl bg-amber-100 dark:bg-amber-950 text-amber-800 dark:text-amber-300 flex items-center justify-center font-bold mx-auto md:mx-0">
-                <ShoppingBag className="w-5 h-5 text-amber-600" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.navigation.agriShopping}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.pillarShoppingDesc}
-              </p>
-              <Link href="/agrishopping" className="inline-flex items-center gap-1 text-xs font-bold text-amber-600 hover:underline pt-1">
-                <span>{dict.landing.seeProducts}</span> →
-              </Link>
-            </div>
-
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3 text-center md:text-left">
-              <div className="w-10 h-10 rounded-2xl bg-teal-100 dark:bg-teal-950 text-teal-800 dark:text-teal-300 flex items-center justify-center font-bold mx-auto md:mx-0">
-                <MapPin className="w-5 h-5 text-teal-600" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.navigation.agriLocalizacao}</h3>
-              <p className="text-xs text-muted-foreground leading-relaxed">
-                {dict.landing.pillarLocationDesc}
-              </p>
-              <Link href="/agrilocalizacao" className="inline-flex items-center gap-1 text-xs font-bold text-teal-600 hover:underline pt-1">
-                <span>{dict.landing.seeMap}</span> →
-              </Link>
-            </div>
+            <LandingPillarCard
+              accent="emerald"
+              title={dict.navigation.agriExpert}
+              description={dict.landing.pillarExpertDesc}
+              href="/agriexpert"
+              linkLabel={dict.landing.seeExperts}
+              icon={<Users className="h-5 w-5" />}
+            />
+            <LandingPillarCard
+              accent="blue"
+              title={dict.navigation.agriAcademy}
+              description={dict.landing.pillarAcademyDesc}
+              href="/agriacademy"
+              linkLabel={dict.landing.seeCourses}
+              icon={<GraduationCap className="h-5 w-5" />}
+            />
+            <LandingPillarCard
+              accent="amber"
+              title={dict.navigation.agriShopping}
+              description={dict.landing.pillarShoppingDesc}
+              href="/agrishopping"
+              linkLabel={dict.landing.seeProducts}
+              icon={<ShoppingBag className="h-5 w-5" />}
+            />
+            <LandingPillarCard
+              accent="teal"
+              title={dict.navigation.agriLocalizacao}
+              description={dict.landing.pillarLocationDesc}
+              href="/agrilocalizacao"
+              linkLabel={dict.landing.seeMap}
+              icon={<MapPin className="h-5 w-5" />}
+            />
           </div>
         </section>
 

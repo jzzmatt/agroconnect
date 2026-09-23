@@ -53,11 +53,24 @@ export function AgroConnectHeroCard({
               }
         }
       >
+        <motion.div
+          whileHover={
+            shouldReduceMotion
+              ? undefined
+              : {
+                  y: -4,
+                  scale: 1.02,
+                }
+          }
+          whileTap={shouldReduceMotion ? undefined : { scale: 0.99 }}
+          transition={{ type: "spring", stiffness: 420, damping: 26 }}
+        >
         <Link
           href={href}
           className={cn(
             "group block rounded-2xl border border-border/70 bg-surface/75 p-3.5 shadow-md backdrop-blur-md",
-            "transition-colors hover:border-primary/35 hover:bg-surface/90",
+            "transition-[border-color,background-color,box-shadow] duration-300",
+            "hover:border-primary/40 hover:bg-surface/90 hover:shadow-lg hover:shadow-primary/10",
             "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-transparent",
             "dark:bg-surface/55 dark:hover:bg-surface/70"
           )}
@@ -68,6 +81,7 @@ export function AgroConnectHeroCard({
           <p className="text-xs font-black tracking-tight text-foreground">{title}</p>
           <p className="mt-1 text-[10px] leading-snug text-muted-foreground line-clamp-2">{description}</p>
         </Link>
+        </motion.div>
       </motion.div>
     </motion.div>
   );
