@@ -393,10 +393,14 @@ async function attachProductMedia<T extends { id: string }>(
 
   const supabase = tryCreateAdminSupabaseClient() || fallbackClient;
 
-  const [imageResult, videoResult] = await Promise.all([
+  const [imageResult, primaryImagesResult, videoResult] = await Promise.all([
     (supabase.from("products") as any).select("id,primary_image_url").in("id", ids),
+    (supabase.from("product_images") as any)
+      .select("product_id,storage_path,storage_provider,url,is_primary")
+      .in("product_id", ids)
+      .eq("is_primary", true),
     (supabase.from("product_videos") as any)
-      .select("product_id,status,playback_url")
+      .select("product_id,status,playback_url,provider,upload_storage_path")
       .in("product_id", ids),
   ]);
 
@@ -404,13 +408,25 @@ async function attachProductMedia<T extends { id: string }>(
   for (const row of (imageResult?.data as Array<any> | null) || []) {
     imageByProduct.set(row.id, row.primary_image_url ?? null);
   }
+  for (const row of (primaryImagesResult?.data as Array<any> | null) || []) {
+    if (imageByProduct.get(row.product_id)) continue;
+    if (row.storage_provider === "supabase_storage" && row.storage_path) {
+      imageByProduct.set(row.product_id, `/api/products/${row.product_id}/primary-image`);
+    } else if (row.url) {
+      imageByProduct.set(row.product_id, row.url);
+    }
+  }
 
   const videoByProduct = new Map<string, { status: string; playbackUrl: string | null }>();
   for (const row of (videoResult?.data as Array<any> | null) || []) {
     if (VISIBLE_VIDEO_STATUSES.has(row.status)) {
+      const playbackUrl =
+        row.provider === "supabase_storage" && row.upload_storage_path
+          ? `/api/products/${row.product_id}/video-playback`
+          : row.playback_url ?? null;
       videoByProduct.set(row.product_id, {
         status: row.status,
-        playbackUrl: row.playback_url ?? null,
+        playbackUrl,
       });
     }
   }

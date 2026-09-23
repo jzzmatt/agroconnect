@@ -3,7 +3,7 @@
 import React, { useRef } from "react";
 import { ImagePlus } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { validateProductImage } from "@/lib/services/product-media-service";
+import { validateProductImage } from "@/lib/products/product-image-validation";
 
 export function TransportVehicleImageUploader({
   previewUrl,

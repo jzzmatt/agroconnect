@@ -1,11 +1,17 @@
 import { PRODUCT_VIDEO_ALLOWED_MIME } from "@/config/product-catalog";
 import { deleteBunnyVideo } from "@/lib/video/bunny";
+import { deleteImageKitFile } from "@/lib/media/imagekit";
+import { buildProductVideoStoragePath } from "@/lib/media/product-media-paths";
 import {
-  createImageKitUploadAuth,
-  deleteImageKitFile,
-  productMediaFolder,
-  type ImageKitUploadAuth,
-} from "@/lib/media/imagekit";
+  PRODUCT_MEDIA_BUCKET,
+  SUPABASE_STORAGE_PROVIDER,
+} from "@/lib/media/supabase-buckets";
+import {
+  createSignedDisplayUrl,
+  createSignedUploadUrl,
+  removeStorageObject,
+  storageObjectExists,
+} from "@/lib/media/supabase-storage-core";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import { validateProductVideo } from "@/lib/products/video-validation";
 import type { Database } from "@/types/database";
@@ -50,7 +56,10 @@ export class ProductVideoService {
     mimeType: string;
     fileSize: number;
     durationSeconds: number;
-  }): Promise<{ video: ProductVideoRecord; upload: ImageKitUploadAuth }> {
+  }): Promise<{
+    video: ProductVideoRecord;
+    upload: { storagePath: string; signedUrl: string; token: string; mimeType: string };
+  }> {
     const validation = validateProductVideo({
       mimeType: params.mimeType,
       fileSize: params.fileSize,
@@ -67,12 +76,18 @@ export class ProductVideoService {
       await this.markDeleted(previous.id, params.ownerId);
     }
 
-    const upload = createImageKitUploadAuth({
-      folder: productMediaFolder(params.productId, "videos"),
+    const storagePath = buildProductVideoStoragePath({
+      ownerId: params.ownerId,
+      productId: params.productId,
+      fileName: params.filename,
     });
-    if (!upload.configured) {
-      throw Object.assign(new Error(upload.error || "ImageKit não está configurado."), {
-        code: upload.code || "IMAGEKIT_NOT_CONFIGURED",
+
+    let signed;
+    try {
+      signed = await createSignedUploadUrl(PRODUCT_MEDIA_BUCKET, storagePath);
+    } catch {
+      throw Object.assign(new Error("Não foi possível preparar o envio do vídeo."), {
+        code: "PRODUCT_VIDEO_FAILED",
       });
     }
 
@@ -81,7 +96,8 @@ export class ProductVideoService {
       .insert({
         product_id: params.productId,
         owner_id: params.ownerId,
-        provider: "imagekit",
+        provider: SUPABASE_STORAGE_PROVIDER,
+        upload_storage_path: storagePath,
         filename: params.filename,
         mime_type: params.mimeType as "video/mp4" | "video/webm",
         file_size: params.fileSize,
@@ -91,15 +107,36 @@ export class ProductVideoService {
       .select()
       .single();
     if (error || !data) {
+      await removeStorageObject(PRODUCT_MEDIA_BUCKET, storagePath);
       throw Object.assign(new Error(error?.message || "Não foi possível registar o vídeo."), {
-        code: "IMAGEKIT_UPLOAD_FAILED",
+        code: "PRODUCT_VIDEO_FAILED",
       });
     }
 
     const video = data as ProductVideoRecord;
     await (supabase.from("products") as any).update({ product_video_id: video.id }).eq("id", params.productId);
 
-    return { video, upload };
+    return {
+      video,
+      upload: {
+        storagePath,
+        signedUrl: signed.signedUrl,
+        token: signed.token,
+        mimeType: params.mimeType,
+      },
+    };
+  }
+
+  public static async resolvePlaybackUrl(video: ProductVideoRecord): Promise<string | null> {
+    if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
+      try {
+        const { signedUrl } = await createSignedDisplayUrl(PRODUCT_MEDIA_BUCKET, video.upload_storage_path);
+        return signedUrl;
+      } catch {
+        return video.playback_url;
+      }
+    }
+    return video.playback_url;
   }
 
   /**
@@ -111,12 +148,52 @@ export class ProductVideoService {
   public static async confirmUpload(params: {
     videoId: string;
     ownerId: string;
-    externalId: string;
-    url: string;
+    externalId?: string;
+    url?: string;
+    storagePath?: string;
     thumbnailUrl?: string | null;
     fileSize?: number;
   }): Promise<ProductVideoRecord | null> {
     const supabase = getMediaSupabaseClient();
+    const { data: current } = await supabase
+      .from(TABLE)
+      .select("*")
+      .eq("id", params.videoId)
+      .eq("owner_id", params.ownerId)
+      .maybeSingle();
+    const row = current as ProductVideoRecord | null;
+    if (!row) return null;
+
+    if (row.provider === SUPABASE_STORAGE_PROVIDER) {
+      const path = params.storagePath || row.upload_storage_path;
+      if (!path || !(await storageObjectExists(PRODUCT_MEDIA_BUCKET, path))) {
+        await this.markFailed(params.videoId, params.ownerId, "Upload not found in storage.");
+        return null;
+      }
+      const patch: Database["public"]["Tables"]["product_videos"]["Update"] = {
+        status: "ready",
+        upload_storage_path: path,
+        playback_url: null,
+        thumbnail_url: params.thumbnailUrl ?? null,
+        updated_at: new Date().toISOString(),
+      };
+      if (typeof params.fileSize === "number" && params.fileSize > 0) {
+        patch.file_size = params.fileSize;
+      }
+      const { data } = await (supabase.from(TABLE) as any)
+        .update(patch)
+        .eq("id", params.videoId)
+        .eq("owner_id", params.ownerId)
+        .select()
+        .maybeSingle();
+      const updated = (data as ProductVideoRecord | null) || null;
+      if (updated) {
+        const playback = await this.resolvePlaybackUrl(updated);
+        return { ...updated, playback_url: playback };
+      }
+      return updated;
+    }
+
     const patch: Database["public"]["Tables"]["product_videos"]["Update"] = {
       status: "ready",
       external_id: params.externalId,
@@ -163,7 +240,9 @@ export class ProductVideoService {
       .eq("id", videoId)
       .eq("owner_id", ownerId);
 
-    if (video.provider === "imagekit" && video.external_id) {
+    if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
+      void removeStorageObject(PRODUCT_MEDIA_BUCKET, video.upload_storage_path).catch(() => undefined);
+    } else if (video.provider === "imagekit" && video.external_id) {
       void deleteImageKitFile(video.external_id).catch(() => undefined);
     } else if (video.bunny_video_id) {
       // Legacy rows created before Phase 4 narrowed Bunny to Academy-only.

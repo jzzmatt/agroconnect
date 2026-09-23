@@ -11,7 +11,7 @@ import {
   TransportVehicleVideoUploader,
   type PendingTransportVideo,
 } from "@/components/transport/TransportVehicleVideoUploader";
-import { uploadToImageKit } from "@/lib/products/imagekit-upload";
+import { uploadBlobWithProgress } from "@/lib/academy/upload-storage-client";
 import {
   archiveTransportAction,
   deleteTransportAction,
@@ -108,14 +108,13 @@ export function TransportEditor({ transport }: { transport: TransportListItem })
         throw new Error(videoPayload?.message || "Falha ao preparar o envio do vídeo.");
       }
       const upload = videoPayload.upload;
-      const uploaded = await uploadToImageKit({
+      if (!upload?.signedUrl || !upload?.storagePath) {
+        throw new Error("Falha ao preparar o envio do vídeo.");
+      }
+      await uploadBlobWithProgress({
+        signedUrl: upload.signedUrl,
         file: pendingVideo.file,
-        uploadUrl: upload.uploadUrl,
-        publicKey: upload.publicKey,
-        signature: upload.signature,
-        token: upload.token,
-        expire: upload.expire,
-        folder: upload.folder,
+        mimeType: upload.mimeType || pendingVideo.file.type || "video/mp4",
       });
       const confirmRes = await fetch("/api/transport/video/complete", {
         method: "POST",
@@ -123,9 +122,7 @@ export function TransportEditor({ transport }: { transport: TransportListItem })
         credentials: "same-origin",
         body: JSON.stringify({
           transportId,
-          fileId: uploaded.fileId,
-          url: uploaded.url,
-          thumbnailUrl: uploaded.thumbnailUrl,
+          storagePath: upload.storagePath,
         }),
       });
       const confirmPayload = await confirmRes.json().catch(() => null);

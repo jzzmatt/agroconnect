@@ -200,7 +200,7 @@ export type CourseStatus = "draft" | "published" | "paused" | "archived";
 export type CourseLevel = "beginner" | "intermediate" | "advanced" | "all_levels";
 export type CourseEnrollmentStatus = "active" | "completed" | "cancelled" | "suspended";
 
-export type ProductVideoProvider = "imagekit" | "bunny_stream";
+export type ProductVideoProvider = "imagekit" | "bunny_stream" | "supabase_storage";
 
 export type ProductVideoStatus =
   | "pending"
@@ -239,6 +239,9 @@ export interface Database {
           last_name: string | null;
           display_name: string | null;
           avatar_url: string | null;
+          avatar_storage_path: string | null;
+          avatar_mime_type: string | null;
+          avatar_size: number | null;
           bio: string | null;
           profile_slug: string | null;
           whatsapp_phone: string | null;
@@ -266,6 +269,9 @@ export interface Database {
           last_name?: string | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          avatar_storage_path?: string | null;
+          avatar_mime_type?: string | null;
+          avatar_size?: number | null;
           bio?: string | null;
           profile_slug?: string | null;
           whatsapp_phone?: string | null;
@@ -293,6 +299,9 @@ export interface Database {
           last_name?: string | null;
           display_name?: string | null;
           avatar_url?: string | null;
+          avatar_storage_path?: string | null;
+          avatar_mime_type?: string | null;
+          avatar_size?: number | null;
           bio?: string | null;
           profile_slug?: string | null;
           whatsapp_phone?: string | null;
@@ -1662,6 +1671,7 @@ export interface Database {
           status: ProductVideoStatus;
           thumbnail_url: string | null;
           playback_url: string | null;
+          upload_storage_path: string | null;
           error_message: string | null;
           created_at: string;
           updated_at: string;
@@ -1681,6 +1691,7 @@ export interface Database {
           status?: ProductVideoStatus;
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          upload_storage_path?: string | null;
           error_message?: string | null;
           created_at?: string;
           updated_at?: string;
@@ -1700,6 +1711,7 @@ export interface Database {
           status?: ProductVideoStatus;
           thumbnail_url?: string | null;
           playback_url?: string | null;
+          upload_storage_path?: string | null;
           error_message?: string | null;
           created_at?: string;
           updated_at?: string;
