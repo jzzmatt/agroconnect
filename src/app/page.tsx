@@ -2,19 +2,12 @@
 
 import React from "react";
 import Link from "next/link";
-import {
-  Users,
-  GraduationCap,
-  ShoppingBag,
-  MapPin,
-  ArrowRight,
-} from "lucide-react";
+import { ArrowRight } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
 import { AgroConnectHeroBanner } from "@/components/landing/AgroConnectHeroBanner";
 import { LandingEcosystemCapabilities } from "@/components/landing/LandingEcosystemCapabilities";
-import { LandingPillarCard } from "@/components/landing/LandingPillarCard";
 import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
 
@@ -26,10 +19,10 @@ export default function LandingPage() {
       <Navbar />
 
       <main className="flex-1">
+        {/* 1. Hero */}
         <AgroConnectHeroBanner />
 
-        <LandingEcosystemCapabilities />
-
+        {/* 2. Jornada do utilizador */}
         <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
           <SectionHeader
             badgeText={dict.landing.journeyBadge}
@@ -113,6 +106,7 @@ export default function LandingPage() {
           </div>
         </section>
 
+        {/* 3. O seu painel de controlo personalizado */}
         <section className="py-16 sm:py-24 bg-surface border-b border-border">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <SectionHeader
@@ -186,50 +180,10 @@ export default function LandingPage() {
           </div>
         </section>
 
-        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
-          <SectionHeader
-            badgeText={dict.landing.pillarsBadge}
-            title={dict.landing.pillarsTitle}
-            subtitle={dict.landing.pillarsSubtitle}
-            align="center"
-          />
+        {/* 4. Capacidades do ecossistema */}
+        <LandingEcosystemCapabilities />
 
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mt-12">
-            <LandingPillarCard
-              accent="emerald"
-              title={dict.navigation.agriExpert}
-              description={dict.landing.pillarExpertDesc}
-              href="/agriexpert"
-              linkLabel={dict.landing.seeExperts}
-              icon={<Users className="h-5 w-5" />}
-            />
-            <LandingPillarCard
-              accent="blue"
-              title={dict.navigation.agriAcademy}
-              description={dict.landing.pillarAcademyDesc}
-              href="/agriacademy"
-              linkLabel={dict.landing.seeCourses}
-              icon={<GraduationCap className="h-5 w-5" />}
-            />
-            <LandingPillarCard
-              accent="amber"
-              title={dict.navigation.agriShopping}
-              description={dict.landing.pillarShoppingDesc}
-              href="/agrishopping"
-              linkLabel={dict.landing.seeProducts}
-              icon={<ShoppingBag className="h-5 w-5" />}
-            />
-            <LandingPillarCard
-              accent="teal"
-              title={dict.navigation.agriLocalizacao}
-              description={dict.landing.pillarLocationDesc}
-              href="/agrilocalizacao"
-              linkLabel={dict.landing.seeMap}
-              icon={<MapPin className="h-5 w-5" />}
-            />
-          </div>
-        </section>
-
+        {/* 5. Planos e subscrições */}
         <section id="planos" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20">
           <SectionHeader
             badgeText={dict.landing.plansBadge}
