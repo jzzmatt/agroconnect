@@ -155,6 +155,12 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
   // "no subscription", never an implicit Basic plan.
   const subscriptionPlan = parseStoredPlan(dbPlan);
 
+  const { resolveProfileAvatarDisplayUrl } = await import("@/lib/agriprofile/profile-avatar-display");
+  const resolvedAvatar = await resolveProfileAvatarDisplayUrl({
+    avatar_url: effectiveProfile?.avatar_url,
+    avatar_storage_path: (effectiveProfile as { avatar_storage_path?: string | null })?.avatar_storage_path,
+  });
+
   const fullProfile: UserProfileWithRoles = {
     id: effectiveProfile?.id || clerkUser.id,
     clerk_user_id: clerkUser.id,
@@ -163,7 +169,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     last_name: effectiveProfile?.last_name || clerkUser.lastName,
     email: effectiveProfile?.email || clerkUser.emailAddresses[0]?.emailAddress || null,
     phone: effectiveProfile?.phone || clerkUser.phoneNumbers[0]?.phoneNumber || null,
-    avatar_url: effectiveProfile?.avatar_url || clerkUser.imageUrl,
+    avatar_url: resolvedAvatar || effectiveProfile?.avatar_url || clerkUser.imageUrl,
     bio: effectiveProfile?.bio || null,
     profile_slug: effectiveProfile?.profile_slug || clerkUser.username || clerkUser.id,
     professional_title: (effectiveProfile as any)?.professional_title || "none",

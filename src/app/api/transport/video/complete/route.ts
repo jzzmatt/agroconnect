@@ -7,8 +7,9 @@ export async function POST(request: Request) {
   const body = await request.json().catch(() => ({}));
   const result = await confirmTransportVehicleVideoUploadAction({
     transportId: String(body?.transportId || ""),
-    fileId: String(body?.fileId || ""),
-    url: String(body?.url || ""),
+    storagePath: String(body?.storagePath || ""),
+    fileId: body?.fileId ? String(body.fileId) : undefined,
+    url: body?.url ? String(body.url) : undefined,
     thumbnailUrl: body?.thumbnailUrl ? String(body.thumbnailUrl) : null,
   });
 

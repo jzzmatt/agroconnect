@@ -1,13 +1,14 @@
 import type { ProductImageDescriptor } from "@/types/media";
+import { buildProductImageAlt, validateProductImage } from "@/lib/products/product-image-validation";
 import { getMediaSupabaseClient } from "@/lib/media/db";
-import { deleteImageKitFile, productMediaFolder, uploadBufferToImageKit } from "@/lib/media/imagekit";
+import { deleteImageKitFile } from "@/lib/media/imagekit";
+import { SUPABASE_STORAGE_PROVIDER } from "@/lib/media/supabase-buckets";
 import type { Database } from "@/types/database";
 
 export type { ProductImageDescriptor };
+export { validateProductImage, buildProductImageAlt };
 
 const TABLE = "product_images";
-const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
-const MAX_IMAGE_BYTES = 5 * 1024 * 1024;
 
 type ProductImageRow = Database["public"]["Tables"]["product_images"]["Row"];
 
@@ -17,6 +18,8 @@ function toDescriptor(row: ProductImageRow): ProductImageDescriptor {
     product_id: row.product_id,
     owner_id: row.owner_id,
     url: row.url,
+    storage_provider: row.storage_provider,
+    storage_path: row.storage_path,
     alt_text: row.alt_text || "",
     mime_type: row.mime_type,
     file_size: row.file_size,
@@ -24,29 +27,6 @@ function toDescriptor(row: ProductImageRow): ProductImageDescriptor {
     is_primary: row.is_primary,
     created_at: row.created_at,
   };
-}
-
-export function validateProductImage(params: {
-  mimeType: string;
-  fileSize: number;
-  fileName?: string;
-}): { ok: true } | { ok: false; error: string } {
-  if (!ALLOWED_TYPES.has(params.mimeType)) {
-    return { ok: false, error: "Formato inválido. Utilize JPEG, PNG ou WebP." };
-  }
-  if (params.fileSize <= 0 || params.fileSize > MAX_IMAGE_BYTES) {
-    return { ok: false, error: "A imagem deve ter no máximo 5 MB." };
-  }
-  const ext = (params.fileName || "").toLowerCase();
-  if (ext && !/\.(jpe?g|png|webp)$/.test(ext)) {
-    return { ok: false, error: "Extensão de ficheiro inválida." };
-  }
-  return { ok: true };
-}
-
-export function buildProductImageAlt(productName: string): string {
-  const name = productName.trim() || "Produto agrícola";
-  return `${name} — AgriConnect`;
 }
 
 /**
@@ -63,7 +43,14 @@ export class ProductMediaService {
       .eq("product_id", productId)
       .order("sort_order", { ascending: true });
     if (error) throw Object.assign(new Error(error.message), { code: "PRODUCT_IMAGE_READ_FAILED" });
-    return ((data || []) as ProductImageRow[]).map(toDescriptor);
+    const rows = (data || []) as ProductImageRow[];
+    return Promise.all(
+      rows.map(async (row) => {
+        const descriptor = toDescriptor(row);
+        const displayUrl = await this.resolveImageDisplayUrl(descriptor);
+        return { ...descriptor, url: displayUrl || descriptor.url || "" };
+      })
+    );
   }
 
   public static async primaryUrl(productId: string): Promise<string | null> {
@@ -71,25 +58,53 @@ export class ProductMediaService {
     return images.find((i) => i.is_primary)?.url || images[0]?.url || null;
   }
 
-  public static async add(params: {
+  public static async prepareImageUpload(params: {
     productId: string;
     ownerId: string;
-    buffer: Buffer;
+    fileName: string;
+    fileSize: number;
+    mimeType: string;
+  }) {
+    const validation = validateProductImage({
+      mimeType: params.mimeType,
+      fileSize: params.fileSize,
+      fileName: params.fileName,
+    });
+    if (!validation.ok) {
+      throw Object.assign(new Error(validation.error), { code: "PRODUCT_IMAGE_FAILED" });
+    }
+
+    const storage = await import("@/lib/media/product-media-storage.server");
+    const storagePath = storage.buildProductImageStoragePath({
+      ownerId: params.ownerId,
+      productId: params.productId,
+      fileName: params.fileName,
+    });
+    const signed = await storage.productImageSignedUpload(storagePath);
+    return { storagePath, signedUrl: signed.signedUrl, token: signed.token, mimeType: params.mimeType };
+  }
+
+  public static async completeImageUpload(params: {
+    productId: string;
+    ownerId: string;
+    storagePath: string;
     fileName: string;
     mimeType: "image/jpeg" | "image/png" | "image/webp";
     fileSize: number;
     altText: string;
     isPrimary?: boolean;
   }): Promise<ProductImageDescriptor> {
-    const uploaded = await uploadBufferToImageKit({
-      buffer: params.buffer,
-      fileName: params.fileName,
-      folder: productMediaFolder(params.productId, "images"),
-    });
-    if (!uploaded.configured || !uploaded.url) {
-      throw Object.assign(new Error(uploaded.error || "Não foi possível carregar a imagem."), {
-        code: uploaded.code || "IMAGEKIT_UPLOAD_FAILED",
-      });
+    const expectedPrefix = `${params.ownerId}/${params.productId}/images/`;
+    if (!params.storagePath.startsWith(expectedPrefix)) {
+      const storage = await import("@/lib/media/product-media-storage.server");
+      await storage.removeProductImageObject(params.storagePath);
+      throw Object.assign(new Error("Invalid storage path."), { code: "PRODUCT_IMAGE_FAILED" });
+    }
+
+    const storage = await import("@/lib/media/product-media-storage.server");
+    const exists = await storage.productImageObjectExists(params.storagePath);
+    if (!exists) {
+      throw Object.assign(new Error("Upload not found in storage."), { code: "PRODUCT_IMAGE_FAILED" });
     }
 
     const supabase = getMediaSupabaseClient();
@@ -104,30 +119,92 @@ export class ProductMediaService {
       .insert({
         product_id: params.productId,
         owner_id: params.ownerId,
-        storage_provider: "imagekit",
-        storage_path: uploaded.filePath || params.fileName,
-        external_id: uploaded.fileId,
-        url: uploaded.url,
+        storage_provider: SUPABASE_STORAGE_PROVIDER,
+        storage_path: params.storagePath,
+        external_id: null,
+        url: null,
         alt_text: params.altText,
         mime_type: params.mimeType,
-        file_size: uploaded.fileSize ?? params.fileSize,
+        file_size: params.fileSize,
         sort_order: existing.length,
         is_primary: isPrimary,
       })
       .select()
       .single();
+
     if (error || !data) {
-      void deleteImageKitFile(uploaded.fileId || "").catch(() => undefined);
+      await storage.removeProductImageObject(params.storagePath);
       throw Object.assign(new Error(error?.message || "Não foi possível guardar a imagem."), {
         code: "PRODUCT_IMAGE_INSERT_FAILED",
       });
     }
 
     if (isPrimary) {
-      await (supabase.from("products") as any).update({ primary_image_url: uploaded.url }).eq("id", params.productId);
+      await (supabase.from("products") as any)
+        .update({ primary_image_url: `/api/products/${params.productId}/primary-image` })
+        .eq("id", params.productId);
     }
 
-    return toDescriptor(data as ProductImageRow);
+    const descriptor = toDescriptor(data as ProductImageRow);
+    const display = await this.resolveImageDisplayUrl(descriptor);
+    return { ...descriptor, url: display || descriptor.url };
+  }
+
+  public static async resolveImageDisplayUrl(
+    image: Pick<ProductImageDescriptor, "url" | "storage_path" | "storage_provider">
+  ): Promise<string | null> {
+    if (image.storage_provider === SUPABASE_STORAGE_PROVIDER && image.storage_path) {
+      try {
+        const storage = await import("@/lib/media/product-media-storage.server");
+        const { signedUrl } = await storage.productImageSignedDisplay(image.storage_path);
+        return signedUrl;
+      } catch {
+        return image.url || null;
+      }
+    }
+    return image.url || null;
+  }
+
+  public static async add(params: {
+    productId: string;
+    ownerId: string;
+    buffer: Buffer;
+    fileName: string;
+    mimeType: "image/jpeg" | "image/png" | "image/webp";
+    fileSize: number;
+    altText: string;
+    isPrimary?: boolean;
+  }): Promise<ProductImageDescriptor> {
+    const storage = await import("@/lib/media/product-media-storage.server");
+    const storagePath = storage.buildProductImageStoragePath({
+      ownerId: params.ownerId,
+      productId: params.productId,
+      fileName: params.fileName,
+    });
+
+    try {
+      await storage.uploadProductImageBuffer({
+        storagePath,
+        buffer: params.buffer,
+        contentType: params.mimeType,
+      });
+    } catch (uploadError) {
+      throw Object.assign(
+        new Error(uploadError instanceof Error ? uploadError.message : "Não foi possível carregar a imagem."),
+        { code: "PRODUCT_IMAGE_FAILED" }
+      );
+    }
+
+    return this.completeImageUpload({
+      productId: params.productId,
+      ownerId: params.ownerId,
+      storagePath,
+      fileName: params.fileName,
+      mimeType: params.mimeType,
+      fileSize: params.fileSize,
+      altText: params.altText,
+      isPrimary: params.isPrimary,
+    });
   }
 
   public static async remove(productId: string, imageId: string, ownerId: string): Promise<boolean> {
@@ -147,14 +224,22 @@ export class ProductMediaService {
     if (target.is_primary) {
       const remaining = await this.list(productId);
       await (supabase.from("products") as any)
-        .update({ primary_image_url: remaining[0]?.url || null })
+        .update({
+          primary_image_url: remaining[0]
+            ? `/api/products/${productId}/primary-image`
+            : null,
+        })
         .eq("id", productId);
       if (remaining[0]) {
         await (supabase.from(TABLE) as any).update({ is_primary: true }).eq("id", remaining[0].id);
       }
     }
 
-    if (target.external_id) {
+    if (target.storage_provider === SUPABASE_STORAGE_PROVIDER && target.storage_path) {
+      void import("@/lib/media/product-media-storage.server").then((storage) =>
+        storage.removeProductImageObject(target.storage_path)
+      );
+    } else if (target.external_id) {
       void deleteImageKitFile(target.external_id).catch(() => undefined);
     }
     return true;
@@ -174,7 +259,9 @@ export class ProductMediaService {
 
     await (supabase.from(TABLE) as any).update({ is_primary: false }).eq("product_id", productId);
     await (supabase.from(TABLE) as any).update({ is_primary: true }).eq("id", imageId);
-    await (supabase.from("products") as any).update({ primary_image_url: row.url }).eq("id", productId);
+    await (supabase.from("products") as any)
+      .update({ primary_image_url: `/api/products/${productId}/primary-image` })
+      .eq("id", productId);
     return true;
   }
 

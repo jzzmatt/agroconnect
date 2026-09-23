@@ -3,7 +3,8 @@
 import React, { useRef } from "react";
 import { ImagePlus, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { validateProductImage, type ProductImageDescriptor } from "@/lib/services/product-media-service";
+import { validateProductImage } from "@/lib/products/product-image-validation";
+import type { ProductImageDescriptor } from "@/types/media";
 
 interface ProductImageUploaderProps {
   images: Array<Pick<ProductImageDescriptor, "id" | "url" | "alt_text" | "is_primary">>;

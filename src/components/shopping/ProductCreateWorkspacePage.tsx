@@ -30,7 +30,6 @@ import { localizeError } from "@/i18n/errors";
 import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
-import { uploadToImageKit } from "@/lib/products/imagekit-upload";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 export function ProductCreateWorkspacePage() {
@@ -292,21 +291,17 @@ export function ProductCreateWorkspacePage() {
           });
         }
         const upload = videoResult.upload;
-        if (!upload?.uploadUrl || !upload?.publicKey || !upload?.signature || !upload?.token || !upload?.expire) {
-          throw Object.assign(new Error(upload?.error || PRODUCT_ERROR_CODES.IMAGEKIT_NOT_CONFIGURED), {
-            code: upload?.code || PRODUCT_ERROR_CODES.IMAGEKIT_NOT_CONFIGURED,
-            message: upload?.error,
+        if (!upload?.signedUrl || !upload?.storagePath) {
+          throw Object.assign(new Error(PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID), {
+            code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID,
           });
         }
         try {
-          const uploaded = await uploadToImageKit({
+          const { uploadBlobWithProgress } = await import("@/lib/academy/upload-storage-client");
+          await uploadBlobWithProgress({
+            signedUrl: upload.signedUrl,
             file: pendingVideo.file,
-            uploadUrl: upload.uploadUrl,
-            publicKey: upload.publicKey,
-            signature: upload.signature,
-            token: upload.token,
-            expire: upload.expire,
-            folder: upload.folder,
+            mimeType: upload.mimeType || pendingVideo.file.type || "video/mp4",
           });
           const confirmRes = await fetch("/api/products/video/complete", {
             method: "POST",
@@ -317,10 +312,8 @@ export function ProductCreateWorkspacePage() {
             body: JSON.stringify({
               videoId: videoResult.video.id,
               productId: result.product.id,
-              fileId: uploaded.fileId,
-              url: uploaded.url,
-              thumbnailUrl: uploaded.thumbnailUrl,
-              fileSize: uploaded.size,
+              storagePath: upload.storagePath,
+              fileSize: pendingVideo.file.size,
             }),
           });
           const confirmResult = await confirmRes.json().catch(() => null);

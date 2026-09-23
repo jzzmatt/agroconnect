@@ -30,15 +30,28 @@ vi.mock("@/lib/media/imagekit", async () => {
   const actual = await vi.importActual<typeof import("@/lib/media/imagekit")>("@/lib/media/imagekit");
   return {
     ...actual,
-    uploadBufferToImageKit: async (params: { fileName: string }) => ({
-      configured: true,
-      fileId: `fk-${params.fileName}`,
-      url: `https://ik.imagekit.io/agroconnect-test/${params.fileName}`,
-      thumbnailUrl: null,
-      filePath: `/agriconnect/products/test/${params.fileName}`,
-      fileSize: 1024,
-    }),
     deleteImageKitFile: async () => true,
+  };
+});
+
+vi.mock("@/lib/media/supabase-storage-core", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/media/supabase-storage-core")>(
+    "@/lib/media/supabase-storage-core"
+  );
+  return {
+    ...actual,
+    uploadBufferToStorage: async () => undefined,
+    storageObjectExists: async () => true,
+    createSignedDisplayUrl: async (_bucket: string, path: string) => ({
+      signedUrl: `https://storage.test/${path}`,
+      expiresAt: new Date().toISOString(),
+    }),
+    createSignedUploadUrl: async (_bucket: string, path: string) => ({
+      signedUrl: `https://storage.test/upload/${path}`,
+      token: "token",
+      path,
+    }),
+    removeStorageObject: async () => undefined,
   };
 });
 
@@ -122,7 +135,7 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
     expect(getDictionary("xx" as any).navigation.dashboard).toBe("Painel");
   });
 
-  it("validates product images, persists metadata in Supabase, and uploads the bytes to ImageKit", async () => {
+  it("validates product images, persists metadata in Supabase, and uploads the bytes to Supabase Storage", async () => {
     expect(validateProductImage({ mimeType: "image/gif", fileSize: 100 }).ok).toBe(false);
     expect(validateProductImage({ mimeType: "image/jpeg", fileSize: 1024 }).ok).toBe(true);
     expect(buildProductImageAlt("Milho amarelo")).toBe("Milho amarelo — AgriConnect");
@@ -140,7 +153,7 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
     expect(image.is_primary).toBe(true);
     // The record is round-tripped through the (fake) product_images table —
     // not held in a Map — so a second, independent read sees the same image.
-    expect(await ProductMediaService.primaryUrl("p1")).toContain("ik.imagekit.io");
+    expect(await ProductMediaService.primaryUrl("p1")).toContain("storage.test");
     expect((await ProductMediaService.list("p1"))[0]?.id).toBe(image.id);
   });
 

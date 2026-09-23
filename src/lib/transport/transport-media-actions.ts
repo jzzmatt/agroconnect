@@ -3,12 +3,16 @@
 import { requireAuth, getCurrentUserProfile } from "@/lib/clerk/auth";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { AuthorizationError } from "@/lib/authorization/server";
+import { buildTransportImageStoragePath, buildTransportVideoStoragePath } from "@/lib/media/transport-media-paths";
+import { TRANSPORT_MEDIA_BUCKET } from "@/lib/media/supabase-buckets";
 import {
-  createImageKitUploadAuth,
-  transportMediaFolder,
-  uploadBufferToImageKit,
-} from "@/lib/media/imagekit";
-import { validateProductImage } from "@/lib/services/product-media-service";
+  createSignedDisplayUrl,
+  createSignedUploadUrl,
+  removeStorageObject,
+  storageObjectExists,
+  uploadBufferToStorage,
+} from "@/lib/media/supabase-storage-core";
+import { validateProductImage } from "@/lib/products/product-image-validation";
 import { getTransportWritableClient } from "@/lib/transport/supabase-client";
 import { requireTransportOwnership } from "@/lib/transport/ownership";
 import { validateTransportVideo } from "@/lib/transport/video-validation";
@@ -58,20 +62,33 @@ export async function createTransportVehicleVideoUploadAction(params: {
     return { success: false, code: validation.code, message: validation.error };
   }
 
-  const upload = createImageKitUploadAuth({
-    folder: transportMediaFolder(params.transportId, "videos"),
+  const storagePath = buildTransportVideoStoragePath({
+    ownerId: profile.id,
+    transportId: params.transportId,
+    fileName: params.filename,
   });
-  if (!upload.configured) {
-    return { success: false, code: upload.code || "IMAGEKIT_NOT_CONFIGURED", message: upload.error };
-  }
 
-  return { success: true, upload };
+  try {
+    const signed = await createSignedUploadUrl(TRANSPORT_MEDIA_BUCKET, storagePath);
+    return {
+      success: true,
+      upload: {
+        storagePath,
+        signedUrl: signed.signedUrl,
+        token: signed.token,
+        mimeType: params.mimeType,
+      },
+    };
+  } catch {
+    return { success: false, code: "TRANSPORT_MEDIA_FAILED" as const };
+  }
 }
 
 export async function confirmTransportVehicleVideoUploadAction(params: {
   transportId: string;
-  fileId: string;
-  url: string;
+  storagePath: string;
+  fileId?: string;
+  url?: string;
   thumbnailUrl?: string | null;
 }) {
   await requireAuth();
@@ -89,24 +106,47 @@ export async function confirmTransportVehicleVideoUploadAction(params: {
     throw error;
   }
 
+  const expectedPrefix = `${profile.id}/${params.transportId}/videos/`;
+  if (!params.storagePath.startsWith(expectedPrefix)) {
+    return { success: false, code: "TRANSPORT_MEDIA_FAILED" as const };
+  }
+  if (!(await storageObjectExists(TRANSPORT_MEDIA_BUCKET, params.storagePath))) {
+    return { success: false, code: "TRANSPORT_MEDIA_FAILED" as const };
+  }
+
   const supabase = await getTransportWritableClient();
+  const { data: current } = await (supabase.from("transport_services") as any)
+    .select("vehicle_video_storage_path, metadata")
+    .eq("id", params.transportId)
+    .maybeSingle();
+
+  const priorPath = (current?.vehicle_video_storage_path as string | null) || null;
+  const priorMeta = (current?.metadata as Record<string, unknown> | null) || {};
+
   const { data, error } = await (supabase.from("transport_services") as any)
     .update({
-      vehicle_video_url: params.url,
+      vehicle_video_url: null,
+      vehicle_video_storage_path: params.storagePath,
       metadata: {
-        vehicle_video_file_id: params.fileId,
+        ...priorMeta,
         vehicle_video_thumbnail_url: params.thumbnailUrl || null,
       },
     })
     .eq("id", params.transportId)
-    .select("id, vehicle_video_url")
+    .select("id, vehicle_video_storage_path")
     .maybeSingle();
 
   if (error || !data) {
+    await removeStorageObject(TRANSPORT_MEDIA_BUCKET, params.storagePath);
     return { success: false, code: "TRANSPORT_MEDIA_FAILED" as const };
   }
 
-  return { success: true, url: data.vehicle_video_url as string };
+  if (priorPath && priorPath !== params.storagePath) {
+    void removeStorageObject(TRANSPORT_MEDIA_BUCKET, priorPath).catch(() => undefined);
+  }
+
+  const { signedUrl } = await createSignedDisplayUrl(TRANSPORT_MEDIA_BUCKET, params.storagePath);
+  return { success: true, url: signedUrl };
 }
 
 export async function uploadTransportVehicleImageAction(params: {
@@ -149,34 +189,54 @@ export async function uploadTransportVehicleImageAction(params: {
     return { success: false, code: "TRANSPORT_IMAGE_INVALID" as const, message: validation.error };
   }
 
-  const uploaded = await uploadBufferToImageKit({
-    buffer: params.buffer,
+  const storagePath = buildTransportImageStoragePath({
+    ownerId: profile.id,
+    transportId: params.transportId,
     fileName: params.fileName,
-    folder: transportMediaFolder(params.transportId, "images"),
   });
-  if (!uploaded.configured || !uploaded.url) {
+
+  const supabase = await getTransportWritableClient();
+  const { data: current } = await (supabase.from("transport_services") as any)
+    .select("vehicle_image_storage_path, metadata")
+    .eq("id", params.transportId)
+    .maybeSingle();
+  const priorPath = (current?.vehicle_image_storage_path as string | null) || null;
+  const priorMeta = (current?.metadata as Record<string, unknown> | null) || {};
+
+  try {
+    await uploadBufferToStorage({
+      bucket: TRANSPORT_MEDIA_BUCKET,
+      storagePath,
+      buffer: params.buffer,
+      contentType: params.mimeType,
+    });
+  } catch (uploadError) {
     return {
       success: false,
-      code: uploaded.code || "IMAGEKIT_UPLOAD_FAILED",
-      message: uploaded.error,
+      code: "TRANSPORT_MEDIA_FAILED" as const,
+      message: uploadError instanceof Error ? uploadError.message : undefined,
     };
   }
 
-  const supabase = await getTransportWritableClient();
   const { data, error } = await (supabase.from("transport_services") as any)
     .update({
-      vehicle_media_url: uploaded.url,
-      metadata: {
-        vehicle_image_file_id: uploaded.fileId,
-      },
+      vehicle_media_url: null,
+      vehicle_image_storage_path: storagePath,
+      metadata: priorMeta,
     })
     .eq("id", params.transportId)
-    .select("id, vehicle_media_url")
+    .select("id, vehicle_image_storage_path")
     .maybeSingle();
 
   if (error || !data) {
+    await removeStorageObject(TRANSPORT_MEDIA_BUCKET, storagePath);
     return { success: false, code: "TRANSPORT_MEDIA_FAILED" as const };
   }
 
-  return { success: true, url: data.vehicle_media_url as string };
+  if (priorPath && priorPath !== storagePath) {
+    void removeStorageObject(TRANSPORT_MEDIA_BUCKET, priorPath).catch(() => undefined);
+  }
+
+  const { signedUrl } = await createSignedDisplayUrl(TRANSPORT_MEDIA_BUCKET, storagePath);
+  return { success: true, url: signedUrl };
 }

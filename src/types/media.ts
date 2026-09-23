@@ -27,6 +27,8 @@ export interface ProductImageDescriptor {
   product_id: string;
   owner_id: string;
   url: string;
+  storage_provider?: string | null;
+  storage_path?: string | null;
   alt_text: string;
   mime_type: "image/jpeg" | "image/png" | "image/webp";
   file_size: number;

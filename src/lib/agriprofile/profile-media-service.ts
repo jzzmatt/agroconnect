@@ -1,10 +1,14 @@
+import "server-only";
+
 import { getMediaSupabaseClient } from "@/lib/media/db";
+import { deleteImageKitFile, optimizedProfileImageUrl } from "@/lib/media/imagekit";
+import { buildProfileAvatarStoragePath } from "@/lib/media/profile-media-paths";
+import { PROFILE_MEDIA_BUCKET, SUPABASE_STORAGE_PROVIDER } from "@/lib/media/supabase-buckets";
 import {
-  deleteImageKitFile,
-  optimizedProfileImageUrl,
-  profileMediaFolder,
-  uploadBufferToImageKit,
-} from "@/lib/media/imagekit";
+  createSignedDisplayUrl,
+  removeStorageObject,
+  uploadBufferToStorage,
+} from "@/lib/media/supabase-storage-core";
 import { PublicProviderIdentityService } from "./provider-identity-service";
 
 const ALLOWED_TYPES = new Set(["image/jpeg", "image/png", "image/webp"]);
@@ -40,18 +44,32 @@ export class ProfileMediaService {
     mimeType: "image/jpeg" | "image/png" | "image/webp";
     fileSize: number;
   }): Promise<{ url: string; thumbnailUrl: string | null }> {
-    const uploaded = await uploadBufferToImageKit({
-      buffer: params.buffer,
+    const storagePath = buildProfileAvatarStoragePath({
+      profileId: params.profileId,
       fileName: params.fileName,
-      folder: profileMediaFolder(params.profileId),
     });
-    if (!uploaded.configured || !uploaded.url) {
-      throw Object.assign(new Error(uploaded.error || "Não foi possível carregar a imagem."), {
-        code: uploaded.code || "IMAGEKIT_UPLOAD_FAILED",
-      });
-    }
 
     const supabase = getMediaSupabaseClient();
+    const { data: profileRow } = await (supabase.from("profiles") as any)
+      .select("avatar_storage_path")
+      .eq("id", params.profileId)
+      .maybeSingle();
+    const priorPath = (profileRow?.avatar_storage_path as string | null) || null;
+
+    try {
+      await uploadBufferToStorage({
+        bucket: PROFILE_MEDIA_BUCKET,
+        storagePath,
+        buffer: params.buffer,
+        contentType: params.mimeType,
+      });
+    } catch (uploadError) {
+      throw Object.assign(
+        new Error(uploadError instanceof Error ? uploadError.message : "Não foi possível carregar a imagem."),
+        { code: "PROFILE_IMAGE_FAILED" }
+      );
+    }
+
     const { data: existing } = await (supabase.from("media_assets") as any)
       .select("*")
       .eq("owner_profile_id", params.profileId)
@@ -63,6 +81,9 @@ export class ProfileMediaService {
       if (fileId) {
         void deleteImageKitFile(fileId).catch(() => undefined);
       }
+      if (row.storage_provider === SUPABASE_STORAGE_PROVIDER && row.storage_key) {
+        void removeStorageObject(PROFILE_MEDIA_BUCKET, row.storage_key).catch(() => undefined);
+      }
       await supabase.from("media_assets").delete().eq("id", row.id);
     }
 
@@ -70,33 +91,41 @@ export class ProfileMediaService {
       owner_profile_id: params.profileId,
       entity_type: "profile_avatar",
       entity_id: params.profileId,
-      storage_provider: "imagekit",
-      storage_key: uploaded.filePath || params.fileName,
-      url: uploaded.url,
+      storage_provider: SUPABASE_STORAGE_PROVIDER,
+      storage_key: storagePath,
+      url: null,
       mime_type: params.mimeType,
-      file_size: uploaded.fileSize ?? params.fileSize,
-      metadata: {
-        imagekitFileId: uploaded.fileId,
-        thumbnailUrl: uploaded.thumbnailUrl,
-      },
+      file_size: params.fileSize,
+      metadata: {},
     });
     if (error) {
-      void deleteImageKitFile(uploaded.fileId || "").catch(() => undefined);
+      await removeStorageObject(PROFILE_MEDIA_BUCKET, storagePath);
       throw Object.assign(new Error(error.message), { code: "PROFILE_IMAGE_PERSIST_FAILED" });
     }
 
     await (supabase.from("profiles") as any)
       .update({
-        avatar_url: uploaded.url,
+        avatar_url: null,
+        avatar_storage_path: storagePath,
+        avatar_mime_type: params.mimeType,
+        avatar_size: params.fileSize,
         updated_at: new Date().toISOString(),
       })
       .eq("id", params.profileId);
 
-    await PublicProviderIdentityService.syncAvatarUrl(params.profileId, uploaded.url);
+    const { resolveProfileAvatarDisplayUrl } = await import("@/lib/agriprofile/profile-avatar-display");
+    const displayUrl = await resolveProfileAvatarDisplayUrl({ avatar_storage_path: storagePath });
+    if (displayUrl) {
+      await PublicProviderIdentityService.syncAvatarUrl(params.profileId, displayUrl);
+    }
+
+    if (priorPath && priorPath !== storagePath) {
+      void removeStorageObject(PROFILE_MEDIA_BUCKET, priorPath).catch(() => undefined);
+    }
 
     return {
-      url: uploaded.url,
-      thumbnailUrl: uploaded.thumbnailUrl,
+      url: displayUrl || "",
+      thumbnailUrl: displayUrl,
     };
   }
 
@@ -115,9 +144,25 @@ export class ProfileMediaService {
       await supabase.from("media_assets").delete().eq("id", row.id);
     }
 
+    const { data: profileRow } = await (supabase.from("profiles") as any)
+      .select("avatar_storage_path")
+      .eq("id", profileId)
+      .maybeSingle();
+
     await (supabase.from("profiles") as any)
-      .update({ avatar_url: null, updated_at: new Date().toISOString() })
+      .update({
+        avatar_url: null,
+        avatar_storage_path: null,
+        avatar_mime_type: null,
+        avatar_size: null,
+        updated_at: new Date().toISOString(),
+      })
       .eq("id", profileId);
+
+    const path = (profileRow?.avatar_storage_path as string | null) || null;
+    if (path) {
+      void removeStorageObject(PROFILE_MEDIA_BUCKET, path).catch(() => undefined);
+    }
     await PublicProviderIdentityService.syncAvatarUrl(profileId, null);
   }
 }

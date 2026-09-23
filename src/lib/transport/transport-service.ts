@@ -123,6 +123,30 @@ function asRelatedRecord(value: unknown): Record<string, unknown> | null {
   return null;
 }
 
+async function enrichTransportMediaUrls(
+  item: Record<string, unknown>,
+  mapped: TransportListItem
+): Promise<TransportListItem> {
+  const { resolveTransportImageUrl, resolveTransportVideoUrl } = await import(
+    "@/lib/transport/transport-media-display"
+  );
+  const [imageUrl, videoUrl] = await Promise.all([
+    resolveTransportImageUrl({
+      vehicle_media_url: mapped.vehicle_media_url,
+      vehicle_image_storage_path: (item.vehicle_image_storage_path as string | null) ?? null,
+    }),
+    resolveTransportVideoUrl({
+      vehicle_video_url: mapped.vehicle_video_url,
+      vehicle_video_storage_path: (item.vehicle_video_storage_path as string | null) ?? null,
+    }),
+  ]);
+  return {
+    ...mapped,
+    vehicle_media_url: imageUrl,
+    vehicle_video_url: videoUrl,
+  };
+}
+
 function mapTransportRow(item: Record<string, unknown>): TransportListItem {
   const provider = item.provider_profiles as Record<string, unknown> | null;
   const originProvince = item.origin_provinces as { name?: string } | null;
@@ -181,6 +205,8 @@ const TRANSPORT_SELECT = `
   capacity_load,
   vehicle_media_url,
   vehicle_video_url,
+  vehicle_image_storage_path,
+  vehicle_video_storage_path,
   base_latitude,
   base_longitude,
   price_per_trip,
@@ -303,7 +329,8 @@ export class TransportService {
           .maybeSingle();
 
         if (!error && data) {
-          return mapTransportRow(data as Record<string, unknown>);
+          const row = data as Record<string, unknown>;
+          return enrichTransportMediaUrls(row, mapTransportRow(row));
         }
       } catch (err) {
         console.warn("[TransportService.getTransportBySlug] Fallback to seed:", err);
