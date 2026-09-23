@@ -3,6 +3,7 @@
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { authorize } from "@/lib/authorization/server";
 import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
+import { AcademyLessonVideoService } from "@/lib/academy/lesson-video-service";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
 import { canSetCourseStatusViaGenericUpdate } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
@@ -297,11 +298,39 @@ export async function deleteLessonAction(lessonId: string) {
   }
 }
 
+function academyHasLiveSupabase(): boolean {
+  return Boolean(
+    process.env.NEXT_PUBLIC_SUPABASE_URL &&
+      !process.env.NEXT_PUBLIC_SUPABASE_URL.includes("placeholder")
+  );
+}
+
 export async function assignLessonYouTubeAction(lessonId: string, urlOrId: string | null) {
   try {
     await authorize("academy.course.update");
     const userProfile = await getCurrentUserProfile();
     if (!userProfile) return mutationFail("UNAUTHORIZED");
+
+    if (academyHasLiveSupabase()) {
+      if (urlOrId === null || urlOrId.trim() === "") {
+        const lesson = await AcademyLessonVideoService.removeLessonVideo({
+          ownerId: userProfile.id,
+          lessonId,
+        });
+        return mutationOk(lesson);
+      }
+
+      const lesson = await AcademyLessonVideoService.assignYouTube({
+        ownerId: userProfile.id,
+        lessonId,
+        urlOrId,
+      });
+      if (!lesson.youtube_video_id) {
+        return mutationFail("YOUTUBE_SCHEMA_MISSING");
+      }
+      return mutationOk(lesson);
+    }
+
     const lesson = await AcademyAuthoringService.assignLessonYouTubeVideo(
       userProfile.id,
       lessonId,
@@ -311,13 +340,14 @@ export async function assignLessonYouTubeAction(lessonId: string, urlOrId: strin
     if (urlOrId !== null && urlOrId.trim() !== "" && !lesson.youtube_video_id) {
       return mutationFail("YOUTUBE_SCHEMA_MISSING");
     }
-    if ((urlOrId === null || urlOrId.trim() === "") && lesson.youtube_video_id != null) {
-      return mutationFail("DATABASE_ERROR");
-    }
     return mutationOk(lesson);
   } catch (err: unknown) {
     return toCourseMutationFailure(err);
   }
+}
+
+export async function removeLessonVideoAction(lessonId: string) {
+  return assignLessonYouTubeAction(lessonId, null);
 }
 
 export async function assignLessonVideoAction(lessonId: string, videoId: string | null) {

@@ -1,6 +1,6 @@
 import type { CourseWithSections } from "@/types/agriacademy";
 import { formatLessonNumber } from "@/lib/academy/lesson-numbering";
-import { isYouTubeVideoId } from "@/lib/academy/youtube";
+import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 
 export type PublicationIssueCode =
   | "MISSING_TITLE"
@@ -23,11 +23,14 @@ export interface PublicationValidationResult {
   issues: PublicationIssue[];
 }
 
-type LessonWithYouTube = {
+type LessonWithVideo = {
   id?: string;
   title?: string | null;
   sort_order?: number;
+  video_source?: "youtube" | "upload" | null;
   youtube_video_id?: string | null;
+  upload_storage_path?: string | null;
+  upload_status?: "uploading" | "ready" | "failed" | null;
 };
 
 function fallbackMessage(issue: PublicationIssue): string {
@@ -49,8 +52,8 @@ function fallbackMessage(issue: PublicationIssue): string {
           : issue.lessonNumber
         : null;
       return lesson
-        ? `A aula ${lesson} precisa de um vídeo do YouTube associado.`
-        : "Todas as aulas precisam de um vídeo do YouTube associado antes da publicação.";
+        ? `A aula ${lesson} precisa de um vídeo associado (YouTube ou carregamento).`
+        : "Todas as aulas precisam de um vídeo associado antes da publicação.";
     }
   }
 }
@@ -59,7 +62,7 @@ export function validateCourseForPublication(
   course: CourseWithSections & {
     sections: Array<{
       sort_order?: number;
-      lessons?: LessonWithYouTube[];
+      lessons?: LessonWithVideo[];
     }>;
   }
 ): PublicationValidationResult {
@@ -96,7 +99,7 @@ export function validateCourseForPublication(
   }
 
   for (const { lesson, lessonNumber } of numberedLessons) {
-    if (isYouTubeVideoId(lesson.youtube_video_id)) continue;
+    if (lessonHasPlayableVideo(lesson as LessonWithVideo & { video_source: "youtube" | "upload" })) continue;
     issues.push({
       code: "MISSING_YOUTUBE",
       lessonId: lesson.id,

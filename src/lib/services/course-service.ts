@@ -220,6 +220,11 @@ function redactPublicCourseYouTubeIds(course: CourseWithSections): CourseWithSec
         ...lesson,
         youtube_video_id: null,
         youtube_source_url: null,
+        upload_storage_path: null,
+        upload_original_filename: null,
+        upload_original_size: null,
+        upload_original_mime_type: null,
+        upload_status: null,
       })),
     })),
   };

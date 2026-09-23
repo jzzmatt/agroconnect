@@ -185,7 +185,7 @@ describe("AGROCONNECT Phase 7 — YouTube AgriAcademy foundation", () => {
     expect(access).toContain("youtube_video_id");
 
     const editor = readFileSync("src/components/academy/CourseEditor.tsx", "utf8");
-    expect(editor).toContain("LessonYouTubeModal");
+    expect(editor).toContain("LessonVideoModal");
     expect(editor).toContain("CourseAuthoringGuide");
     expect(editor).not.toContain("MediaLibraryModal");
   });
