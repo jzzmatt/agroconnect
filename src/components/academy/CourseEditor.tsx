@@ -21,7 +21,10 @@ import { Badge } from "@/components/ui/Badge";
 import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide";
 import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
 import { LessonVideoModal } from "@/components/academy/LessonVideoModal";
-import { YouTubePlayer } from "@/components/academy/YouTubePlayer";
+import {
+  LessonVideoPreviewDialog,
+  type LessonVideoPreviewTarget,
+} from "@/components/academy/LessonVideoPreviewDialog";
 import { CourseConfirmDialog } from "@/components/academy/CourseConfirmDialog";
 import {
   deriveAuthoringProgress,
@@ -38,7 +41,7 @@ import {
 } from "@/lib/academy/authoring-copy";
 import { deriveReadinessChecklist } from "@/lib/academy/course-readiness";
 import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
-import { buildYouTubeEmbedUrl, isYouTubeVideoId } from "@/lib/academy/youtube";
+import { isYouTubeVideoId } from "@/lib/academy/youtube";
 import {
   deleteDialogForStatus,
   type CourseDeleteDialogKind,
@@ -123,7 +126,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [deleteError, setDeleteError] = useState<string | null>(null);
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
-  const [previewLesson, setPreviewLesson] = useState<{ title: string; youtubeId: string } | null>(null);
+  const [previewLesson, setPreviewLesson] = useState<LessonVideoPreviewTarget | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusLabels: Record<string, string> = {
@@ -876,19 +879,34 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       ? dict.agriacademy.replaceVideo
                       : dict.agriacademy.selectVideo}
                   </Button>
-                  {(lesson.video_source ?? "youtube") === "youtube" &&
-                  isYouTubeVideoId(lesson.youtube_video_id) ? (
+                  {lessonHasPlayableVideo(lesson) ? (
                     <Button
                       type="button"
                       size="sm"
                       variant="outline"
                       disabled={isSaving}
-                      onClick={() =>
-                        setPreviewLesson({
-                          title: lesson.title,
-                          youtubeId: lesson.youtube_video_id as string,
-                        })
-                      }
+                      onClick={() => {
+                        if (
+                          lesson.video_source === "upload" &&
+                          lesson.upload_storage_path &&
+                          lesson.upload_status === "ready"
+                        ) {
+                          setPreviewLesson({
+                            kind: "upload",
+                            title: lesson.title,
+                            lessonId: lesson.id,
+                            mimeType: lesson.upload_original_mime_type,
+                          });
+                          return;
+                        }
+                        if (isYouTubeVideoId(lesson.youtube_video_id)) {
+                          setPreviewLesson({
+                            kind: "youtube",
+                            title: lesson.title,
+                            youtubeId: lesson.youtube_video_id as string,
+                          });
+                        }
+                      }}
                     >
                       {dict.agriacademy.previewLesson}
                     </Button>
@@ -1015,22 +1033,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         }}
       />
 
-      {previewLesson ? (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="w-full max-w-2xl rounded-2xl border border-border bg-background p-4 space-y-3">
-            <h2 className="text-sm font-black">{previewLesson.title}</h2>
-            <YouTubePlayer
-              embedUrl={buildYouTubeEmbedUrl(previewLesson.youtubeId)}
-              title={previewLesson.title}
-              ready
-              pendingLabel={dict.common.loading}
-            />
-            <Button type="button" size="sm" variant="outline" onClick={() => setPreviewLesson(null)}>
-              {dict.agriacademy.closeLessonPreview}
-            </Button>
-          </div>
-        </div>
-      ) : null}
+      <LessonVideoPreviewDialog target={previewLesson} onClose={() => setPreviewLesson(null)} />
 
       <CourseConfirmDialog
         open={deleteDialog === "confirm_delete" || deleteDialog === "confirm_after_pause"}
