@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useRef, useState } from "react";
+import React, { useRef } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import {
@@ -16,49 +16,26 @@ import {
 } from "lucide-react";
 import { motion, useReducedMotion, useScroll, useTransform } from "motion/react";
 import { Button } from "@/components/ui";
+import {
+  AGROCONNECT_HERO_IMAGE_HEIGHT,
+  AGROCONNECT_HERO_IMAGE_PATH,
+  AGROCONNECT_HERO_IMAGE_WIDTH,
+} from "@/lib/landing/agroconnect-hero-asset";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 import { AgroConnectHeroCard } from "./AgroConnectHeroCard";
 import { AgroConnectHeroConnections } from "./AgroConnectHeroConnections";
 
-const HERO_POSTER = "/images/agroconnect-hero-poster.webp";
-const HERO_IMAGE = "/images/agroconnect-hero.webp";
-const HERO_VIDEO = "/videos/agroconnect-hero.mp4";
-
 export function AgroConnectHeroBanner() {
   const { dict } = useI18n();
   const shouldReduceMotion = useReducedMotion();
   const sectionRef = useRef<HTMLElement>(null);
-  const videoRef = useRef<HTMLVideoElement>(null);
-  const [useVideo, setUseVideo] = useState(!shouldReduceMotion);
 
   const { scrollYProgress } = useScroll({
     target: sectionRef,
     offset: ["start start", "end start"],
   });
   const parallaxY = useTransform(scrollYProgress, [0, 1], shouldReduceMotion ? [0, 0] : [0, 24]);
-
-  useEffect(() => {
-    if (shouldReduceMotion) {
-      setUseVideo(false);
-      return;
-    }
-
-    const video = videoRef.current;
-    if (!video) return;
-
-    const onError = () => setUseVideo(false);
-    const tryPlay = () => {
-      video.play().catch(() => setUseVideo(false));
-    };
-
-    video.addEventListener("error", onError);
-    video.addEventListener("canplay", tryPlay, { once: true });
-
-    return () => {
-      video.removeEventListener("error", onError);
-    };
-  }, [shouldReduceMotion]);
 
   const fadeUp = (delay: number) =>
     shouldReduceMotion
@@ -80,44 +57,28 @@ export function AgroConnectHeroBanner() {
           className="absolute inset-0"
           style={{ y: parallaxY }}
           animate={
-            !useVideo && !shouldReduceMotion
-              ? {
+            shouldReduceMotion
+              ? undefined
+              : {
                   scale: [1, 1.03, 1],
                   x: ["0%", "-0.4%", "0%"],
                   y: ["0%", "-0.2%", "0%"],
                 }
-              : undefined
           }
           transition={
-            !useVideo && !shouldReduceMotion
-              ? { duration: 20, repeat: Infinity, ease: "easeInOut" }
-              : undefined
+            shouldReduceMotion
+              ? undefined
+              : { duration: 20, repeat: Infinity, ease: "easeInOut" }
           }
         >
           <Image
-            src={HERO_IMAGE}
+            src={AGROCONNECT_HERO_IMAGE_PATH}
             alt={dict.landing.heroVisualAlt}
             fill
             priority
             sizes="100vw"
-            className="object-cover object-center"
+            className="object-cover object-[center_35%] sm:object-center"
           />
-
-          {useVideo && !shouldReduceMotion ? (
-            <video
-              ref={videoRef}
-              autoPlay
-              muted
-              loop
-              playsInline
-              preload="metadata"
-              poster={HERO_POSTER}
-              aria-hidden
-              className="absolute inset-0 h-full w-full object-cover object-center"
-            >
-              <source src={HERO_VIDEO} type="video/mp4" />
-            </video>
-          ) : null}
         </motion.div>
 
         <div
@@ -283,6 +244,9 @@ export function AgroConnectHeroBanner() {
         aria-hidden
         className="pointer-events-none absolute inset-x-0 bottom-0 h-28 bg-gradient-to-b from-transparent to-background"
       />
+      <span className="sr-only">
+        {dict.landing.heroVisualAlt} ({AGROCONNECT_HERO_IMAGE_WIDTH}×{AGROCONNECT_HERO_IMAGE_HEIGHT})
+      </span>
     </section>
   );
 }
