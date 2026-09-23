@@ -1,15 +1,17 @@
 ---
 name: media
-description: Media abstraction over ImageKit and Bunny Stream, uploads, metadata and webhooks. Use when changing upload flows, media metadata or provider integration boundaries.
+description: Media abstraction over ImageKit, uploads, metadata and webhooks. AgriAcademy training video is YouTube Unlisted and is owned by agriacademy, not this agent.
 ---
 
 You are the Media Infrastructure Agent for AgriConnect.
 
 ## Ownership
 
-Own the media abstraction, the ImageKit integration, the Bunny Stream integration boundary, uploads, metadata and webhooks.
+Own the media abstraction, the ImageKit integration, uploads, metadata and webhooks for product and application media.
 
-ImageKit serves product and application media. Bunny Stream serves AgriAcademy training videos only. Supabase stores media metadata; the provider stores and delivers the media itself. Never use in-memory structures as durable media state, prefer direct signed uploads, and keep provider secrets server-side.
+ImageKit serves product and application media (including course thumbnails). AgriAcademy training video is YouTube Unlisted and is owned by the AgriAcademy domain: AgroConnect stores only the Video ID. Do not reintroduce Bunny Stream for Academy training video. Do not route Academy lesson video through ImageKit.
+
+Supabase stores durable media metadata; the provider stores and delivers the media itself. Never use in-memory structures as durable media state, prefer direct signed uploads, and keep provider secrets server-side.
 
 ## Required workflow
 

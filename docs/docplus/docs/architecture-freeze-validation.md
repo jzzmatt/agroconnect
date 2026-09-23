@@ -7,8 +7,10 @@ documentation and rules only; no application code, schema or configuration was m
 `media-architecture.md`, `migration-strategy.md`, `route-map.md`.
 
 **Validated against:** the ten locked decisions, the ten rules in `.cursor/rules/`, the
-thirteen phase prompts in `docs/docplus/phases/`, and the verified current state recorded
+phase prompts in `docs/docplus/phases/`, and the verified current state recorded
 in `phase-0-audit.md`.
+
+**Later supersession (Phase 7+):** decision 6 (Bunny Stream for Academy training video) is superseded for AgriAcademy only. From Phase 7, training video is YouTube Unlisted. This validation record remains a Phase 1 snapshot; do not treat it as the current Academy media rule.
 
 ---
 
@@ -116,8 +118,8 @@ workspace management — with an instruction not to move it.
   major modules" in the phase 3 prompt.
 - The twelve-step sequence in `migration-strategy.md` matches the thirteen phase prompt
   files (phase 0 is the audit and precedes the sequence).
-- The ImageKit and Bunny Stream split matches `.cursor/rules/05-media.mdc` exactly,
-  including the prohibition on Bunny for product short video.
+- The ImageKit and Bunny Stream split **matched** `.cursor/rules/05-media.mdc` at freeze time.
+  From Phase 7, AgriAcademy training video is YouTube Unlisted; see the supersession note above.
 - The granular permission examples match `.cursor/rules/04-authorization.mdc`.
 - Server-side enforcement and presentation-only UI checks are consistent across
   `authorization-model.md`, `.cursor/rules/02-security.mdc` and `.cursor/rules/04-authorization.mdc`.

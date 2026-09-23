@@ -1,14 +1,15 @@
 # AgriConnect Cursor AI Development Package
 
 This package contains the Phase 1 architecture artifacts, Cursor rules,
-specialized agent contracts, and implementation prompts for Phases 0–12.
+specialized agent contracts, and implementation prompts for Phases 0–12
+(including Academy sub-phases 7.1, 7.2 and 7.2.1).
 
 ## Layout
 
 - `/.cursor/rules/` — the ten `.mdc` rules, at the repository root so they apply repository-wide.
 - `/.cursor/agents/` — the twelve domain contracts, registered as live Cursor subagents.
 - `docs/docplus/docs/` — the Phase 1 architecture artifacts.
-- `docs/docplus/phases/` — the implementation prompts for Phases 0–12.
+- `docs/docplus/phases/` — the implementation prompts for Phases 0–12, including Academy sub-phases 7.1, 7.2 and 7.2.1.
 - `docs/docplus/CONTEXT_MAP.md` — which files to load for each `@context`.
 - `docs/docplus/EXECUTION_GUIDE.md` — the step-by-step runbook for executing the phases.
 
@@ -44,7 +45,7 @@ specific phase.
 - Roles, subscriptions and entitlements are separate.
 - Product images: ImageKit.
 - Product short videos: ImageKit.
-- AgriAcademy training videos: Bunny Stream.
+- AgriAcademy training videos: YouTube Unlisted (Video ID stored in AgroConnect; no Academy upload/storage/Bunny). Phase 1 originally locked Bunny Stream; Phase 7 supersedes that decision for AgriAcademy only.
 - Supabase: durable metadata/application state.
 - Clerk: identity.
 - PostGIS: geographic infrastructure.

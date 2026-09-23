@@ -3,6 +3,8 @@
 A read-only forensic audit of the AgroConnect repository. No application code, schema or
 configuration was modified in producing this report.
 
+This document is a historical snapshot of the Phase 0 audit. From Phase 7, AgriAcademy training video is YouTube Unlisted; do not treat the Bunny Stream findings below as the current Academy media rule.
+
 - **Commit audited:** `ca07038`
 - **Method:** static reading of all source, migrations and configuration, plus one
   execution of the four validation commands to establish a baseline.
