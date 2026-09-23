@@ -173,6 +173,9 @@ export const en: Dictionary = {
     heroTitle: "Connect. Learn. Buy. Sell and Thrive in the Field.",
     heroSubtitle:
       "Discover certified experts, access practical training, buy seeds and equipment, or sell your products with location coverage across Angola.",
+    heroVisualAlt:
+      "African agricultural landscape with field production, commerce, and digital technology connecting the AgroConnect ecosystem in Angola.",
+    heroCardServiceDesc: "Discover agricultural services and opportunities.",
     ctaPrimary: "Get started",
     ctaSecondary: "See plans and pricing",
     stats: {
