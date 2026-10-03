@@ -64,6 +64,8 @@ export const pt = {
     expertsBadge: "Especialistas",
     coursesBadge: "Cursos",
     productsBadge: "Produtos",
+    billing: "Planos",
+    bottomNavDashboard: "Dashboard",
   },
   pillars: {
     agriExpert: {

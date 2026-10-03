@@ -4,45 +4,69 @@ import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
-  Home,
+  LayoutDashboard,
   Users,
   GraduationCap,
   ShoppingBag,
-  MoreHorizontal,
+  CreditCard,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/provider";
 
 export interface MobileBottomNavProps {
+  /** @deprecated Items are identical on marketing and dashboard layouts. */
   variant?: "marketing" | "dashboard";
 }
 
-export function MobileBottomNav({ variant = "marketing" }: MobileBottomNavProps) {
+export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBottomNavProps) {
   const pathname = usePathname();
   const { dict } = useI18n();
 
   const items = [
-    { href: variant === "dashboard" ? "/dashboard" : "/", label: dict.navigation.home, icon: Home },
-    { href: "/agriservice", label: dict.navigation.agriService || dict.navigation.agriExpert, icon: Users },
-    { href: "/agriacademy", label: dict.common.courses, icon: GraduationCap },
-    { href: "/agrishopping", label: dict.common.products, icon: ShoppingBag },
-    { href: "/agrilocalizacao", label: dict.common.more, icon: MoreHorizontal },
-  ];
+    {
+      href: "/dashboard",
+      label: dict.navigation.bottomNavDashboard,
+      icon: LayoutDashboard,
+      match: (path: string) => path === "/dashboard" || path.startsWith("/dashboard/"),
+    },
+    {
+      href: "/agrishopping",
+      label: dict.navigation.agriShopping,
+      icon: ShoppingBag,
+      match: (path: string) => path.startsWith("/agrishopping"),
+    },
+    {
+      href: "/agriacademy",
+      label: dict.navigation.agriAcademy,
+      icon: GraduationCap,
+      match: (path: string) => path.startsWith("/agriacademy"),
+    },
+    {
+      href: "/agriservice",
+      label: dict.navigation.agriService,
+      icon: Users,
+      match: (path: string) => path.startsWith("/agriservice"),
+    },
+    {
+      href: "/planos",
+      label: dict.navigation.billing,
+      icon: CreditCard,
+      match: (path: string) => path === "/planos" || path.startsWith("/planos/") || path === "/pricing",
+    },
+  ] as const;
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-elevated/95 backdrop-blur-md border-t border-border px-2 py-1 shadow-lg select-none">
-      <div className="flex items-center justify-around max-w-md mx-auto">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-elevated/95 backdrop-blur-md border-t border-border px-1 py-1 shadow-lg select-none">
+      <div className="flex items-center justify-around max-w-lg mx-auto">
         {items.map((item) => {
-          const isActive =
-            pathname === item.href ||
-            (item.href !== "/" && item.href !== "/dashboard" && pathname.startsWith(item.href));
+          const isActive = item.match(pathname);
           const Icon = item.icon;
           return (
             <Link
               key={item.href}
               href={item.href}
               className={cn(
-                "flex flex-col items-center justify-center py-1 px-2 rounded-xl text-[11px] font-semibold transition-colors min-w-[56px]",
+                "flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-semibold transition-colors min-w-0 flex-1 max-w-[72px]",
                 isActive
                   ? "text-primary font-bold"
                   : "text-muted-foreground hover:text-foreground"
@@ -56,7 +80,7 @@ export function MobileBottomNav({ variant = "marketing" }: MobileBottomNavProps)
               >
                 <Icon className="w-4 h-4" />
               </div>
-              <span className="truncate max-w-[60px] text-center">{item.label}</span>
+              <span className="truncate w-full text-center leading-tight">{item.label}</span>
             </Link>
           );
         })}
