@@ -5,7 +5,12 @@ import type {
   MapLayerType,
 } from "./types";
 import type { GeoCoordinate } from "@/types/domain";
-import { loadGoogleMaps } from "../google-maps/loader";
+import {
+  canUseAdvancedMarkers,
+  getGoogleMapsMapId,
+  loadGoogleMaps,
+  subscribeGoogleMapsAuthFailure,
+} from "../google-maps/loader";
 import { GOOGLE_MAP_DARK_STYLES } from "../google-maps/map-styles";
 import { diagnoseGoogleMapsError, logMapDiagnostic } from "../google-maps/diagnostics";
 
@@ -30,7 +35,7 @@ export class GoogleMapProvider implements IMapProvider {
   private containerEl: HTMLElement | null = null;
   private mapClickListener: google.maps.MapsEventListener | null = null;
   private mapClickHandler: ((coordinates: GeoCoordinate) => void) | null = null;
-  private useAdvancedMarkers = false;
+  private authFailureUnsubscribe: (() => void) | null = null;
 
   constructor(initialLayer: MapLayerType = "map") {
     this.currentLayerType = initialLayer;
@@ -58,8 +63,11 @@ export class GoogleMapProvider implements IMapProvider {
       const googleMaps = await loadGoogleMaps();
       if (generation !== this.initGeneration) return;
 
-      await googleMaps.maps.importLibrary("marker");
-      this.useAdvancedMarkers = Boolean(googleMaps.maps.marker?.AdvancedMarkerElement);
+      const mapId = getGoogleMapsMapId();
+      const useAdvancedMarkers = canUseAdvancedMarkers();
+      if (useAdvancedMarkers) {
+        await googleMaps.maps.importLibrary("marker");
+      }
 
       const mapTypeId = this.resolveMapTypeId(this.currentLayerType);
       const isDarkRoadmap =
@@ -73,15 +81,26 @@ export class GoogleMapProvider implements IMapProvider {
         zoom: this.currentZoom,
         minZoom: options.minZoom ?? 3,
         maxZoom: options.maxZoom ?? 20,
+        mapId,
         mapTypeId,
-        styles: isDarkRoadmap && mapTypeId === googleMaps.maps.MapTypeId.ROADMAP
-          ? GOOGLE_MAP_DARK_STYLES
-          : undefined,
+        styles:
+          !mapId && isDarkRoadmap && mapTypeId === googleMaps.maps.MapTypeId.ROADMAP
+            ? GOOGLE_MAP_DARK_STYLES
+            : undefined,
         mapTypeControl: false,
         streetViewControl: false,
         fullscreenControl: true,
         zoomControl: true,
         gestureHandling: options.interactive === false ? "none" : "greedy",
+      });
+
+      this.authFailureUnsubscribe?.();
+      this.authFailureUnsubscribe = subscribeGoogleMapsAuthFailure(() => {
+        if (generation !== this.initGeneration) return;
+        const err = new Error("Google Maps authentication failed (gm_authFailure)");
+        const diagnostic = diagnoseGoogleMapsError(err, "Maps JavaScript API");
+        logMapDiagnostic(diagnostic, err);
+        options.onError?.(err);
       });
 
       this.map.addListener("idle", () => {
@@ -119,6 +138,8 @@ export class GoogleMapProvider implements IMapProvider {
   }
 
   private destroyMapOnly(): void {
+    this.authFailureUnsubscribe?.();
+    this.authFailureUnsubscribe = null;
     this.clearMarkers();
     this.removeUserLocationMarker();
     if (this.mapClickListener) {
@@ -212,7 +233,8 @@ export class GoogleMapProvider implements IMapProvider {
     let marker: google.maps.Marker | google.maps.marker.AdvancedMarkerElement;
     let infoWindow: google.maps.InfoWindow | undefined;
 
-    if (this.useAdvancedMarkers && google.maps.marker?.AdvancedMarkerElement) {
+    const useAdvanced = canUseAdvancedMarkers() && google.maps.marker?.AdvancedMarkerElement;
+    if (useAdvanced) {
       const content = descriptor.element ?? this.buildDefaultMarkerElement(descriptor.color);
       marker = new google.maps.marker.AdvancedMarkerElement({
         map: this.map,
@@ -221,13 +243,14 @@ export class GoogleMapProvider implements IMapProvider {
         content,
       });
     } else {
+      const scale = descriptor.element?.className.includes("w-10") ? 12 : 10;
       marker = new google.maps.Marker({
         map: this.map,
         position,
         title: descriptor.title,
         icon: {
           path: google.maps.SymbolPath.CIRCLE,
-          scale: 10,
+          scale,
           fillColor: descriptor.color || "#0E6B38",
           fillOpacity: 1,
           strokeColor: "#ffffff",
@@ -242,7 +265,11 @@ export class GoogleMapProvider implements IMapProvider {
 
     const clickListener = marker.addListener("click", () => {
       if (infoWindow && this.map) {
-        infoWindow.open({ map: this.map, anchor: marker as google.maps.Marker });
+        if (marker instanceof google.maps.Marker) {
+          infoWindow.open({ map: this.map, anchor: marker });
+        } else {
+          infoWindow.open({ map: this.map });
+        }
       }
       descriptor.onClick?.();
     });
