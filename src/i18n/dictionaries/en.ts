@@ -68,6 +68,9 @@ export const en: Dictionary = {
     productsBadge: "Products",
     billing: "Billing",
     bottomNavDashboard: "Dashboard",
+    bottomNavAgriShop: "AgriShop",
+    bottomNavAgriCad: "AgriCad",
+    bottomNavAgriServ: "AgriServ",
   },
   pillars: {
     agriExpert: {
