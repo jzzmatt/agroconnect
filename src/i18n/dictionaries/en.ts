@@ -66,6 +66,8 @@ export const en: Dictionary = {
     expertsBadge: "Experts",
     coursesBadge: "Courses",
     productsBadge: "Products",
+    billing: "Billing",
+    bottomNavDashboard: "Dashboard",
   },
   pillars: {
     agriExpert: {
