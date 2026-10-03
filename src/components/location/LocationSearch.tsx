@@ -3,7 +3,12 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Loader2, X } from "lucide-react";
 import { getDefaultLocationProvider, type GeocodingResult } from "@/lib/location";
+import {
+  GoogleGeocodingProvider,
+  isPendingPlaceResult,
+} from "@/lib/location/providers/google-geocoding";
 import { cn } from "@/lib/utils";
+import { useI18n } from "@/i18n/provider";
 
 export interface LocationSearchProps {
   onSelectLocation: (result: GeocodingResult) => void;
@@ -13,20 +18,22 @@ export interface LocationSearchProps {
 }
 
 /**
- * Provider-agnostic LocationSearch Component with full theme support.
- * Uses configurable GeocodingProvider (Local Angola dataset / Remote HTTP Geocoding).
+ * Location search with Google Places (New) when configured, otherwise local Angola dataset.
  */
 export function LocationSearch({
   onSelectLocation,
-  placeholder = "Pesquisar província, município ou local em Angola...",
+  placeholder,
   className,
   autoFocus = false,
 }: LocationSearchProps) {
+  const { dict } = useI18n();
+  const resolvedPlaceholder = placeholder ?? dict.agrilocalization.searchPlaceholder;
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<GeocodingResult[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const dropdownRef = useRef<HTMLDivElement>(null);
+  const requestIdRef = useRef(0);
 
   useEffect(() => {
     if (!query.trim() || query.length < 2) {
@@ -36,18 +43,23 @@ export function LocationSearch({
     }
 
     const timer = setTimeout(async () => {
+      const requestId = ++requestIdRef.current;
       setIsLoading(true);
       try {
         const provider = getDefaultLocationProvider().geocodingProvider;
-        const matches = await provider.forward(query, { limit: 8 });
+        const matches = await provider.forward(query, { limit: 8, countryCode: "AO" });
+        if (requestId !== requestIdRef.current) return;
         setResults(matches);
         setIsOpen(matches.length > 0);
       } catch {
+        if (requestId !== requestIdRef.current) return;
         setResults([]);
       } finally {
-        setIsLoading(false);
+        if (requestId === requestIdRef.current) {
+          setIsLoading(false);
+        }
       }
-    }, 250);
+    }, 280);
 
     return () => clearTimeout(timer);
   }, [query]);
@@ -62,24 +74,45 @@ export function LocationSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = (result: GeocodingResult) => {
-    setQuery(result.name);
-    setIsOpen(false);
-    onSelectLocation(result);
+  const handleSelect = async (result: GeocodingResult) => {
+    setIsLoading(true);
+    try {
+      let resolved = result;
+      const provider = getDefaultLocationProvider().geocodingProvider;
+      if (
+        provider instanceof GoogleGeocodingProvider &&
+        isPendingPlaceResult(result)
+      ) {
+        const detailed = await provider.resolvePlace(result.id);
+        if (!detailed) {
+          setIsLoading(false);
+          return;
+        }
+        resolved = detailed;
+      }
+
+      setQuery(resolved.name);
+      setIsOpen(false);
+      onSelectLocation(resolved);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
     <div ref={dropdownRef} className={cn("relative w-full", className)}>
       <div className="relative flex items-center">
-        <MapPin className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
+        <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-primary pointer-events-none" />
+        <MapPin className="absolute left-9 top-1/2 -translate-y-1/2 w-3.5 h-3.5 text-muted-foreground pointer-events-none opacity-60" />
         <input
           type="text"
           value={query}
           onChange={(e) => setQuery(e.target.value)}
           onFocus={() => results.length > 0 && setIsOpen(true)}
-          placeholder={placeholder}
+          placeholder={resolvedPlaceholder}
           autoFocus={autoFocus}
-          className="w-full pl-10 pr-9 py-2.5 bg-input rounded-xl border border-input-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all shadow-2xs font-medium"
+          aria-label={resolvedPlaceholder}
+          className="w-full pl-14 pr-9 py-2.5 bg-input rounded-xl border border-input-border text-sm text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring focus:border-transparent transition-all shadow-2xs font-medium"
         />
         {isLoading ? (
           <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 w-4 h-4 text-primary animate-spin" />
@@ -92,7 +125,7 @@ export function LocationSearch({
               setIsOpen(false);
             }}
             className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground p-0.5"
-            aria-label="Limpar pesquisa"
+            aria-label={dict.common.close}
           >
             <X className="w-4 h-4" />
           </button>
@@ -105,7 +138,7 @@ export function LocationSearch({
             <button
               key={res.id}
               type="button"
-              onClick={() => handleSelect(res)}
+              onClick={() => void handleSelect(res)}
               className="w-full px-4 py-2.5 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
             >
               <div className="flex items-center gap-2.5">

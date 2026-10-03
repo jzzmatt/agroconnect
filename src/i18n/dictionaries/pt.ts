@@ -284,7 +284,7 @@ export const pt = {
     pillarExpertDesc: "Encontre agrónomos, veterinários e técnicos credenciados para consultoria presencial e remota.",
     pillarAcademyDesc: "Cursos práticos e masterclasses focadas em culturas de milho, soja, pecuária e gestão agrícola.",
     pillarShoppingDesc: "Compre e venda sementes certificadas, adubos e sistemas de irrigação com entrega garantida.",
-    pillarLocationDesc: "Motor geoespacial alimentado por PostGIS e MapQuest para descobrir recursos perto de si.",
+    pillarLocationDesc: "Motor geoespacial alimentado por PostGIS e Google Maps para descobrir recursos perto de si.",
     seeExperts: "Ver especialistas",
     seeCourses: "Ver cursos",
     seeProducts: "Ver produtos",
@@ -792,6 +792,16 @@ export const pt = {
   agrilocalization: {
     title: "AgriLocalização",
     mapViewCourse: "Ver curso",
+    searchPlaceholder: "Pesquisar localização",
+    mapLoading: "A carregar o mapa…",
+    mapLoadError: "Não foi possível carregar o mapa.",
+    mapUnavailable: "Mapa indisponível",
+    mapUnavailableHint:
+      "A lista de recursos continua disponível. Verifique a chave Google Maps ou a ligação à internet.",
+    mapRetry: "Tentar novamente",
+    mapProviderLabel: "Google Maps",
+    locationNotFound: "Localização não encontrada.",
+    searchError: "Não foi possível pesquisar localizações.",
   },
   auth: {
     signIn: "Entrar",

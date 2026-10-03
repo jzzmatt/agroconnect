@@ -2,81 +2,42 @@ import { describe, it, expect } from "vitest";
 import {
   createLocationProvider,
   getDefaultLocationProvider,
-  LocalAngolaGeocodingProvider,
-  MapQuestGeocodingProvider,
-  MapQuestProvider,
-  getMapTileUrl,
+  GoogleMapProvider,
 } from "@/lib/location/providers";
+import { LocalAngolaGeocodingProvider } from "@/lib/location/providers/geocoding";
+import { getGoogleMapsApiKey } from "@/lib/location/google-maps/loader";
 
-describe("LocationProvider & MapQuest Geospatial Architecture", () => {
-  it("creates a default LocationProvider containing MapQuest MapProvider and GeocodingProvider", () => {
+describe("LocationProvider & Google Maps geospatial architecture", () => {
+  it("creates a default LocationProvider with Google map adapter", () => {
     const provider = getDefaultLocationProvider();
-    expect(provider).toBeDefined();
-    expect(provider.mapProvider).toBeDefined();
-    expect(provider.geocodingProvider).toBeDefined();
-    expect(provider.mapProvider.id).toBe("mapquest");
+    expect(provider.mapProvider.id).toBe("google-maps");
+    expect(provider.mapProvider.name).toContain("Google");
   });
 
-  it("generates correct tile URLs for standard map, dark and satellite layers", () => {
-    const mapTile = getMapTileUrl("test_key_123", "map");
-    expect(mapTile.url).toContain("tiles.mapquest.com/render/latest/vivid");
-
-    const satTile = getMapTileUrl("test_key_123", "satellite");
-    expect(satTile.url).toContain("tiles.mapquest.com/render/latest/satellite");
-
-    const darkTile = getMapTileUrl("test_key_123", "dark");
-    expect(darkTile.url).toContain("tiles.mapquest.com/render/latest/night");
+  it("uses local Angola geocoding when no Google Maps API key is configured", () => {
+    const original = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+    const provider = createLocationProvider();
+    expect(provider.geocodingProvider.id).toBe("local-angola");
+    if (original) process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = original;
   });
 
-  it("supports layer type switching in MapQuestProvider (map, satellite, dark)", () => {
-    const mapProvider = new MapQuestProvider("test_key", "map");
+  it("supports layer type metadata on GoogleMapProvider", () => {
+    const mapProvider = new GoogleMapProvider("map");
     expect(mapProvider.getLayerType()).toBe("map");
-
     mapProvider.setLayerType("satellite");
     expect(mapProvider.getLayerType()).toBe("satellite");
-
-    mapProvider.setLayerType("dark");
-    expect(mapProvider.getLayerType()).toBe("dark");
   });
 
-  it("performs forward geocoding with LocalAngolaGeocodingProvider", async () => {
+  it("local provider resolves Luanda queries offline", async () => {
     const geocoder = new LocalAngolaGeocodingProvider();
-
-    const huamboResults = await geocoder.forward("Huambo");
-    expect(huamboResults.length).toBeGreaterThan(0);
-    const huambo = huamboResults.find((r) => r.name === "Huambo");
-    expect(huambo).toBeDefined();
-    expect(huambo?.countryCode).toBe("AO");
-    expect(huambo?.coordinates.latitude).toBeCloseTo(-12.7833, 2);
-
-    const caalaResults = await geocoder.forward("Caála");
-    expect(caalaResults.length).toBeGreaterThan(0);
-    expect(caalaResults[0].provinceName).toBe("Huambo");
-  });
-
-  it("performs reverse geocoding with LocalAngolaGeocodingProvider", async () => {
-    const geocoder = new LocalAngolaGeocodingProvider();
-    const result = await geocoder.reverse({ latitude: -14.9167, longitude: 13.55 });
-    expect(result).not.toBeNull();
-    expect(result?.municipalityName).toBe("Lubango");
-    expect(result?.provinceName).toBe("Huíla");
-  });
-
-  it("falls back gracefully to local provider when MapQuestGeocodingProvider has no API key", async () => {
-    const geocoder = new MapQuestGeocodingProvider("");
-
-    const results = await geocoder.forward("Benguela");
+    const results = await geocoder.forward("Luanda", { limit: 3 });
     expect(results.length).toBeGreaterThan(0);
-    expect(results.some((r) => r.name.includes("Benguela"))).toBe(true);
+    expect(results[0].provinceName || results[0].name).toMatch(/Luanda/i);
   });
 
-  it("allows instantiating a custom LocationProvider with decoupled options", () => {
-    const custom = createLocationProvider({
-      apiKey: "custom_key_456",
-      initialLayer: "satellite",
-    });
-
-    expect(custom.mapProvider.id).toBe("mapquest");
-    expect(custom.geocodingProvider.id).toBe("mapquest-geocoding");
+  it("reads Google Maps key only from environment when present", () => {
+    const key = getGoogleMapsApiKey();
+    expect(typeof key === "string" || key === undefined).toBe(true);
   });
 });

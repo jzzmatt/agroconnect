@@ -12,7 +12,7 @@ import {
 } from "lucide-react";
 import type { GeoCoordinate } from "@/types/domain";
 import { cn } from "@/lib/utils";
-import { MapQuestProvider } from "@/lib/location/providers/mapquest-map";
+import { GoogleMapProvider } from "@/lib/location/providers/google-map";
 import type { IMapProvider, MapLayerType } from "@/lib/location/providers/types";
 import { useTheme } from "@/lib/theme";
 import { useGeolocation } from "@/lib/location/use-geolocation";
@@ -21,6 +21,9 @@ import {
   MapLifecycleManager,
   coordinatesEqual,
 } from "@/lib/location/map-lifecycle";
+import { focusMapEntity } from "@/lib/location/google-maps/focus-entity";
+import { diagnoseGoogleMapsError, logMapDiagnostic } from "@/lib/location/google-maps/diagnostics";
+import { useI18n } from "@/i18n/provider";
 
 export interface MapMarkerItem {
   id: string;
@@ -101,13 +104,7 @@ const CATEGORY_CONFIG: Record<
 };
 
 /**
- * Production MapQuest Map Component.
- * Powered by MapQuest platform for standard road/street maps & satellite layers,
- * with full integration into Supabase PostGIS spatial data and Angola location engine.
- */
-/**
- * Reusable GeoMap: one Leaflet/MapQuest instance per mounted container.
- * Marker, filter, and location updates reuse the existing map.
+ * AgriLocalization GeoMap — Google Maps presentation over Supabase/PostGIS coordinates.
  */
 export function LocationMap({
   markers = [],
@@ -125,6 +122,7 @@ export function LocationMap({
   initialLayer = "map",
 }: LocationMapProps) {
   const { theme } = useTheme();
+  const { dict } = useI18n();
   const { requestLocation, isLoading: isGpsLoading } = useGeolocation();
   const resolvedSelectedId = selectedLocation ?? selectedMarkerId ?? null;
   const handleSelect = onLocationSelect ?? onSelectMarker;
@@ -159,11 +157,7 @@ export function LocationMap({
       if (handleSelect) handleSelect(marker);
       const provider = lifecycleRef.current?.instance;
       if (provider) {
-        provider.setCenter(
-          { latitude: marker.latitude, longitude: marker.longitude },
-          Math.max(provider.getZoom(), 12),
-          800
-        );
+        focusMapEntity(provider, marker, { durationMs: 800 });
       }
     },
     [handleSelect]
@@ -177,8 +171,7 @@ export function LocationMap({
     const manager = new MapLifecycleManager(
       () =>
         mapProviderRef.current ||
-        new MapQuestProvider(
-          process.env.NEXT_PUBLIC_MAPQUEST_API_KEY,
+        new GoogleMapProvider(
           initialLayerRef.current === "satellite"
             ? "satellite"
             : themeRef.current === "dark"
@@ -206,8 +199,9 @@ export function LocationMap({
         },
         onError: (err) => {
           if (cancelled) return;
-          console.error("[MapQuest Map] Error:", err);
-          setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
+          const diagnostic = diagnoseGoogleMapsError(err, "Maps JavaScript API");
+          logMapDiagnostic(diagnostic, err);
+          setMapError(dict.agrilocalization.mapLoadError);
         },
       })
       .then((provider) => {
@@ -216,8 +210,9 @@ export function LocationMap({
       })
       .catch((err) => {
         if (cancelled) return;
-        console.error("[MapQuest Map] Error:", err);
-        setMapError("Não foi possível carregar o mapa MapQuest. Verifique a chave de API.");
+        const diagnostic = diagnoseGoogleMapsError(err, "Maps JavaScript API");
+        logMapDiagnostic(diagnostic, err);
+        setMapError(dict.agrilocalization.mapLoadError);
       });
 
     let observer: ResizeObserver | null = null;
@@ -265,10 +260,12 @@ export function LocationMap({
 
     filteredMarkers.forEach((marker) => {
       const config = CATEGORY_CONFIG[marker.category] || CATEGORY_CONFIG.expert;
+      const isSelected = marker.id === resolvedSelectedId;
 
       const el = document.createElement("div");
-      el.className =
-        "w-8 h-8 rounded-full shadow-xl flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-900 cursor-pointer transition-transform hover:scale-115";
+      el.className = isSelected
+        ? "w-10 h-10 rounded-full shadow-xl flex items-center justify-center text-white font-bold ring-4 ring-primary/80 dark:ring-primary cursor-pointer scale-110 z-20"
+        : "w-8 h-8 rounded-full shadow-xl flex items-center justify-center text-white font-bold ring-2 ring-white dark:ring-slate-900 cursor-pointer transition-transform hover:scale-110";
       el.style.backgroundColor = config.hex;
       el.innerHTML = `<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M20 10c0 4.993-5.539 10.193-7.399 11.799a1 1 0 0 1-1.202 0C9.539 20.193 4 14.993 4 10a8 8 0 0 1 16 0"/><circle cx="12" cy="10" r="3"/></svg>`;
 
@@ -309,7 +306,7 @@ export function LocationMap({
         `,
       });
     });
-  }, [filteredMarkers, handleMarkerClick, theme, mapLoaded]);
+  }, [filteredMarkers, handleMarkerClick, theme, mapLoaded, resolvedSelectedId]);
 
   useEffect(() => {
     const provider = lifecycleRef.current?.instance;
@@ -475,7 +472,7 @@ export function LocationMap({
 
       {/* Main Map Mount Point */}
       <div className="relative flex-1 w-full h-full min-h-[400px]">
-        {/* Leaflet container */}
+        {/* Google Maps container */}
         <div
           ref={mapContainerRef}
           className="w-full h-full min-h-[400px]"
@@ -487,7 +484,7 @@ export function LocationMap({
           <div className="absolute inset-0 z-10 flex flex-col items-center justify-center bg-surface/60 backdrop-blur-xs text-foreground space-y-2 pointer-events-none transition-opacity duration-300">
             <Loader2 className="w-8 h-8 text-primary animate-spin" />
             <p className="text-xs font-bold text-muted-foreground">
-              Carregando mapa MapQuest...
+              {dict.agrilocalization.mapLoading}
             </p>
           </div>
         )}
@@ -499,7 +496,7 @@ export function LocationMap({
             <div>
               <h4 className="text-sm font-bold text-foreground">{mapError}</h4>
               <p className="text-xs text-muted-foreground mt-1">
-                Verifique a configuração da chave de API MapQuest ou a ligação à internet.
+                {dict.agrilocalization.mapUnavailableHint}
               </p>
             </div>
             <button
@@ -507,7 +504,7 @@ export function LocationMap({
               onClick={handleRetry}
               className="px-4 py-2 bg-primary text-primary-foreground text-xs font-bold rounded-xl shadow-xs hover:bg-primary-hover transition-colors"
             >
-              Tentar novamente
+              {dict.agrilocalization.mapRetry}
             </button>
           </div>
         )}
@@ -561,7 +558,7 @@ export function LocationMap({
         <div className="flex items-center gap-2">
           <span>Camada: <strong className="text-foreground capitalize">{currentLayer}</strong></span>
           <span>•</span>
-          <span>MapQuest Platform</span>
+          <span>{dict.agrilocalization.mapProviderLabel}</span>
         </div>
       </div>
     </div>
