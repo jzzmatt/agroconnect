@@ -12,6 +12,31 @@ export function getGoogleMapsApiKey(): string | undefined {
   return key || undefined;
 }
 
+/** Optional Cloud Map ID — required only for Advanced Markers; omit to use classic markers. */
+export function getGoogleMapsMapId(): string | undefined {
+  const mapId = process.env.NEXT_PUBLIC_GOOGLE_MAPS_MAP_ID?.trim();
+  return mapId || undefined;
+}
+
+export function canUseAdvancedMarkers(): boolean {
+  return Boolean(getGoogleMapsMapId());
+}
+
+const AUTH_FAILURE_EVENT = "agroconnect:google-maps-auth-failure";
+
+export function registerGoogleMapsAuthFailureHandler(): void {
+  if (typeof window === "undefined") return;
+  (window as Window & { gm_authFailure?: () => void }).gm_authFailure = () => {
+    window.dispatchEvent(new CustomEvent(AUTH_FAILURE_EVENT));
+  };
+}
+
+export function subscribeGoogleMapsAuthFailure(listener: () => void): () => void {
+  if (typeof window === "undefined") return () => {};
+  window.addEventListener(AUTH_FAILURE_EVENT, listener);
+  return () => window.removeEventListener(AUTH_FAILURE_EVENT, listener);
+}
+
 export function getGoogleMapsLoadStatus(): GoogleMapsLoadStatus {
   return loadStatus;
 }
@@ -39,20 +64,24 @@ export async function loadGoogleMaps(): Promise<typeof google> {
 
   loadStatus = "loading";
 
+  registerGoogleMapsAuthFailureHandler();
+
   if (!optionsApplied) {
     setOptions({
       key: apiKey,
       v: "weekly",
-      libraries: ["places", "marker", "geocoding"],
+      region: "AO",
+      libraries: ["places"],
     });
     optionsApplied = true;
   }
 
-  loadPromise = Promise.all([
-    importLibrary("maps"),
-    importLibrary("marker"),
-    importLibrary("places"),
-  ])
+  const libraries: Array<"maps" | "places" | "marker"> = ["maps", "places"];
+  if (canUseAdvancedMarkers()) {
+    libraries.push("marker");
+  }
+
+  loadPromise = Promise.all(libraries.map((name) => importLibrary(name)))
     .then(() => {
       loadStatus = "ready";
       lastLoadError = null;

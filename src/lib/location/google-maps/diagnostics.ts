@@ -139,6 +139,24 @@ export function diagnoseGoogleMapsError(
         ],
       };
     default:
+      if (raw.includes("gm_authFailure") || raw.includes("authentication failed")) {
+        return {
+          code: "AuthFailure",
+          operation,
+          message: "Google Maps rejected this site or API key (gm_authFailure).",
+          audience: "developer",
+          externalActionRequired: true,
+          externalActionSteps: [
+            "Open Google Cloud Console → APIs & Services → Credentials → your browser API key.",
+            "Under Application restrictions → Websites, add:",
+            "https://agroconnect-git-main-jzzmatts-projects.vercel.app/*",
+            "http://localhost:3000/*",
+            "Under API restrictions, allow Maps JavaScript API and Places API (New).",
+            "Confirm billing is enabled and Maps JavaScript API is enabled.",
+            "If the key was exposed, rotate it and update NEXT_PUBLIC_GOOGLE_MAPS_API_KEY in Vercel, then redeploy.",
+          ],
+        };
+      }
       return {
         code: code || "UNKNOWN",
         operation,
