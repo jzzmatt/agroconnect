@@ -64,14 +64,10 @@ describe("FIX 2 — /planos hides the current database plan", () => {
   });
 
   it("removes the current plan from the selectable cards", () => {
-    expect(getSelectablePlans("basic").map((p) => p.id)).toEqual([
-      "professional",
-      "business",
-      "enterprise",
-    ]);
+    expect(getSelectablePlans("basic").map((p) => p.id)).toEqual(["professional", "business"]);
     expect(getSelectablePlans("professional").map((p) => p.id)).not.toContain("professional");
     expect(getSelectablePlans("business").map((p) => p.id)).not.toContain("business");
-    expect(getSelectablePlans("enterprise").map((p) => p.id)).not.toContain("enterprise");
+    expect(getSelectablePlans(null)).toHaveLength(3);
     expect(getSelectablePlans(null)).toHaveLength(Object.keys(SUBSCRIPTION_PLANS).length);
   });
 

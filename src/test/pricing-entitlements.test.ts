@@ -9,7 +9,7 @@ import {
 import { createProductAction } from "@/lib/services/shopping-actions";
 
 describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits & WhatsApp", () => {
-  it("1. Verifies the 4 Canonical Subscription Plans and exact monthly pricing in Kwanzas", () => {
+  it("1. Verifies the 3 Canonical Subscription Plans and exact monthly pricing in Kwanzas", () => {
     expect(SUBSCRIPTION_PLANS.basic.priceMonthlyAoa).toBe(0);
     expect(SUBSCRIPTION_PLANS.basic.priceFormatted).toBe("0 Kz");
 
@@ -21,10 +21,8 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(SUBSCRIPTION_PLANS.business.priceFormatted).toBe("30.000 Kz");
     expect(SUBSCRIPTION_PLANS.business.productLimit).toBeNull(); // Unlimited
     expect(SUBSCRIPTION_PLANS.business.highlightBadge).toBe("MAIS ESCOLHIDO PARA VENDEDORES");
-
-    expect(SUBSCRIPTION_PLANS.enterprise.priceMonthlyAoa).toBe(80000);
-    expect(SUBSCRIPTION_PLANS.enterprise.priceFormatted).toBe("80.000 Kz");
-    expect(SUBSCRIPTION_PLANS.enterprise.productLimit).toBeNull(); // Unlimited
+    expect(SUBSCRIPTION_PLANS.business.videoStorageLimitGb).toBe(1024);
+    expect(SUBSCRIPTION_PLANS.business.productLimit).toBeNull(); // Unlimited
   });
 
   it("2. Basic plan (0 Kz/mês) is view-only for creation and rejects product/course publishing", () => {
@@ -43,14 +41,15 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(proEntitlements.product_limit).toBe(10);
   });
 
-  it("4. Business (30.000 Kz/mês) and Enterprise (80.000 Kz/mês) allow unlimited products", () => {
+  it("4. Business (30.000 Kz/mês) allows unlimited products and custom gateway service", () => {
     const bizEntitlements = getUserEntitlements({ subscriptionPlan: "business" });
     expect(bizEntitlements.can_create_products).toBe(true);
     expect(bizEntitlements.product_limit).toBeNull(); // Unlimited
+    expect(bizEntitlements.can_request_custom_payment_gateway).toBe(true);
 
-    const entEntitlements = getUserEntitlements({ subscriptionPlan: "enterprise" });
-    expect(entEntitlements.can_create_products).toBe(true);
-    expect(entEntitlements.product_limit).toBeNull(); // Unlimited
+    const legacyEnt = getUserEntitlements({ subscriptionPlan: "enterprise" });
+    expect(legacyEnt.plan).toBe("business");
+    expect(legacyEnt.can_request_custom_payment_gateway).toBe(true);
   });
 
   it("5. WhatsApp number normalization converts Angola phone numbers to E.164 and formatted display", () => {
@@ -81,8 +80,9 @@ describe("AGROCONNECT Phase 8.5 Revision v2 — Pricing, Plans, Product Limits &
     expect(parseStoredPlan("profissional")).toBe("professional");
     expect(parseStoredPlan("business")).toBe("business");
     expect(parseStoredPlan("create")).toBe("business");
-    expect(parseStoredPlan("premium")).toBe("enterprise");
-    expect(parseStoredPlan("empresarial")).toBe("enterprise");
+    expect(parseStoredPlan("premium")).toBe("business");
+    expect(parseStoredPlan("empresarial")).toBe("business");
+    expect(parseStoredPlan("enterprise")).toBe("business");
   });
 
   it("7. Validates that Basic plan has all 4 ecosystem creation modules locked", () => {

@@ -29,7 +29,7 @@ export default function EnterpriseServicesPage() {
         <span className="text-xs font-bold text-primary uppercase tracking-wider">Serviços empresariais</span>
         <h1 className="text-2xl font-black">Configuração personalizada de gateway de pagamento</h1>
         <p className="text-xs text-muted-foreground">
-          Este é um serviço comercial da AgriConnect, não uma funcionalidade automática da subscrição Empresarial.
+          Este é um serviço comercial da AgriConnect, não uma funcionalidade automática da subscrição Business.
           A equipa técnica trata da configuração após o pedido.
         </p>
       </div>
@@ -39,7 +39,7 @@ export default function EnterpriseServicesPage() {
           <Building2 className="w-6 h-6 text-primary" />
           <div>
             <h2 className="text-sm font-bold">Gateway de pagamento à medida</h2>
-            <p className="text-xs text-muted-foreground">Disponível apenas para clientes Empresarial.</p>
+            <p className="text-xs text-muted-foreground">Disponível apenas para clientes Business.</p>
           </div>
         </div>
 
@@ -51,10 +51,10 @@ export default function EnterpriseServicesPage() {
           <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-800 space-y-2">
             <p className="text-xs font-bold flex items-center gap-1.5">
               <Lock className="w-4 h-4" />
-              Disponível no plano Empresarial
+              Disponível no plano Business
             </p>
             <p className="text-xs text-muted-foreground">
-              Plano atual: {plan}. Atualize para Empresarial (80.000 Kz/mês) para solicitar este serviço.
+              Plano atual: {plan}. Atualize para Business (30.000 Kz/mês) para solicitar este serviço.
             </p>
             <Link href="/planos">
               <Button variant="primary" size="sm" className="font-bold text-xs">

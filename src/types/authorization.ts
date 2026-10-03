@@ -43,7 +43,7 @@ export interface UserEntitlements {
 
 export interface SubscriptionPlanDefinition {
   id: SubscriptionPlan;
-  slug: "basic" | "professional" | "business" | "enterprise";
+  slug: SubscriptionPlan;
   name: string;
   priceMonthlyAoa: number;
   priceFormatted: string;

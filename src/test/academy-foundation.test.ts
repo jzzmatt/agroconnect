@@ -16,7 +16,7 @@ import { can, type CapabilitySubject } from "@/lib/authorization/policy";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import type { CourseStatus } from "@/types/database";
 
-function instructorSubject(plan: "basic" | "professional" | "business" | "enterprise" | null): CapabilitySubject {
+function instructorSubject(plan: "basic" | "professional" | "business" | null): CapabilitySubject {
   const entitlements = getUserEntitlements({ subscriptionPlan: plan, roles: ["instructor"] });
   return {
     clerkUserId: "user_instructor",

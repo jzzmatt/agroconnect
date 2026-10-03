@@ -353,7 +353,7 @@ export const en: Dictionary = {
     activateError: "Could not update the plan.",
     faqTitle: "Questions about the limits?",
     faqBody:
-      "The Professional plan allows up to 10 active products and 100 GB of AgriAcademy video. Business offers unlimited products and 300 GB. Enterprise includes 1 TB and a custom payment-gateway setup service.",
+      "The Professional plan allows up to 10 active products and 100 GB of AgriAcademy video. Business offers unlimited products, 1 TB of AgriAcademy video, and a custom payment-gateway setup service.",
     free: {
       name: "Basic",
       price: "0 Kz",
@@ -413,27 +413,14 @@ export const en: Dictionary = {
       },
       business: {
         name: "Business",
-        tagline: "For sellers, distributors, and growing agribusinesses",
+        tagline: "For sellers, cooperatives, and agri organizations",
         cta: "Choose Business",
         highlightBadge: "MOST CHOSEN BY SELLERS",
         features: [
           "Everything in Professional",
           "No defined product limit",
-          "Advanced seller features",
-          "AgriAcademy unlocked",
-          "300 GB of AgriAcademy video storage",
-          "Operating-country selection",
-        ],
-        lockedFeatures: [],
-      },
-      enterprise: {
-        name: "Enterprise",
-        tagline: "For large companies, cooperatives, and agri organizations",
-        cta: "Subscribe Enterprise",
-        highlightBadge: "",
-        features: [
-          "Everything in Business",
           "Unlimited catalog and enterprise capabilities",
+          "Advanced seller features",
           "AgriAcademy unlocked",
           "1 TB of AgriAcademy video storage",
           "Service: custom payment-gateway setup",

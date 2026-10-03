@@ -85,7 +85,7 @@ describe("Phase 5 — public provider publication", () => {
     expect(getUserEntitlements({ subscriptionPlan: "basic" }).can_publish_public_provider).toBe(false);
     expect(getUserEntitlements({ subscriptionPlan: "professional" }).can_publish_public_provider).toBe(true);
     expect(getUserEntitlements({ subscriptionPlan: "business" }).can_publish_public_provider).toBe(true);
-    expect(getUserEntitlements({ subscriptionPlan: "enterprise" }).can_publish_public_provider).toBe(true);
+    expect(getUserEntitlements({ subscriptionPlan: "business" }).can_publish_public_provider).toBe(true);
 
     expect(can(null, "profile.publish")).toBe(false);
     expect(can(subject(null), "profile.publish")).toBe(false);
