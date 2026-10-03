@@ -3,11 +3,14 @@ import type {
   IMapProvider,
   IGeocodingProvider,
 } from "./types";
-import { MapQuestProvider } from "./mapquest-map";
-import { MapQuestGeocodingProvider, LocalAngolaGeocodingProvider } from "./geocoding";
+import { GoogleMapProvider } from "./google-map";
+import { GoogleGeocodingProvider } from "./google-geocoding";
+import { LocalAngolaGeocodingProvider } from "./geocoding";
+import { getGoogleMapsApiKey } from "../google-maps/loader";
 
 export * from "./types";
-export * from "./mapquest-map";
+export * from "./google-map";
+export * from "./google-geocoding";
 export * from "./geocoding";
 
 export interface LocationProviderOptions {
@@ -16,19 +19,17 @@ export interface LocationProviderOptions {
 }
 
 /**
- * Creates an authoritative MapQuest LocationProvider instance.
- * Decouples external mapping (MapQuest) from Supabase PostGIS spatial data models.
+ * Supabase/PostGIS remains the geographic data layer; Google Maps is presentation + place search.
  */
 export function createLocationProvider(options?: LocationProviderOptions): ILocationProvider {
-  const apiKey = options?.apiKey || process.env.NEXT_PUBLIC_MAPQUEST_API_KEY || "";
+  const googleKey = options?.apiKey || getGoogleMapsApiKey() || "";
 
-  const mapProvider: IMapProvider = new MapQuestProvider(
-    apiKey,
+  const mapProvider: IMapProvider = new GoogleMapProvider(
     options?.initialLayer || "map"
   );
 
-  const geocodingProvider: IGeocodingProvider = apiKey
-    ? new MapQuestGeocodingProvider(apiKey)
+  const geocodingProvider: IGeocodingProvider = googleKey
+    ? new GoogleGeocodingProvider()
     : new LocalAngolaGeocodingProvider();
 
   return {
@@ -37,9 +38,6 @@ export function createLocationProvider(options?: LocationProviderOptions): ILoca
   };
 }
 
-/**
- * Singleton default location provider instance for general application use
- */
 let defaultLocationProvider: ILocationProvider | null = null;
 
 export function getDefaultLocationProvider(): ILocationProvider {

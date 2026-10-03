@@ -132,10 +132,10 @@ describe("FIX 3/8/9 — GeoMap lifecycle", () => {
     expect(coordinatesEqual(DEFAULT_ANGOLA_CENTER, { latitude: 0, longitude: 0 })).toBe(false);
   });
 
-  it("MapQuest adapter clears a leftover Leaflet container id", () => {
-    const src = read("src/lib/location/providers/mapquest-map.ts");
-    expect(src).toMatch("releaseContainer");
-    expect(src).toMatch("_leaflet_id");
+  it("Google map adapter clears the map container on destroy", () => {
+    const src = read("src/lib/location/providers/google-map.ts");
+    expect(src).toMatch("replaceChildren");
+    expect(src).toMatch("destroyMapOnly");
     expect(src).toMatch("initGeneration");
   });
 });

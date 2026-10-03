@@ -285,7 +285,7 @@ export const en: Dictionary = {
     pillarExpertDesc: "Find accredited agronomists, veterinarians, and technicians for in-person and remote consulting.",
     pillarAcademyDesc: "Practical courses and masterclasses focused on maize, soy, livestock, and farm management.",
     pillarShoppingDesc: "Buy and sell certified seeds, fertilizer, and irrigation systems with guaranteed delivery.",
-    pillarLocationDesc: "A geospatial engine powered by PostGIS and MapQuest to discover resources near you.",
+    pillarLocationDesc: "A geospatial engine powered by PostGIS and Google Maps to discover resources near you.",
     seeExperts: "See experts",
     seeCourses: "See courses",
     seeProducts: "See products",
@@ -792,6 +792,16 @@ export const en: Dictionary = {
   agrilocalization: {
     title: "AgriLocalization",
     mapViewCourse: "View course",
+    searchPlaceholder: "Search location",
+    mapLoading: "Loading map…",
+    mapLoadError: "Unable to load the map.",
+    mapUnavailable: "Map unavailable",
+    mapUnavailableHint:
+      "The resource list remains available. Check the Google Maps key or your connection.",
+    mapRetry: "Try again",
+    mapProviderLabel: "Google Maps",
+    locationNotFound: "Location not found.",
+    searchError: "Unable to search locations.",
   },
   auth: {
     signIn: "Sign In",

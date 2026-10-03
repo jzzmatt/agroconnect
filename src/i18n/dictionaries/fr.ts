@@ -286,7 +286,7 @@ export const fr: Dictionary = {
     pillarExpertDesc: "Trouvez des agronomes, vétérinaires et techniciens agréés pour des consultations en présentiel et à distance.",
     pillarAcademyDesc: "Cours pratiques et masterclasses axés sur le maïs, le soja, l'élevage et la gestion agricole.",
     pillarShoppingDesc: "Achetez et vendez des semences certifiées, des engrais et des systèmes d'irrigation avec livraison garantie.",
-    pillarLocationDesc: "Un moteur géospatial alimenté par PostGIS et MapQuest pour découvrir les ressources près de vous.",
+    pillarLocationDesc: "Un moteur géospatial alimenté par PostGIS et Google Maps pour découvrir les ressources près de vous.",
     seeExperts: "Voir les experts",
     seeCourses: "Voir les cours",
     seeProducts: "Voir les produits",
@@ -795,6 +795,16 @@ export const fr: Dictionary = {
   agrilocalization: {
     title: "AgriLocalização",
     mapViewCourse: "Voir le cours",
+    searchPlaceholder: "Rechercher un emplacement",
+    mapLoading: "Chargement de la carte…",
+    mapLoadError: "Impossible de charger la carte.",
+    mapUnavailable: "Carte indisponible",
+    mapUnavailableHint:
+      "La liste des ressources reste disponible. Vérifiez la clé Google Maps ou la connexion.",
+    mapRetry: "Réessayer",
+    mapProviderLabel: "Google Maps",
+    locationNotFound: "Emplacement introuvable.",
+    searchError: "Impossible de rechercher des emplacements.",
   },
   auth: {
     signIn: "Connexion",

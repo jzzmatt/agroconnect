@@ -1,7 +1,7 @@
 import type { GeoCoordinate } from "@/types/domain";
 
 /**
- * Common Map Configuration Options for MapQuest Map
+ * Common map configuration options (Google Maps presentation layer)
  */
 export interface MapOptions {
   container: HTMLElement | string;
