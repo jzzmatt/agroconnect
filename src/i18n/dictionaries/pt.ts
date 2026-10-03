@@ -66,6 +66,9 @@ export const pt = {
     productsBadge: "Produtos",
     billing: "Planos",
     bottomNavDashboard: "Dashboard",
+    bottomNavAgriShop: "AgriShop",
+    bottomNavAgriCad: "AgriCad",
+    bottomNavAgriServ: "AgriServ",
   },
   pillars: {
     agriExpert: {

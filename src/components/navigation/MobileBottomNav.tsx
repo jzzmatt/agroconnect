@@ -31,19 +31,19 @@ export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBotto
     },
     {
       href: "/agrishopping",
-      label: dict.navigation.agriShopping,
+      label: dict.navigation.bottomNavAgriShop,
       icon: ShoppingBag,
       match: (path: string) => path.startsWith("/agrishopping"),
     },
     {
       href: "/agriacademy",
-      label: dict.navigation.agriAcademy,
+      label: dict.navigation.bottomNavAgriCad,
       icon: GraduationCap,
       match: (path: string) => path.startsWith("/agriacademy"),
     },
     {
       href: "/agriservice",
-      label: dict.navigation.agriService,
+      label: dict.navigation.bottomNavAgriServ,
       icon: Users,
       match: (path: string) => path.startsWith("/agriservice"),
     },
