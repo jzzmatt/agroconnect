@@ -65,17 +65,14 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(modal).toMatch("/api/subscription/activate");
   });
 
-  it("keeps one plan matrix: Basic locked, Professional 10, Business/Enterprise unlimited", () => {
+  it("keeps one plan matrix: Basic locked, Professional 10, Business unlimited with 1 TB", () => {
     expect(SUBSCRIPTION_PLANS.basic.priceMonthlyAoa).toBe(0);
     expect(SUBSCRIPTION_PLANS.professional.priceMonthlyAoa).toBe(15000);
     expect(SUBSCRIPTION_PLANS.business.priceMonthlyAoa).toBe(30000);
-    expect(SUBSCRIPTION_PLANS.enterprise.priceMonthlyAoa).toBe(80000);
     expect(SUBSCRIPTION_PLANS.professional.productLimit).toBe(10);
     expect(SUBSCRIPTION_PLANS.business.productLimit).toBeNull();
-    expect(SUBSCRIPTION_PLANS.enterprise.productLimit).toBeNull();
     expect(SUBSCRIPTION_PLANS.professional.videoStorageLimitGb).toBe(100);
-    expect(SUBSCRIPTION_PLANS.business.videoStorageLimitGb).toBe(300);
-    expect(SUBSCRIPTION_PLANS.enterprise.videoStorageLimitGb).toBe(1024);
+    expect(SUBSCRIPTION_PLANS.business.videoStorageLimitGb).toBe(1024);
   });
 
   it("exposes AgriProduct capabilities independently from the 10-product cap", () => {
@@ -97,7 +94,7 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(isProductLimitReached("professional", 10)).toBe(true);
     expect(isProductLimitReached("professional", 9)).toBe(false);
 
-    for (const plan of ["professional", "business", "enterprise"] as const) {
+    for (const plan of ["professional", "business"] as const) {
       expect(canAccessAgriProduct(plan)).toBe(true);
       expect(canCreateProducts(plan)).toBe(true);
       expect(canPublishProducts(plan)).toBe(true);
@@ -129,15 +126,14 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     ).toBe(3);
   });
 
-  it("Business and Enterprise stay unlimited above 10 products", () => {
+  it("Business stays unlimited above 10 products with 1 TB video quota", () => {
     const biz = getUserEntitlements({ subscriptionPlan: "business", activeProductCount: 25 });
-    const ent = getUserEntitlements({ subscriptionPlan: "enterprise", activeProductCount: 40 });
+    const legacy = getUserEntitlements({ subscriptionPlan: "empresarial", activeProductCount: 40 });
     expect(biz.product_limit).toBeNull();
     expect(biz.product_limit_reached).toBe(false);
-    expect(ent.product_limit).toBeNull();
-    expect(ent.can_create_products).toBe(true);
-    expect(VIDEO_STORAGE_QUOTA_BYTES.business).toBe(300 * GB);
-    expect(VIDEO_STORAGE_QUOTA_BYTES.enterprise).toBe(1024 * GB);
+    expect(legacy.product_limit).toBeNull();
+    expect(legacy.can_create_products).toBe(true);
+    expect(VIDEO_STORAGE_QUOTA_BYTES.business).toBe(1024 * GB);
   });
 
   it("enforces a 60-second product video maximum and offers trim above that", () => {

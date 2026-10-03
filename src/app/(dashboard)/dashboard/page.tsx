@@ -77,7 +77,7 @@ export default function DashboardPage() {
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
   const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
-  const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business" | "enterprise">("professional");
+  const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business">("professional");
   const [overview, setOverview] = useState<AgriprofileOverview>(emptyAgriprofileOverview);
   const [overviewLoaded, setOverviewLoaded] = useState(false);
 

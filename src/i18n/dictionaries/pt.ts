@@ -352,7 +352,7 @@ export const pt = {
     activateError: "Não foi possível atualizar o plano.",
     faqTitle: "Dúvidas sobre os limites?",
     faqBody:
-      "O plano Profissional permite até 10 produtos ativos e 100 GB de vídeo AgriAcademy. O plano Business oferece produtos ilimitados e 300 GB. O plano Empresarial inclui 1 TB e o serviço de configuração personalizada de gateway de pagamento.",
+      "O plano Profissional permite até 10 produtos ativos e 100 GB de vídeo AgriAcademy. O plano Business oferece produtos ilimitados, 1 TB de vídeo AgriAcademy e o serviço de configuração personalizada de gateway de pagamento.",
     free: {
       name: "Básico",
       price: "0 Kz",
@@ -412,27 +412,14 @@ export const pt = {
       },
       business: {
         name: "Business",
-        tagline: "Para vendedores, distribuidores e empresas agrícolas em crescimento",
+        tagline: "Para vendedores, cooperativas e organizações agropecuárias",
         cta: "Escolher Plano Business",
         highlightBadge: "MAIS ESCOLHIDO PARA VENDEDORES",
         features: [
           "Tudo incluído no plano Profissional",
           "Produtos sem limite definido",
-          "Funcionalidades avançadas de vendedor",
-          "AgriAcademy desbloqueado",
-          "300 GB de armazenamento de vídeo AgriAcademy",
-          "Seleção de país de atuação",
-        ],
-        lockedFeatures: [],
-      },
-      enterprise: {
-        name: "Empresarial",
-        tagline: "Para grandes empresas, cooperativas e organizações agropecuárias",
-        cta: "Subscrever Empresarial",
-        highlightBadge: "",
-        features: [
-          "Tudo incluído no plano Business",
           "Catálogo ilimitado e capacidades empresariais",
+          "Funcionalidades avançadas de vendedor",
           "AgriAcademy desbloqueado",
           "1 TB de armazenamento de vídeo AgriAcademy",
           "Serviço: Configuração personalizada de gateway de pagamento",
@@ -905,7 +892,7 @@ export const pt = {
     publishedOk: "Produto publicado com sucesso.",
     redirecting: "A redirecionar para a gestão de produtos...",
     lockedTitle: "Criação bloqueada • Plano Básico",
-    lockedBody: "O plano Básico permite explorar e comprar. Para criar produtos, atualize para Profissional, Business ou Empresarial.",
+    lockedBody: "O plano Básico permite explorar e comprar. Para criar produtos, atualize para Profissional ou Business.",
     unlock: "Ver planos e desbloquear",
     backDashboard: "Voltar ao painel",
     videoLabel: "Vídeo do produto",

@@ -6,18 +6,16 @@ export const GB = 1024 * 1024 * 1024;
 export const VIDEO_STORAGE_QUOTA_BYTES = {
   basic: 0,
   professional: 100 * GB,
-  business: 300 * GB,
-  enterprise: 1 * 1024 * GB, // 1 TB
+  business: 1 * 1024 * GB, // 1 TB
 } as const;
 
 /**
- * The 4 Canonical AgriConnect Subscription Plans
+ * The 3 Canonical AgriConnect Subscription Plans
  * BÁSICO (0 Kz/mês)
  * PROFISSIONAL (15.000 Kz/mês — 10 produtos, AgriAcademy 100 GB)
- * BUSINESS (30.000 Kz/mês — ilimitado, AgriAcademy 300 GB)
- * EMPRESARIAL (80.000 Kz/mês — ilimitado, AgriAcademy 1 TB)
+ * BUSINESS (30.000 Kz/mês — ilimitado, AgriAcademy 1 TB, serviços empresariais)
  */
-export const SUBSCRIPTION_PLANS: Record<"basic" | "professional" | "business" | "enterprise", SubscriptionPlanDefinition> = {
+export const SUBSCRIPTION_PLANS: Record<SubscriptionPlan, SubscriptionPlanDefinition> = {
   basic: {
     id: "basic",
     slug: "basic",
@@ -71,44 +69,26 @@ export const SUBSCRIPTION_PLANS: Record<"basic" | "professional" | "business" | 
     priceMonthlyAoa: 30000,
     priceFormatted: "30.000 Kz",
     period: "mês",
-    tagline: "Para vendedores, distribuidores e empresas agrícolas em crescimento",
+    tagline: "Para vendedores, cooperativas e organizações agropecuárias",
     highlightBadge: "MAIS ESCOLHIDO PARA VENDEDORES",
     isPopular: true,
     productLimit: null,
-    videoStorageLimitGb: 300,
+    videoStorageLimitGb: 1024,
     features: [
       "Tudo incluído no plano Profissional",
       "Produtos sem limite definido",
-      "Funcionalidades avançadas de vendedor",
-      "AgriAcademy desbloqueado",
-      "300 GB de armazenamento de vídeo AgriAcademy",
-      "Seleção de país de atuação",
-    ],
-    ctaText: "Escolher Plano Business",
-  },
-  enterprise: {
-    id: "enterprise",
-    slug: "enterprise",
-    name: "Empresarial",
-    priceMonthlyAoa: 80000,
-    priceFormatted: "80.000 Kz",
-    period: "mês",
-    tagline: "Para grandes empresas, cooperativas e organizações agropecuárias",
-    productLimit: null,
-    videoStorageLimitGb: 1024,
-    features: [
-      "Tudo incluído no plano Business",
       "Catálogo ilimitado e capacidades empresariais",
+      "Funcionalidades avançadas de vendedor",
       "AgriAcademy desbloqueado",
       "1 TB de armazenamento de vídeo AgriAcademy",
       "Serviço: Configuração personalizada de gateway de pagamento",
       "Seleção de país de atuação",
     ],
-    ctaText: "Subscrever Empresarial",
+    ctaText: "Escolher Plano Business",
   },
 };
 
-const PLAN_ORDER = ["basic", "professional", "business", "enterprise"] as const;
+const PLAN_ORDER: SubscriptionPlan[] = ["basic", "professional", "business"];
 
 export function getSelectablePlans(currentPlan: SubscriptionPlan | null) {
   const all = PLAN_ORDER.map((id) => SUBSCRIPTION_PLANS[id]);
@@ -120,8 +100,7 @@ export function getSelectablePlans(currentPlan: SubscriptionPlan | null) {
  * Read a stored or requested plan slug.
  *
  * Empty, missing, and unknown values return `null`. That means "no subscription",
- * never an implicit Basic plan. Known aliases still map onto the four catalog slugs,
- * including `basic` when the user actually subscribed to Basic.
+ * never an implicit Basic plan. Legacy Empresarial aliases map to Business.
  */
 export function parseStoredPlan(plan?: string | null): SubscriptionPlan | null {
   if (!plan) return null;
@@ -134,8 +113,15 @@ export function parseStoredPlan(plan?: string | null): SubscriptionPlan | null {
   if (!normalized) return null;
   if (normalized === "free" || normalized === "basic" || normalized === "basico") return "basic";
   if (normalized === "professional" || normalized === "profissional" || normalized === "pro") return "professional";
-  if (normalized === "business" || normalized === "create") return "business";
-  if (normalized === "enterprise" || normalized === "empresarial" || normalized === "premium") return "enterprise";
+  if (
+    normalized === "business" ||
+    normalized === "create" ||
+    normalized === "enterprise" ||
+    normalized === "empresarial" ||
+    normalized === "premium"
+  ) {
+    return "business";
+  }
   return null;
 }
 
@@ -268,7 +254,6 @@ export function getUserEntitlements(params: {
   const isBasic = planSlug === "basic";
   const isProfessional = planSlug === "professional";
   const isBusiness = planSlug === "business";
-  const isEnterprise = planSlug === "enterprise";
   const isPaid = isPaidSubscriptionActive(planSlug, subscriptionStatus);
 
   const productLimit = planDef.productLimit;
@@ -286,7 +271,7 @@ export function getUserEntitlements(params: {
     can_access_agrilocalizacao: isPaid,
     can_access_agrilocalization: isPaid,
     can_access_agriexpert: isPaid,
-    can_access_business_dashboard: isPaid && (isBusiness || isEnterprise),
+    can_access_business_dashboard: isPaid && isBusiness,
 
     can_sell_products: isPaid,
     can_create_products: isPaid,
@@ -303,7 +288,7 @@ export function getUserEntitlements(params: {
     can_publish_courses: isPaid,
     can_manage_locations: isPaid,
     can_change_market_country: isPaid,
-    can_request_custom_payment_gateway: isPaid && isEnterprise,
+    can_request_custom_payment_gateway: isPaid && isBusiness,
 
     product_limit: isBasic ? 0 : productLimit,
     max_products: isBasic ? 0 : productLimit,

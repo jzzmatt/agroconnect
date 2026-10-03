@@ -86,18 +86,17 @@ describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => 
     expect(after.video_storage_limit_bytes).toBe(100 * GB);
   });
 
-  it("Professional → Business unlocks unlimited products and 300 GB", () => {
+  it("Professional → Business unlocks unlimited products, 1 TB, and custom gateway service", () => {
     const biz = getUserEntitlements({ subscriptionPlan: "business" });
     expect(biz.product_limit).toBeNull();
-    expect(biz.video_storage_limit_gb).toBe(300);
+    expect(biz.video_storage_limit_gb).toBe(1024);
     expect(biz.can_access_agriacademy).toBe(true);
-    expect(biz.can_request_custom_payment_gateway).toBe(false);
+    expect(biz.can_request_custom_payment_gateway).toBe(true);
   });
 
-  it("Business → Enterprise sets 80.000 Kz, 1 TB, and custom gateway service", () => {
-    expect(SUBSCRIPTION_PLANS.enterprise.priceMonthlyAoa).toBe(80000);
-    expect(SUBSCRIPTION_PLANS.enterprise.priceFormatted).toBe("80.000 Kz");
+  it("legacy Empresarial slugs resolve to Business entitlements", () => {
     const ent = getUserEntitlements({ subscriptionPlan: "enterprise" });
+    expect(ent.plan).toBe("business");
     expect(ent.video_storage_limit_bytes).toBe(1024 * GB);
     expect(ent.can_request_custom_payment_gateway).toBe(true);
     expect(ent.product_limit).toBeNull();

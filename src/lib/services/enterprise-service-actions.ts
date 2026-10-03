@@ -18,7 +18,7 @@ export async function requestCustomPaymentGatewayAction(message?: string): Promi
     if (!entitlements.can_request_custom_payment_gateway) {
       return {
         success: false,
-        error: "A configuração personalizada de gateway de pagamento está disponível no plano Empresarial.",
+        error: "A configuração personalizada de gateway de pagamento está disponível no plano Business.",
       };
     }
 

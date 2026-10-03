@@ -354,7 +354,7 @@ export const fr: Dictionary = {
     activateError: "Impossible de mettre à jour le plan.",
     faqTitle: "Des questions sur les limites ?",
     faqBody:
-      "Le plan Professionnel permet jusqu'à 10 produits actifs et 100 Go de vidéo AgriAcademy. Business offre des produits illimités et 300 Go. Entreprise inclut 1 To et un service de configuration de passerelle de paiement.",
+      "Le plan Professionnel permet jusqu'à 10 produits actifs et 100 Go de vidéo AgriAcademy. Business offre des produits illimités, 1 To de vidéo AgriAcademy et un service de configuration de passerelle de paiement.",
     free: {
       name: "Basique",
       price: "0 Kz",
@@ -414,27 +414,14 @@ export const fr: Dictionary = {
       },
       business: {
         name: "Business",
-        tagline: "Pour les vendeurs, distributeurs et entreprises agricoles en croissance",
+        tagline: "Pour les vendeurs, coopératives et organisations agricoles",
         cta: "Choisir Business",
         highlightBadge: "LE PLUS CHOISI PAR LES VENDEURS",
         features: [
           "Tout le plan Professionnel",
           "Produits sans limite définie",
-          "Fonctionnalités vendeur avancées",
-          "AgriAcademy débloqué",
-          "300 Go de stockage vidéo AgriAcademy",
-          "Sélection du pays d'activité",
-        ],
-        lockedFeatures: [],
-      },
-      enterprise: {
-        name: "Entreprise",
-        tagline: "Pour les grandes entreprises, coopératives et organisations agricoles",
-        cta: "Souscrire Entreprise",
-        highlightBadge: "",
-        features: [
-          "Tout le plan Business",
           "Catalogue illimité et capacités d'entreprise",
+          "Fonctionnalités vendeur avancées",
           "AgriAcademy débloqué",
           "1 To de stockage vidéo AgriAcademy",
           "Service : configuration personnalisée de passerelle de paiement",

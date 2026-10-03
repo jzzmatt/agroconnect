@@ -125,7 +125,7 @@ describe("Phase 9.6 — i18n, animals, land, video, publish", () => {
     expect(basic.can_upload_product_images).toBe(false);
     expect(basic.can_upload_product_video).toBe(false);
 
-    for (const plan of ["professional", "business", "enterprise"] as const) {
+    for (const plan of ["professional", "business"] as const) {
       const paid = getUserEntitlements({ subscriptionPlan: plan });
       expect(paid.can_create_products).toBe(true);
       expect(paid.can_upload_product_images).toBe(true);

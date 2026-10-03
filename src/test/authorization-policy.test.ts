@@ -143,7 +143,7 @@ describe("subscription status is distinct from Basic feature restrictions", () =
   });
 
   it("unlocks the Control Panel for every stored paid plan", () => {
-    for (const plan of ["professional", "business", "enterprise"] as const) {
+    for (const plan of ["professional", "business"] as const) {
       expect(can(subject({ plan }), "control_panel.access")).toBe(true);
     }
   });
@@ -183,7 +183,7 @@ describe("locked decision: Free may view all five major modules", () => {
   });
 
   it("does not depend on a subscription tier name for view access", () => {
-    const plans: SubscriptionPlan[] = ["basic", "professional", "business", "enterprise"];
+    const plans: SubscriptionPlan[] = ["basic", "professional", "business"];
     for (const plan of plans) {
       expect(can(subject({ plan }), "academy.view")).toBe(true);
     }
@@ -313,11 +313,10 @@ describe("plan activation: self-service by default, one switch to close it", () 
     setEnv(originalEnv);
   });
 
-  const paidPlans = ["professional", "business", "enterprise"];
+  const paidPlans = ["professional", "business"];
   const upgradePairs: Array<[string, string]> = [
     ["basic", "business"],
     ["basic", "professional"],
-    ["basic", "enterprise"],
   ];
 
   it("is enabled when the flag is unset", () => {

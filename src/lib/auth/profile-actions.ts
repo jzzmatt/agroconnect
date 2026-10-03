@@ -356,7 +356,7 @@ export async function getAuthoritativeSubscriptionAction(): Promise<Authoritativ
  * intercept the channel.
  */
 export async function activateSubscriptionPlanAction(
-  plan: "basic" | "professional" | "business" | "enterprise"
+  plan: "basic" | "professional" | "business"
 ): Promise<{
   success: boolean;
   plan: SubscriptionPlan | null;

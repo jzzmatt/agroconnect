@@ -12,7 +12,7 @@ interface UpgradePlanModalProps {
   isOpen: boolean;
   onClose: () => void;
   featureTitle?: string;
-  requiredPlan?: "professional" | "business" | "enterprise";
+  requiredPlan?: "professional" | "business";
   currentPlanName?: string;
 }
 

@@ -163,7 +163,7 @@ export function ProfilePublicationPanel() {
               <p className="text-xs text-muted-foreground flex items-start gap-1.5">
                 <Lock className="w-3.5 h-3.5 mt-0.5 shrink-0" />
                 <span>
-                  Pode manter o perfil privado em qualquer plano. Publicar o perfil de prestador requer Profissional, Business ou Empresarial.{" "}
+                  Pode manter o perfil privado em qualquer plano. Publicar o perfil de prestador requer Profissional ou Business.{" "}
                   <Link href="/planos" className="font-bold text-primary hover:underline">
                     Ver planos
                   </Link>

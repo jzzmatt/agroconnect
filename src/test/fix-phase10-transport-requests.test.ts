@@ -241,7 +241,7 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
       clerk_user_id: "clerk-ent",
       roles: ["student"],
       account_type: "customer",
-      subscription_plan: "enterprise",
+      subscription_plan: "business",
       subscription_status: "active",
     });
     const unsubscribed = subjectFromProfile({
