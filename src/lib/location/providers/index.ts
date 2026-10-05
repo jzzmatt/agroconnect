@@ -3,14 +3,11 @@ import type {
   IMapProvider,
   IGeocodingProvider,
 } from "./types";
-import { GoogleMapProvider } from "./google-map";
-import { GoogleGeocodingProvider } from "./google-geocoding";
+import { GeoJsonMapProvider } from "./geojson-map-provider";
 import { LocalAngolaGeocodingProvider } from "./geocoding";
-import { getGoogleMapsApiKey } from "../google-maps/loader";
 
 export * from "./types";
-export * from "./google-map";
-export * from "./google-geocoding";
+export * from "./geojson-map-provider";
 export * from "./geocoding";
 
 export interface LocationProviderOptions {
@@ -19,18 +16,11 @@ export interface LocationProviderOptions {
 }
 
 /**
- * Supabase/PostGIS remains the geographic data layer; Google Maps is presentation + place search.
+ * Supabase/PostGIS = durable geography; bundled GeoJSON atlas = map presentation; local dataset = search.
  */
-export function createLocationProvider(options?: LocationProviderOptions): ILocationProvider {
-  const googleKey = options?.apiKey || getGoogleMapsApiKey() || "";
-
-  const mapProvider: IMapProvider = new GoogleMapProvider(
-    options?.initialLayer || "map"
-  );
-
-  const geocodingProvider: IGeocodingProvider = googleKey
-    ? new GoogleGeocodingProvider()
-    : new LocalAngolaGeocodingProvider();
+export function createLocationProvider(_options?: LocationProviderOptions): ILocationProvider {
+  const mapProvider: IMapProvider = new GeoJsonMapProvider();
+  const geocodingProvider: IGeocodingProvider = new LocalAngolaGeocodingProvider();
 
   return {
     mapProvider,

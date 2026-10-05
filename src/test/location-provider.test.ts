@@ -2,31 +2,28 @@ import { describe, it, expect } from "vitest";
 import {
   createLocationProvider,
   getDefaultLocationProvider,
-  GoogleMapProvider,
+  GeoJsonMapProvider,
 } from "@/lib/location/providers";
 import { LocalAngolaGeocodingProvider } from "@/lib/location/providers/geocoding";
-import { getGoogleMapsApiKey } from "@/lib/location/google-maps/loader";
 
-describe("LocationProvider & Google Maps geospatial architecture", () => {
-  it("creates a default LocationProvider with Google map adapter", () => {
+describe("LocationProvider & GeoJSON atlas architecture", () => {
+  it("creates a default LocationProvider with GeoJSON map adapter", () => {
     const provider = getDefaultLocationProvider();
-    expect(provider.mapProvider.id).toBe("google-maps");
-    expect(provider.mapProvider.name).toContain("Google");
+    expect(provider.mapProvider.id).toBe("geojson-atlas");
+    expect(provider.mapProvider.name).toContain("GeoJSON");
   });
 
-  it("uses local Angola geocoding when no Google Maps API key is configured", () => {
-    const original = process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
-    delete process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY;
+  it("always uses local Angola geocoding (no external map SDK search)", () => {
     const provider = createLocationProvider();
     expect(provider.geocodingProvider.id).toBe("local-angola");
-    if (original) process.env.NEXT_PUBLIC_GOOGLE_MAPS_API_KEY = original;
+    expect(provider.geocodingProvider).toBeInstanceOf(LocalAngolaGeocodingProvider);
   });
 
-  it("supports layer type metadata on GoogleMapProvider", () => {
-    const mapProvider = new GoogleMapProvider("map");
+  it("supports layer metadata on GeoJsonMapProvider", () => {
+    const mapProvider = new GeoJsonMapProvider();
     expect(mapProvider.getLayerType()).toBe("map");
-    mapProvider.setLayerType("satellite");
-    expect(mapProvider.getLayerType()).toBe("satellite");
+    mapProvider.setLayerType("dark");
+    expect(mapProvider.getLayerType()).toBe("dark");
   });
 
   it("local provider resolves Luanda queries offline", async () => {
@@ -34,10 +31,5 @@ describe("LocationProvider & Google Maps geospatial architecture", () => {
     const results = await geocoder.forward("Luanda", { limit: 3 });
     expect(results.length).toBeGreaterThan(0);
     expect(results[0].provinceName || results[0].name).toMatch(/Luanda/i);
-  });
-
-  it("reads Google Maps key only from environment when present", () => {
-    const key = getGoogleMapsApiKey();
-    expect(typeof key === "string" || key === undefined).toBe(true);
   });
 });

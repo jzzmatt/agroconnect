@@ -3,10 +3,6 @@
 import React, { useState, useEffect, useRef } from "react";
 import { Search, MapPin, Loader2, X } from "lucide-react";
 import { getDefaultLocationProvider, type GeocodingResult } from "@/lib/location";
-import {
-  GoogleGeocodingProvider,
-  isPendingPlaceResult,
-} from "@/lib/location/providers/google-geocoding";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/provider";
 
@@ -17,9 +13,7 @@ export interface LocationSearchProps {
   autoFocus?: boolean;
 }
 
-/**
- * Location search with Google Places (New) when configured, otherwise local Angola dataset.
- */
+/** Location search over the local Angola province/municipality dataset. */
 export function LocationSearch({
   onSelectLocation,
   placeholder,
@@ -74,29 +68,10 @@ export function LocationSearch({
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
-  const handleSelect = async (result: GeocodingResult) => {
-    setIsLoading(true);
-    try {
-      let resolved = result;
-      const provider = getDefaultLocationProvider().geocodingProvider;
-      if (
-        provider instanceof GoogleGeocodingProvider &&
-        isPendingPlaceResult(result)
-      ) {
-        const detailed = await provider.resolvePlace(result.id);
-        if (!detailed) {
-          setIsLoading(false);
-          return;
-        }
-        resolved = detailed;
-      }
-
-      setQuery(resolved.name);
-      setIsOpen(false);
-      onSelectLocation(resolved);
-    } finally {
-      setIsLoading(false);
-    }
+  const handleSelect = (result: GeocodingResult) => {
+    setQuery(result.name);
+    setIsOpen(false);
+    onSelectLocation(result);
   };
 
   return (
@@ -138,7 +113,7 @@ export function LocationSearch({
             <button
               key={res.id}
               type="button"
-              onClick={() => void handleSelect(res)}
+              onClick={() => handleSelect(res)}
               className="w-full px-4 py-2.5 text-left text-xs hover:bg-muted transition-colors flex items-center justify-between group"
             >
               <div className="flex items-center gap-2.5">

@@ -1,16 +1,16 @@
 import { describe, it, expect } from "vitest";
-import { GoogleMapProvider } from "@/lib/location/providers/google-map";
-import { GOOGLE_MAP_DARK_STYLES } from "@/lib/location/google-maps/map-styles";
+import { GeoJsonMapProvider } from "@/lib/location/providers/geojson-map-provider";
+import { ANGOLA_MAP_BACKGROUND } from "@/lib/geographic/angola-map-theme";
 
 describe("Theme & map styling", () => {
-  it("exposes dark roadmap styles for Google Maps", () => {
-    expect(GOOGLE_MAP_DARK_STYLES.length).toBeGreaterThan(5);
-    expect(GOOGLE_MAP_DARK_STYLES[0].elementType).toBe("geometry");
+  it("exposes agricultural atlas background tokens", () => {
+    expect(ANGOLA_MAP_BACKGROUND.dark.solid).toBe("#064E3B");
+    expect(ANGOLA_MAP_BACKGROUND.light.surround).toBe("#F8F3E8");
   });
 
-  it("tracks satellite layer selection on the Google map provider", () => {
-    const provider = new GoogleMapProvider("satellite");
-    expect(provider.getLayerType()).toBe("satellite");
+  it("tracks layer selection on the GeoJSON map provider", () => {
+    const provider = new GeoJsonMapProvider();
+    expect(provider.getLayerType()).toBe("map");
     provider.setLayerType("dark");
     expect(provider.getLayerType()).toBe("dark");
   });

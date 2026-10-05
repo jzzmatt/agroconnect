@@ -63,7 +63,7 @@ export function AngolaAtlasMap({
 
   useEffect(() => {
     const el = containerRef.current;
-    if (!el) return;
+    if (!el || typeof ResizeObserver === "undefined") return;
     const ro = new ResizeObserver((entries) => {
       const entry = entries[0];
       if (!entry) return;
