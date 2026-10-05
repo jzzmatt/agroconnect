@@ -16,8 +16,13 @@ import {
 import { ANGOLA_PROVINCES, ANGOLA_KEY_MUNICIPALITIES } from "@/config/locations";
 
 describe("AGROCONNECT Phase 5 — Angola Location Engine & Geospatial Discovery", () => {
-  it("1. Loads all 18 official provinces of Angola with complete metadata", () => {
-    expect(ANGOLA_PROVINCES).toHaveLength(18);
+  it("1. Loads all 21 provinces of Angola with complete metadata", () => {
+    expect(ANGOLA_PROVINCES).toHaveLength(21);
+    expect(ANGOLA_PROVINCES.map((p) => p.name)).not.toContain("Cuando Cubango");
+    expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Cuando");
+    expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Cubango");
+    expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Icolo e Bengo");
+    expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Moxico Leste");
     expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Huambo");
     expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Huíla");
     expect(ANGOLA_PROVINCES.map((p) => p.name)).toContain("Benguela");

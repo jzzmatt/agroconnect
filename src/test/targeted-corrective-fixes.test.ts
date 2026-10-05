@@ -80,12 +80,11 @@ describe("FIX 2 — /planos hides the current database plan", () => {
 });
 
 describe("FIX 3/8/9 — GeoMap lifecycle", () => {
-  it("does not re-initialize the map when center or markers change", () => {
+  it("uses GeoJSON vector map without external SDK lifecycle", () => {
     const src = read("src/components/location/LocationMap.tsx");
-    expect(src).toMatch("MapLifecycleManager");
-    expect(src).toMatch("[initNonce]");
-    expect(src).not.toMatch("}, [initMap]);");
-    expect(src).toMatch("lifecycleRef");
+    expect(src).toMatch("GeoJsonVectorMap");
+    expect(src).not.toMatch("MapLifecycleManager");
+    expect(src).not.toMatch("GoogleMapProvider");
   });
 
   it("discards in-flight initialize after unmount (Strict Mode)", async () => {

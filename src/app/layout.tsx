@@ -1,7 +1,6 @@
 import type { Metadata } from "next";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
-import { GoogleMapsProvider } from "@/components/location/GoogleMapsProvider";
 import { I18nProvider } from "@/i18n/provider";
 import { LocaleHydrator } from "@/components/i18n/LocaleHydrator";
 import { ThemeProvider, ThemeScript } from "@/lib/theme";
@@ -28,9 +27,7 @@ export default function RootLayout({
           <ThemeProvider defaultTheme="light">
             <I18nProvider initialLocale="pt">
               <LocaleHydrator />
-              <GoogleMapsProvider>
-                <CartProvider>{children}</CartProvider>
-              </GoogleMapsProvider>
+              <CartProvider>{children}</CartProvider>
             </I18nProvider>
           </ThemeProvider>
         </body>

@@ -14,6 +14,7 @@ import type {
   LocationSearchResultItem,
   NearbyEntityResult,
 } from "./types";
+import { resolveProvince } from "@/lib/geographic/province-normalization";
 
 /**
  * Validates geographic coordinate values under WGS84 standard
@@ -127,10 +128,7 @@ export function getAllProvinces(): AngolaProvince[] {
  * Find province by code or name (case-insensitive)
  */
 export function getProvince(codeOrName: string): AngolaProvince | undefined {
-  const query = codeOrName.trim().toLowerCase();
-  return ANGOLA_PROVINCES.find(
-    (p) => p.code.toLowerCase() === query || p.name.toLowerCase() === query
-  );
+  return resolveProvince(codeOrName);
 }
 
 /**
