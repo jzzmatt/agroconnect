@@ -14,21 +14,3 @@ export function getAngolaProvinceGeoJson(): FeatureCollection {
   };
   return cached;
 }
-
-/** Geographic frame: Atlantic margin through the eastern border, Cabinda included. */
-export const ANGOLA_MAP_FRAME: Feature = {
-  type: "Feature",
-  properties: {},
-  geometry: {
-    type: "Polygon",
-    coordinates: [
-      [
-        [8.6, -18.9],
-        [24.8, -18.9],
-        [24.8, -4.15],
-        [8.6, -4.15],
-        [8.6, -18.9],
-      ],
-    ],
-  },
-};

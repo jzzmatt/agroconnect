@@ -4,7 +4,7 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import type { GeoCoordinate } from "@/types/domain";
-import { ANGOLA_MAP_FRAME, getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojson-data";
+import { getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojson-data";
 import { ANGOLA_MAP_BACKGROUND, atlasProvinceFill } from "@/lib/geographic/angola-map-theme";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
@@ -75,7 +75,7 @@ export function GeoJsonVectorMap({
           [margin, margin],
           [width - margin, height - margin],
         ],
-        ANGOLA_MAP_FRAME
+        data
       );
     } catch {
       return geoMercator().center([17.5, -12.5]).scale(720);

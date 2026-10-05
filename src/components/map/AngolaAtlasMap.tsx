@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { geoMercator, geoPath } from "d3-geo";
+import { geoCentroid, geoMercator, geoPath } from "d3-geo";
 import type { Feature } from "geojson";
 import { Baloo_2 } from "next/font/google";
 import { Loader2, AlertCircle } from "lucide-react";
@@ -14,7 +14,6 @@ import {
   atlasProvinceFill,
 } from "@/lib/geographic/angola-map-theme";
 import { useAngolaProvinceGeoJson } from "@/lib/geographic/use-angola-province-geojson";
-import { ANGOLA_MAP_FRAME } from "@/lib/geographic/angola-province-geojson-data";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 import { MapControls } from "./MapControls";
@@ -96,7 +95,7 @@ export function AngolaAtlasMap({
           [margin, margin],
           [width - margin, height - margin],
         ],
-        ANGOLA_MAP_FRAME
+        data
       );
     } catch {
       return geoMercator().center([17.5, -12.5]).scale(720);
@@ -162,6 +161,19 @@ export function AngolaAtlasMap({
   useEffect(() => {
     if (selectedProvinceCode) focusProvince(selectedProvinceCode);
   }, [selectedProvinceCode, focusProvince]);
+
+  useEffect(() => {
+    if (!data || process.env.NODE_ENV === "production") return;
+    const anchors = data.features.map((feature) => {
+      const [lon, lat] = geoCentroid(feature);
+      return `${feature.properties?.name} -> ${lon.toFixed(3)}, ${lat.toFixed(3)}`;
+    });
+    const unique = new Set(anchors.map((line) => line.split("->")[1]?.trim()));
+    console.debug("[angola-map] province anchors\n" + anchors.join("\n"));
+    if (unique.size < data.features.length - 1) {
+      console.error("[angola-map] province anchors collapsed", anchors);
+    }
+  }, [data]);
 
   const backgroundStyle = {
     background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 48%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
@@ -308,17 +320,19 @@ export function AngolaAtlasMap({
             : null}
         </g>
 
-        {ANGOLA_PROVINCES.map((p) => {
-          const geo = projection([p.labelLongitude, p.labelLatitude]);
-          if (!geo) return null;
-          const x = transform.x + transform.k * geo[0];
-          const y = transform.y + transform.k * geo[1];
-          const isSelected = selectedProvinceCode === p.code;
-          const label = p.name;
+        {data.features.map((feature) => {
+          const code = String(feature.properties?.code ?? "");
+          const province = provinceByCode.get(code);
+          const label = province?.name ?? String(feature.properties?.name ?? code);
+          const centroid = pathGenerator.centroid(feature as Feature);
+          if (!Number.isFinite(centroid[0]) || !Number.isFinite(centroid[1])) return null;
+          const x = transform.x + transform.k * centroid[0];
+          const y = transform.y + transform.k * centroid[1];
+          const isSelected = selectedProvinceCode === code;
           const width = Math.max(64, label.length * (isSelected ? 8.2 : 7.2) + 16);
           const height = isSelected ? 26 : 22;
           return (
-            <g key={p.code} transform={`translate(${x}, ${y})`} className="pointer-events-none">
+            <g key={code} transform={`translate(${x}, ${y})`} className="pointer-events-none">
               <rect
                 x={-width / 2}
                 y={-height / 2}
