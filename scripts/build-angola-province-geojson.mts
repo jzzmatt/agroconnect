@@ -11,7 +11,8 @@ import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson"
 const SOURCE_URL =
   "https://github.com/wmgeolab/geoBoundaries/raw/9469f09/releaseData/gbOpen/AGO/ADM1/geoBoundaries-AGO-ADM1_simplified.geojson";
 
-const OUT_PATH = path.join(process.cwd(), "public/geo/angola-provinces.geojson");
+const OUT_PUBLIC = path.join(process.cwd(), "public/geo/angola-provinces.geojson");
+const OUT_BUNDLED = path.join(process.cwd(), "src/lib/geographic/angola-provinces.json");
 
 const SHAPE_TO_CODE: Record<string, string> = {
   Bengo: "BGO",
@@ -118,9 +119,12 @@ async function main() {
     features: outFeatures,
   };
 
-  fs.mkdirSync(path.dirname(OUT_PATH), { recursive: true });
-  fs.writeFileSync(OUT_PATH, JSON.stringify(collection));
-  console.log(`Wrote ${OUT_PATH} (${outFeatures.length} features)`);
+  const payload = JSON.stringify(collection);
+  fs.mkdirSync(path.dirname(OUT_PUBLIC), { recursive: true });
+  fs.mkdirSync(path.dirname(OUT_BUNDLED), { recursive: true });
+  fs.writeFileSync(OUT_PUBLIC, payload);
+  fs.writeFileSync(OUT_BUNDLED, payload);
+  console.log(`Wrote ${OUT_PUBLIC} and ${OUT_BUNDLED} (${outFeatures.length} features)`);
 }
 
 main().catch((err) => {

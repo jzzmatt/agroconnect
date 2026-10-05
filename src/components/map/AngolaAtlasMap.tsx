@@ -84,14 +84,23 @@ export function AngolaAtlasMap({
 
   const projection = useMemo(() => {
     if (!data) return null;
-    const proj = geoMercator().fitExtent(
-      [
-        [24, 24],
-        [size.width - 24, size.height - 24],
-      ],
-      data as FeatureCollection
-    );
-    return proj;
+    const margin = 24;
+    const width = Math.max(size.width, 320);
+    const height = Math.max(size.height, 280);
+    if (width <= margin * 2 + 1 || height <= margin * 2 + 1) {
+      return geoMercator().center([17.5, -12.5]).scale(720);
+    }
+    try {
+      return geoMercator().fitExtent(
+        [
+          [margin, margin],
+          [width - margin, height - margin],
+        ],
+        data as FeatureCollection
+      );
+    } catch {
+      return geoMercator().center([17.5, -12.5]).scale(720);
+    }
   }, [data, size.height, size.width]);
 
   const pathGenerator = useMemo(() => {
