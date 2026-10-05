@@ -1,7 +1,9 @@
 import { describe, it, expect } from "vitest";
+import { geoArea } from "d3-geo";
 import fs from "node:fs";
 import path from "node:path";
 import { ANGOLA_PROVINCES } from "@/config/locations";
+import { getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojson-data";
 import { resolveProvinceCode } from "@/lib/geographic/province-normalization";
 
 describe("Angola agricultural atlas geographic layer", () => {
@@ -11,6 +13,13 @@ describe("Angola agricultural atlas geographic layer", () => {
     expect(geo.features).toHaveLength(21);
     const codes = geo.features.map((f: { properties: { code: string } }) => f.properties.code).sort();
     expect(codes).toEqual(ANGOLA_PROVINCES.map((p) => p.code).sort());
+  });
+
+  it("draws provinces as land, not the rest of the globe", () => {
+    const geo = getAngolaProvinceGeoJson();
+    for (const feature of geo.features) {
+      expect(geoArea(feature)).toBeLessThan(1);
+    }
   });
 
   it("resolves legacy Cuando Cubango to Cubango", () => {

@@ -2,7 +2,7 @@
 
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
-import type { Feature, FeatureCollection } from "geojson";
+import type { Feature } from "geojson";
 import { Loader2, AlertCircle } from "lucide-react";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import {
@@ -12,6 +12,7 @@ import {
   referenceProvinceFill,
 } from "@/lib/geographic/angola-map-theme";
 import { useAngolaProvinceGeoJson } from "@/lib/geographic/use-angola-province-geojson";
+import { ANGOLA_MAP_FRAME } from "@/lib/geographic/angola-province-geojson-data";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 import { MapControls } from "./MapControls";
@@ -91,7 +92,7 @@ export function AngolaAtlasMap({
           [margin, margin],
           [width - margin, height - margin],
         ],
-        data as FeatureCollection
+        ANGOLA_MAP_FRAME
       );
     } catch {
       return geoMercator().center([17.5, -12.5]).scale(720);

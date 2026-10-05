@@ -6,6 +6,7 @@
 import fs from "node:fs";
 import path from "node:path";
 import * as turf from "@turf/turf";
+import { rewindIfInverted } from "../src/lib/geographic/rewind-polygons";
 import type { Feature, FeatureCollection, MultiPolygon, Polygon } from "geojson";
 
 const SOURCE_URL =
@@ -116,7 +117,7 @@ async function main() {
 
   const collection: FeatureCollection = {
     type: "FeatureCollection",
-    features: outFeatures,
+    features: outFeatures.map((feature) => rewindIfInverted(feature)),
   };
 
   const payload = JSON.stringify(collection);
