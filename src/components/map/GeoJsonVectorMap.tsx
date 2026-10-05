@@ -5,17 +5,17 @@ import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import type { GeoCoordinate } from "@/types/domain";
 import { ANGOLA_MAP_FRAME, getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojson-data";
-import { ANGOLA_MAP_BACKGROUND, referenceProvinceFill } from "@/lib/geographic/angola-map-theme";
+import { ANGOLA_MAP_BACKGROUND, atlasProvinceFill } from "@/lib/geographic/angola-map-theme";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 
 const MARKER_HEX: Record<MapMarkerItem["category"], string> = {
-  expert: "#0E6B38",
-  academy: "#1D4ED8",
-  shopping: "#D97706",
-  business: "#D4A72C",
+  expert: "#3E7130",
+  academy: "#8B4513",
+  shopping: "#D4A72C",
+  business: "#B95E45",
   service: "#E87557",
-  farm: "#65A30D",
+  farm: "#718333",
 };
 
 function zoomToScale(zoom: number): number {
@@ -113,7 +113,9 @@ export function GeoJsonVectorMap({
     [onMapClick, projection, transform.k, transform.x, transform.y]
   );
 
-  const backgroundStyle = { backgroundColor: ANGOLA_MAP_BACKGROUND.light.ocean };
+  const backgroundStyle = {
+    background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 48%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
+  };
 
   return (
     <div
@@ -132,9 +134,9 @@ export function GeoJsonVectorMap({
                   <path
                     key={`${code}-${idx}`}
                     d={d}
-                fill={referenceProvinceFill(code)}
-                stroke="#FFFFFF"
-                strokeWidth={1.15 / transform.k}
+                fill={atlasProvinceFill(code)}
+                stroke="#F3E2A8"
+                strokeWidth={1.2 / transform.k}
                     className="pointer-events-none"
                   />
                 );

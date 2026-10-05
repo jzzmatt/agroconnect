@@ -12,7 +12,7 @@ interface MapControlsProps {
 
 export function MapControls({ onZoomIn, onZoomOut, onReset, className }: MapControlsProps) {
   const btn =
-    "min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-white text-slate-700 border border-slate-200 shadow-md hover:bg-slate-50 transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-slate-800";
+    "min-w-11 min-h-11 flex items-center justify-center rounded-xl bg-[#063F32]/90 text-[#F5D98A] border border-[#C9A84B]/50 shadow-md hover:bg-[#3E7130] transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#F97316]";
 
   return (
     <div className={cn("flex flex-col gap-2", className)}>

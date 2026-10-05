@@ -1,7 +1,7 @@
 /**
- * Visual tokens matched to the Angola provinces reference map:
- * light canvas, Atlantic blue, saturated province fills, dark uppercase labels.
- * Interaction (selection, zoom, markers) stays independent of these fills.
+ * Illustrated Angola agricultural atlas.
+ * Visual language follows the warm cultural-map reference: forest ground,
+ * earthy provinces, cream tags, orange selection. Geography stays vector.
  */
 
 export const ANGOLA_MAP_BACKGROUND = {
@@ -9,61 +9,66 @@ export const ANGOLA_MAP_BACKGROUND = {
     top: "#063A30",
     center: "#064A38",
     bottom: "#05382E",
-    solid: "#064E3B",
+    solid: "#063F32",
   },
   light: {
-    surround: "#E6E8EB",
-    ocean: "#B9DFF5",
-    neighbor: "#E4E6E9",
+    surround: "#F8F3E8",
   },
 } as const;
 
-/** Reference political-map fills. New 2025 provinces use a sibling hue of their former parent. */
-export const REFERENCE_PROVINCE_FILLS: Record<string, string> = {
-  CAB: "#7E57C2",
-  ZAI: "#43A047",
-  UIG: "#FB8C00",
-  LUA: "#E53935",
-  IEB: "#FDD835",
-  BGO: "#1E88E5",
-  CNO: "#FBC02D",
-  LNO: "#9575CD",
-  MAL: "#00ACC1",
-  CUS: "#5E35B1",
-  LSU: "#FF9800",
-  BGU: "#42A5F5",
-  HUA: "#66BB6A",
-  BIE: "#EF6A6A",
-  MOX: "#9CCC65",
-  MXL: "#C5E1A5",
-  HUI: "#FF7043",
-  NAM: "#26A69A",
-  CUB: "#F9A825",
-  CUA: "#FFE082",
-  CNN: "#8E24AA",
+/** Distinguishable earthy fills. Neighbours do not share a colour. */
+export const ATLAS_PROVINCE_FILLS: Record<string, string> = {
+  BGO: "#3E7130",
+  BGU: "#718333",
+  BIE: "#C49A32",
+  CAB: "#A18B2F",
+  CUA: "#D9B13C",
+  CNO: "#B95E45",
+  CUS: "#E87557",
+  CUB: "#A84D42",
+  CNN: "#D97735",
+  HUA: "#68732D",
+  HUI: "#3E7130",
+  IEB: "#D9B13C",
+  LUA: "#D97735",
+  LNO: "#A18B2F",
+  LSU: "#718333",
+  MAL: "#68732D",
+  MOX: "#A84D42",
+  MXL: "#C49A32",
+  NAM: "#B95E45",
+  UIG: "#E87557",
+  ZAI: "#718333",
 };
 
 export const PROVINCE_LABEL_STYLE = {
-  name: "#2C333A",
-  capital: "#4B5563",
-  stroke: "#FFFFFF",
+  background: "#F5D98A",
+  text: "#4B4A20",
+  border: "#C9A84B",
+  shadow: "0 2px 4px rgba(0,0,0,0.20)",
 } as const;
 
 export const PROVINCE_INTERACTION_COLORS = {
-  hoverStroke: "#1F2937",
-  selectedStroke: "#111827",
-  selectedGlow: "rgba(17,24,39,0.28)",
+  hover: "#E87551",
+  selected: "#F97316",
+  active: "#FF6B45",
+  selectedGlow: "rgba(249,115,22,0.35)",
+  boundary: "#F3E2A8",
+  coastline: "#B58E36",
 } as const;
 
 export const AGRICULTURAL_MARKER_COLORS = {
-  products: "#F97316",
+  products: "#D4A72C",
   farmers: "#3E7130",
   farms: "#718333",
   services: "#E87557",
   marketplace: "#D4A72C",
   academy: "#8B4513",
+  expert: "#3E7130",
+  business: "#B95E45",
+  selected: "#F97316",
 } as const;
 
-export function referenceProvinceFill(code: string): string {
-  return REFERENCE_PROVINCE_FILLS[code] ?? "#90A4AE";
+export function atlasProvinceFill(code: string): string {
+  return ATLAS_PROVINCE_FILLS[code] ?? "#718333";
 }

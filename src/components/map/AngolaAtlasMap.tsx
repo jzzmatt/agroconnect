@@ -3,13 +3,15 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature } from "geojson";
+import { Baloo_2 } from "next/font/google";
 import { Loader2, AlertCircle } from "lucide-react";
-import { ANGOLA_PROVINCES } from "@/config/locations";
+import { ANGOLA_KEY_MUNICIPALITIES, ANGOLA_PROVINCES } from "@/config/locations";
 import {
+  AGRICULTURAL_MARKER_COLORS,
   ANGOLA_MAP_BACKGROUND,
   PROVINCE_INTERACTION_COLORS,
   PROVINCE_LABEL_STYLE,
-  referenceProvinceFill,
+  atlasProvinceFill,
 } from "@/lib/geographic/angola-map-theme";
 import { useAngolaProvinceGeoJson } from "@/lib/geographic/use-angola-province-geojson";
 import { ANGOLA_MAP_FRAME } from "@/lib/geographic/angola-province-geojson-data";
@@ -17,13 +19,15 @@ import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 import { MapControls } from "./MapControls";
 
+const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700"] });
+
 const MARKER_COLORS: Record<MapMarkerItem["category"], string> = {
-  shopping: "#F97316",
-  expert: "#3E7130",
-  farm: "#718333",
-  service: "#E87557",
-  business: "#D4A72C",
-  academy: "#8B4513",
+  shopping: AGRICULTURAL_MARKER_COLORS.marketplace,
+  expert: AGRICULTURAL_MARKER_COLORS.expert,
+  farm: AGRICULTURAL_MARKER_COLORS.farms,
+  service: AGRICULTURAL_MARKER_COLORS.services,
+  business: AGRICULTURAL_MARKER_COLORS.business,
+  academy: AGRICULTURAL_MARKER_COLORS.academy,
 };
 
 interface AngolaAtlasMapProps {
@@ -46,7 +50,7 @@ export function AngolaAtlasMap({
   selectedMarkerId,
   onSelectMarker,
   className,
-  heightClassName = "h-[min(72vh,640px)]",
+  heightClassName = "h-[min(78vh,820px)]",
   loadingLabel = "A carregar o atlas…",
   errorTitle = "Não foi possível carregar o mapa agrícola.",
   errorHint = "Verifique a ligação à internet e tente novamente.",
@@ -160,8 +164,12 @@ export function AngolaAtlasMap({
   }, [selectedProvinceCode, focusProvince]);
 
   const backgroundStyle = {
-    backgroundColor: ANGOLA_MAP_BACKGROUND.light.ocean,
+    background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 48%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
   };
+  const showContentMarkers = transform.k >= 1.45 || Boolean(selectedProvinceCode);
+  const municipalities = selectedProvinceCode
+    ? ANGOLA_KEY_MUNICIPALITIES.filter((m) => m.provinceCode === selectedProvinceCode)
+    : [];
 
   if (loading) {
     return (
@@ -173,7 +181,7 @@ export function AngolaAtlasMap({
         )}
         style={backgroundStyle}
       >
-        <Loader2 className="w-8 h-8 animate-spin text-slate-600" aria-hidden />
+        <Loader2 className="w-8 h-8 animate-spin text-[#F5D98A]" aria-hidden />
         <span className="sr-only">{loadingLabel}</span>
       </div>
     );
@@ -190,8 +198,8 @@ export function AngolaAtlasMap({
         style={backgroundStyle}
       >
         <AlertCircle className="w-8 h-8 text-[#F97316]" />
-        <p className="font-semibold text-foreground">{errorTitle}</p>
-        <p className="text-sm text-muted-foreground max-w-md">{errorHint}</p>
+        <p className="font-semibold text-[#F5D98A]">{errorTitle}</p>
+        <p className="text-sm text-[#F5D98A]/80 max-w-md">{errorHint}</p>
       </div>
     );
   }
@@ -200,7 +208,7 @@ export function AngolaAtlasMap({
     <div
       ref={containerRef}
       className={cn(
-        "relative rounded-3xl border border-slate-200 overflow-hidden touch-none",
+        "relative rounded-3xl border border-[#C9A84B]/35 overflow-hidden touch-none",
         heightClassName,
         className
       )}
@@ -209,162 +217,133 @@ export function AngolaAtlasMap({
       role="application"
       aria-label="Mapa agrícola interactivo de Angola"
     >
-      <svg width={size.width} height={size.height} className="block select-none">
-        <rect width={size.width} height={size.height} fill={ANGOLA_MAP_BACKGROUND.light.neighbor} />
-        <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
-          <path
-            d={
-              pathGenerator({
-                type: "Feature",
-                properties: {},
-                geometry: {
-                  type: "Polygon",
-                  coordinates: [
-                    [
-                      [8.2, -19.4],
-                      [13.15, -19.4],
-                      [13.15, -4.6],
-                      [8.2, -4.6],
-                      [8.2, -19.4],
-                    ],
-                  ],
-                },
-              }) ?? ""
-            }
-            fill={ANGOLA_MAP_BACKGROUND.light.ocean}
-          />
+      <div
+        className="pointer-events-none absolute inset-0 opacity-[0.08]"
+        style={{
+          backgroundImage:
+            "radial-gradient(circle at 20% 20%, transparent 0, transparent 40%, rgba(245,217,138,0.15) 41%, transparent 42%), url(\"data:image/svg+xml,%3Csvg viewBox='0 0 160 160' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.8' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E\")",
+        }}
+      />
 
+      <svg width={size.width} height={size.height} className="block select-none">
+        <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
           {data.features.map((feature, idx) => {
             const code = String(feature.properties?.code ?? "");
             const d = pathGenerator(feature as Feature) ?? "";
             const isSelected = selectedProvinceCode === code;
-            const isHover = hoverCode === code;
-            const fill = referenceProvinceFill(code);
+            const isHover = hoverCode === code && !isSelected;
+            const fill = isSelected
+              ? PROVINCE_INTERACTION_COLORS.selected
+              : isHover
+                ? PROVINCE_INTERACTION_COLORS.hover
+                : atlasProvinceFill(code);
+            const name = provinceByCode.get(code)?.name ?? code;
 
             return (
               <path
                 key={`${code}-${idx}`}
                 d={d}
                 fill={fill}
-                stroke="#FFFFFF"
-                strokeWidth={(isSelected ? 2.6 : isHover ? 1.8 : 1.15) / transform.k}
+                stroke={isSelected ? "#FFF7E0" : PROVINCE_INTERACTION_COLORS.boundary}
+                strokeWidth={(isSelected ? 2.4 : 1.35) / transform.k}
                 className="cursor-pointer"
                 style={
                   isSelected
-                    ? { filter: `drop-shadow(0 0 6px ${PROVINCE_INTERACTION_COLORS.selectedGlow})` }
-                    : isHover
-                      ? { filter: "brightness(1.06)" }
-                      : undefined
+                    ? { filter: `drop-shadow(0 0 12px ${PROVINCE_INTERACTION_COLORS.selectedGlow})` }
+                    : undefined
                 }
                 onMouseEnter={() => setHoverCode(code)}
                 onMouseLeave={() => setHoverCode(null)}
                 onClick={() => handleProvinceClick(code)}
               >
-                <title>{provinceByCode.get(code)?.name ?? code}</title>
+                <title>{name}</title>
               </path>
             );
           })}
 
-          <ContextLabel k={transform.k} x={10.4} y={-12.2} projection={projection} rotate={-90} text="ATLANTIC OCEAN" />
-          <ContextLabel k={transform.k} x={19.2} y={-6.15} projection={projection} text="DEMOCRATIC REPUBLIC OF CONGO" />
-          <ContextLabel k={transform.k} x={23.4} y={-13.4} projection={projection} text="ZAMBIA" />
-          <ContextLabel k={transform.k} x={15.2} y={-18.55} projection={projection} text="NAMIBIA" />
-          <ContextLabel k={transform.k} x={22.6} y={-19.15} projection={projection} text="BOTSWANA" />
-
-          {ANGOLA_PROVINCES.map((p) => {
-            const pt = projection([p.labelLongitude, p.labelLatitude]);
-            const capital = projection([p.longitude, p.latitude]);
+          {municipalities.map((muni) => {
+            const pt = projection([muni.longitude, muni.latitude]);
             if (!pt) return null;
-            const isSelected = selectedProvinceCode === p.code;
-            const compact = p.name.length > 12;
             return (
-              <g key={p.code} className="pointer-events-none">
+              <g key={muni.code} transform={`translate(${pt[0]}, ${pt[1]})`} className="pointer-events-none">
+                <circle r={3.2 / transform.k} fill="#F5D98A" stroke="#4B4A20" strokeWidth={0.8 / transform.k} />
                 <text
-                  x={pt[0]}
-                  y={pt[1]}
+                  y={-8 / transform.k}
                   textAnchor="middle"
-                  fill={PROVINCE_LABEL_STYLE.name}
-                  fontSize={(compact ? 8.5 : 11) / transform.k}
-                  fontWeight={800}
-                  letterSpacing={0.4}
-                  stroke="#FFFFFF"
-                  strokeWidth={2.2 / transform.k}
-                  paintOrder="stroke"
+                  fill="#F8F3E8"
+                  fontSize={9 / transform.k}
+                  fontWeight={600}
                   style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
                 >
-                  {p.name.toUpperCase()}
+                  {muni.name}
                 </text>
-                {capital ? (
-                  <g transform={`translate(${capital[0]}, ${capital[1] + 10 / transform.k})`}>
-                    <circle r={2.2 / transform.k} fill="#1F2937" />
-                    <text
-                      x={6 / transform.k}
-                      y={1 / transform.k}
-                      dominantBaseline="middle"
-                      fill={isSelected ? "#111827" : PROVINCE_LABEL_STYLE.capital}
-                      fontSize={8 / transform.k}
-                      fontWeight={600}
-                      stroke="#FFFFFF"
+              </g>
+            );
+          })}
+
+          {showContentMarkers
+            ? markers.map((marker) => {
+                const pt = projection([marker.longitude, marker.latitude]);
+                if (!pt) return null;
+                const selected = selectedMarkerId === marker.id;
+                return (
+                  <g
+                    key={marker.id}
+                    transform={`translate(${pt[0]}, ${pt[1]})`}
+                    className="cursor-pointer"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onSelectMarker?.(marker);
+                    }}
+                  >
+                    <circle
+                      r={(selected ? 8 : 6) / transform.k}
+                      fill={selected ? AGRICULTURAL_MARKER_COLORS.selected : MARKER_COLORS[marker.category]}
+                      stroke="#F8F3E8"
                       strokeWidth={1.6 / transform.k}
-                      paintOrder="stroke"
-                      style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
-                    >
-                      {p.capital}
-                    </text>
+                    />
                   </g>
-                ) : null}
-              </g>
-            );
-          })}
-
-          {markers.map((marker) => {
-            const pt = projection([marker.longitude, marker.latitude]);
-            if (!pt) return null;
-            const r = selectedMarkerId === marker.id ? 7 : 5.5;
-            return (
-              <g
-                key={marker.id}
-                transform={`translate(${pt[0]}, ${pt[1]})`}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onSelectMarker?.(marker);
-                }}
-              >
-                <circle
-                  r={r}
-                  fill={MARKER_COLORS[marker.category]}
-                  stroke="#FFFFFF"
-                  strokeWidth={1.5}
-                />
-              </g>
-            );
-          })}
+                );
+              })
+            : null}
         </g>
+
+        {ANGOLA_PROVINCES.map((p) => {
+          const geo = projection([p.labelLongitude, p.labelLatitude]);
+          if (!geo) return null;
+          const x = transform.x + transform.k * geo[0];
+          const y = transform.y + transform.k * geo[1];
+          const isSelected = selectedProvinceCode === p.code;
+          const label = p.name;
+          const width = Math.max(64, label.length * (isSelected ? 8.2 : 7.2) + 16);
+          const height = isSelected ? 26 : 22;
+          return (
+            <g key={p.code} transform={`translate(${x}, ${y})`} className="pointer-events-none">
+              <rect
+                x={-width / 2}
+                y={-height / 2}
+                width={width}
+                height={height}
+                rx={10}
+                fill={PROVINCE_LABEL_STYLE.background}
+                stroke={isSelected ? "#F97316" : PROVINCE_LABEL_STYLE.border}
+                strokeWidth={isSelected ? 2 : 1}
+                style={{ filter: `drop-shadow(${PROVINCE_LABEL_STYLE.shadow})` }}
+              />
+              <text
+                textAnchor="middle"
+                dominantBaseline="middle"
+                fill={PROVINCE_LABEL_STYLE.text}
+                fontSize={isSelected ? 13 : 11}
+                fontWeight={700}
+                className={baloo.className}
+              >
+                {label}
+              </text>
+            </g>
+          );
+        })}
       </svg>
-
-      <div className="pointer-events-none absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-md border border-slate-200">
-        <span className="flex h-7 w-10 overflow-hidden rounded-sm border border-slate-200" aria-hidden>
-          <span className="w-1/2 bg-red-600" />
-          <span className="w-1/2 bg-black" />
-        </span>
-        <span className="leading-tight">
-          <span className="block text-sm font-black tracking-wide text-slate-800">ANGOLA</span>
-          <span className="block text-[10px] font-semibold text-slate-500">Provinces Map</span>
-        </span>
-      </div>
-
-      <div className="pointer-events-none absolute bottom-3 left-3 z-10 text-[10px] font-bold tracking-widest text-slate-500">
-        <div className="mb-1 flex items-center gap-1">
-          <span className="inline-block h-3 w-px bg-slate-500" />
-          <span>N</span>
-        </div>
-        <div className="h-1 w-24 border-x border-b border-slate-500" />
-        <div className="mt-0.5 flex justify-between w-24">
-          <span>0</span>
-          <span>400 km</span>
-        </div>
-      </div>
 
       <MapControls
         onZoomIn={() => zoomBy(0.25)}
@@ -373,39 +352,5 @@ export function AngolaAtlasMap({
         className="absolute bottom-4 right-4"
       />
     </div>
-  );
-}
-
-function ContextLabel({
-  x,
-  y,
-  k,
-  projection,
-  text,
-  rotate,
-}: {
-  x: number;
-  y: number;
-  k: number;
-  projection: (coords: [number, number]) => [number, number] | null;
-  text: string;
-  rotate?: number;
-}) {
-  const pt = projection([x, y]);
-  if (!pt) return null;
-  return (
-    <text
-      x={pt[0]}
-      y={pt[1]}
-      textAnchor="middle"
-      fill="#9AA3AD"
-      fontSize={11 / k}
-      fontWeight={700}
-      letterSpacing={1.4 / k}
-      transform={rotate ? `rotate(${rotate} ${pt[0]} ${pt[1]})` : undefined}
-      style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
-    >
-      {text}
-    </text>
   );
 }
