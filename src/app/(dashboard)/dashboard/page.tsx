@@ -521,7 +521,7 @@ export default function DashboardPage() {
                   <h4 className="font-bold text-sm text-foreground">AgriLocalização</h4>
                 </div>
                 <p className="text-xs text-muted-foreground leading-relaxed">
-                  Destaque a localização da sua fazenda ou loja nas 18 províncias.
+                  Destaque a localização da sua fazenda ou loja nas 21 províncias.
                 </p>
               </div>
               <Button

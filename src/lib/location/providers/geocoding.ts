@@ -14,7 +14,7 @@ import { calculateDistance } from "../location-service";
 
 /**
  * Local Angola Administrative Dataset Geocoding Provider.
- * Fast, offline-capable fallback for Angola's 18 provinces and key municipalities.
+ * Fast, offline-capable fallback for Angola's 21 provinces and key municipalities.
  */
 export class LocalAngolaGeocodingProvider implements IGeocodingProvider {
   public readonly id = "local-angola";

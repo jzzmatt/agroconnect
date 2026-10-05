@@ -26,8 +26,8 @@ describe("AGROCONNECT Phase 1 Foundation — End-to-End Acceptance Tests", () =>
     expect(dict.navigation.dashboard).toBe("Painel");
   });
 
-  it("3. Verifies Angola geographic foundation covers all 18 provinces", () => {
-    expect(ANGOLA_PROVINCES).toHaveLength(18);
+  it("3. Verifies Angola geographic foundation covers all 21 provinces", () => {
+    expect(ANGOLA_PROVINCES).toHaveLength(21);
     const provinceNames = ANGOLA_PROVINCES.map((p) => p.name);
     expect(provinceNames).toEqual(
       expect.arrayContaining([
@@ -35,7 +35,10 @@ describe("AGROCONNECT Phase 1 Foundation — End-to-End Acceptance Tests", () =>
         "Benguela",
         "Bié",
         "Cabinda",
-        "Cuando Cubango",
+        "Cuando",
+        "Cubango",
+        "Icolo e Bengo",
+        "Moxico Leste",
         "Cuanza Norte",
         "Cuanza Sul",
         "Cunene",
