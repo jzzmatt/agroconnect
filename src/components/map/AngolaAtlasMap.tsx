@@ -3,21 +3,18 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
-import { Baloo_2 } from "next/font/google";
 import { Loader2, AlertCircle } from "lucide-react";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import {
   ANGOLA_MAP_BACKGROUND,
   PROVINCE_INTERACTION_COLORS,
   PROVINCE_LABEL_STYLE,
+  referenceProvinceFill,
 } from "@/lib/geographic/angola-map-theme";
 import { useAngolaProvinceGeoJson } from "@/lib/geographic/use-angola-province-geojson";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 import { MapControls } from "./MapControls";
-import { useTheme } from "@/lib/theme";
-
-const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700"] });
 
 const MARKER_COLORS: Record<MapMarkerItem["category"], string> = {
   shopping: "#F97316",
@@ -53,8 +50,6 @@ export function AngolaAtlasMap({
   errorTitle = "Não foi possível carregar o mapa agrícola.",
   errorHint = "Verifique a ligação à internet e tente novamente.",
 }: AngolaAtlasMapProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 520 });
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
@@ -163,11 +158,9 @@ export function AngolaAtlasMap({
     if (selectedProvinceCode) focusProvince(selectedProvinceCode);
   }, [selectedProvinceCode, focusProvince]);
 
-  const backgroundStyle = isDark
-    ? {
-        background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 45%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
-      }
-    : { backgroundColor: ANGOLA_MAP_BACKGROUND.light.surround };
+  const backgroundStyle = {
+    backgroundColor: ANGOLA_MAP_BACKGROUND.light.ocean,
+  };
 
   if (loading) {
     return (
@@ -179,7 +172,7 @@ export function AngolaAtlasMap({
         )}
         style={backgroundStyle}
       >
-        <Loader2 className="w-8 h-8 animate-spin text-[#F5D98A]" aria-hidden />
+        <Loader2 className="w-8 h-8 animate-spin text-slate-600" aria-hidden />
         <span className="sr-only">{loadingLabel}</span>
       </div>
     );
@@ -206,7 +199,7 @@ export function AngolaAtlasMap({
     <div
       ref={containerRef}
       className={cn(
-        "relative rounded-3xl border border-[#C9A84B]/30 overflow-hidden touch-none",
+        "relative rounded-3xl border border-slate-200 overflow-hidden touch-none",
         heightClassName,
         className
       )}
@@ -215,77 +208,110 @@ export function AngolaAtlasMap({
       role="application"
       aria-label="Mapa agrícola interactivo de Angola"
     >
-      <div
-        className="pointer-events-none absolute inset-0 opacity-[0.08] mix-blend-overlay"
-        style={{
-          backgroundImage:
-            "url(\"data:image/svg+xml,%3Csvg viewBox='0 0 200 200' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='0.45'/%3E%3C/svg%3E\")",
-        }}
-      />
-
       <svg width={size.width} height={size.height} className="block select-none">
+        <rect width={size.width} height={size.height} fill={ANGOLA_MAP_BACKGROUND.light.neighbor} />
         <g transform={`translate(${transform.x} ${transform.y}) scale(${transform.k})`}>
+          <path
+            d={
+              pathGenerator({
+                type: "Feature",
+                properties: {},
+                geometry: {
+                  type: "Polygon",
+                  coordinates: [
+                    [
+                      [8.2, -19.4],
+                      [13.15, -19.4],
+                      [13.15, -4.6],
+                      [8.2, -4.6],
+                      [8.2, -19.4],
+                    ],
+                  ],
+                },
+              }) ?? ""
+            }
+            fill={ANGOLA_MAP_BACKGROUND.light.ocean}
+          />
+
           {data.features.map((feature, idx) => {
             const code = String(feature.properties?.code ?? "");
-            const meta = provinceByCode.get(code);
             const d = pathGenerator(feature as Feature) ?? "";
             const isSelected = selectedProvinceCode === code;
             const isHover = hoverCode === code;
-            let fill = meta?.fillColor ?? "#3E7130";
-            if (isSelected) fill = PROVINCE_INTERACTION_COLORS.selected;
-            else if (isHover) fill = PROVINCE_INTERACTION_COLORS.hover;
+            const fill = referenceProvinceFill(code);
 
             return (
               <path
                 key={`${code}-${idx}`}
                 d={d}
                 fill={fill}
-                stroke={isDark ? "#063A30" : "#4B4A20"}
-                strokeWidth={isSelected ? 2.2 / transform.k : 1.2 / transform.k}
-                className="cursor-pointer transition-[fill] duration-200"
+                stroke="#FFFFFF"
+                strokeWidth={(isSelected ? 2.6 : isHover ? 1.8 : 1.15) / transform.k}
+                className="cursor-pointer"
                 style={
                   isSelected
-                    ? { filter: `drop-shadow(0 0 12px ${PROVINCE_INTERACTION_COLORS.selectedGlow})` }
-                    : undefined
+                    ? { filter: `drop-shadow(0 0 6px ${PROVINCE_INTERACTION_COLORS.selectedGlow})` }
+                    : isHover
+                      ? { filter: "brightness(1.06)" }
+                      : undefined
                 }
                 onMouseEnter={() => setHoverCode(code)}
                 onMouseLeave={() => setHoverCode(null)}
                 onClick={() => handleProvinceClick(code)}
-              />
+              >
+                <title>{provinceByCode.get(code)?.name ?? code}</title>
+              </path>
             );
           })}
 
+          <ContextLabel k={transform.k} x={10.4} y={-12.2} projection={projection} rotate={-90} text="ATLANTIC OCEAN" />
+          <ContextLabel k={transform.k} x={19.2} y={-6.15} projection={projection} text="DEMOCRATIC REPUBLIC OF CONGO" />
+          <ContextLabel k={transform.k} x={23.4} y={-13.4} projection={projection} text="ZAMBIA" />
+          <ContextLabel k={transform.k} x={15.2} y={-18.55} projection={projection} text="NAMIBIA" />
+          <ContextLabel k={transform.k} x={22.6} y={-19.15} projection={projection} text="BOTSWANA" />
+
           {ANGOLA_PROVINCES.map((p) => {
             const pt = projection([p.labelLongitude, p.labelLatitude]);
+            const capital = projection([p.longitude, p.latitude]);
             if (!pt) return null;
             const isSelected = selectedProvinceCode === p.code;
+            const compact = p.name.length > 12;
             return (
-              <g
-                key={p.code}
-                transform={`translate(${pt[0]}, ${pt[1]})`}
-                className="pointer-events-none"
-              >
-                <rect
-                  x={-Math.min(52, p.name.length * 3.8)}
-                  y={-11}
-                  width={Math.min(104, p.name.length * 7.6)}
-                  height={22}
-                  rx={10}
-                  fill={PROVINCE_LABEL_STYLE.background}
-                  stroke={PROVINCE_LABEL_STYLE.border}
-                  strokeWidth={isSelected ? 2 : 1}
-                  style={{ filter: PROVINCE_LABEL_STYLE.shadow }}
-                />
+              <g key={p.code} className="pointer-events-none">
                 <text
+                  x={pt[0]}
+                  y={pt[1]}
                   textAnchor="middle"
-                  dominantBaseline="middle"
-                  fill={PROVINCE_LABEL_STYLE.text}
-                  fontSize={11}
-                  fontWeight={700}
-                  className={baloo.className}
+                  fill={PROVINCE_LABEL_STYLE.name}
+                  fontSize={(compact ? 8.5 : 11) / transform.k}
+                  fontWeight={800}
+                  letterSpacing={0.4}
+                  stroke="#FFFFFF"
+                  strokeWidth={2.2 / transform.k}
+                  paintOrder="stroke"
+                  style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
                 >
-                  {p.name}
+                  {p.name.toUpperCase()}
                 </text>
+                {capital ? (
+                  <g transform={`translate(${capital[0]}, ${capital[1] + 10 / transform.k})`}>
+                    <circle r={2.2 / transform.k} fill="#1F2937" />
+                    <text
+                      x={6 / transform.k}
+                      y={1 / transform.k}
+                      dominantBaseline="middle"
+                      fill={isSelected ? "#111827" : PROVINCE_LABEL_STYLE.capital}
+                      fontSize={8 / transform.k}
+                      fontWeight={600}
+                      stroke="#FFFFFF"
+                      strokeWidth={1.6 / transform.k}
+                      paintOrder="stroke"
+                      style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
+                    >
+                      {p.capital}
+                    </text>
+                  </g>
+                ) : null}
               </g>
             );
           })}
@@ -316,6 +342,29 @@ export function AngolaAtlasMap({
         </g>
       </svg>
 
+      <div className="pointer-events-none absolute top-3 right-3 z-10 flex items-center gap-2 rounded-xl bg-white px-3 py-2 shadow-md border border-slate-200">
+        <span className="flex h-7 w-10 overflow-hidden rounded-sm border border-slate-200" aria-hidden>
+          <span className="w-1/2 bg-red-600" />
+          <span className="w-1/2 bg-black" />
+        </span>
+        <span className="leading-tight">
+          <span className="block text-sm font-black tracking-wide text-slate-800">ANGOLA</span>
+          <span className="block text-[10px] font-semibold text-slate-500">Provinces Map</span>
+        </span>
+      </div>
+
+      <div className="pointer-events-none absolute bottom-3 left-3 z-10 text-[10px] font-bold tracking-widest text-slate-500">
+        <div className="mb-1 flex items-center gap-1">
+          <span className="inline-block h-3 w-px bg-slate-500" />
+          <span>N</span>
+        </div>
+        <div className="h-1 w-24 border-x border-b border-slate-500" />
+        <div className="mt-0.5 flex justify-between w-24">
+          <span>0</span>
+          <span>400 km</span>
+        </div>
+      </div>
+
       <MapControls
         onZoomIn={() => zoomBy(0.25)}
         onZoomOut={() => zoomBy(-0.25)}
@@ -323,5 +372,39 @@ export function AngolaAtlasMap({
         className="absolute bottom-4 right-4"
       />
     </div>
+  );
+}
+
+function ContextLabel({
+  x,
+  y,
+  k,
+  projection,
+  text,
+  rotate,
+}: {
+  x: number;
+  y: number;
+  k: number;
+  projection: (coords: [number, number]) => [number, number] | null;
+  text: string;
+  rotate?: number;
+}) {
+  const pt = projection([x, y]);
+  if (!pt) return null;
+  return (
+    <text
+      x={pt[0]}
+      y={pt[1]}
+      textAnchor="middle"
+      fill="#9AA3AD"
+      fontSize={11 / k}
+      fontWeight={700}
+      letterSpacing={1.4 / k}
+      transform={rotate ? `rotate(${rotate} ${pt[0]} ${pt[1]})` : undefined}
+      style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
+    >
+      {text}
+    </text>
   );
 }

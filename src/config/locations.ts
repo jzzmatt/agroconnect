@@ -42,7 +42,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 14.3333,
     labelLatitude: -8.65,
     labelLongitude: 14.25,
-    fillColor: "#3E7130",
+    fillColor: "#1E88E5",
     agriculturalFocus: ["Banana", "Mandioca", "Cana-de-açúcar", "Hortícolas"],
   },
   {
@@ -55,7 +55,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 13.4167,
     labelLatitude: -12.85,
     labelLongitude: 13.55,
-    fillColor: "#718333",
+    fillColor: "#42A5F5",
     agriculturalFocus: ["Milho", "Feijão", "Fruticultura", "Pesca e Aquacultura"],
   },
   {
@@ -68,7 +68,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 17.3,
     labelLatitude: -12.55,
     labelLongitude: 17.1,
-    fillColor: "#68732D",
+    fillColor: "#EF6A6A",
     agriculturalFocus: ["Milho", "Trigo", "Arroz", "Soja", "Feijão"],
   },
   {
@@ -81,7 +81,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 12.2,
     labelLatitude: -5.45,
     labelLongitude: 12.35,
-    fillColor: "#A18B2F",
+    fillColor: "#7E57C2",
     agriculturalFocus: ["Café", "Cacau", "Palmeira de Dendém", "Mandioca"],
   },
   {
@@ -94,7 +94,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 21.2,
     labelLatitude: -15.6,
     labelLongitude: 21.0,
-    fillColor: "#C49A32",
+    fillColor: "#FFE082",
     agriculturalFocus: ["Milho", "Massango", "Pecuária"],
   },
   {
@@ -107,7 +107,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 15.0,
     labelLatitude: -9.1,
     labelLongitude: 14.85,
-    fillColor: "#D9B13C",
+    fillColor: "#FBC02D",
     agriculturalFocus: ["Café Robusta", "Palma de Dendém", "Fruticultura"],
   },
   {
@@ -120,7 +120,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 15.0,
     labelLatitude: -11.35,
     labelLongitude: 14.75,
-    fillColor: "#B95E45",
+    fillColor: "#5E35B1",
     agriculturalFocus: ["Café", "Milho", "Palma de Dendém", "Pecuária Bovina"],
   },
   {
@@ -133,7 +133,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 18.2,
     labelLatitude: -15.35,
     labelLongitude: 17.85,
-    fillColor: "#A84D42",
+    fillColor: "#F9A825",
     agriculturalFocus: ["Milho", "Massambala", "Pecuária"],
   },
   {
@@ -146,7 +146,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 16.0,
     labelLatitude: -16.75,
     labelLongitude: 15.85,
-    fillColor: "#D97735",
+    fillColor: "#8E24AA",
     agriculturalFocus: ["Pecuária Bovina", "Massango", "Massambala"],
   },
   {
@@ -159,7 +159,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 15.7333,
     labelLatitude: -12.65,
     labelLongitude: 15.55,
-    fillColor: "#3E7130",
+    fillColor: "#66BB6A",
     agriculturalFocus: ["Milho", "Batata", "Feijão", "Hortícolas", "Avicultura"],
   },
   {
@@ -172,7 +172,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 13.55,
     labelLatitude: -15.05,
     labelLongitude: 13.35,
-    fillColor: "#E87557",
+    fillColor: "#FF7043",
     agriculturalFocus: ["Milho", "Massambala", "Pecuária de Corte e Leite", "Fruticultura de Altitude"],
   },
   {
@@ -185,7 +185,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 13.75,
     labelLatitude: -9.05,
     labelLongitude: 13.65,
-    fillColor: "#F5D98A",
+    fillColor: "#FDD835",
     agriculturalFocus: ["Hortícolas", "Avicultura", "Cintura Verde"],
   },
   {
@@ -198,7 +198,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 13.2344,
     labelLatitude: -8.92,
     labelLongitude: 13.15,
-    fillColor: "#718333",
+    fillColor: "#E53935",
     agriculturalFocus: ["Agro-indústria", "Cintura Verde Hortícola", "Distribuição"],
   },
   {
@@ -211,7 +211,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 19.5,
     labelLatitude: -8.35,
     labelLongitude: 19.25,
-    fillColor: "#A18B2F",
+    fillColor: "#9575CD",
     agriculturalFocus: ["Mandioca", "Milho", "Piscicultura"],
   },
   {
@@ -224,7 +224,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 20.5,
     labelLatitude: -10.25,
     labelLongitude: 20.15,
-    fillColor: "#C49A32",
+    fillColor: "#FF9800",
     agriculturalFocus: ["Mandioca", "Arroz", "Amendoim"],
   },
   {
@@ -237,7 +237,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 16.35,
     labelLatitude: -9.65,
     labelLongitude: 16.15,
-    fillColor: "#68732D",
+    fillColor: "#00ACC1",
     agriculturalFocus: ["Mandioca", "Milho", "Soja", "Algodão", "Cana-de-açúcar"],
   },
   {
@@ -250,7 +250,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 18.5,
     labelLatitude: -12.25,
     labelLongitude: 18.2,
-    fillColor: "#B95E45",
+    fillColor: "#9CCC65",
     agriculturalFocus: ["Mandioca", "Arroz", "Milho", "Mel"],
   },
   {
@@ -263,7 +263,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 22.0,
     labelLatitude: -11.75,
     labelLongitude: 21.6,
-    fillColor: "#D97735",
+    fillColor: "#C5E1A5",
     agriculturalFocus: ["Mandioca", "Arroz", "Mel"],
   },
   {
@@ -276,7 +276,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 12.1522,
     labelLatitude: -15.45,
     labelLongitude: 12.35,
-    fillColor: "#D9B13C",
+    fillColor: "#26A69A",
     agriculturalFocus: ["Tomate", "Azeitona", "Uva", "Caprinocultura", "Pesca"],
   },
   {
@@ -289,7 +289,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 15.05,
     labelLatitude: -7.45,
     labelLongitude: 14.85,
-    fillColor: "#3E7130",
+    fillColor: "#FB8C00",
     agriculturalFocus: ["Café Robusta", "Mandioca", "Amendoim", "Frutas Tropicais"],
   },
   {
@@ -302,7 +302,7 @@ export const ANGOLA_PROVINCES: AngolaProvince[] = [
     longitude: 14.2333,
     labelLatitude: -6.55,
     labelLongitude: 14.05,
-    fillColor: "#718333",
+    fillColor: "#43A047",
     agriculturalFocus: ["Mandioca", "Milho", "Banana", "Palma"],
   },
 ];

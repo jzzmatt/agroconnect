@@ -5,11 +5,9 @@ import { geoMercator, geoPath } from "d3-geo";
 import type { Feature, FeatureCollection } from "geojson";
 import type { GeoCoordinate } from "@/types/domain";
 import { getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojson-data";
-import { ANGOLA_MAP_BACKGROUND, PROVINCE_INTERACTION_COLORS } from "@/lib/geographic/angola-map-theme";
-import { ANGOLA_PROVINCES } from "@/config/locations";
+import { ANGOLA_MAP_BACKGROUND, referenceProvinceFill } from "@/lib/geographic/angola-map-theme";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
-import { useTheme } from "@/lib/theme";
 
 const MARKER_HEX: Record<MapMarkerItem["category"], string> = {
   expert: "#0E6B38",
@@ -47,18 +45,10 @@ export function GeoJsonVectorMap({
   showProvinces = true,
   className,
 }: GeoJsonVectorMapProps) {
-  const { resolvedTheme } = useTheme();
-  const isDark = resolvedTheme === "dark";
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 640, height: 400 });
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
   const data = useMemo(() => getAngolaProvinceGeoJson() as FeatureCollection, []);
-
-  const provinceByCode = useMemo(() => {
-    const map = new Map<string, (typeof ANGOLA_PROVINCES)[number]>();
-    for (const p of ANGOLA_PROVINCES) map.set(p.code, p);
-    return map;
-  }, []);
 
   useEffect(() => {
     const el = containerRef.current;
@@ -123,11 +113,7 @@ export function GeoJsonVectorMap({
     [onMapClick, projection, transform.k, transform.x, transform.y]
   );
 
-  const backgroundStyle = isDark
-    ? {
-        background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 50%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
-      }
-    : { backgroundColor: ANGOLA_MAP_BACKGROUND.light.surround };
+  const backgroundStyle = { backgroundColor: ANGOLA_MAP_BACKGROUND.light.ocean };
 
   return (
     <div
@@ -141,15 +127,14 @@ export function GeoJsonVectorMap({
           {showProvinces
             ? data.features.map((feature, idx) => {
                 const code = String(feature.properties?.code ?? "");
-                const meta = provinceByCode.get(code);
                 const d = pathGenerator(feature as Feature) ?? "";
                 return (
                   <path
                     key={`${code}-${idx}`}
                     d={d}
-                    fill={meta?.fillColor ?? "#3E7130"}
-                    stroke={isDark ? "#063A30" : "#4B4A20"}
-                    strokeWidth={1.1 / transform.k}
+                fill={referenceProvinceFill(code)}
+                stroke="#FFFFFF"
+                strokeWidth={1.15 / transform.k}
                     className="pointer-events-none"
                   />
                 );
@@ -181,7 +166,7 @@ export function GeoJsonVectorMap({
                   strokeWidth={2}
                   style={
                     selected
-                      ? { filter: `drop-shadow(0 0 8px ${PROVINCE_INTERACTION_COLORS.selectedGlow})` }
+                      ? { filter: "drop-shadow(0 0 6px rgba(17,24,39,0.35))" }
                       : undefined
                   }
                 />
