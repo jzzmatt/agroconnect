@@ -3,7 +3,9 @@
 A step-by-step runbook for executing Phases 0–12, one fresh Cursor chat per phase,
 delegating each phase to the subagent that owns it.
 
-There are **13 steps (Phase 0 through Phase 12)**. Do them in numerical order.
+There are **16 steps (Phase 0 through Phase 12, including Academy sub-phases 7.1, 7.2 and 7.2.1)**. Do them in numerical order.
+
+From Phase 7, AgriAcademy training video is **YouTube Unlisted**. Bunny is removed from AgriAcademy. ImageKit remains the product/application media provider. Phases 0–6 keep their existing approved definitions.
 
 ---
 
@@ -43,6 +45,29 @@ Each step is the same five moves:
 5. **Gate before continuing.** Only move to the next step when validation passes and
    you have reviewed the diff. Do not batch two phases into one chat.
 
+After every completed phase, the agent must list **completed phases** and **remaining
+phases** in the order below, then wait for explicit approval of the next numbered phase.
+Do not start application work for a numbered phase until that approval is given.
+
+Phase order:
+
+1. 0 — Repository audit
+2. 1 — Architecture freeze
+3. 2 — Foundation
+4. 3 — Authorization
+5. 4 — Media
+6. 5 — AgriProfile
+7. 6 — AgriShopping
+8. 7 — Academy foundation (YouTube)
+9. 7.1 — Course authoring & guided YouTube workflow
+10. 7.2 — Dashboard: Course Creator & My Courses
+11. 7.2.1 — Instructor editor stabilization
+12. 8 — Student learning experience
+13. 9 — Advanced instructor studio
+14. 10 — AgriService + Localization + Academy integration
+15. 11 — Commerce Academy boundary
+16. 12 — Production hardening (YouTube Academy)
+
 ### The prompt template
 
 Every step below uses this shape. Replace the four bracketed parts:
@@ -78,20 +103,19 @@ that phase's own file.
 | 5 | 4 — Media infrastructure | `media` | `agrishopping`, `agriacademy`, `qa` | Yes |
 | 6 | 5 — AgriProfile workspace | `agriprofile` | `identity`, `authorization`, `qa` | Yes |
 | 7 | 6 — AgriShopping | `agrishopping` | `authorization`, `media`, `localization`, `commerce`, `qa` | Yes |
-| 8 | 7 — Academy foundation | `agriacademy` | `authorization`, `media`, `qa` | Yes |
-| 9 | 8 — Academy student | `agriacademy` | `authorization`, `media`, `qa` | Yes |
-| 10 | 9 — Academy instructor | `agriacademy` | `authorization`, `media`, `qa` | Yes |
-| 11 | 10 — AgriExpert and Localization | `agriexpert` | `localization`, `authorization`, `qa` | Yes |
-| 12 | 11 — Commerce stabilization | `commerce` | `agrishopping`, `authorization`, `qa` | Yes |
-| 13 | 12 — Production hardening | `qa` | — | Yes, fixes only |
+| 8 | 7 — Academy foundation (YouTube) | `agriacademy` | `authorization`, `identity`, `media`, `qa` | Yes |
+| 9 | 7.1 — Course authoring & guided YouTube workflow | `agriacademy` | `authorization`, `identity`, `qa` | Yes |
+| 10 | 7.2 — Dashboard: Course Creator & My Courses | `agriacademy` | `authorization`, `agriprofile`, `qa` | Yes |
+| 11 | 7.2.1 — Instructor editor stabilization | `agriacademy` | `authorization`, `qa` | Yes |
+| 12 | 8 — Academy student learning | `agriacademy` | `authorization`, `media`, `agriprofile`, `qa` | Yes |
+| 13 | 9 — Advanced instructor studio | `agriacademy` | `authorization`, `qa` | Yes |
+| 14 | 10 — AgriService, Localization and Academy integration | `localization` | `agriexpert`, `agriprofile`, `authorization`, `qa` | Yes |
+| 15 | 11 — Commerce stabilization | `commerce` | `agrishopping`, `authorization`, `qa` | Yes |
+| 16 | 12 — Production hardening | `qa` | `agriacademy`, `authorization`, `documentation` | Yes, fixes only |
 
-Note that `agriacademy` leads three consecutive phases (7, 8, 9) and still needs a
-separate fresh chat for each. `foundation`, `agriprofile`, `agriexpert`, `commerce`
-and `qa` each lead exactly one phase.
+Note that `agriacademy` leads Phases 7, 7.1, 7.2, 7.2.1, 8 and 9 and still needs a separate fresh chat and explicit approval for each. `foundation`, `agriprofile`, `localization`, `commerce` and `qa` each lead exactly one top-level phase.
 
-Two subagents never lead a phase. `identity` supports Phases 3 and 5, and
-`localization` supports Phases 6 and 10. Invoke them directly only for a narrow,
-separately approved fix inside their own domain.
+Two subagents never lead a phase. `identity` supports Phases 3, 5 and 7. Invoke them directly only for a narrow, separately approved fix inside their own domain.
 
 ---
 
@@ -217,7 +241,9 @@ Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master, @04-media
 @06-agrishopping, @07-agriacademy, @11-qa.
 
 ImageKit handles product images, product short videos, profile/application images and
-thumbnails. Bunny Stream handles AgriAcademy training videos only.
+thumbnails. Phase 4 historically also introduced Bunny Stream for AgriAcademy training
+videos; Phase 7 supersedes that for Academy only (YouTube Unlisted). Do not redesign
+Academy video hosting in this phase.
 
 Evolve the existing media_assets table rather than creating a parallel media system.
 Remove the process-local durable ProductVideoService state. Supabase is the metadata
@@ -294,9 +320,9 @@ subagent proposes a schema rewrite, stop and review before allowing it.
 
 ---
 
-## Step 8 — Phase 7: Academy foundation
+## Step 8 — Phase 7: Academy foundation (YouTube)
 
-New chat. First of three consecutive `agriacademy` phases — each gets its own chat.
+New chat. First of the AgriAcademy YouTube phases — each sub-phase gets its own chat and approval.
 
 ```
 /agriacademy
@@ -305,28 +331,107 @@ I approve running Phase 7.
 
 Read docs/docplus/phases/07_phase_7_academy_foundation.md and execute it.
 Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
-@03-authorization, @04-media, @07-agriacademy, @11-qa.
+@03-authorization, @02-identity, @04-media, @07-agriacademy, @11-qa.
 
-Replace the Academy prototype and mock-course flows with a durable LMS foundation:
-courses, sections, lessons, enrollments, progress, course video assets, and
-reviews/certificates as appropriate.
+Establish the AgriAcademy foundation using YouTube Unlisted as the training-video
+host. AgroConnect stores only the YouTube Video ID and course/enrollment metadata.
 
-Bunny Stream is the only training-video provider. Define student and instructor
-capabilities independently — a user may be both.
-
-Establish reliable domain, data and service contracts first. Do not implement every UI
-feature yet.
+Remove Academy-specific Bunny upload, playback, storage and processing. Do not use
+Bunny as a fallback. Do not implement the complete student UI or Instructor Studio yet.
 
 When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
 report changed files, test results and remaining risks.
 ```
 
-**Gate:** all four commands pass, migrations are in place with RLS, and the service
-contracts are stable — Phases 8 and 9 both build directly on them.
+**Gate:** all four commands pass, migrations/RLS are in place, lessons reference YouTube
+Video IDs, and no Academy Bunny fallback remains.
 
 ---
 
-## Step 9 — Phase 8: Academy student
+## Step 9 — Phase 7.1: Course authoring and guided YouTube workflow
+
+New chat.
+
+```
+/agriacademy
+
+I approve running Phase 7.1.
+
+Read docs/docplus/phases/07.1_phase_7_academy_authoring.md and execute it.
+Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
+@03-authorization, @02-identity, @07-agriacademy, @11-qa.
+
+Transform Course Creator into a guided YouTube authoring workflow. Instructors paste
+YouTube URLs; AgroConnect validates, extracts the Video ID and previews the video.
+
+No local video upload, no Bunny, no Academy storage quota.
+
+When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
+report changed files, test results and remaining risks.
+```
+
+**Gate:** all four commands pass, publication is blocked without valid YouTube references,
+and draft success is shown only after database confirmation.
+
+---
+
+## Step 10 — Phase 7.2: Dashboard — Course Creator and My Courses
+
+New chat.
+
+```
+/agriacademy
+
+I approve running Phase 7.2.
+
+Read docs/docplus/phases/07.2_phase_7_academy_dashboard.md and execute it.
+Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
+@03-authorization, @05-agriprofile, @07-agriacademy, @11-qa.
+
+AgriAcademy sidebar is Course Creator and My Courses only. Remove Videos, Storage and
+Students nav entries. Remove the Academy Storage card. Guided progress must come from
+persisted course data.
+
+My Courses is enrollment-based and available to every authenticated user, including
+Basic. Course Creator stays restricted to Pro, Business and Enterprise.
+
+When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
+report changed files, test results and remaining risks.
+```
+
+**Gate:** all four commands pass, Basic users can open My Courses, and Course Creator is
+locked without the instructor entitlement.
+
+---
+
+## Step 11 — Phase 7.2.1: Instructor editor stabilization
+
+New chat.
+
+```
+/agriacademy
+
+I approve running Phase 7.2.1.
+
+Read docs/docplus/phases/07.2.1_phase_7_academy_editor_stabilization.md and execute it.
+Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
+@03-authorization, @07-agriacademy, @11-qa.
+
+Stabilize chapter/lesson ordering from the database, YouTube mutations, draft
+persistence, publish/pause/delete lifecycle and mutation error handling.
+
+A published course cannot be deleted until it is paused. Do not delete YouTube videos.
+
+When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
+report changed files, test results and remaining risks.
+```
+
+**Gate:** all four commands pass, ordering is sequential, and published-course deletion is
+rejected server-side.
+
+---
+
+## Step 12 — Phase 8: Academy student learning
 
 New chat.
 
@@ -337,25 +442,23 @@ I approve running Phase 8.
 
 Read docs/docplus/phases/08_phase_8_academy_student.md and execute it.
 Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
-@03-authorization, @04-media, @07-agriacademy, @11-qa.
+@03-authorization, @04-media, @05-agriprofile, @07-agriacademy, @11-qa.
 
-Implement /[userId]/my-courses and /[userId]/my-courses/[courseId] with purchased and
-enrolled courses, course overview, lesson navigation, Bunny playback, progress tracking,
-resume learning, completed lessons and course completion.
+Implement the student learning experience with the official YouTube embedded player.
+Enrollment state comes from the database. After enrollment, route to the learning page.
 
-Verify access server-side before any protected playback. Add regression and
-authorization tests.
+Verify authentication, enrollment and course availability before rendering the learning
+interface. Document that an Unlisted YouTube URL can still be shared outside AgroConnect.
 
 When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
 report changed files, test results and remaining risks.
 ```
 
-**Gate:** all four commands pass and protected playback is provably unreachable without
-enrollment. Test that case explicitly.
+**Gate:** all four commands pass and the learning route is unreachable without enrollment.
 
 ---
 
-## Step 10 — Phase 9: Academy instructor
+## Step 13 — Phase 9: Advanced instructor studio
 
 New chat.
 
@@ -366,16 +469,13 @@ I approve running Phase 9.
 
 Read docs/docplus/phases/09_phase_9_academy_instructor.md and execute it.
 Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
-@03-authorization, @04-media, @07-agriacademy, @11-qa.
+@03-authorization, @07-agriacademy, @11-qa.
 
-Implement /[userId]/agriprofile/academy/manage,
-/[userId]/agriprofile/academy/courses/new and
-/[userId]/agriprofile/academy/courses/[courseId]/edit with create/edit/delete course,
-sections, lessons, Bunny video upload, ordering, draft/publish and manage course.
+Turn Course Creator into a professional Instructor Studio without rebuilding
+Phase 7.1/7.2. No local upload and no Bunny.
 
-Create, edit, delete and publish must each be controlled by granular entitlements.
-Free users can view Academy, but course creation must be locked unless entitlement
-allows it.
+@03-authorization / Claude Opus must review ownership, RLS, enrollment access,
+student privacy, IDOR and YouTube URL handling.
 
 When finished: run npm run typecheck, npm run lint, npm test and npm run build, then
 report changed files, test results and remaining risks.
@@ -386,22 +486,21 @@ UI or by calling the API directly. Verify the API path, not just the UI.
 
 ---
 
-## Step 11 — Phase 10: AgriExpert and Localization
+## Step 14 — Phase 10: AgriService, Localization and Academy integration
 
 New chat.
 
 ```
-/agriexpert
+/localization
 
 I approve running Phase 10.
 
 Read docs/docplus/phases/10_phase_10_expert_localization.md and execute it.
 Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master, @08-agriexpert,
-@09-localization, @03-authorization, @11-qa.
+@09-localization, @05-agriprofile, @03-authorization, @11-qa.
 
-Integrate AgriExpert with the existing geographic infrastructure and enable
-location-aware discovery for experts, services, products and relevant agricultural
-resources.
+Keep AgriService as a discovery layer. `/providers/[slug]` may show only published
+Academy courses and must not depend on Bunny or expose student/instructor-private data.
 
 Preserve the existing PostGIS hierarchy and geographic search. Do not redesign the
 underlying location model without evidence.
@@ -410,12 +509,12 @@ When finished: run npm run typecheck, npm run lint, npm test and npm run build, 
 report changed files, test results and remaining risks.
 ```
 
-**Gate:** all four commands pass and existing geographic search still returns the same
-results. If the location model needs changing, that is a separate approved change.
+**Gate:** all four commands pass, existing geographic search still returns the same
+results, and unpublished Academy courses are absent from the provider page.
 
 ---
 
-## Step 12 — Phase 11: Commerce stabilization
+## Step 15 — Phase 11: Commerce stabilization
 
 New chat.
 
@@ -430,9 +529,8 @@ Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master,
 
 Stabilize cart, checkout, orders, payments, delivery, tracking and notifications.
 
-Treat Commerce as shared infrastructure. Do not move cart business logic into
-AgriProfile and do not redefine product ownership. Preserve existing working flows
-unless you find a concrete defect — report defects before changing behaviour.
+Commerce may reference Course, Enrollment and User. It must not reference Bunny, video
+storage or video playback. Do not create a second Enrollment model.
 
 Never trust client-provided prices, ownership or seller IDs; resolve them server-side.
 
@@ -445,7 +543,7 @@ every behaviour change traces to a reported defect.
 
 ---
 
-## Step 13 — Phase 12: Production hardening
+## Step 16 — Phase 12: Production hardening
 
 New chat. Final step.
 
@@ -455,19 +553,25 @@ New chat. Final step.
 I approve running Phase 12.
 
 Read docs/docplus/phases/12_phase_12_hardening.md and execute it.
-Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master, @11-qa.
+Load only these contexts from docs/docplus/CONTEXT_MAP.md: @00-master, @11-qa,
+@07-agriacademy, @03-authorization, @12-docs.
 
-Validate authentication, authorization, RLS, media security, Bunny protected playback,
-ImageKit upload security, API validation, performance, caching, SEO, accessibility,
-i18n, mobile, error/loading/empty states, observability and regression tests.
+Validate authentication, authorization, RLS, ImageKit upload security, YouTube Academy
+URL handling, enrollment and course-lifecycle security, API validation, performance,
+caching, SEO, accessibility, i18n, mobile, error/loading/empty states, observability
+and regression tests.
+
+Audit and remove obsolete AgriAcademy Bunny dependencies. Do not remove unrelated
+non-Academy Bunny usage if any exists.
 
 Run npm run typecheck, npm run lint, npm test and npm run build.
 
 Report findings by severity. Do not mark this phase complete while any critical
-security or data-integrity failure remains.
+security or data-integrity failure remains, or while Academy Bunny dependencies remain.
 ```
 
-**Gate:** all four commands pass and zero critical findings are open.
+**Gate:** all four commands pass, zero critical findings are open, and no unresolved
+Academy Bunny dependency remains.
 
 ---
 
@@ -481,8 +585,9 @@ If a phase turns out to depend on something an earlier phase left incomplete, go
 finish the earlier phase first. The order exists because of these dependencies:
 
 - Phase 3 (authorization) underpins Phases 5–12.
-- Phase 4 (media) underpins Phases 6–9.
-- Phase 7 (academy foundation) underpins Phases 8 and 9.
+- Phase 4 (media / ImageKit) underpins product media in Phases 6+.
+- Phase 7 (academy foundation, YouTube) underpins Phases 7.1–9.
+- Phase 7.2.1 (editor stabilization) underpins Phase 9.
 
 ---
 
@@ -490,7 +595,7 @@ finish the earlier phase first. The order exists because of these dependencies:
 
 - One phase per chat. Never paste two phase prompts into the same conversation.
 - Approval is per phase. A subagent that has finished Phase 7 has no standing approval
-  for Phase 8; the new chat and new approval line are what grant it.
+  for Phase 7.1; the new chat and new approval line are what grant it.
 - No subagent may start a phase without your explicit approval for that specific phase —
   this is enforced by the phase gate in every agent prompt and in
   `.cursor/rules/00-master.mdc`.

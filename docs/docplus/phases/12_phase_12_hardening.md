@@ -1,5 +1,8 @@
 PHASE 12 — PRODUCTION HARDENING
 
+> Academy update: this phase now includes a YouTube Academy hardening and Bunny-removal audit for AgriAcademy. See `docs/agroconnect-updated-phases.md`.
+
+
 @00-master is the lead agent.
 
 Supporting:
@@ -131,6 +134,70 @@ Review:
 - unnecessary media requests
 
 Do not reintroduce the performance problems previously fixed.
+
+--------------------------------------------------
+YOUTUBE ACADEMY / BUNNY REMOVAL
+--------------------------------------------------
+
+Search the repository for Academy-specific references to:
+
+- Bunny
+- bunny.net
+- BunnyCDN
+- Bunny video IDs
+- Bunny playback
+- Bunny upload
+- Bunny storage
+- Bunny processing
+
+Remove obsolete Academy dependencies.
+
+If Bunny is used by another unrelated domain, do not remove that unrelated functionality.
+
+Verify:
+
+- YouTube URL validation
+- Video ID extraction
+- malformed URL rejection
+- enrollment authorization
+- course publication authorization
+- protected learning route
+- student privacy
+- no unauthorized course data exposure
+
+Use the official YouTube embedded-player architecture.
+
+Do not allow arbitrary external iframe/video domains through the Academy lesson video field.
+
+Enrollment security:
+
+```text
+Anonymous → cannot access learning experience
+Authenticated + not enrolled → cannot access learning experience
+Authenticated + enrolled → can access learning experience
+```
+
+Course lifecycle security, server-side:
+
+```text
+Published → cannot delete directly
+Published → Pause → Delete
+```
+
+Client-side status must never be trusted for destructive authorization.
+
+The approved direction is **remove Bunny immediately** for AgriAcademy.
+
+Do not build an automatic Bunny → YouTube migration.
+
+Existing Academy courses containing Bunny references must not remain publicly published in a broken state. Remove/archive them according to the implementation plan; do not silently convert them without a valid YouTube reference.
+
+Avoid unnecessary YouTube API calls. The stored Video ID should be sufficient to render the embedded player.
+
+Do not call external YouTube APIs on every Academy page load unless an explicit feature requires it.
+
+No unresolved Academy Bunny dependency should remain.
+
 
 --------------------------------------------------
 REGRESSION

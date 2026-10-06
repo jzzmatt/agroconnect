@@ -1,5 +1,7 @@
 # AgriConnect Media Architecture
 
+**Later supersession (Phase 7+):** AgriAcademy training video is **YouTube Unlisted**. AgroConnect stores only the Video ID and course/enrollment metadata. Instructors upload on YouTube and paste the URL. Bunny Stream is not an AgriAcademy provider from Phase 7 and must not remain as a fallback. ImageKit remains the product/application media provider, including course thumbnails. See `docs/agroconnect-updated-phases.md`.
+
 ## Provider split
 
 ### ImageKit
@@ -12,12 +14,22 @@ Canonical provider for:
 - course thumbnails
 - other general application media
 
-### Bunny Stream
+### YouTube Unlisted (AgriAcademy training video)
 Canonical provider for:
-- AgriAcademy training videos
-- course lesson videos
+- AgriAcademy lesson/training videos
 
-Bunny must not be used for AgriShopping product short videos.
+AgroConnect does not upload, store or transcode Academy video. It validates a YouTube URL, extracts the Video ID, and embeds the YouTube player after authentication and enrollment checks.
+
+Unlisted YouTube videos can still be watched by anyone who obtains the URL. Enrollment gates the in-app learning experience; it cannot guarantee the URL is unshareable.
+
+Deleting a course, chapter or lesson must never delete the YouTube video.
+
+Do not use ImageKit or Bunny for AgriAcademy lesson video.
+
+### Bunny Stream
+Not used for AgriAcademy from Phase 7. Phase 4 historically introduced Bunny for Academy training video; that decision is superseded. Do not remove unrelated non-Academy Bunny usage if any exists.
+
+Bunny must not be used for AgriShopping product short videos (those stay on ImageKit).
 
 ## Data model
 Supabase stores durable media metadata.
@@ -51,7 +63,7 @@ Application servers should issue authorization/signing information and persist m
 
 ## Security
 Provider secrets are server-side only.
-Protected Academy playback must verify course access before issuing/allowing playback.
+Protected Academy learning experiences must verify authentication and enrollment before displaying the YouTube player. Do not treat Unlisted visibility as equivalent to private DRM.
 
 ## Durability
 Never use process-local Map/Set/global state as the source of truth for media, subscriptions, products, courses, enrollments, orders or permissions.
@@ -64,15 +76,13 @@ as part of a signed upload authorization, never the private key):
 - `IMAGEKIT_PUBLIC_KEY`
 - `IMAGEKIT_URL_ENDPOINT`
 
-Bunny Stream (AgriAcademy training video only):
+Bunny Stream (historical Phase 4 AgriAcademy training video; remove Academy usage in Phase 7):
 - `BUNNY_STREAM_API_KEY`
 - `BUNNY_STREAM_LIBRARY_ID`
 - `BUNNY_STREAM_CDN_HOSTNAME`
-- `BUNNY_STREAM_WEBHOOK_SECRET` — required, not optional. `/api/webhooks/bunny`
-  verifies an HMAC-SHA256 signature over the raw request body
-  (`X-BunnyStream-Signature`) using this secret and rejects with 401 when the
-  secret is unset or the signature does not match. There is no unsigned
-  fallback.
+- `BUNNY_STREAM_WEBHOOK_SECRET`
+
+Phase 7 must not keep these as a required Academy playback path. Do not add a Bunny fallback. Unrelated non-Academy Bunny usage, if any, is out of Academy scope.
 
 ## Product video upload flow (ImageKit)
 

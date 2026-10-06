@@ -24,7 +24,7 @@ Never bypass RLS or authorization.
 Never expose secrets to the client.
 Roles, subscriptions and entitlements are separate.
 ImageKit = product/application media.
-Bunny Stream = AgriAcademy training videos only.
+AgriAcademy training videos = YouTube Unlisted (AgroConnect stores the Video ID only; no Academy upload/storage/Bunny).
 Supabase = durable application state.
 Clerk = identity.
 Figma = approved UI source of truth.

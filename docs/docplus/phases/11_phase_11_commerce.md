@@ -1,5 +1,8 @@
 PHASE 11 — COMMERCE
 
+> Academy update: Commerce may reference Course/Enrollment/User only. It must not reference Bunny, video storage, or video playback. See `docs/agroconnect-updated-phases.md`.
+
+
 @10-commerce is the lead agent.
 
 Supporting:
@@ -48,7 +51,41 @@ Integrate with AgriShopping product ownership.
 
 ACADEMY
 
-Integrate with Academy enrollment/purchase requirements where applicable.
+Commerce may reference:
+
+- Course
+- Enrollment
+- User
+
+Commerce must not reference:
+
+- Bunny
+- video storage
+- video upload
+- Bunny playback
+- Bunny assets
+
+If Academy courses become paid, Commerce may authorize/create the appropriate enrollment flow.
+
+Do not create a second Enrollment model.
+
+Commerce does not control video playback.
+
+The Academy learning system verifies:
+
+```text
+authenticated user
++
+valid enrollment
++
+course availability
+```
+
+and then displays the YouTube player.
+
+Financial information remains in Commerce.
+
+Do not add YouTube revenue or Academy video-storage financial logic.
 
 AUTHORIZATION
 

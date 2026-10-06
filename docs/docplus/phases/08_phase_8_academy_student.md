@@ -1,6 +1,7 @@
-PHASE 8 — AGRIACADEMY STUDENT EXPERIENCE
+PHASE 8 — AGRIACADEMY STUDENT LEARNING EXPERIENCE
 
 @07-agriacademy is the lead agent.
+Model: Claude Sonnet
 
 Supporting:
 @04-media
@@ -8,59 +9,120 @@ Supporting:
 @05-agriprofile
 @11-qa
 
+Source: `docs/agroconnect-updated-phases.md`
+
 GOAL
 
-Implement the student learning experience and:
-
-/[userId]/my-courses
+Provide the student learning experience using the YouTube embedded player.
 
 Build around the Academy domain established in Phase 7.
 
-FUNCTIONALITY
+MY COURSES
 
-Implement:
-- enrolled courses
-- course progress
-- lesson access
-- resume learning
-- course navigation
-- completion state
-- student dashboard experience
+Query:
 
-AUTHORIZATION
+```text
+Current User → Enrollment → Course
+```
 
-Students may only access courses/content they are authorized to access.
+Any authenticated user may access My Courses regardless of subscription.
 
-Do not expose instructor/admin functionality to students.
+REGISTRATION
+
+Anonymous user:
+
+```text
+Inscrever-se → Clerk Sign-up → Return to intended course → Enrollment → Learning page
+```
+
+Authenticated user:
+
+```text
+Inscrever-se → Enrollment → Learning page
+```
+
+After successful enrollment, immediately route the student to the course learning experience.
+
+ALREADY ENROLLED
+
+When AgriAcademy loads, retrieve enrollment from the database.
+
+Display:
+
+```text
+✓ Inscrito
+[Continuar curso]
+```
+
+Do not use browser cache or client-only state as the source of truth.
+
+LEARNING PAGE
+
+Display:
+
+```text
+Course
+ ├── Chapter 01
+ │    ├── Lesson 01
+ │    └── Lesson 02
+ └── Chapter 02
+      └── Lesson 01
+```
+
+Each lesson has one YouTube embedded video.
+
+PLAYER
+
+Use the normal YouTube player controls:
+
+- Play
+- Pause
+- Seek
+- Volume
+- Fullscreen
+
+There is **no separate AgroConnect lesson-level pause state**.
+
+ACCESS CONTROL
+
+Before rendering the learning interface verify:
+
+- authenticated user
+- valid enrollment
+- course availability
+
+An Unlisted YouTube URL may still be shared outside AgroConnect. Document this limitation.
+
+STUDENT PROGRESS
+
+If progress is implemented, track AgroConnect progress independently from YouTube hosting. Do not depend on Bunny.
 
 PROFILE INTEGRATION
 
-Use the existing AgriProfile identity.
-
-Do not create another student identity system.
-
-PUBLIC PROVIDER
-
-Do not alter /providers/[slug] unless necessary to expose published course metadata.
+Use the existing AgriProfile identity. Do not create another student identity system.
 
 COMMERCE
 
-Do not implement payment/checkout here.
-
-The enrollment/payment relationship must remain compatible with Phase 11 Commerce.
-
-MEDIA
-
-Use existing approved media architecture.
+Do not implement payment/checkout here. Enrollment must remain compatible with Phase 11 Commerce.
 
 VALIDATION
 
 Test:
-- enrollment
-- course access
-- unauthorized lesson access
-- progress persistence
-- completion
-- provider relationship
+- anonymous registration
+- authenticated enrollment
+- already-enrolled state
+- My Courses
+- learning route
+- YouTube player
+- unauthorized/non-enrolled access
+- paused-course behavior
+- lesson navigation
 
-Run typecheck, lint and tests.
+Run:
+
+```bash
+npm run typecheck
+npm run lint
+npm run test
+npm run build
+```

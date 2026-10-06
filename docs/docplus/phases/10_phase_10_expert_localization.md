@@ -1,5 +1,8 @@
 PHASE 10 — AGRISERVICE
 
+> Academy update: this phase keeps the existing AgriService/Transport/provider work and adds AgriAcademy YouTube integration on `/providers/[slug]`. See `docs/agroconnect-updated-phases.md`.
+
+
 @09-localization is the lead agent.
 
 Supporting:
@@ -185,6 +188,37 @@ It does NOT own:
 Each domain remains responsible for its own data.
 
 --------------------------------------------------
+ACADEMY INTEGRATION (YOUTUBE)
+--------------------------------------------------
+
+`/providers/[slug]` displays the user's published Academy courses.
+
+Only courses with:
+
+```text
+status = PUBLISHED
+```
+
+are public.
+
+Do not expose:
+
+- draft courses
+- paused courses
+- archived courses
+- student emails
+- enrollment details
+- instructor-only data
+- raw internal YouTube metadata
+
+The provider page links into the normal Academy enrollment/access flow.
+
+Provider integration must not depend on Bunny.
+
+Verify published-course visibility and ensure student/instructor-private information is never exposed publicly.
+
+
+--------------------------------------------------
 SHARING
 --------------------------------------------------
 
@@ -263,6 +297,8 @@ Test:
 - transport request lifecycle
 - provider aggregation
 - published-only filtering
+- published Academy course visibility on `/providers/[slug]`
+- no Bunny dependency in provider Academy integration
 - localization
 - sharing URLs
 - authorization
