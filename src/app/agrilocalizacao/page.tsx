@@ -13,6 +13,7 @@ import { listPublishedCourseMapMarkersAction } from "@/lib/services/course-actio
 import { provinceMatchesFilter, resolveProvince } from "@/lib/geographic/province-normalization";
 import { Compass, List, Map as MapIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 type MapListMode = "map" | "list";
 type CategoryFilter = "all" | MapMarkerItem["category"];
@@ -26,6 +27,7 @@ export default function AgriLocalizacaoPage() {
   const [courseMarkers, setCourseMarkers] = useState<MapMarkerItem[]>([]);
   const [viewMode, setViewMode] = useState<MapListMode>("map");
   const [categoryFilter, setCategoryFilter] = useState<CategoryFilter>("all");
+  const isMobileMap = useMediaQuery("(max-width: 767px)");
 
   useEffect(() => {
     let cancelled = false;
@@ -162,7 +164,7 @@ export default function AgriLocalizacaoPage() {
             />
             <MapBottomSheet
               province={selectedProvince}
-              marker={selectedMarker}
+              marker={isMobileMap ? selectedMarker : null}
               emptyMessage={
                 selectedProvince && filteredMarkers.length === 0
                   ? dict.agrilocalization.emptyProvince

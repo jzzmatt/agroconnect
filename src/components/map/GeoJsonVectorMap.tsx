@@ -8,15 +8,8 @@ import { getAngolaProvinceGeoJson } from "@/lib/geographic/angola-province-geojs
 import { ANGOLA_MAP_BACKGROUND, atlasProvinceFill } from "@/lib/geographic/angola-map-theme";
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
-
-const MARKER_HEX: Record<MapMarkerItem["category"], string> = {
-  expert: "#3E7130",
-  academy: "#8B4513",
-  shopping: "#D4A72C",
-  business: "#B95E45",
-  service: "#E87557",
-  farm: "#718333",
-};
+import { MapMarkerOverlay } from "./MapMarkerOverlay";
+import { useI18n } from "@/i18n/provider";
 
 function zoomToScale(zoom: number): number {
   return Math.min(8, Math.max(0.75, Math.pow(1.38, zoom - 6)));
@@ -45,6 +38,7 @@ export function GeoJsonVectorMap({
   showProvinces = true,
   className,
 }: GeoJsonVectorMapProps) {
+  const { dict } = useI18n();
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 640, height: 400 });
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
@@ -113,6 +107,27 @@ export function GeoJsonVectorMap({
     [onMapClick, projection, transform.k, transform.x, transform.y]
   );
 
+  const markerLabels = useMemo(
+    () => ({
+      closePopup: dict.agrilocalization.closeMarkerPopup,
+      viewDetails: dict.common.details,
+      markerAria: (title: string) =>
+        dict.agrilocalization.markerAriaLabel.replace("{title}", title),
+      categoryLabel: (category: MapMarkerItem["category"]) => {
+        const key = {
+          shopping: dict.agrilocalization.markerCategoryShopping,
+          expert: dict.agrilocalization.markerCategoryExpert,
+          farm: dict.agrilocalization.markerCategoryFarm,
+          service: dict.agrilocalization.markerCategoryService,
+          business: dict.agrilocalization.markerCategoryBusiness,
+          academy: dict.agrilocalization.markerCategoryAcademy,
+        } as const;
+        return key[category];
+      },
+    }),
+    [dict]
+  );
+
   const backgroundStyle = {
     background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 48%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
   };
@@ -147,36 +162,23 @@ export function GeoJsonVectorMap({
             <UserLocationDot projection={projection} location={userLocation} k={transform.k} />
           ) : null}
 
-          {markers.map((marker) => {
-            const pt = projection([marker.longitude, marker.latitude]);
-            if (!pt) return null;
-            const selected = marker.id === selectedMarkerId;
-            return (
-              <g
-                key={marker.id}
-                transform={`translate(${pt[0]}, ${pt[1]})`}
-                className="cursor-pointer"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onMarkerClick?.(marker);
-                }}
-              >
-                <circle
-                  r={selected ? 8 : 6}
-                  fill={MARKER_HEX[marker.category]}
-                  stroke="#FFFFFF"
-                  strokeWidth={2}
-                  style={
-                    selected
-                      ? { filter: "drop-shadow(0 0 6px rgba(17,24,39,0.35))" }
-                      : undefined
-                  }
-                />
-              </g>
-            );
-          })}
         </g>
       </svg>
+
+      {markers.length > 0 ? (
+        <MapMarkerOverlay
+          markers={markers}
+          projection={projection}
+          transform={transform}
+          containerSize={size}
+          selectedMarkerId={selectedMarkerId}
+          onSelectMarker={(marker) => {
+            if (marker) onMarkerClick?.(marker);
+          }}
+          showDesktopPopup={false}
+          labels={markerLabels}
+        />
+      ) : null}
     </div>
   );
 }
