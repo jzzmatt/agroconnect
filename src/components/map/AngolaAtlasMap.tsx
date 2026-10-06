@@ -7,7 +7,6 @@ import { Baloo_2 } from "next/font/google";
 import { Loader2, AlertCircle } from "lucide-react";
 import { ANGOLA_KEY_MUNICIPALITIES, ANGOLA_PROVINCES } from "@/config/locations";
 import {
-  AGRICULTURAL_MARKER_COLORS,
   ANGOLA_MAP_BACKGROUND,
   PROVINCE_INTERACTION_COLORS,
   PROVINCE_LABEL_STYLE,
@@ -17,17 +16,11 @@ import { useAngolaProvinceGeoJson } from "@/lib/geographic/use-angola-province-g
 import { cn } from "@/lib/utils";
 import type { MapMarkerItem } from "@/components/location/LocationMap";
 import { MapControls } from "./MapControls";
+import { MapMarkerOverlay } from "./MapMarkerOverlay";
+import { useI18n } from "@/i18n/provider";
+import { useMediaQuery } from "@/hooks/use-media-query";
 
 const baloo = Baloo_2({ subsets: ["latin"], weight: ["600", "700"] });
-
-const MARKER_COLORS: Record<MapMarkerItem["category"], string> = {
-  shopping: AGRICULTURAL_MARKER_COLORS.marketplace,
-  expert: AGRICULTURAL_MARKER_COLORS.expert,
-  farm: AGRICULTURAL_MARKER_COLORS.farms,
-  service: AGRICULTURAL_MARKER_COLORS.services,
-  business: AGRICULTURAL_MARKER_COLORS.business,
-  academy: AGRICULTURAL_MARKER_COLORS.academy,
-};
 
 interface AngolaAtlasMapProps {
   selectedProvinceCode?: string | null;
@@ -54,6 +47,8 @@ export function AngolaAtlasMap({
   errorTitle = "Não foi possível carregar o mapa agrícola.",
   errorHint = "Verifique a ligação à internet e tente novamente.",
 }: AngolaAtlasMapProps) {
+  const { dict } = useI18n();
+  const isDesktop = useMediaQuery("(min-width: 768px)");
   const containerRef = useRef<HTMLDivElement>(null);
   const [size, setSize] = useState({ width: 800, height: 520 });
   const [transform, setTransform] = useState({ x: 0, y: 0, k: 1 });
@@ -178,7 +173,29 @@ export function AngolaAtlasMap({
   const backgroundStyle = {
     background: `linear-gradient(180deg, ${ANGOLA_MAP_BACKGROUND.dark.top} 0%, ${ANGOLA_MAP_BACKGROUND.dark.center} 48%, ${ANGOLA_MAP_BACKGROUND.dark.bottom} 100%)`,
   };
-  const showContentMarkers = transform.k >= 1.45 || Boolean(selectedProvinceCode);
+  const showContentMarkers =
+    markers.length > 0 && (transform.k >= 1.15 || Boolean(selectedProvinceCode));
+
+  const markerLabels = useMemo(
+    () => ({
+      closePopup: dict.agrilocalization.closeMarkerPopup,
+      viewDetails: dict.common.details,
+      markerAria: (title: string) =>
+        dict.agrilocalization.markerAriaLabel.replace("{title}", title),
+      categoryLabel: (category: MapMarkerItem["category"]) => {
+        const key = {
+          shopping: dict.agrilocalization.markerCategoryShopping,
+          expert: dict.agrilocalization.markerCategoryExpert,
+          farm: dict.agrilocalization.markerCategoryFarm,
+          service: dict.agrilocalization.markerCategoryService,
+          business: dict.agrilocalization.markerCategoryBusiness,
+          academy: dict.agrilocalization.markerCategoryAcademy,
+        } as const;
+        return key[category];
+      },
+    }),
+    [dict]
+  );
   const municipalities = selectedProvinceCode
     ? ANGOLA_KEY_MUNICIPALITIES.filter((m) => m.provinceCode === selectedProvinceCode)
     : [];
@@ -293,31 +310,6 @@ export function AngolaAtlasMap({
             );
           })}
 
-          {showContentMarkers
-            ? markers.map((marker) => {
-                const pt = projection([marker.longitude, marker.latitude]);
-                if (!pt) return null;
-                const selected = selectedMarkerId === marker.id;
-                return (
-                  <g
-                    key={marker.id}
-                    transform={`translate(${pt[0]}, ${pt[1]})`}
-                    className="cursor-pointer"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onSelectMarker?.(marker);
-                    }}
-                  >
-                    <circle
-                      r={(selected ? 8 : 6) / transform.k}
-                      fill={selected ? AGRICULTURAL_MARKER_COLORS.selected : MARKER_COLORS[marker.category]}
-                      stroke="#F8F3E8"
-                      strokeWidth={1.6 / transform.k}
-                    />
-                  </g>
-                );
-              })
-            : null}
         </g>
 
         {data.features.map((feature) => {
@@ -358,6 +350,19 @@ export function AngolaAtlasMap({
           );
         })}
       </svg>
+
+      {showContentMarkers ? (
+        <MapMarkerOverlay
+          markers={markers}
+          projection={projection}
+          transform={transform}
+          containerSize={size}
+          selectedMarkerId={selectedMarkerId}
+          onSelectMarker={onSelectMarker}
+          showDesktopPopup={isDesktop}
+          labels={markerLabels}
+        />
+      ) : null}
 
       <MapControls
         onZoomIn={() => zoomBy(0.25)}
