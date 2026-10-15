@@ -1,8 +1,11 @@
 /* Agroconnect offline shell.
  * Caches only this static shell and public icons. Never stores HTML from the
  * app, authenticated responses, API payloads, or requests with credentials.
+ *
+ * Navigations are intentionally not intercepted. Wrapping document requests
+ * breaks Clerk's handshake redirect and surfaces as a middleware 500.
  */
-const CACHE_NAME = "agroconnect-offline-v1";
+const CACHE_NAME = "agroconnect-offline-v2";
 const PRECACHE_URLS = [
   "/offline.html",
   "/manifest.json",
@@ -41,13 +44,16 @@ function isPrivateRequest(url, request) {
   return (
     path.startsWith("/api/") ||
     path.startsWith("/trpc") ||
-    path.startsWith("/_next/data/")
+    path.startsWith("/_next/") ||
+    path.startsWith("/__clerk")
   );
 }
 
 self.addEventListener("fetch", (event) => {
   const request = event.request;
   if (request.method !== "GET") return;
+  // Document loads, including Clerk handshakes, must reach the network directly.
+  if (request.mode === "navigate") return;
 
   let url;
   try {
@@ -57,28 +63,13 @@ self.addEventListener("fetch", (event) => {
   }
 
   if (isPrivateRequest(url, request)) return;
-
-  if (request.mode === "navigate") {
-    event.respondWith(
-      fetch(request).catch(async () => {
-        const offline = await caches.match("/offline.html");
-        if (offline) return offline;
-        return new Response("Offline", {
-          status: 503,
-          headers: { "Content-Type": "text/plain; charset=utf-8" },
-        });
-      })
-    );
-    return;
-  }
-
   if (!PRECACHE_URLS.includes(url.pathname)) return;
 
   const cacheKey = url.pathname;
   event.respondWith(
     fetch(request)
       .then((response) => {
-        if (response && response.ok) {
+        if (response && response.ok && response.type === "basic") {
           const copy = response.clone();
           caches.open(CACHE_NAME).then((cache) => cache.put(cacheKey, copy));
         }

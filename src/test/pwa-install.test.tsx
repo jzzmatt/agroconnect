@@ -303,8 +303,9 @@ describe("PWA manifest and offline shell", () => {
     const source = fs.readFileSync(path.join(root, "public/sw.js"), "utf8");
     expect(source).toContain('path.startsWith("/api/")');
     expect(source).toContain('request.headers.has("authorization")');
-    expect(source).toContain('request.mode === "navigate"');
-    expect(source).toContain('caches.match("/offline.html")');
+    expect(source).toContain('if (request.mode === "navigate") return;');
+    expect(source).toContain('"/offline.html"');
+    expect(source).not.toContain("respondWith(\n      fetch(request)");
     expect(source).not.toContain('"/dashboard"');
     expect(fs.existsSync(path.join(root, "public/offline.html"))).toBe(true);
   });
