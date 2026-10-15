@@ -56,7 +56,7 @@ export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBotto
   ] as const;
 
   return (
-    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-elevated/95 backdrop-blur-md border-t border-border px-1 py-1 shadow-lg select-none">
+    <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-surface-elevated/95 backdrop-blur-md border-t border-border px-1 pt-1 pb-[max(0.25rem,env(safe-area-inset-bottom))] shadow-lg select-none">
       <div className="flex items-center justify-around max-w-lg mx-auto">
         {items.map((item) => {
           const isActive = item.match(pathname);

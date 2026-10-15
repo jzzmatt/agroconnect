@@ -1280,6 +1280,28 @@ export const pt = {
     emailPrepared: "Comprovativo HTML com o logótipo AgriConnect criado. Abra o ficheiro .eml no seu correio para enviar.",
     pdfDownloaded: "O comprovativo foi descarregado. Abra o ficheiro e escolha Imprimir → Guardar em PDF.",
   },
+  pwa: {
+    install: "Instalar aplicação",
+    installed: "Aplicação já instalada",
+    unavailable: "Instalação indisponível",
+    instructionsTitle: "Como instalar o Agroconnect",
+    supportVaries:
+      "O suporte do navegador e as opções de instalação disponíveis variam consoante o sistema operativo e o navegador.",
+    androidTitle: "Android",
+    androidStep1: "Abra o Agroconnect no Chrome.",
+    androidStep2: "Abra o menu do navegador.",
+    androidStep3:
+      "Selecione «Instalar aplicação» ou «Adicionar ao ecrã principal», conforme o navegador.",
+    iosTitle: "iPhone e iPad",
+    iosStep1: "Abra o Agroconnect no Safari.",
+    iosStep2: "Toque em Partilhar.",
+    iosStep3: "Selecione «Adicionar ao ecrã principal».",
+    iosStep4: "Confirme a instalação.",
+    installError: "Não foi possível iniciar a instalação. Tente novamente pelo menu do navegador.",
+    offlineTitle: "Sem ligação à internet",
+    offlineBody:
+      "A ligação é necessária para autenticação, mapas, mercado, pagamentos e dados da conta. Esta página pode permanecer aberta offline, mas essas funções não funcionam sem rede.",
+  },
 };
 
 export type Dictionary = typeof pt;
