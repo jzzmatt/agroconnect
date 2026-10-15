@@ -37,6 +37,20 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-active-foreground: var(--sidebar-active-foreground);
+
+  --animate-install-cta: install-cta 2.2s ease-in-out infinite;
+
+  @keyframes install-cta {
+    0%,
+    100% {
+      transform: translateY(0);
+      box-shadow: 0 0 0 0 rgb(249 115 22 / 0.55);
+    }
+    50% {
+      transform: translateY(-2px);
+      box-shadow: 0 8px 16px 0 rgb(234 88 12 / 0.45);
+    }
+  }
 }
 
 :root {

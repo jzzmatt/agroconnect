@@ -104,7 +104,15 @@ export function InstallAppButton({ variant = "button", className }: InstallAppBu
         <Button
           type="button"
           variant="primary"
-          className={cn("min-h-11 gap-2 font-bold touch-manipulation", variant === "menu" && "w-full", className)}
+          className={cn(
+            "min-h-11 gap-2 font-bold touch-manipulation",
+            "bg-orange-500 text-orange-950 shadow-md",
+            "hover:bg-orange-600 hover:text-orange-950",
+            "focus-visible:ring-orange-700",
+            "motion-safe:animate-install-cta",
+            variant === "menu" && "w-full",
+            className
+          )}
           onClick={() => {
             void handleInstall();
           }}

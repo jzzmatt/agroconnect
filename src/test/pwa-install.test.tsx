@@ -84,7 +84,9 @@ describe("PWA install button", () => {
     window.dispatchEvent(event);
 
     expect(event.defaultPrevented).toBe(true);
-    expect(await screen.findByRole("button", { name: "Instalar aplicação" })).toBeInTheDocument();
+    const button = await screen.findByRole("button", { name: "Instalar aplicação" });
+    expect(button.className).toContain("bg-orange-500");
+    expect(button.className).toContain("motion-safe:animate-install-cta");
   });
 
   it("invokes the native prompt and confirms only an accepted installation", async () => {
