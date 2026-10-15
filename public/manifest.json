@@ -1,0 +1,25 @@
+{
+  "id": "/",
+  "name": "AGROCONNECT — Ecossistema Digital para Agricultura",
+  "short_name": "Agroconnect",
+  "description": "Ecossistema digital para agricultura em Angola.",
+  "lang": "pt-AO",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "display_override": [
+    "standalone",
+    "minimal-ui"
+  ],
+  "orientation": "any",
+  "background_color": "#f8fafc",
+  "theme_color": "#166534",
+  "icons": [
+    {
+      "src": "/icons/agroconnect.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
