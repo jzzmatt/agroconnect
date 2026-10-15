@@ -11,6 +11,21 @@ const nextConfig: NextConfig = {
       },
     ];
   },
+  async headers() {
+    return [
+      {
+        source: "/manifest.json",
+        headers: [{ key: "Content-Type", value: "application/manifest+json; charset=utf-8" }],
+      },
+      {
+        source: "/sw.js",
+        headers: [
+          { key: "Cache-Control", value: "no-cache, no-store, must-revalidate" },
+          { key: "Service-Worker-Allowed", value: "/" },
+        ],
+      },
+    ];
+  },
   experimental: {
     // Product images travel as compressed data URLs. The default ~1 MB action
     // body was returning HTTP 500 / "Failed to fetch" during publish.

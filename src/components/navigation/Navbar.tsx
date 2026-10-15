@@ -22,6 +22,7 @@ import { useI18n } from "@/i18n/provider";
 import { useSignOut } from "@/lib/auth/use-sign-out";
 import { ControlPanelLink } from "./ControlPanelLink";
 import { NavbarCartLink } from "@/components/commerce/NavbarCartLink";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import { cn } from "@/lib/utils";
 
 export function Navbar() {
@@ -42,7 +43,7 @@ export function Navbar() {
   ];
 
   return (
-    <header className="sticky top-0 z-50 w-full bg-surface-elevated/90 backdrop-blur-md border-b border-border transition-colors">
+    <header className="sticky top-0 z-50 w-full bg-surface-elevated/90 backdrop-blur-md border-b border-border pt-[env(safe-area-inset-top)] transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-3 h-16 sm:h-18 min-w-0">
           <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group min-w-0 flex-1 lg:flex-none">
@@ -81,6 +82,7 @@ export function Navbar() {
           </nav>
 
           <div className="hidden lg:flex items-center gap-3">
+            <InstallAppButton className="px-3 text-xs" />
             <LanguageSelector compact />
             <ThemeSwitcher />
 
@@ -131,6 +133,9 @@ export function Navbar() {
               {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
+        </div>
+        <div className="lg:hidden">
+          <InstallAppButton variant="menu" className="mb-3 w-full" />
         </div>
       </div>
 

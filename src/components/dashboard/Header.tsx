@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
+import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import { ProfileSwitcher } from "./ProfileSwitcher";
 import type { ProfileType } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
@@ -37,7 +38,8 @@ export function DashboardHeader({
   const activeConfig = PROFILE_TYPE_CONFIG[activeProfile] || PROFILE_TYPE_CONFIG.personal;
 
   return (
-    <header className="h-16 bg-surface-elevated border-b border-border px-4 sm:px-6 lg:px-8 flex items-center justify-between sticky top-0 z-20 transition-colors">
+    <header className="bg-surface-elevated border-b border-border sticky top-0 z-20 pt-[env(safe-area-inset-top)] transition-colors">
+      <div className="h-16 px-4 sm:px-6 lg:px-8 flex items-center justify-between">
       {/* Left title & mobile trigger */}
       <div className="flex items-center gap-3 min-w-0">
         <button
@@ -66,6 +68,10 @@ export function DashboardHeader({
             Explorar Mapa
           </Button>
         </Link>
+
+        <div className="hidden lg:block">
+          <InstallAppButton className="px-3 text-xs" />
+        </div>
 
         <ThemeSwitcher />
 
@@ -151,6 +157,10 @@ export function DashboardHeader({
             </>
           )}
         </div>
+      </div>
+      </div>
+      <div className="px-4 sm:px-6 lg:hidden">
+        <InstallAppButton variant="menu" className="mb-3 w-full" />
       </div>
     </header>
   );

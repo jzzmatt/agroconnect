@@ -30,6 +30,8 @@ const isPublicRoute = createRouteMatcher([
   "/api/transport(.*)",
   // Reports which env vars a deployment can see. Never returns values.
   "/api/health(.*)",
+  // Web app manifest must stay public so browsers can install the PWA.
+  "/manifest.json",
 ]);
 
 export default clerkMiddleware(async (auth, req) => {

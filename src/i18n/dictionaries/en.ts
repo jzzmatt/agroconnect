@@ -1278,4 +1278,26 @@ export const en: Dictionary = {
     emailPrepared: "HTML receipt with the AgriConnect logo created. Open the .eml file in your mail app to send it.",
     pdfDownloaded: "The receipt was downloaded. Open the file and choose Print → Save as PDF.",
   },
+  pwa: {
+    install: "Install application",
+    installed: "Application already installed",
+    unavailable: "Installation unavailable",
+    instructionsTitle: "How to install Agroconnect",
+    supportVaries:
+      "Browser support and the available installation options vary by operating system and browser.",
+    androidTitle: "Android",
+    androidStep1: "Open Agroconnect in Chrome.",
+    androidStep2: "Open the browser menu.",
+    androidStep3:
+      "Select “Install application” or “Add to Home Screen”, depending on the browser.",
+    iosTitle: "iPhone and iPad",
+    iosStep1: "Open Agroconnect in Safari.",
+    iosStep2: "Tap Share.",
+    iosStep3: "Select “Add to Home Screen”.",
+    iosStep4: "Confirm the installation.",
+    installError: "The installation could not be started. Try again from the browser menu.",
+    offlineTitle: "No internet connection",
+    offlineBody:
+      "A connection is required for sign-in, maps, the marketplace, payments, and account data. This page can stay open offline, but those features do not work without a network.",
+  },
 };

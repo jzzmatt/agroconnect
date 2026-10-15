@@ -1284,4 +1284,26 @@ export const fr: Dictionary = {
       "Justificatif HTML avec le logo AgriConnect créé. Ouvrez le fichier .eml dans votre messagerie pour l'envoyer.",
     pdfDownloaded: "Le justificatif a été téléchargé. Ouvrez le fichier et choisissez Imprimer → Enregistrer en PDF.",
   },
+  pwa: {
+    install: "Installer l'application",
+    installed: "Application déjà installée",
+    unavailable: "Installation indisponible",
+    instructionsTitle: "Comment installer Agroconnect",
+    supportVaries:
+      "La prise en charge et les options d'installation varient selon le système d'exploitation et le navigateur.",
+    androidTitle: "Android",
+    androidStep1: "Ouvrez Agroconnect dans Chrome.",
+    androidStep2: "Ouvrez le menu du navigateur.",
+    androidStep3:
+      "Sélectionnez « Installer l'application » ou « Ajouter à l'écran d'accueil », selon le navigateur.",
+    iosTitle: "iPhone et iPad",
+    iosStep1: "Ouvrez Agroconnect dans Safari.",
+    iosStep2: "Touchez Partager.",
+    iosStep3: "Sélectionnez « Ajouter à l'écran d'accueil ».",
+    iosStep4: "Confirmez l'installation.",
+    installError: "L'installation n'a pas pu démarrer. Réessayez depuis le menu du navigateur.",
+    offlineTitle: "Pas de connexion Internet",
+    offlineBody:
+      "Une connexion est nécessaire pour l'authentification, les cartes, le marché, les paiements et les données du compte. Cette page peut rester ouverte hors ligne, mais ces fonctions ne marchent pas sans réseau.",
+  },
 };
