@@ -1,5 +1,8 @@
 # Phase 3 — Authorization and Entitlements Prompt
 
+> Unchanged. Phases 0–6 keep their existing approved definitions. The AgriAcademy YouTube refactor starts at Phase 7. See `docs/agroconnect-updated-phases.md`.
+
+
 @00-master
 @03-authorization
 @02-identity

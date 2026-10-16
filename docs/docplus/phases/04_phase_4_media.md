@@ -1,5 +1,8 @@
 # Phase 4 — Media Infrastructure Prompt
 
+> Unchanged. Phases 0–6 keep their existing approved definitions. From Phase 7, AgriAcademy training video moves from Bunny Stream to YouTube Unlisted. ImageKit remains the product/application media provider. See `docs/agroconnect-updated-phases.md`.
+
+
 @00-master
 @04-media
 @06-agrishopping

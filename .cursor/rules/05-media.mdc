@@ -1,5 +1,5 @@
 ---
-description: ImageKit and Bunny media architecture
+description: ImageKit and AgriAcademy YouTube media architecture
 alwaysApply: true
 ---
 # Media Rules
@@ -9,12 +9,19 @@ ImageKit:
 - product short videos
 - application/profile images
 - thumbnails
+- course thumbnails (application media)
 
-Bunny Stream:
-- AgriAcademy training videos only
+AgriAcademy training videos:
+- YouTube Unlisted
+- Instructor uploads on YouTube and pastes the URL into AgroConnect
+- AgroConnect stores only the YouTube Video ID and course/enrollment metadata
+- No local Academy video upload, no Academy video storage, no Bunny for Academy
 
-Supabase stores media metadata.
+Supabase stores media metadata (ImageKit) and YouTube Video IDs (Academy lessons).
 Provider stores/delivers media.
 Do not use Map/Set/global memory as durable media state.
-Prefer direct signed uploads.
+Prefer direct signed uploads for ImageKit.
 Never expose provider secrets.
+
+Deleting a course, chapter or lesson must never delete the YouTube video.
+Unlisted YouTube URLs can still be shared outside AgroConnect; enrollment gates the in-app learning experience, not the raw URL.

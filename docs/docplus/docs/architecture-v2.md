@@ -3,6 +3,8 @@
 ## Status
 Architecture Freeze — Phase 1
 
+**Later supersession (Phase 7+):** locked decision 6 is superseded **for AgriAcademy training video only**. From Phase 7, AgriAcademy stores YouTube Unlisted Video IDs. AgroConnect does not host Academy video and must not keep Bunny as an Academy fallback. ImageKit remains the product/application media provider. See `docs/agroconnect-updated-phases.md` and `docs/docplus/phases/README.md`.
+
 ## Core principle
 AgriConnect is an existing production-oriented Next.js application under controlled evolution.
 Refactor existing capabilities instead of rebuilding working domains.
@@ -10,7 +12,8 @@ Refactor existing capabilities instead of rebuilding working domains.
 ## Locked decisions
 
 These decisions are frozen by Phase 1. Later phases implement them and must not
-renegotiate them.
+renegotiate them, except where a later approved roadmap explicitly supersedes a
+decision (decision 6, AgriAcademy video provider, from Phase 7).
 
 | # | Decision | Specified in |
 |---|---|---|
@@ -19,7 +22,7 @@ renegotiate them.
 | 3 | Roles, subscriptions and entitlements are three separate concepts | `authorization-model.md`, `domain-map.md` |
 | 4 | Capabilities use granular permissions such as `product.create` and `academy.course.create` | `authorization-model.md` |
 | 5 | Product images and short product videos use ImageKit | `media-architecture.md`, this document |
-| 6 | AgriAcademy training videos use Bunny Stream | `media-architecture.md`, this document |
+| 6 | AgriAcademy training videos use Bunny Stream (Phase 1 freeze; **superseded from Phase 7** by YouTube Unlisted Video IDs) | `media-architecture.md`, this document |
 | 7 | Supabase stores durable media metadata | `media-architecture.md`, this document |
 | 8 | Process-local durable state is removed in later phases | `media-architecture.md`, `migration-strategy.md` |
 | 9 | Domain types are split by domain | this document, `migration-strategy.md` |
@@ -51,7 +54,7 @@ because it owns the geographic primitives that other domains consume.
 - Supabase/PostgreSQL: durable application data
 - PostGIS: geographic data/search
 - ImageKit: product/application images and short product videos
-- Bunny Stream: AgriAcademy training videos only
+- AgriAcademy training video (from Phase 7): YouTube Unlisted Video ID stored in AgroConnect; Bunny Stream is not an Academy provider
 - Figma: visual source of truth
 - Portuguese: primary language
 - Angola: primary market/geographic model
@@ -62,7 +65,7 @@ because it owns the geographic primitives that other domains consume.
 - Supabase migrations define database schema.
 - Entitlement service defines capabilities.
 - ImageKit owns product/application media delivery.
-- Bunny Stream owns Academy training video delivery.
+- AgriAcademy owns Academy training-video references (YouTube Unlisted Video IDs from Phase 7). Bunny Stream must not remain as an Academy fallback.
 - Figma owns approved visual design.
 
 ## Domain ownership

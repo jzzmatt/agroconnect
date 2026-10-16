@@ -2,6 +2,8 @@
 
 This file is the consolidated execution reference for the current AgroConnect roadmap.
 
+Executable Cursor copies live in `docs/docplus/phases/`. Do not start, resume or execute a numbered phase without explicit human approval for that specific phase.
+
 Phases 1–6 remain governed by their existing approved definitions and are not changed by the AgriAcademy refactor documented below.
 
 The AgriAcademy refactor changes the Academy-related phases to a YouTube-based architecture. Bunny is removed from AgriAcademy immediately. Academy videos are hosted on YouTube as **Unlisted** videos. AgroConnect stores only the YouTube reference and course/enrollment metadata.

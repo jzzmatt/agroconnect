@@ -1,5 +1,8 @@
 PHASE 6 — AGRISHOPPING
 
+> Unchanged. Phases 0–6 keep their existing approved definitions. The AgriAcademy YouTube refactor starts at Phase 7. See `docs/agroconnect-updated-phases.md`.
+
+
 @06-agrishopping is the lead agent.
 
 Supporting:
