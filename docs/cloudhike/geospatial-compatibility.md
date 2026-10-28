@@ -4,7 +4,7 @@ Phase 1.1 decides whether AgriLocalização can move onto CloudHike PostgreSQL. 
 
 **Gate status: BLOCKED — NOT VERIFIED**
 
-`geographiclib-geodesic` was explicitly approved as the CloudHike distance engine on 28 October 2026, 14:50 Africa/Luanda. The destination schema was not loaded, and the representative searches were not executed on CloudHike. A catalog read, a local PostGIS baseline, and that approval are not result equivalence on CloudHike.
+`geographiclib-geodesic` was explicitly approved as the CloudHike distance engine on 28 October 2026, 14:50 Africa/Luanda. Phase 1.3 prepared a PostGIS-free schema and loaded it on local socket database `cloudhike_schema_dev` on 28 October 2026, 15:07 Africa/Luanda. The representative searches were not executed on CloudHike. A catalog read, a local PostGIS baseline, a local destination schema, and that approval are not result equivalence on CloudHike.
 
 Authentication migration stays stopped. Phase 2 does not start while this gate is blocked.
 
@@ -157,7 +157,7 @@ Limitations and uncertainties:
 - CloudHike may later add PostGIS, including a trusted build the owner can enable. The 28 October 2026 catalog and docs do not contain it.
 - The local baseline uses Ubuntu PostGIS 3.4.2. A future CloudHike build can differ by GEOS or PROJ patch version. Equivalence still has to be measured there.
 - Angola province and municipality polygons are not a PostGIS layer. Map rewind is client-side. Boundary display was not compared numerically to a GEOS import.
-- `delivery_zones.boundary` is null in the seed, so there is no production polygon-search result to preserve yet. The column and GiST index still cannot be created without PostGIS.
+- `delivery_zones.boundary` is null in the seed, so there is no production polygon-search result to preserve yet. The destination schema stores that column as GeoJSON `jsonb`. The GiST index is omitted. Polygon checks stay in the application.
 - Fixture cardinality does not prove GiST selectivity or the 30-second Free statement timeout.
 
 ## 5. Performance
@@ -174,7 +174,7 @@ The approved candidate filter is a bounding box on raw latitude and longitude, f
 
 **BLOCKED — NOT VERIFIED**
 
-Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database. Path B’s distance engine, `geographiclib-geodesic`, was explicitly approved on 28 October 2026, 14:50 Africa/Luanda, and proved locally. The same cases have not been run on CloudHike, so this gate stays blocked. Haversine and `earthdistance` remain rejected.
+Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database. Path B’s distance engine, `geographiclib-geodesic`, was explicitly approved on 28 October 2026, 14:50 Africa/Luanda. Phase 1.3 proved the destination schema and the radius page locally. The same cases have not been run on CloudHike, so this gate stays blocked. Haversine and `earthdistance` remain rejected. The Phase 1.3 record is `phase-1-3-schema-migration.md`.
 
 Do not start Phase 2. Do not change Clerk or authentication configuration. Do not migrate identity data. Do not cut production traffic over to CloudHike while this status stands.
 

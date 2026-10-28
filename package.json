@@ -15,7 +15,9 @@
     "build:angola-geo": "npx tsx scripts/build-angola-province-geojson.mts",
     "cloudhike:inventory": "node scripts/cloudhike/print-inventory.mjs",
     "cloudhike:check": "node scripts/cloudhike/check-destination.mjs",
-    "cloudhike:geospatial-bench": "npx tsx scripts/cloudhike/geospatial-prototype-bench.mts"
+    "cloudhike:geospatial-bench": "npx tsx scripts/cloudhike/geospatial-prototype-bench.mts",
+    "cloudhike:render-schema": "node scripts/cloudhike/render-postgis-free-schema.mjs",
+    "cloudhike:apply-schema": "node scripts/cloudhike/apply-postgis-free-schema.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.0",

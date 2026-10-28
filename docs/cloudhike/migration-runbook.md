@@ -95,6 +95,7 @@ Phase 1 rollback:
 1. Leave application environment variables on Supabase and Clerk.
 2. Delete `.env.cloudhike.local` locally if the migration should stop using this database from this machine.
 3. Do not deploy the app with CloudHike database URLs.
+4. The local destination database, if present, is removed with `sudo -u postgres dropdb --if-exists cloudhike_schema_dev`. That command does not touch CloudHike or Supabase.
 
 If a future apply on this database goes wrong, restore it from its CloudHike backup. A failed CloudHike restore leaves the current database in place. Deleting the project is permanent and removes this migration database. This phase does not delete it.
 
@@ -105,14 +106,24 @@ Do not start a production cutover, and do not start the authentication migration
 1. The geospatial gate in `geospatial-compatibility.md` is `PASS`. That requires either PostGIS enabled by the owner role on an isolated development database, with the baseline inclusion booleans and distances within 1 m, or an explicitly approved alternative that preserves those results. A catalog read is not that proof. This production database is not updated until that pass exists.
 2. Storage SQL is split out of the migration chain and the application still uses Supabase Storage until a storage phase says otherwise.
 3. RLS is redesigned for a non-superuser owner. On CloudHike the database owner bypasses row security unless `FORCE ROW LEVEL SECURITY` is set, and that behavior was not re-tested in this phase.
-4. `uuid-ossp` creation by the owner role is verified, or primary keys move to `gen_random_uuid()` in a new forward migration.
+4. Primary keys on the destination copy use `gen_random_uuid()`. `uuid-ossp` is not created there. Historical Supabase files still call `uuid_generate_v4()` and were not rewritten.
 5. A maintenance window, row-count checksums, and a rehearsed return to Supabase are written down. Production rows are still only in Supabase.
 6. The database that passed steps 1–4 is this project's Postgres, `agroconnect-8shmts`.
 
+## PostGIS-free schema workflow
+
+`npm run cloudhike:render-schema` rewrites `supabase/migrations` into `cloudhike/schema/postgis-free` and refreshes `cloudhike/schema/manifest.json`. It does not connect to a database. Historical migration files stay unchanged.
+
+`npm run cloudhike:apply-schema` drops and recreates local socket database `cloudhike_schema_dev`, applies those files in order, and runs the validation queries. It refuses `--cloudhike` and refuses to run while `DATABASE_URL` or `DIRECT_URL` names a hosted database. It does not read `.env.cloudhike.local`.
+
+On 28 October 2026, 15:07 Africa/Luanda, that apply completed on PostgreSQL 16.15 through the local socket. `inet_server_addr()` was null. PostGIS was absent. The validation object is recorded in `phase-1-3-schema-migration.md`.
+
+Do not point this command at CloudHike project `agroconnect`. That project has production Postgres and no development environment. Creating the development environment is a dashboard action. Until it exists, no destination DDL runs there.
+
 ## Current stop
 
-`cloudhike:check` connects to this database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.
+`cloudhike:check` connects to the CloudHike database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.
 
-The migration still targets this database. It does not move to another project. `geographiclib-geodesic` 2.2.0 was explicitly approved as the distance engine on 28 October 2026, 14:50 Africa/Luanda. The schema still stays unloaded. Exit 2 stays the correct result for `cloudhike:check` because PostGIS is absent. The approved path stores latitude and longitude and calculates WGS84 distance in the application, after the conservative btree box in `phase-1-2-geospatial-prototype.md`.
+The migration still targets this database. It does not move to another project. `geographiclib-geodesic` 2.2.0 was explicitly approved as the distance engine on 28 October 2026, 14:50 Africa/Luanda. The PostGIS-free schema is prepared and was loaded on local `cloudhike_schema_dev` only. Exit 2 stays the correct result for `cloudhike:check` because PostGIS is absent. The approved path stores latitude and longitude and calculates WGS84 distance in the application, after the conservative btree box in `phase-1-2-geospatial-prototype.md`.
 
 Do not start Phase 2. Do not change authentication configuration, migrate identity data, or cut production traffic onto CloudHike while the gate is blocked.

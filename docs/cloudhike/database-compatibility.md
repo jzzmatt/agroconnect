@@ -55,7 +55,7 @@ The seed files `supabase/seed/angola/provinces.sql` and `municipalities.sql` do 
 
 ### Blocker
 
-The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed. `geographiclib-geodesic` is the approved distance engine. The gate stays **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs the approved radius cases. Alternatives, in order:
+Historical `supabase/migrations` files still contain PostGIS and are not rewritten. A PostGIS-free destination copy now lives in `cloudhike/schema/postgis-free`. It was applied on 28 October 2026, 15:07 Africa/Luanda, only to the local socket database `cloudhike_schema_dev`. CloudHike project `agroconnect` still has no development environment, and this production database was not changed. `geographiclib-geodesic` is the approved distance engine. The gate stays **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs the approved radius cases. Alternatives, in order:
 
 1. CloudHike adds PostGIS that this owner role can enable. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an isolated development database before any apply to this one.
 2. Keep Supabase as the system of record for the database until that proof exists.
@@ -70,6 +70,10 @@ Measured on 28 October 2026, 14:44 Africa/Luanda, against the isolated local dat
 The candidate filter is a conservative latitude/longitude box on a btree `(latitude, longitude)` index. On 100,000 synthetic Angola rows the box returned 385 candidates and 284 final matches, the same 284 as a full ellipsoidal scan. `EXPLAIN ANALYZE` used a bitmap index scan in 0.929 ms. Forcing a sequential scan took 5.507 ms.
 
 `earth_box` at the true radius missed 8 of 64 points that sit on the ellipsoidal boundary (north and south of the equator at 50 km and 200 km). It is not the candidate filter. `geographiclib-geodesic` is the approved distance engine. The migration gate stays **BLOCKED — NOT VERIFIED** until those cases run on an isolated CloudHike development database.
+
+### Phase 1.3 destination schema
+
+The repeatable render is `npm run cloudhike:render-schema`. `npm run cloudhike:apply-schema` loads that SQL on local socket database `cloudhike_schema_dev` and refuses a hosted `DATABASE_URL` or `DIRECT_URL`. The 28 October 2026, 15:07 Africa/Luanda apply reported PostgreSQL 16.15 on a local socket, `postgis` false, zero `geography` or `geometry` columns, `delivery_zones.boundary` as `jsonb`, zero copies of the six spatial RPCs, both sync functions present, and 16 btree latitude/longitude indexes. A stored latitude 95 and longitude 200 round-tripped unchanged. A GeoJSON polygon round-tripped with the same coordinates. `EXPLAIN ANALYZE` of the Luanda candidate box on 100,000 `locations` rows used `idx_locations_lat_lon` in 2.011 ms. Forcing a sequential scan took 16.304 ms. Detail, including the objects removed and the gate, is in `phase-1-3-schema-migration.md`.
 
 ## Other PostgreSQL features
 
