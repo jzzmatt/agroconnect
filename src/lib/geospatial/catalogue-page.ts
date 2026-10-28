@@ -12,7 +12,9 @@ import { searchWithoutPostgis, type RadiusRecord, type RadiusSearchInput } from 
  * before this step drops rows the radius rule would have ordered onto the page.
  *
  * Text search stays in SQL (`to_tsvector` OR `ILIKE`). This module does not
- * reimplement Portuguese full text.
+ * reimplement Portuguese full text. It is page formatting after
+ * `searchCloudhikeMarketplaceProducts` or `searchCloudhikeMarketplaceServices`
+ * has already applied that predicate. It is not itself a marketplace search.
  *
  * Sort matches `search_marketplace_products`, plus the service RPC's rating
  * key. Inactive CASE keys are NULL for every row. ASC uses NULLS LAST and

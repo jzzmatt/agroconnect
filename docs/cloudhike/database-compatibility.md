@@ -79,6 +79,10 @@ The repeatable render is `npm run cloudhike:render-schema`. `npm run cloudhike:a
 
 On 28 October 2026, 15:19 Africa/Luanda, the same CloudHike production database was read again. `public` had no tables, functions, or policies. Portuguese full-text search and `gen_random_uuid()` are present. PostGIS is absent. A temporary-table probe rolled back and left `public` empty. Persistent schema apply was not approved and was not run. The gate stays **BLOCKED**. The record is `phase-1-4-environment-validation.md`.
 
+### Phase 1.5 search and claims
+
+`searchCloudhikeMarketplaceProducts` and `searchCloudhikeMarketplaceServices` apply the RPC text predicate before pagination. `ShoppingService` and `MarketplaceService` still call the Supabase RPCs. `withAuthorizedCloudhikeTransaction` sets transaction-local `request.jwt.claims` from Clerk `auth().userId` and refuses the database-owner connection. `901_force_row_level_security.sql` and `902_marketplace_candidate_views.sql` were applied on local `cloudhike_schema_dev` only. A read-only CloudHike stemming check on 28 October 2026, 15:53 Africa/Luanda, left `public` empty. The security gate stays **BLOCKED** because CloudHike has no non-owner runtime role. The record is `phase-1-5-security-and-search.md`.
+
 ## Other PostgreSQL features
 
 | Feature | Status | Evidence |

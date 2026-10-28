@@ -7,6 +7,7 @@ import { join } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
   codeWithoutComments,
+  forceRowLevelSecuritySql,
   renderSchema,
   splitSql,
   transformStatement,
@@ -58,6 +59,19 @@ describe("PostGIS-free schema renderer", () => {
     const mixed = rendered.files.find((file) => file.fileName.startsWith("20260923210000"));
     expect(mixed?.sql).toContain("ALTER TABLE");
     expect(mixed?.sql).not.toContain("storage.objects");
+  });
+
+  it("forces row level security on every enabled table and adds candidate views", () => {
+    const force = rendered.files.find((file) => file.fileName === "901_force_row_level_security.sql");
+    const views = rendered.files.find((file) => file.fileName === "902_marketplace_candidate_views.sql");
+    expect(force?.sql).toBe(forceRowLevelSecuritySql(rendered.files.filter((file) => file.fileName < "901")));
+    expect(force?.sql).toContain("ALTER TABLE public.products FORCE ROW LEVEL SECURITY;");
+    expect(force?.sql).toContain("ALTER TABLE public.locations FORCE ROW LEVEL SECURITY;");
+    expect(force?.sql).not.toMatch(/\b(DROP|TRUNCATE)\b/i);
+    expect(views?.sql).toContain("security_invoker = true");
+    expect(views?.sql).toContain("seller_name");
+    expect(views?.sql).toContain("provider_name");
+    expect(views?.sql).not.toMatch(/\b(GRANT|REVOKE)\b/i);
   });
 
   it("matches the committed schema files", () => {

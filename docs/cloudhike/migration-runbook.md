@@ -124,6 +124,10 @@ Do not point this command at CloudHike project `agroconnect`. That project has p
 
 The existing CloudHike production database was inspected on 28 October 2026. It is empty. `npm run cloudhike:phase14-probe` opens one transaction, uses temporary tables, and rolls it back. It does not apply `cloudhike/schema/postgis-free`. The gate remains **BLOCKED**. The record is `phase-1-4-environment-validation.md`.
 
+## Phase 1.5
+
+The CloudHike search entry points run the Portuguese text predicate before pagination. The claims adapter sets `request.jwt.claims` for one transaction and refuses a database-owner connection. `901_force_row_level_security.sql` and `902_marketplace_candidate_views.sql` are part of `cloudhike:apply-schema`, which remains local-only. They were not applied to CloudHike. The security gate remains **BLOCKED** until CloudHike provisions a non-owner runtime role. The record is `phase-1-5-security-and-search.md`.
+
 ## Current stop
 
 `cloudhike:check` connects to the CloudHike database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.

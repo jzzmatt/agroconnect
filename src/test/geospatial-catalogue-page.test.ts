@@ -105,7 +105,9 @@ describe("marketplace catalogue page", () => {
     const shopping = readFileSync("src/lib/services/shopping-service.ts", "utf8");
     const marketplace = readFileSync("src/lib/services/marketplace-service.ts", "utf8");
     expect(shopping).not.toContain("pageMarketplaceCatalogue");
+    expect(shopping).not.toContain("searchCloudhikeMarketplaceProducts");
     expect(marketplace).not.toContain("pageMarketplaceCatalogue");
+    expect(marketplace).not.toContain("searchCloudhikeMarketplaceServices");
     expect(shopping).not.toContain("nearbyServices");
     expect(marketplace).not.toContain("entitiesInBounds");
   });

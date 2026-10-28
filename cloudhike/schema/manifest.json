@@ -1,7 +1,7 @@
 {
   "sourceDirectory": "supabase/migrations",
   "sourceFiles": 54,
-  "outputFiles": 55,
+  "outputFiles": 57,
   "dropped": [
     {
       "file": "20260821000001_phase1_foundation.sql",
@@ -561,6 +561,8 @@
     "Statements against storage.buckets and storage.objects are omitted. Public-table statements in the same source file are kept.",
     "GRANT and REVOKE targeting anon, authenticated, or service_role are omitted.",
     "auth.jwt() and auth.role() are rewritten to current_setting('request.jwt.claims', true). CloudHike does not set that value. This is not an authentication migration.",
-    "NOTIFY pgrst statements are unchanged. They do not require PostgREST to be present."
+    "NOTIFY pgrst statements are unchanged. They do not require PostgREST to be present.",
+    "901_force_row_level_security.sql forces row level security on every table that enables it. It does not replace permissive policies.",
+    "902_marketplace_candidate_views.sql adds security-invoker views for the application candidate queries. Those queries are not installed as SQL functions."
   ]
 }
