@@ -2,12 +2,12 @@
 
 The migration database is the production Postgres on CloudHike project `agroconnect` (`agroconnect-8shmts`). There is no second project and no development environment. This runbook does not load Supabase production rows, user accounts, passwords, sessions, or files, and it does not modify Supabase.
 
-Phase 1 stops before replay. `npm run cloudhike:check` connected to this database on 28 October 2026 (afternoon, Africa/Luanda) and exited 2 because PostGIS is absent. No file from `supabase/migrations` was applied.
+Phase 1.1 keeps the schema unloaded. The geospatial gate is **BLOCKED — NOT VERIFIED** (`geospatial-compatibility.md`). `npm run cloudhike:check` connected to this database on 28 October 2026, 14:17 Africa/Luanda, and exited 2 because PostGIS is absent. No file from `supabase/migrations` was applied. Spatial experiments stay off this production database.
 
 ## Preconditions
 
-1. The CloudHike project is `agroconnect` (`agroconnect-8shmts`). Do not create a second project or a development environment.
-2. Postgres on that project's production environment is the only database used for the migration.
+1. The CloudHike project is `agroconnect` (`agroconnect-8shmts`). Do not create a second project. A development environment, if one is created later from the dashboard, is the only place spatial experiments may run. This production database is not that place.
+2. Postgres on that project's production environment remains the intended migration database. Do not apply `CREATE EXTENSION`, fixture SQL, or `supabase/migrations` to it while the geospatial gate is blocked.
 3. `.env.cloudhike.local` contains `DATABASE_URL` and `DIRECT_URL` from that project's Environment tab. Both are server-side. The file is git-ignored.
 4. `npm install` has been run so the `pg` dev dependency is present.
 
@@ -33,6 +33,8 @@ npm run cloudhike:check
 | 0 | Connected. PostGIS is present. Code `POSTGIS_PRESENT_APPLY_NOT_RUN`. Schema apply is still a separate decision. Phase 1 does not apply it. |
 
 Do not point `npm run dev` at CloudHike. The Next.js app ignores these two variables.
+
+`scripts/cloudhike/geospatial-baseline.sql` reproduces the current PostGIS radius and polygon cases. Run it only on an isolated local or development database. Do not pass it `DATABASE_URL` or `DIRECT_URL` from `.env.cloudhike.local`.
 
 ### What a later replay must separate
 
@@ -100,7 +102,7 @@ If a future apply on this database goes wrong, restore it from its CloudHike bac
 
 Do not start a production cutover, and do not start the authentication migration, until:
 
-1. PostGIS is verified with `CREATE EXTENSION postgis` on this CloudHike database, and the two marketplace search functions return a known distance for a fixture point.
+1. The geospatial gate in `geospatial-compatibility.md` is `PASS`. That requires either PostGIS enabled by the owner role on an isolated development database, with the baseline inclusion booleans and distances within 1 m, or an explicitly approved alternative that preserves those results. A catalog read is not that proof. This production database is not updated until that pass exists.
 2. Storage SQL is split out of the migration chain and the application still uses Supabase Storage until a storage phase says otherwise.
 3. RLS is redesigned for a non-superuser owner. On CloudHike the database owner bypasses row security unless `FORCE ROW LEVEL SECURITY` is set, and that behavior was not re-tested in this phase.
 4. `uuid-ossp` creation by the owner role is verified, or primary keys move to `gen_random_uuid()` in a new forward migration.
@@ -109,4 +111,8 @@ Do not start a production cutover, and do not start the authentication migration
 
 ## Current stop
 
-`cloudhike:check` already connects to this database and exits 2. PostGIS is absent, so the schema is not loadable here yet. The migration still targets this database. It does not move to another project. Exit 2 stays the correct result until CloudHike provides PostGIS or a reviewed schema preserves the current spatial results.
+`cloudhike:check` connects to this database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.
+
+The migration still targets this database. It does not move to another project, and it does not gain a schema while the gate is blocked. Exit 2 stays the correct result until CloudHike provides PostGIS the owner can enable, or an explicitly approved schema preserves the current radius and polygon results.
+
+Do not start Phase 2. Do not change authentication configuration, migrate identity data, or cut production traffic onto CloudHike while the gate is blocked.

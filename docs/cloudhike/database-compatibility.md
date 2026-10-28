@@ -13,7 +13,7 @@ Status values:
 
 ## PostGIS and AgriLocalização
 
-PostGIS is **unsupported** on the measured database.
+PostGIS is **unsupported** on the measured database. The Phase 1.1 gate is **BLOCKED — NOT VERIFIED**. The full record is `geospatial-compatibility.md`. The catalog was read again on 28 October 2026, 14:17 Africa/Luanda. `npm run cloudhike:check` exited 2. No spatial SQL was applied to this database.
 
 | Check | Result |
 | --- | --- |
@@ -27,9 +27,13 @@ PostGIS is **unsupported** on the measured database.
 | `gen_random_uuid()` | present in core |
 | `earthdistance` and `cube` | present in the catalog, not installed |
 | CloudHike docs | No PostGIS page. The Extensions tab examples are `pgcrypto`, `citext`, and `hstore`. |
-| Role | Not a superuser. Cannot create databases. |
+| Role | Not a superuser. Cannot create databases. Can `CREATE` in the current database. |
+| `ST_*` functions | 0 |
+| Development environment | None. Spatial experiments were not written here. |
 
-`CREATE EXTENSION postgis` cannot succeed while the control file is absent. This was not executed. The catalog is sufficient evidence. A Pro resize is documented as the same database moved to its own container. This account was not upgraded, and the docs do not list PostGIS as a paid feature.
+`CREATE EXTENSION postgis` cannot succeed while the control file is absent. This was not executed on CloudHike. The catalog is sufficient evidence. A Pro resize is documented as the same database moved to its own container. This account was not upgraded, and the docs do not list PostGIS as a paid feature.
+
+On an isolated local PostgreSQL 16.15 with PostGIS 3.4.2, the extension is untrusted (`superuser = true`). A non-superuser role that can `CREATE` in its database still receives `permission denied to create extension "postgis"`. That is a local permission result, not a CloudHike execution. It means shipping the Ubuntu package unchanged would still leave this owner unable to enable PostGIS. A trusted build is not in the measured image.
 
 ### Spatial objects the migrations require
 
@@ -47,15 +51,15 @@ Province and municipality filters in those RPCs are UUID predicates. The Angola 
 
 The seed files `supabase/seed/angola/provinces.sql` and `municipalities.sql` do not contain the strings the scanner uses for PostGIS. They insert administrative rows, including `public.locations`. After the geography trigger exists, those inserts maintain `location`. They must not be loaded ahead of a PostGIS-capable schema. `20261005160000_angola_21_provinces.sql` updates the 21-province set (Lei n.º 14/24) and also calls `uuid_generate_v4()`. The older seed file still describes 18 provinces. The migration is the later administrative source.
 
-`earthdistance` can measure great-circle distance between points. It does not create `geography`, `geometry`, or polygon boundaries. Replacing `ST_DWithin` with that extension, or with the haversine already used for in-memory seed rows, would change the spatial model. This phase does not do that.
+`earthdistance` can measure great-circle distance between points. It does not create `geography`, `geometry`, or polygon boundaries. The in-memory haversine (`R = 6371`) is also a sphere. On the local PostGIS 3.4.2 baseline, a point exactly 50.000 km north of Luanda on the spheroid is inside `ST_DWithin` for a 50 km seller radius and 50.269 km by that haversine, so the haversine excludes it. Neither substitute is approved. The measured cases are in `geospatial-compatibility.md`.
 
 ### Blocker
 
-The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed in this phase. Alternatives, in order:
+The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed. The gate stays **BLOCKED — NOT VERIFIED** until an isolated development database proves Path A or an explicitly approved Path B. Alternatives, in order:
 
-1. CloudHike adds PostGIS to this project's Postgres image. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto this same database.
-2. Keep Supabase as the system of record for the database until that image exists.
-3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and rewrites the two live search functions so the results match `ST_DWithin` / `ST_Distance` on `geography`. Delivery-zone polygons need their own design. That work is not Phase 1.
+1. CloudHike adds PostGIS that this owner role can enable. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an isolated development database before any apply to this one.
+2. Keep Supabase as the system of record for the database until that proof exists.
+3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and reproduces spheroidal `ST_DWithin` / `ST_Distance` on `geography`, including the 50 km boundary. Delivery-zone polygons need the same approval. Haversine and `earthdistance` do not satisfy that design. That work is not approved and is not Phase 1.
 
 ## Other PostgreSQL features
 

@@ -87,4 +87,6 @@ npm test
 npm run build
 ```
 
-`cloudhike:check` was run against project `agroconnect` on 28 October 2026 (afternoon, Africa/Luanda). It connected and exited 2 with `POSTGIS_UNSUPPORTED`. The catalog was read and no SQL was applied.
+`cloudhike:check` was run against project `agroconnect` on 28 October 2026, 14:17 Africa/Luanda. It connected and exited 2 with `POSTGIS_UNSUPPORTED`. The catalog was read and no SQL was applied.
+
+Phase 1.1 records the geospatial gate as **BLOCKED — NOT VERIFIED** in `geospatial-compatibility.md`. Radius and polygon cases were measured on an isolated local PostGIS 3.4.2 database. They were not applied here. Authentication migration and Phase 2 stay stopped.
