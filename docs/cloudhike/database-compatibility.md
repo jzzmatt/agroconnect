@@ -55,11 +55,11 @@ The seed files `supabase/seed/angola/provinces.sql` and `municipalities.sql` do 
 
 ### Blocker
 
-The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed. The gate stays **BLOCKED — NOT VERIFIED** until an isolated development database proves Path A or an explicitly approved Path B. Alternatives, in order:
+The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed. `geographiclib-geodesic` is the approved distance engine. The gate stays **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs the approved radius cases. Alternatives, in order:
 
 1. CloudHike adds PostGIS that this owner role can enable. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an isolated development database before any apply to this one.
 2. Keep Supabase as the system of record for the database until that proof exists.
-3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and reproduces spheroidal `ST_DWithin` / `ST_Distance` on `geography`, including the 50 km boundary. Delivery-zone polygons need the same approval. Haversine and `earthdistance` do not satisfy that design. A local prototype of this design is recorded in `phase-1-2-geospatial-prototype.md`. It is not wired to the live search, it was not loaded on CloudHike, and it is not approved.
+3. The approved CloudHike distance engine is `geographiclib-geodesic` 2.2.0, approved 28 October 2026, 14:50 Africa/Luanda. Numeric latitude and longitude stay in PostgreSQL. Exact distance is the WGS84 inverse in metres, with the conservative btree box from `phase-1-2-geospatial-prototype.md`. Haversine and `earthdistance` are not the approved engine. The prototype is not wired to the live search and was not loaded on CloudHike.
 
 ### Phase 1.2 local prototype
 
@@ -69,7 +69,7 @@ Measured on 28 October 2026, 14:44 Africa/Luanda, against the isolated local dat
 
 The candidate filter is a conservative latitude/longitude box on a btree `(latitude, longitude)` index. On 100,000 synthetic Angola rows the box returned 385 candidates and 284 final matches, the same 284 as a full ellipsoidal scan. `EXPLAIN ANALYZE` used a bitmap index scan in 0.929 ms. Forcing a sequential scan took 5.507 ms.
 
-`earth_box` at the true radius missed 8 of 64 points that sit on the ellipsoidal boundary (north and south of the equator at 50 km and 200 km). It is not the candidate filter. The migration gate stays **BLOCKED — NOT VERIFIED**.
+`earth_box` at the true radius missed 8 of 64 points that sit on the ellipsoidal boundary (north and south of the equator at 50 km and 200 km). It is not the candidate filter. `geographiclib-geodesic` is the approved distance engine. The migration gate stays **BLOCKED — NOT VERIFIED** until those cases run on an isolated CloudHike development database.
 
 ## Other PostgreSQL features
 

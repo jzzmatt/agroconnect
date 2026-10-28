@@ -113,6 +113,6 @@ Do not start a production cutover, and do not start the authentication migration
 
 `cloudhike:check` connects to this database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.
 
-The migration still targets this database. It does not move to another project, and it does not gain a schema while the gate is blocked. Exit 2 stays the correct result until CloudHike provides PostGIS the owner can enable, or an explicitly approved schema preserves the current radius and polygon results.
+The migration still targets this database. It does not move to another project. `geographiclib-geodesic` 2.2.0 was explicitly approved as the distance engine on 28 October 2026, 14:50 Africa/Luanda. The schema still stays unloaded. Exit 2 stays the correct result for `cloudhike:check` because PostGIS is absent. The approved path stores latitude and longitude and calculates WGS84 distance in the application, after the conservative btree box in `phase-1-2-geospatial-prototype.md`.
 
 Do not start Phase 2. Do not change authentication configuration, migrate identity data, or cut production traffic onto CloudHike while the gate is blocked.

@@ -4,7 +4,7 @@ Phase 1.1 decides whether AgriLocalização can move onto CloudHike PostgreSQL. 
 
 **Gate status: BLOCKED — NOT VERIFIED**
 
-The destination schema was not loaded, and the representative searches were not executed on CloudHike. A catalog read and a local PostGIS baseline are not result equivalence.
+`geographiclib-geodesic` was explicitly approved as the CloudHike distance engine on 28 October 2026, 14:50 Africa/Luanda. The destination schema was not loaded, and the representative searches were not executed on CloudHike. A catalog read, a local PostGIS baseline, and that approval are not result equivalence on CloudHike.
 
 Authentication migration stays stopped. Phase 2 does not start while this gate is blocked.
 
@@ -123,11 +123,11 @@ An overlapping square intersects, with intersection area 30,417,964.563 m² on t
 
 ## 3. Chosen path
 
-No path is approved for implementation.
+On 28 October 2026, 14:50 Africa/Luanda, `geographiclib-geodesic` was explicitly approved as the CloudHike distance engine. The local proof is `phase-1-2-geospatial-prototype.md`. The schema on CloudHike production stays unloaded until an isolated development database runs the same cases.
 
 **Path A — PostGIS on CloudHike.** This is the path that preserves the current types, GiST indexes, and functions. It is not available on the measured image. The project has no development database, so the destination schema was not created and the baseline was not replayed there. Path A stays unverified.
 
-**Path B — alternative schema.** Not approved. A later design may be accepted only when it preserves the results below on the same fixtures:
+**Path B — approved engine.** `geographiclib-geodesic` 2.2.0, `Geodesic.WGS84.Inverse`, metres on the WGS84 ellipsoid, after a conservative latitude/longitude btree prefilter. The approved behaviour is:
 
 - Types stay numeric latitude and longitude plus a stored distance result that matches spheroidal `ST_Distance(geography, geography)` in meters, SRID 4326.
 - The live inclusion predicate stays the OR of the buyer cap (`LEAST(radius, 200)` kilometres) and the seller or service radius (default 50 km), with the boundary included.
@@ -138,7 +138,7 @@ No path is approved for implementation.
 
 Haversine with `R = 6371`, and `earthdistance`, fail that rule. At the exact 50 km spheroid boundary they report about 50.269 km and exclude a row PostGIS includes. That difference is not accepted.
 
-Until Path A is verified on an isolated development database, or a Path B implementation is explicitly approved and compared on these cases, the schema on CloudHike stays unloaded.
+The approved engine was compared with PostGIS 3.4.2 on an isolated local database. It has not been executed on CloudHike. The production schema stays unloaded until an isolated CloudHike development database repeats these cases.
 
 ## 4. Comparison, tolerance, and limitations
 
@@ -168,17 +168,17 @@ CloudHike Free Postgres is 500 MB, 128 MB RAM, at most 30 connections, and a 30-
 
 The Angola GeoJSON file is about 510 KB. Loading it is not the blocker. The missing extension and the untrusted-extension permission are.
 
-A bounding-box prefilter on raw latitude and longitude, followed by an exact spheroidal test, can approximate index behavior. It is a Path B design, not an approved schema, and it was not benchmarked.
+The approved candidate filter is a bounding box on raw latitude and longitude, followed by the GeographicLib inverse. Local timings are in `phase-1-2-geospatial-prototype.md`. That benchmark did not run on CloudHike.
 
 ## 6. Gate status
 
 **BLOCKED — NOT VERIFIED**
 
-Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database on which the required queries could pass. Path B is not approved, and the spherical approximations that are available would change the 50 km boundary.
+Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database. Path B’s distance engine, `geographiclib-geodesic`, was explicitly approved on 28 October 2026, 14:50 Africa/Luanda, and proved locally. The same cases have not been run on CloudHike, so this gate stays blocked. Haversine and `earthdistance` remain rejected.
 
 Do not start Phase 2. Do not change Clerk or authentication configuration. Do not migrate identity data. Do not cut production traffic over to CloudHike while this status stands.
 
 The gate can move to `PASS` only after one of these is true:
 
 - Path A: an isolated CloudHike development database has PostGIS enabled by its owner role, the destination objects exist, and `scripts/cloudhike/geospatial-baseline.sql` (or the same cases) returns the inclusion booleans and distances within 1 m recorded here.
-- Path B: an alternative is explicitly approved and the same cases, run on an isolated development database, preserve the radius and polygon results recorded here.
+- Path B: `geographiclib-geodesic` is now explicitly approved. The gate still needs the same cases on an isolated CloudHike development database, preserving the radius and polygon results recorded here.

@@ -4,7 +4,7 @@ This is a development prototype. It does not replace `search_marketplace_product
 
 **Prototype recommendation: PASS**
 
-The local engine preserves the marketplace radius results against PostGIS 3.4.2 within the stated rules. That does not validate CloudHike. The migration gate remains **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs the same cases and the design is explicitly approved. Phase 2 and the authentication migration stay stopped.
+The local engine preserves the marketplace radius results against PostGIS 3.4.2 within the stated rules. On 28 October 2026, 14:50 Africa/Luanda, `geographiclib-geodesic` was explicitly approved as the CloudHike distance engine. The migration gate remains **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs the same cases. Phase 2 and the authentication migration stay stopped.
 
 Measured 28 October 2026, 14:44 Africa/Luanda.
 
@@ -146,6 +146,13 @@ Not implemented:
 
 **PASS** for this local prototype: included ids and booleans matched PostGIS on the baseline cases, distances stayed inside 1 metre, and the latitude/longitude box added no false negatives.
 
-**Path B is ready for review and is not approved.** Approving it means accepting the 1e-6 m inclusion bridge, the coerce-not-reject marketplace coordinate rule, planar polygons for any future delivery boundary, and a btree box sized to the largest coverage radius in the query.
+**Path B is approved.** On 28 October 2026, 14:50 Africa/Luanda, `geographiclib-geodesic` 2.2.0 (`Geodesic.WGS84.Inverse`, metres on the WGS84 ellipsoid) was explicitly approved as the CloudHike distance calculation. The approval covers the measured prototype with it:
 
-The migration gate stays **BLOCKED — NOT VERIFIED**. Do not start Phase 2, change Clerk, migrate identity data, or point production traffic at CloudHike.
+- The conservative latitude/longitude btree box, sized to the largest coverage radius in the query.
+- The 1e-6 m inclusion bridge where GeographicLib returns 50000.00000000012 m and PostGIS includes the exact 50 km point.
+- Marketplace out-of-range coordinates stay coerced. `get_nearby_*` keeps its own rejection.
+- Future delivery-zone boundaries use the planar `contains` / `intersects` results. `contains` excludes the boundary. `intersects` includes it.
+
+Haversine (`R = 6371`) and `earthdistance` / `earth_box` stay rejected. `earth_box` at the true radius missed ellipsoidal boundary points.
+
+The live search path stays on the Supabase PostGIS RPCs. The CloudHike schema stays unloaded. The migration gate stays **BLOCKED — NOT VERIFIED** until an isolated CloudHike development database runs these cases. Phase 2, Clerk, identity migration, and production cutover stay stopped.

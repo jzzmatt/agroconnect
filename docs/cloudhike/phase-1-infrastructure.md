@@ -89,4 +89,4 @@ npm run build
 
 `cloudhike:check` was run against project `agroconnect` on 28 October 2026, 14:17 Africa/Luanda. It connected and exited 2 with `POSTGIS_UNSUPPORTED`. The catalog was read and no SQL was applied.
 
-Phase 1.1 records the geospatial gate as **BLOCKED — NOT VERIFIED** in `geospatial-compatibility.md`. Radius and polygon cases were measured on an isolated local PostGIS 3.4.2 database. They were not applied here. Authentication migration and Phase 2 stay stopped.
+Phase 1.1 records the geospatial gate as **BLOCKED — NOT VERIFIED** in `geospatial-compatibility.md`. On 28 October 2026, 14:50 Africa/Luanda, `geographiclib-geodesic` was explicitly approved as the CloudHike distance engine. The proof is local and is written in `phase-1-2-geospatial-prototype.md`. Those queries were not applied here. Authentication migration and Phase 2 stay stopped.
