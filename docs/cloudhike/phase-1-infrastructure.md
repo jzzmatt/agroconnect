@@ -7,19 +7,16 @@ Phase 1 prepares CloudHike PostgreSQL as a future destination. The running appli
 ```mermaid
 flowchart LR
   app["Next.js application"]
-  supabase["Supabase PostgreSQL\nsource of truth"]
-  cloudhikeDev["CloudHike development PostgreSQL\nnot provisioned yet"]
-  cloudhikeProbe["CloudHike production Postgres\ncapability probe only"]
+  supabase["Supabase PostgreSQL\ncurrent application database"]
+  cloudhike["CloudHike project agroconnect\nproduction Postgres\nmigration database"]
   app --> supabase
-  cloudhikeDev -. "future empty destination" .-> app
-  cloudhikeProbe -. "read-only catalog check" .-> app
+  cloudhike -. "destination for the whole migration\nschema not loaded" .-> app
 ```
 
-| Path | Role in Phase 1 |
+| Path | Role |
 | --- | --- |
-| Application to Supabase | Unchanged. `@supabase/supabase-js`, Clerk, storage, and the PWA stay as they are. |
-| CloudHike development database | The intended isolated destination. The development environment does not exist yet. |
-| CloudHike production Postgres on project `agroconnect` | Already provisioned during the PostGIS investigation. Used only to read `pg_available_extensions`. No schema and no AgriConnect rows were loaded. |
+| Application to Supabase | Still the database the running app reads and writes. Clerk, Supabase Storage, and the PWA stay as they are. |
+| CloudHike project `agroconnect` | The only database for this migration. Production Postgres on that project. No second project and no development environment. |
 
 There are no dual writes. Application code does not read `DATABASE_URL` or `DIRECT_URL`.
 
@@ -28,7 +25,7 @@ There are no dual writes. Application code does not read `DATABASE_URL` or `DIRE
 A production cutover is out of scope. It stays blocked until all of the following are true:
 
 1. PostGIS is available on the CloudHike image, or a reviewed schema change preserves the current spatial behavior without dropping it.
-2. A development database has loaded the reviewed schema from empty and passed the checks in `migration-runbook.md`.
+2. This same CloudHike database has loaded the reviewed schema from empty and passed the checks in `migration-runbook.md`.
 3. Row Level Security no longer depends on Supabase `auth.jwt()`, `auth.role()`, or the `anon` / `authenticated` / `service_role` roles.
 4. Storage policies against `storage.buckets` and `storage.objects` have a replacement. That replacement is not part of this phase.
 5. Identity cutover is a later phase. `profiles.clerk_user_id` stays the legacy key. Passwords and sessions are not copied.
@@ -41,30 +38,20 @@ Checked 28 October 2026, 13:54 Africa/Luanda, through the CloudHike integration.
 | Resource | State |
 | --- | --- |
 | Project | `agroconnect`, slug `agroconnect-8shmts`, id `01c957fd-8d87-422c-8db9-9a66eddb87a1`. Created 28 October 2026, 13:19 Africa/Luanda. |
-| Production Postgres | Ready. PostgreSQL 16.15, Alpine musl. Database name uses the Free shared-server `p_` pattern. Role is not a superuser. |
-| Development environment | Absent. CloudHike returns: the user creates it from the dashboard switcher. |
+| Production Postgres | Ready. This is the migration database. PostgreSQL 16.15, Alpine musl, Free shared server. The role is not a superuser. |
+| Development environment | Not used. The whole migration stays on this project's production Postgres. |
 | Auth, Storage, Redis, Email, Jobs | Not deployed. |
 | Plan upgrade | Not performed. |
 
 Dashboard: https://cloudhike.dev/dashboard/projects/agroconnect-8shmts
 
-A development environment is a second database with its own credentials. On the Free plan that database is 500 MB, allows 30 connections, times out statements at 30 seconds, and sleeps after 6 hours without a connection. This phase does not create it, because the dashboard action is required and a second database consumes plan quota.
+The CloudHike project name is `agroconnect`. There is no separate project named `agriconnect`. AgriConnect's migration uses this one database: 500 MB, 30 connections, a 30-second statement timeout, and sleep after 6 hours without a connection.
 
-### Create the isolated development database
-
-1. Open the project dashboard linked above.
-2. Use the environment switcher under the project name and add Development. Development pages are tagged, and the URL becomes `/dashboard/projects/agroconnect-8shmts-dev`.
-3. On the development Services tab, deploy Postgres only. Do not deploy Auth or Storage in this phase.
-4. From the development Environment tab, copy `DATABASE_URL` and `DIRECT_URL` into `.env.cloudhike.local` at the repository root. That file is git-ignored.
-5. Run `npm run cloudhike:check`.
-
-Do not paste those values into `.env.example`, `.env.local`, chat, or a commit. Do not point the existing Supabase variables at CloudHike.
-
-The production Postgres that already exists is a capability probe. Do not replay migrations into it.
+`.env.cloudhike.local` holds that database's `DATABASE_URL` and `DIRECT_URL`. The file is git-ignored. `npm run cloudhike:check` reads it and connects with `DIRECT_URL`. Do not paste the values into `.env.example`, `.env.local`, chat, or a commit. Do not point the Supabase variables at CloudHike. The Next.js app keeps using Supabase until this database can load the spatial schema.
 
 ## Connection
 
-Official CloudHike names, confirmed present on the production probe (`get_environment` format `names`):
+Official CloudHike names, confirmed on project `agroconnect` (`get_environment` format `names`):
 
 | Variable | Use | Browser |
 | --- | --- | --- |
@@ -87,7 +74,7 @@ The CloudHike Postgres guide recommends `pg` (`node-postgres`) with the connecti
 
 CloudHike takes a nightly `pg_dump` at 02:00. Without a Storage service, the dump goes to the platform backup bucket. Free retention is 7 days, Pro 30, Scale 90. Restore loads into a side database and swaps only after a full load. A failed restore leaves the current database in place.
 
-Phase 1 has no AgriConnect data on CloudHike, so there is nothing to restore. Recovery for this phase is: leave the Next.js app on Supabase. Deleting a CloudHike database is irreversible and is a dashboard action. This phase does not delete the production probe.
+This CloudHike database has no AgriConnect tables yet, so there is nothing to restore. Recovery is: leave the Next.js app on Supabase. Deleting the CloudHike database is irreversible and is a dashboard action. This phase does not delete it.
 
 ## Validation commands
 
@@ -100,4 +87,4 @@ npm test
 npm run build
 ```
 
-`cloudhike:check` exits 1 until `.env.cloudhike.local` has both URLs. Against the current image it is expected to exit 2 with `POSTGIS_UNSUPPORTED` once a database is configured. Exit 2 means the catalog was read and no SQL was applied.
+`cloudhike:check` was run against project `agroconnect` on 28 October 2026 (afternoon, Africa/Luanda). It connected and exited 2 with `POSTGIS_UNSUPPORTED`. The catalog was read and no SQL was applied.

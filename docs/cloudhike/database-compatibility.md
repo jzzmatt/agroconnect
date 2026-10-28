@@ -53,7 +53,7 @@ The seed files `supabase/seed/angola/provinces.sql` and `municipalities.sql` do 
 
 The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed in this phase. Alternatives, in order:
 
-1. CloudHike adds PostGIS to the Postgres image. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an empty development database.
+1. CloudHike adds PostGIS to this project's Postgres image. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto this same database.
 2. Keep Supabase as the system of record for the database until that image exists.
 3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and rewrites the two live search functions so the results match `ST_DWithin` / `ST_Distance` on `geography`. Delivery-zone polygons need their own design. That work is not Phase 1.
 

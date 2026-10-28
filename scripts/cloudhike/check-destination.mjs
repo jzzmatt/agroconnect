@@ -45,8 +45,8 @@ if (!databaseUrl || !directUrl) {
   fail(
     1,
     [
-      "CloudHike development database is not configured.",
-      "Create a development environment in the CloudHike dashboard, deploy Postgres there, and put DATABASE_URL and DIRECT_URL in .env.cloudhike.local.",
+      "CloudHike database is not configured.",
+      "The migration database is project agroconnect (agroconnect-8shmts), production Postgres. Put its DATABASE_URL and DIRECT_URL in .env.cloudhike.local.",
       "No migration SQL was applied.",
     ].join("\n")
   );
