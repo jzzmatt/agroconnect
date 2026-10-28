@@ -59,7 +59,17 @@ The destination schema cannot be replayed onto this CloudHike Postgres without r
 
 1. CloudHike adds PostGIS that this owner role can enable. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an isolated development database before any apply to this one.
 2. Keep Supabase as the system of record for the database until that proof exists.
-3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and reproduces spheroidal `ST_DWithin` / `ST_Distance` on `geography`, including the 50 km boundary. Delivery-zone polygons need the same approval. Haversine and `earthdistance` do not satisfy that design. That work is not approved and is not Phase 1.
+3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and reproduces spheroidal `ST_DWithin` / `ST_Distance` on `geography`, including the 50 km boundary. Delivery-zone polygons need the same approval. Haversine and `earthdistance` do not satisfy that design. A local prototype of this design is recorded in `phase-1-2-geospatial-prototype.md`. It is not wired to the live search, it was not loaded on CloudHike, and it is not approved.
+
+### Phase 1.2 local prototype
+
+Measured on 28 October 2026, 14:44 Africa/Luanda, against the isolated local database `geospatial_baseline` (PostGIS 3.4.2) and a separate local database `geospatial_proto`. CloudHike was not written.
+
+`geographiclib-geodesic` 2.2.0 matched `ST_Distance(geography, geography)` within 1 metre on the baseline points, including the exact 50 km boundary. A raw `<=` comparison flipped that one boundary because GeographicLib returned 50000.00000000012 m where PostGIS returned 50000 m and included the point. The prototype includes a point that overshoots the radius by at most 1e-6 m and still returns the full-precision distance. The live differential test passed.
+
+The candidate filter is a conservative latitude/longitude box on a btree `(latitude, longitude)` index. On 100,000 synthetic Angola rows the box returned 385 candidates and 284 final matches, the same 284 as a full ellipsoidal scan. `EXPLAIN ANALYZE` used a bitmap index scan in 0.929 ms. Forcing a sequential scan took 5.507 ms.
+
+`earth_box` at the true radius missed 8 of 64 points that sit on the ellipsoidal boundary (north and south of the equator at 50 km and 200 km). It is not the candidate filter. The migration gate stays **BLOCKED — NOT VERIFIED**.
 
 ## Other PostgreSQL features
 
