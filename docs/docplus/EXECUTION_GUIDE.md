@@ -1,5 +1,7 @@
 # AgriConnect Phase Execution Guide
 
+ImageKit and Bunny Stream are retired. Stored media uses Supabase Storage. AgriAcademy training videos use YouTube Unlisted. Phase steps below that name ImageKit or Bunny are historical and do not override `.cursor/rules/05-media.mdc`.
+
 A step-by-step runbook for executing Phases 0–12, one fresh Cursor chat per phase,
 delegating each phase to the subagent that owns it.
 

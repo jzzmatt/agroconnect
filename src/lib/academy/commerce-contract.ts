@@ -1,7 +1,7 @@
 import { CourseService } from "@/lib/services/course-service";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
 
-/** Public Academy fields Commerce may read. No lessons, YouTube, or Bunny. */
+/** Public Academy fields Commerce may read. No lessons or playback fields. */
 export interface CommerceAcademyCourse {
   id: string;
   title: string;

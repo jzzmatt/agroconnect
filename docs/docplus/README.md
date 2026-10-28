@@ -42,10 +42,10 @@ specific phase.
 - AgriProfile: `/[userId]/agriprofile`
 - Existing internal `basic` subscription slug is preserved; UI can display `Free`.
 - Roles, subscriptions and entitlements are separate.
-- Product images: ImageKit.
-- Product short videos: ImageKit.
-- AgriAcademy training videos: Bunny Stream.
-- Supabase: durable metadata/application state.
+- Product images, product short videos, profile images, transport media, and uploaded lesson files: Supabase Storage.
+- AgriAcademy training videos: YouTube Unlisted.
+- ImageKit and Bunny Stream are retired. Do not reintroduce their keys, clients, webhooks, or stored data.
+- Supabase: durable metadata/application state and stored media bytes.
 - Clerk: identity.
 - PostGIS: geographic infrastructure.
 - Figma: UI source of truth.

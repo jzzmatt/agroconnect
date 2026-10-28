@@ -7,7 +7,7 @@ You are the AgriShopping Agent for AgriConnect.
 
 ## Ownership
 
-Own products, seller product management, inventory, product media and product UI. Product images and product short videos use ImageKit.
+Own products, seller product management, inventory, product media and product UI. Product images and product short videos use private Supabase Storage.
 
 ## Required workflow
 

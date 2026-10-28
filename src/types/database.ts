@@ -183,9 +183,7 @@ export type StorageProvider =
   | "cloudflare_stream"
   | "supabase_storage"
   | "local"
-  | "external"
-  | "bunny_stream"
-  | "imagekit";
+  | "external";
 
 export type AcademyVideoStatus =
   | "pending"
@@ -200,7 +198,7 @@ export type CourseStatus = "draft" | "published" | "paused" | "archived";
 export type CourseLevel = "beginner" | "intermediate" | "advanced" | "all_levels";
 export type CourseEnrollmentStatus = "active" | "completed" | "cancelled" | "suspended";
 
-export type ProductVideoProvider = "imagekit" | "bunny_stream" | "supabase_storage";
+export type ProductVideoProvider = "supabase_storage";
 
 export type ProductVideoStatus =
   | "pending"
@@ -1662,8 +1660,6 @@ export interface Database {
           owner_id: string;
           provider: ProductVideoProvider;
           external_id: string | null;
-          bunny_video_id: string | null;
-          bunny_library_id: string | null;
           filename: string | null;
           mime_type: "video/mp4" | "video/webm";
           file_size: number;
@@ -1682,8 +1678,6 @@ export interface Database {
           owner_id: string;
           provider?: ProductVideoProvider;
           external_id?: string | null;
-          bunny_video_id?: string | null;
-          bunny_library_id?: string | null;
           filename?: string | null;
           mime_type: "video/mp4" | "video/webm";
           file_size?: number;
@@ -1702,8 +1696,6 @@ export interface Database {
           owner_id?: string;
           provider?: ProductVideoProvider;
           external_id?: string | null;
-          bunny_video_id?: string | null;
-          bunny_library_id?: string | null;
           filename?: string | null;
           mime_type?: "video/mp4" | "video/webm";
           file_size?: number;
@@ -1957,8 +1949,6 @@ export interface Database {
         Row: {
           id: string;
           owner_id: string;
-          bunny_video_id: string | null;
-          bunny_library_id: string | null;
           title: string;
           description: string | null;
           filename: string | null;
@@ -1979,8 +1969,6 @@ export interface Database {
         Insert: {
           id?: string;
           owner_id: string;
-          bunny_video_id?: string | null;
-          bunny_library_id?: string | null;
           title: string;
           description?: string | null;
           filename?: string | null;
@@ -2001,8 +1989,6 @@ export interface Database {
         Update: {
           id?: string;
           owner_id?: string;
-          bunny_video_id?: string | null;
-          bunny_library_id?: string | null;
           title?: string;
           description?: string | null;
           filename?: string | null;

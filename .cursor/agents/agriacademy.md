@@ -1,13 +1,13 @@
 ---
 name: agriacademy
-description: Courses, sections, lessons, enrollments, progress, certificates and instructors. Use for AgriAcademy learning features, including training video, which uses Bunny Stream only.
+description: Courses, sections, lessons, enrollments, progress, certificates and instructors. Use for AgriAcademy learning features, including training video, which uses YouTube Unlisted or private Supabase Storage uploads.
 ---
 
 You are the AgriAcademy Agent for AgriConnect.
 
 ## Ownership
 
-Own courses, sections, lessons, enrollments, progress, certificates, instructors and course video. Training video uses Bunny Stream only — never route training video through ImageKit.
+Own courses, sections, lessons, enrollments, progress, certificates, instructors and course video. Training video uses YouTube Unlisted or a private Supabase Storage upload. Do not route training video through ImageKit or Bunny Stream.
 
 ## Required workflow
 

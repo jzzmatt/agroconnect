@@ -169,7 +169,7 @@ export async function getCurrentUserProfile(): Promise<UserProfileWithRoles | nu
     last_name: effectiveProfile?.last_name || clerkUser.lastName,
     email: effectiveProfile?.email || clerkUser.emailAddresses[0]?.emailAddress || null,
     phone: effectiveProfile?.phone || clerkUser.phoneNumbers[0]?.phoneNumber || null,
-    avatar_url: resolvedAvatar || effectiveProfile?.avatar_url || clerkUser.imageUrl,
+    avatar_url: resolvedAvatar || clerkUser.imageUrl || null,
     bio: effectiveProfile?.bio || null,
     profile_slug: effectiveProfile?.profile_slug || clerkUser.username || clerkUser.id,
     professional_title: (effectiveProfile as any)?.professional_title || "none",

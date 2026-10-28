@@ -33,7 +33,7 @@ const draftSource = {
   provider_type: "veterinarian",
   headline: "Veterinário",
   description: "Sanidade animal",
-  avatar_url: "https://ik.imagekit.io/demo/tr:w-400/avatar.jpg",
+  avatar_url: "https://cdn.agroconnect.test/agriconnect/profiles/avatar.jpg",
   website: "https://agroconnect.ao",
   verification_status: "verified",
   province_name: "Huambo",
@@ -66,7 +66,7 @@ describe("Phase 5 — public provider publication", () => {
     expect(publicProfile).not.toBeNull();
     expect(publicProfile?.slug).toBe("dr-joao-silva");
     expect(publicProfile?.display_name).toBe("Dr. João Silva");
-    expect(publicProfile?.avatar_url).toContain("imagekit.io");
+    expect(publicProfile?.avatar_url).toContain("/agriconnect/profiles/");
     expect(publicProfile?.email).toBe("joao@agroconnect.ao");
     expect(publicProfile?.whatsapp_phone).toBe("+244923000000");
     expect(publicProfile?.province_name).toBe("Huambo");
@@ -110,7 +110,8 @@ describe("Phase 5 — public provider publication", () => {
     expect(validateProfileImage({ mimeType: "image/gif", fileSize: 1024, fileName: "avatar.gif" }).ok).toBe(false);
     expect(validateProfileImage({ mimeType: "image/png", fileSize: 6 * 1024 * 1024, fileName: "avatar.png" }).ok).toBe(false);
     expect(buildProviderSlug("Dr. João Silva", "abcdef12")).toContain("dr-joao-silva");
-    expect(isManagedProfileImageUrl("https://ik.imagekit.io/demo/avatar.jpg")).toBe(true);
+    expect(isManagedProfileImageUrl("https://cdn.agroconnect.test/agriconnect/profiles/avatar.jpg")).toBe(true);
+    expect(isManagedProfileImageUrl("https://ik.imagekit.io/demo/avatar.jpg")).toBe(false);
     expect(isManagedProfileImageUrl("https://img.clerk.com/avatar.jpg")).toBe(false);
   });
 });

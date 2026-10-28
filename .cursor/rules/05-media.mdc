@@ -1,20 +1,21 @@
 ---
-description: ImageKit and Bunny media architecture
+description: Supabase Storage and YouTube media architecture
 alwaysApply: true
 ---
 # Media Rules
 
-ImageKit:
+Supabase Storage (private buckets, signed URLs):
 - product images
 - product short videos
 - application/profile images
-- thumbnails
+- transport media
+- uploaded lesson files and course thumbnails
 
-Bunny Stream:
-- AgriAcademy training videos only
+YouTube Unlisted:
+- AgriAcademy training videos
 
-Supabase stores media metadata.
-Provider stores/delivers media.
+Do not add ImageKit or Bunny Stream. Those providers are retired.
+Supabase stores media metadata and the object bytes for the buckets above.
 Do not use Map/Set/global memory as durable media state.
 Prefer direct signed uploads.
 Never expose provider secrets.

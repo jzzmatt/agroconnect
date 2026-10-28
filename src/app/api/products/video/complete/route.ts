@@ -3,19 +3,14 @@ import { confirmProductVideoUploadAction } from "@/lib/services/product-video-ac
 
 export const runtime = "nodejs";
 
-/**
- * The browser calls this once the direct ImageKit upload finishes. ImageKit
- * uploads are synchronous, so this is the terminal "ready" transition —
- * there is no async transcoding step or webhook to wait on, unlike Bunny.
- */
+/** Called once the browser finishes the direct storage upload. */
 export async function POST(request: Request) {
   try {
     const body = await request.json().catch(() => ({}));
     const result = await confirmProductVideoUploadAction({
       videoId: String(body?.videoId || ""),
       productId: String(body?.productId || ""),
-      fileId: String(body?.fileId || ""),
-      url: String(body?.url || ""),
+      storagePath: body?.storagePath ? String(body.storagePath) : undefined,
       thumbnailUrl: body?.thumbnailUrl ? String(body.thumbnailUrl) : null,
       fileSize: typeof body?.fileSize === "number" ? body.fileSize : undefined,
     });
@@ -27,8 +22,8 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        code: "IMAGEKIT_UPLOAD_FAILED",
-        error: message || "IMAGEKIT_UPLOAD_FAILED",
+        code: "MEDIA_UPLOAD_FAILED",
+        error: message || "MEDIA_UPLOAD_FAILED",
       },
       { status: /autorizado|unauthor/i.test(message) ? 401 : 500 }
     );

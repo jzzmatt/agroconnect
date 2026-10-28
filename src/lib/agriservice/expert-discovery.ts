@@ -3,6 +3,7 @@ import "server-only";
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { publicAreasOfWorkFromRoles } from "@/lib/auth/identity-resolvers";
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 import { INITIAL_PROVIDERS } from "@/lib/services/marketplace-service";
 import type { PublishedExpertListItem } from "@/types/transport";
 
@@ -156,7 +157,7 @@ export class ExpertDiscoveryService {
                 verification_status: (row.verification_status as string) || undefined,
                 province_name: provinces?.name || null,
                 municipality_name: municipalities?.name || null,
-                avatar_url: (row.avatar_url as string) || null,
+                avatar_url: visibleMediaUrl(row.avatar_url as string | null),
                 specialty,
               });
             });

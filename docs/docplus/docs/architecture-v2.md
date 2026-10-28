@@ -18,17 +18,14 @@ renegotiate them.
 | 2 | The internal `basic` subscription slug is preserved; the UI may display `Free` | `authorization-model.md` |
 | 3 | Roles, subscriptions and entitlements are three separate concepts | `authorization-model.md`, `domain-map.md` |
 | 4 | Capabilities use granular permissions such as `product.create` and `academy.course.create` | `authorization-model.md` |
-| 5 | Product images and short product videos use ImageKit | `media-architecture.md`, this document |
-| 6 | AgriAcademy training videos use Bunny Stream | `media-architecture.md`, this document |
-| 7 | Supabase stores durable media metadata | `media-architecture.md`, this document |
+| 5 | Product images, short product videos, profile images, and transport media use Supabase Storage | `media-architecture.md`, this document |
+| 6 | AgriAcademy training videos use YouTube Unlisted | `media-architecture.md`, this document |
+| 7 | Supabase stores durable media metadata and the object bytes for those buckets | `media-architecture.md`, this document |
 | 8 | Process-local durable state is removed in later phases | `media-architecture.md`, `migration-strategy.md` |
 | 9 | Domain types are split by domain | this document, `migration-strategy.md` |
 | 10 | Existing routes migrate incrementally; no big-bang rewrite | `route-map.md`, `migration-strategy.md` |
 
-Decisions 5, 6 and 9 describe work that does not exist yet rather than a change to
-working code. See `phase-0-audit.md`: ImageKit is absent from the repository entirely,
-Bunny Stream currently serves product video as well as Academy video, and domain types
-live in one 1,839-line module. Treat these as construction, not substitution.
+Decisions 5 and 6 replace the earlier ImageKit and Bunny Stream split. Those providers are retired: no keys, API clients, webhooks, or stored identifiers. Decision 9 was construction against a single shared type module.
 
 ## Platform domains
 
@@ -50,8 +47,8 @@ because it owns the geographic primitives that other domains consume.
 - Clerk: identity/authentication
 - Supabase/PostgreSQL: durable application data
 - PostGIS: geographic data/search
-- ImageKit: product/application images and short product videos
-- Bunny Stream: AgriAcademy training videos only
+- Supabase Storage: product/application images, short product videos, transport media, and uploaded lesson files
+- YouTube Unlisted: AgriAcademy training videos only
 - Figma: visual source of truth
 - Portuguese: primary language
 - Angola: primary market/geographic model
@@ -61,8 +58,8 @@ because it owns the geographic primitives that other domains consume.
 - Supabase owns durable application state.
 - Supabase migrations define database schema.
 - Entitlement service defines capabilities.
-- ImageKit owns product/application media delivery.
-- Bunny Stream owns Academy training video delivery.
+- Supabase Storage owns product, profile, transport, and uploaded lesson media delivery.
+- YouTube owns Academy training video delivery.
 - Figma owns approved visual design.
 
 ## Domain ownership
