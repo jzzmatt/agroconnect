@@ -120,6 +120,10 @@ On 28 October 2026, 15:07 Africa/Luanda, that apply completed on PostgreSQL 16.1
 
 Do not point this command at CloudHike project `agroconnect`. That project has production Postgres and no development environment. Creating the development environment is a dashboard action. Until it exists, no destination DDL runs there.
 
+## Phase 1.4
+
+The existing CloudHike production database was inspected on 28 October 2026. It is empty. `npm run cloudhike:phase14-probe` opens one transaction, uses temporary tables, and rolls it back. It does not apply `cloudhike/schema/postgis-free`. The gate remains **BLOCKED**. The record is `phase-1-4-environment-validation.md`.
+
 ## Current stop
 
 `cloudhike:check` connects to the CloudHike database and exits 2. PostGIS is absent, the owner is not a superuser, and the project has no development environment. The geospatial gate is **BLOCKED — NOT VERIFIED**.

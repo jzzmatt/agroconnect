@@ -17,7 +17,8 @@
     "cloudhike:check": "node scripts/cloudhike/check-destination.mjs",
     "cloudhike:geospatial-bench": "npx tsx scripts/cloudhike/geospatial-prototype-bench.mts",
     "cloudhike:render-schema": "node scripts/cloudhike/render-postgis-free-schema.mjs",
-    "cloudhike:apply-schema": "node scripts/cloudhike/apply-postgis-free-schema.mjs"
+    "cloudhike:apply-schema": "node scripts/cloudhike/apply-postgis-free-schema.mjs",
+    "cloudhike:phase14-probe": "npx tsx scripts/cloudhike/phase-1-4-probe.mts"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.0",

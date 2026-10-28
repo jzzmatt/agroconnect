@@ -75,6 +75,10 @@ The candidate filter is a conservative latitude/longitude box on a btree `(latit
 
 The repeatable render is `npm run cloudhike:render-schema`. `npm run cloudhike:apply-schema` loads that SQL on local socket database `cloudhike_schema_dev` and refuses a hosted `DATABASE_URL` or `DIRECT_URL`. The 28 October 2026, 15:07 Africa/Luanda apply reported PostgreSQL 16.15 on a local socket, `postgis` false, zero `geography` or `geometry` columns, `delivery_zones.boundary` as `jsonb`, zero copies of the six spatial RPCs, both sync functions present, and 16 btree latitude/longitude indexes. A stored latitude 95 and longitude 200 round-tripped unchanged. A GeoJSON polygon round-tripped with the same coordinates. `EXPLAIN ANALYZE` of the Luanda candidate box on 100,000 `locations` rows used `idx_locations_lat_lon` in 2.011 ms. Forcing a sequential scan took 16.304 ms. Detail, including the objects removed and the gate, is in `phase-1-3-schema-migration.md`.
 
+### Phase 1.4 existing environment
+
+On 28 October 2026, 15:19 Africa/Luanda, the same CloudHike production database was read again. `public` had no tables, functions, or policies. Portuguese full-text search and `gen_random_uuid()` are present. PostGIS is absent. A temporary-table probe rolled back and left `public` empty. Persistent schema apply was not approved and was not run. The gate stays **BLOCKED**. The record is `phase-1-4-environment-validation.md`.
+
 ## Other PostgreSQL features
 
 | Feature | Status | Evidence |

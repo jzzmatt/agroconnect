@@ -174,7 +174,7 @@ The approved candidate filter is a bounding box on raw latitude and longitude, f
 
 **BLOCKED — NOT VERIFIED**
 
-Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database. Path B’s distance engine, `geographiclib-geodesic`, was explicitly approved on 28 October 2026, 14:50 Africa/Luanda. Phase 1.3 proved the destination schema and the radius page locally. The same cases have not been run on CloudHike, so this gate stays blocked. Haversine and `earthdistance` remain rejected. The Phase 1.3 record is `phase-1-3-schema-migration.md`.
+Path A is not verified: PostGIS is absent, the owner is not a superuser, and there is no isolated CloudHike development database. Path B’s distance engine, `geographiclib-geodesic`, was explicitly approved on 28 October 2026, 14:50 Africa/Luanda. Phase 1.3 proved the destination schema and the radius page locally. Phase 1.4 read the existing CloudHike production database and rolled back a temporary candidate-index probe. The schema was not loaded there, so this gate stays blocked. Haversine and `earthdistance` remain rejected. The Phase 1.4 record is `phase-1-4-environment-validation.md`.
 
 Do not start Phase 2. Do not change Clerk or authentication configuration. Do not migrate identity data. Do not cut production traffic over to CloudHike while this status stands.
 
