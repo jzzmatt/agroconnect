@@ -1,0 +1,96 @@
+# CloudHike PostgreSQL compatibility
+
+Classification uses the CloudHike Postgres 16.15 catalog read on 28 October 2026 (Africa/Luanda) and a static scan of `supabase/migrations` (54 files) plus `supabase/seed/angola` (2 files). The scan is `npm run cloudhike:inventory`. It does not execute SQL.
+
+Status values:
+
+| Status | Meaning |
+| --- | --- |
+| Compatible and verified | Observed on this CloudHike database, or plain SQL with no provider-specific dependency. |
+| Compatible with modifications | The statement shape is PostgreSQL, and it still depends on a Supabase role, JWT claim, or storage schema. |
+| Unsupported | The feature is absent on the measured CloudHike image. |
+| Not yet verified | The catalog or the docs do not prove the behavior, and it was not executed. |
+
+## PostGIS and AgriLocalização
+
+PostGIS is **unsupported** on the measured database.
+
+| Check | Result |
+| --- | --- |
+| `server_version` | 16.15 |
+| Build | x86_64-pc-linux-musl, Alpine |
+| `postgis` in `pg_available_extensions` | false |
+| `postgis_topology` | false |
+| Extensions in the catalog | 61 |
+| Installed extensions | `plpgsql` only |
+| `uuid-ossp` in the catalog | true, version 1.1, not installed |
+| `gen_random_uuid()` | present in core |
+| `earthdistance` and `cube` | present in the catalog, not installed |
+| CloudHike docs | No PostGIS page. The Extensions tab examples are `pgcrypto`, `citext`, and `hstore`. |
+| Role | Not a superuser. Cannot create databases. |
+
+`CREATE EXTENSION postgis` cannot succeed while the control file is absent. This was not executed. The catalog is sufficient evidence. A Pro resize is documented as the same database moved to its own container. This account was not upgraded, and the docs do not list PostGIS as a paid feature.
+
+### Spatial objects the migrations require
+
+Twelve migration files reference PostGIS. They create:
+
+- `CREATE EXTENSION postgis` in the foundation migration and again in `001_extensions_and_triggers.sql`.
+- Sixteen `GEOGRAPHY(Point, 4326)` columns: `locations`, `countries`, `provinces`, `municipalities`, `communes`, `localities`, `profile_locations`, `provider_profiles`, `services`, `products`, `agricultural_resources`, `service_requests`, `customer_addresses`, and the three transport points `origin_location`, `destination_location`, and `base_location`.
+- GiST indexes on those points, except `customer_addresses`, which has the column and the sync trigger and no GiST index.
+- `delivery_zones.boundary` as `GEOMETRY(Polygon, 4326)` with a GiST index. Application TypeScript does not read that column. The table still cannot be created.
+- Trigger function `sync_geography_point`, using `ST_SetSRID(ST_MakePoint(longitude, latitude), 4326)::geography`.
+- `search_marketplace_products` and `search_marketplace_services`, the only spatial RPCs the app calls. Both use `ST_DWithin` and `ST_Distance`.
+- `get_nearby_services`, `get_nearby_products`, `get_nearby_agricultural_resources`, and `get_entities_in_bounds` (`ST_MakeEnvelope` and the `&&` overlap operator). TypeScript does not call these four.
+
+Province and municipality filters in those RPCs are UUID predicates. The Angola map is the bundled GeoJSON atlas, not a PostGIS polygon layer. Course map pins are `double precision` latitude and longitude with a partial btree index (`20260923190000_academy_course_location.sql`). That file does not reference PostGIS.
+
+The seed files `supabase/seed/angola/provinces.sql` and `municipalities.sql` do not contain the strings the scanner uses for PostGIS. They insert administrative rows, including `public.locations`. After the geography trigger exists, those inserts maintain `location`. They must not be loaded ahead of a PostGIS-capable schema. `20261005160000_angola_21_provinces.sql` updates the 21-province set (Lei n.º 14/24) and also calls `uuid_generate_v4()`. The older seed file still describes 18 provinces. The migration is the later administrative source.
+
+`earthdistance` can measure great-circle distance between points. It does not create `geography`, `geometry`, or polygon boundaries. Replacing `ST_DWithin` with that extension, or with the haversine already used for in-memory seed rows, would change the spatial model. This phase does not do that.
+
+### Blocker
+
+The destination schema cannot be replayed onto this CloudHike Postgres without removing spatial types. That removal is not allowed in this phase. Alternatives, in order:
+
+1. CloudHike adds PostGIS to the Postgres image. The existing migrations can then be reviewed for the Supabase-specific statements below and replayed onto an empty development database.
+2. Keep Supabase as the system of record for the database until that image exists.
+3. A later, explicit schema design stores the numeric latitude and longitude columns the tables already have and rewrites the two live search functions so the results match `ST_DWithin` / `ST_Distance` on `geography`. Delivery-zone polygons need their own design. That work is not Phase 1.
+
+## Other PostgreSQL features
+
+| Feature | Status | Evidence |
+| --- | --- | --- |
+| PostgreSQL 16, plpgsql, constraints, btree indexes, triggers, functions | Compatible and verified | Server is 16.15 and `plpgsql` is installed. Untagged migration files are ordinary DDL. The scanner reports 20 untagged files. They were not executed on CloudHike. |
+| `gen_random_uuid()` | Compatible and verified | `to_regprocedure` finds it. |
+| `uuid-ossp` / `uuid_generate_v4()` | Not yet verified | The extension is in the catalog and is not installed. Creating it needs the non-superuser owner to be allowed to create that trusted extension. This phase did not run `CREATE EXTENSION`. |
+| `pgcrypto`, `citext`, `hstore` | Compatible and verified as available | Named by CloudHike docs and present in the catalog. The app migrations do not require them. |
+| PostGIS types, GiST on those types, `ST_*` | Unsupported | Catalog check above. 12 migration files. |
+| Row Level Security as a PostgreSQL feature | Compatible with modifications | RLS exists in PostgreSQL 16. Policies were not created here. |
+| Supabase `auth.jwt()`, `auth.uid()`, `auth.role()` | Unsupported | Eight migration files. CloudHike Auth uses its own schema and bearer tokens. These functions are not in this database. |
+| `request.jwt.claims` | Compatible with modifications | `current_clerk_user_id()` reads `current_setting('request.jwt.claims', true)`. The setting exists only when a session sets it. Supabase PostgREST sets it from the Clerk JWT. CloudHike's pooler does not. |
+| Roles `anon`, `authenticated`, `service_role` | Unsupported | Ten migration files grant to those roles. They are Supabase roles, not CloudHike roles. |
+| `storage.buckets` and `storage.objects` | Unsupported | Four files. CloudHike Storage is one private S3 bucket, not a `storage` schema. |
+| Supabase Realtime, `pg_cron`, webhooks inside the database | Not used | No migration dependency found for this phase. |
+| Foreign keys to `profiles.clerk_user_id` | Compatible with modifications | The column is text and can be created. It remains a legacy Clerk id. Phase 1 does not add `auth_user_id` and does not import users. |
+| Angola province seed | Not yet verified on CloudHike | SQL is portable only after `countries` and `provinces` exist. Loading it was not attempted. |
+
+Files that mention `storage.buckets` or `storage.objects`:
+
+- `20260822000014_024_product_image_storage.sql`
+- `20260923160000_academy_lesson_upload_video.sql`
+- `20260923180000_academy_course_thumbnail.sql`
+- `20260923210000_product_transport_profile_supabase_media.sql`
+
+The last of those also changes application media columns. A future replay has to separate those statements from the storage policies. This phase does not rewrite the historical files.
+
+## Supabase-specific dependencies that stay in the app
+
+Phase 1 does not remove or retarget these:
+
+- `@supabase/supabase-js` clients in `src/lib/supabase`
+- Clerk middleware, provider, and webhook
+- Supabase Storage uploads and signed URLs
+- `public/sw.js` and the PWA manifest
+
+`search_marketplace_products` and `search_marketplace_services` remain the live spatial path on Supabase.

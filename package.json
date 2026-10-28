@@ -12,7 +12,9 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "generate:agroconnect-hero": "npx tsx scripts/generate-agroconnect-hero.mts",
-    "build:angola-geo": "npx tsx scripts/build-angola-province-geojson.mts"
+    "build:angola-geo": "npx tsx scripts/build-angola-province-geojson.mts",
+    "cloudhike:inventory": "node scripts/cloudhike/print-inventory.mjs",
+    "cloudhike:check": "node scripts/cloudhike/check-destination.mjs"
   },
   "dependencies": {
     "@clerk/nextjs": "^7.8.0",
@@ -50,6 +52,7 @@
     "eslint": "^9.39.5",
     "eslint-config-next": "^16.3.2",
     "jsdom": "^29.1.1",
+    "pg": "^8.23.1",
     "postcss": "^8.5.26",
     "tailwindcss": "^4.3.3",
     "typescript": "^6.0.3",
