@@ -123,8 +123,6 @@ export async function createProductVideoUploadAction(params: {
 export async function confirmProductVideoUploadAction(params: {
   videoId: string;
   productId: string;
-  fileId?: string;
-  url?: string;
   storagePath?: string;
   thumbnailUrl?: string | null;
   fileSize?: number;
@@ -148,8 +146,6 @@ export async function confirmProductVideoUploadAction(params: {
   const video = await ProductVideoService.confirmUpload({
     videoId: params.videoId,
     ownerId: profile.id,
-    externalId: params.fileId,
-    url: params.url,
     storagePath: params.storagePath,
     thumbnailUrl: params.thumbnailUrl,
     fileSize: params.fileSize,

@@ -1,6 +1,6 @@
 import "server-only";
 
-import { optimizedProfileImageUrl } from "@/lib/media/imagekit";
+import { isRetiredMediaUrl } from "@/lib/media/retired-media-url";
 import { PROFILE_MEDIA_BUCKET } from "@/lib/media/supabase-buckets";
 import { createSignedDisplayUrl } from "@/lib/media/supabase-storage-core";
 
@@ -16,8 +16,9 @@ export async function resolveProfileAvatarDisplayUrl(profile: {
       );
       return signedUrl;
     } catch {
-      return profile.avatar_url ?? null;
+      return profile.avatar_url && !isRetiredMediaUrl(profile.avatar_url) ? profile.avatar_url : null;
     }
   }
-  return profile.avatar_url ? optimizedProfileImageUrl(profile.avatar_url) : null;
+  if (!profile.avatar_url || isRetiredMediaUrl(profile.avatar_url)) return null;
+  return profile.avatar_url;
 }

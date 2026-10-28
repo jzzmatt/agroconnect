@@ -1,3 +1,4 @@
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 import type {
   OwnerProviderPublication,
   PublicProviderIdentity,
@@ -106,7 +107,7 @@ export function toPublicProviderIdentity(
     professional_category: source.provider_type || null,
     headline: source.headline || null,
     description: source.description || null,
-    avatar_url: source.avatar_url || null,
+    avatar_url: visibleMediaUrl(source.avatar_url),
     website: source.website || null,
     email: (source.email || "").trim() || null,
     whatsapp_phone: (source.whatsapp_phone || source.phone || "").trim() || null,
@@ -146,7 +147,7 @@ export function toOwnerProviderPublication(source: {
     publication_state: state,
     published_at: source.published_at || null,
     paused_at: source.paused_at || null,
-    avatar_url: source.avatar_url || null,
+    avatar_url: visibleMediaUrl(source.avatar_url),
     display_name: (source.display_name || source.business_name || "").trim() || "Prestador",
     professional_title: source.professional_title || null,
   };
@@ -166,5 +167,5 @@ export function buildProviderSlug(input: string, uniqueSuffix: string): string {
 
 export function isManagedProfileImageUrl(url: string | null | undefined): boolean {
   if (!url) return false;
-  return url.includes("imagekit.io") || url.includes("/agriconnect/profiles/");
+  return url.includes("/agriconnect/profiles/");
 }

@@ -75,13 +75,12 @@ describe("AGROCONNECT Phase 12 — YouTube Academy production hardening", () => 
     expect(servicesIndex).not.toContain("academy-video-service");
     expect(servicesIndex).toContain("course-service");
 
-    const bunnyClient = readFileSync("src/lib/video/bunny.ts", "utf8");
-    expect(bunnyClient).toContain("AgriShopping");
-    expect(bunnyClient).not.toMatch(/AgriAcademy training video only/);
-
-    expect(existsSync("src/components/shopping/BunnyPlayer.tsx")).toBe(true);
-    expect(existsSync("src/app/api/webhooks/bunny/route.ts")).toBe(true);
-    expect(existsSync("src/lib/products/bunny-upload.ts")).toBe(true);
+    expect(existsSync("src/lib/video/bunny.ts")).toBe(false);
+    expect(existsSync("src/lib/media/imagekit.ts")).toBe(false);
+    expect(existsSync("src/components/shopping/BunnyPlayer.tsx")).toBe(false);
+    expect(existsSync("src/components/shopping/ProductVideoPlayer.tsx")).toBe(true);
+    expect(existsSync("src/app/api/webhooks/bunny/route.ts")).toBe(false);
+    expect(existsSync("src/lib/products/bunny-upload.ts")).toBe(false);
   });
 
   it("rejects arbitrary iframe hosts and only allows the official YouTube embed", () => {

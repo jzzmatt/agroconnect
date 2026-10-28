@@ -4,6 +4,7 @@ import {
   tryCreateAdminServerSupabaseClient,
 } from "@/lib/supabase/server";
 import { publicAreasOfWorkFromRoles } from "@/lib/auth/identity-resolvers";
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 import type { OwnerProviderPublication, PublicProviderIdentity, PublicProviderPublicationAction } from "@/types/agriprofile";
 import type { ProviderPublicationState, ProviderType } from "@/types/database";
 import type { UserProfileWithRoles } from "@/types/domain";
@@ -39,7 +40,7 @@ function mapSource(row: Record<string, unknown>, extras: Partial<PublicProviderS
     provider_type: (row.provider_type as string) || null,
     headline: (row.headline as string) || null,
     description: (row.description as string) || extras.description || null,
-    avatar_url: extras.avatar_url || (row.avatar_url as string) || null,
+    avatar_url: visibleMediaUrl(extras.avatar_url || (row.avatar_url as string) || null),
     website: (row.website as string) || null,
     verification_status: (row.verification_status as string) || "unverified",
     province_name: extras.province_name || provinces?.name || null,
@@ -237,7 +238,7 @@ export class PublicProviderIdentityService {
         verification_status: "unverified",
         status: "active",
         publication_state: "draft",
-        avatar_url: profile.avatar_url,
+        avatar_url: visibleMediaUrl(profile.avatar_url),
         latitude: -12.5,
         longitude: 17.5,
         service_radius_km: 50,
@@ -270,7 +271,7 @@ export class PublicProviderIdentityService {
       description: profile.bio || null,
       email: profile.email,
       phone: profile.whatsapp_phone || profile.phone,
-      avatar_url: profile.avatar_url || identity.avatar_url,
+      avatar_url: visibleMediaUrl(profile.avatar_url) || identity.avatar_url,
       updated_at: new Date().toISOString(),
     };
     if (geo.province_id) updates.province_id = geo.province_id;
@@ -301,7 +302,7 @@ export class PublicProviderIdentityService {
         publication_state: next as ProviderPublicationState,
         published_at: next === "published" ? identity.published_at || now : identity.published_at,
         paused_at: next === "paused" ? now : null,
-        avatar_url: profile.avatar_url || identity.avatar_url,
+        avatar_url: visibleMediaUrl(profile.avatar_url) || identity.avatar_url,
         business_name: profile.display_name || identity.display_name,
         description: profile.bio || null,
         email: profile.email,
@@ -322,7 +323,7 @@ export class PublicProviderIdentityService {
   public static async syncAvatarUrl(profileId: string, avatarUrl: string | null): Promise<void> {
     const supabase = await writableClient();
     await (supabase.from("provider_profiles") as any)
-      .update({ avatar_url: avatarUrl, updated_at: new Date().toISOString() })
+      .update({ avatar_url: visibleMediaUrl(avatarUrl), updated_at: new Date().toISOString() })
       .eq("profile_id", profileId);
   }
 

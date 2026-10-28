@@ -1,3 +1,4 @@
+import { isRetiredMediaUrl, visibleMediaUrl } from "@/lib/media/retired-media-url";
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured, tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isPublicProductStatus } from "@/lib/products/publication";
@@ -406,13 +407,13 @@ async function attachProductMedia<T extends { id: string }>(
 
   const imageByProduct = new Map<string, string | null>();
   for (const row of (imageResult?.data as Array<any> | null) || []) {
-    imageByProduct.set(row.id, row.primary_image_url ?? null);
+    imageByProduct.set(row.id, visibleMediaUrl(row.primary_image_url));
   }
   for (const row of (primaryImagesResult?.data as Array<any> | null) || []) {
     if (imageByProduct.get(row.product_id)) continue;
     if (row.storage_provider === "supabase_storage" && row.storage_path) {
       imageByProduct.set(row.product_id, `/api/products/${row.product_id}/primary-image`);
-    } else if (row.url) {
+    } else if (row.url && !isRetiredMediaUrl(row.url)) {
       imageByProduct.set(row.product_id, row.url);
     }
   }
@@ -423,7 +424,10 @@ async function attachProductMedia<T extends { id: string }>(
       const playbackUrl =
         row.provider === "supabase_storage" && row.upload_storage_path
           ? `/api/products/${row.product_id}/video-playback`
-          : row.playback_url ?? null;
+          : row.playback_url && !isRetiredMediaUrl(row.playback_url)
+            ? row.playback_url
+            : null;
+      if (!playbackUrl) continue;
       videoByProduct.set(row.product_id, {
         status: row.status,
         playbackUrl,
@@ -647,8 +651,8 @@ export class ShoppingService {
           if (!isPublicProductStatus(item.status)) {
             return seedMatch && isPublicProductStatus(seedMatch.status) ? seedMatch : null;
           }
-          // Single product view: cheap enough to confirm the encoding state with
-          // Bunny so a stuck "uploading" row starts playing without a webhook.
+          // Single product view reads the stored video status. Upload completion
+          // is recorded when the browser confirms the storage object.
           const { reconcileProductVideoStatus } = await import("@/lib/products/video-status");
           await reconcileProductVideoStatus(item.id).catch(() => null);
           const [withMedia] = await attachProductMedia(supabase, [{ id: item.id }]);

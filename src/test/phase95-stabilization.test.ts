@@ -26,14 +26,6 @@ vi.mock("@/lib/media/db", async () => {
   };
 });
 
-vi.mock("@/lib/media/imagekit", async () => {
-  const actual = await vi.importActual<typeof import("@/lib/media/imagekit")>("@/lib/media/imagekit");
-  return {
-    ...actual,
-    deleteImageKitFile: async () => true,
-  };
-});
-
 vi.mock("@/lib/media/supabase-storage-core", async () => {
   const actual = await vi.importActual<typeof import("@/lib/media/supabase-storage-core")>(
     "@/lib/media/supabase-storage-core"
@@ -55,7 +47,7 @@ vi.mock("@/lib/media/supabase-storage-core", async () => {
   };
 });
 
-describe("Phase 9.5 — Plan sync, globalization, images, Bunny, market", () => {
+describe("Phase 9.5 — Plan sync, globalization, images, market", () => {
   beforeEach(() => {
     resetAuthoritativeSubscriptions();
   });

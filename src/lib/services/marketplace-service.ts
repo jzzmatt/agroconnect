@@ -1,3 +1,4 @@
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { canPermanentlyDeleteService } from "@/lib/services/service-delete-flow";
@@ -747,7 +748,7 @@ export class MarketplaceService {
             headline: item.headline,
             description: item.description,
             provider_type: item.provider_type,
-            avatar_url: item.avatar_url || null,
+            avatar_url: visibleMediaUrl(item.avatar_url),
             banner_url: null,
             website: item.website,
             verification_status: item.verification_status,

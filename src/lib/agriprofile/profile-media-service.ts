@@ -1,7 +1,7 @@
 import "server-only";
 
 import { getMediaSupabaseClient } from "@/lib/media/db";
-import { deleteImageKitFile, optimizedProfileImageUrl } from "@/lib/media/imagekit";
+import { isRetiredMediaUrl } from "@/lib/media/retired-media-url";
 import { buildProfileAvatarStoragePath } from "@/lib/media/profile-media-paths";
 import { PROFILE_MEDIA_BUCKET, SUPABASE_STORAGE_PROVIDER } from "@/lib/media/supabase-buckets";
 import {
@@ -34,7 +34,8 @@ export function validateProfileImage(params: {
 
 export class ProfileMediaService {
   public static optimizedUrl(url: string | null | undefined): string | null {
-    return optimizedProfileImageUrl(url);
+    if (!url || isRetiredMediaUrl(url)) return null;
+    return url;
   }
 
   public static async replace(params: {
@@ -77,10 +78,6 @@ export class ProfileMediaService {
       .order("created_at", { ascending: false });
 
     for (const row of existing || []) {
-      const fileId = (row.metadata as { imagekitFileId?: string } | null)?.imagekitFileId;
-      if (fileId) {
-        void deleteImageKitFile(fileId).catch(() => undefined);
-      }
       if (row.storage_provider === SUPABASE_STORAGE_PROVIDER && row.storage_key) {
         void removeStorageObject(PROFILE_MEDIA_BUCKET, row.storage_key).catch(() => undefined);
       }
@@ -137,9 +134,8 @@ export class ProfileMediaService {
       .eq("entity_type", "profile_avatar");
 
     for (const row of existing || []) {
-      const fileId = (row.metadata as { imagekitFileId?: string } | null)?.imagekitFileId;
-      if (fileId) {
-        void deleteImageKitFile(fileId).catch(() => undefined);
+      if (row.storage_provider === SUPABASE_STORAGE_PROVIDER && row.storage_key) {
+        void removeStorageObject(PROFILE_MEDIA_BUCKET, row.storage_key).catch(() => undefined);
       }
       await supabase.from("media_assets").delete().eq("id", row.id);
     }

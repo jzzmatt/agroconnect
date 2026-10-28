@@ -164,22 +164,19 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     expect(localizeError(pt, PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE)).toMatch(/Básico/);
     expect(localizeError(pt, "PRODUCT_PUBLISH_TIMEOUT")).toMatch(/Não foi possível concluir/);
     expect(pt.navDash.agriProduct).toBe("AgriProduct");
-    expect(localizeError(pt, "BUNNY_NOT_CONFIGURED")).toMatch(/Bunny Stream/);
-    expect(localizeError(en, "BUNNY_UPLOAD_FAILED")).toMatch(/Bunny Stream/);
+    expect(localizeError(pt, "MEDIA_UPLOAD_FAILED")).toMatch(/média/);
+    expect(localizeError(en, "MEDIA_UPLOAD_FAILED")).toMatch(/media file/);
   });
 
-  it("points product video uploads at the official Bunny TUS endpoint", async () => {
-    const { BUNNY_TUS_ENDPOINT, isBunnyConfigured, getBunnyEmbedUrl } = await import("@/lib/video/bunny");
-    expect(BUNNY_TUS_ENDPOINT).toBe("https://video.bunnycdn.com/tusupload");
-    expect(getBunnyEmbedUrl("123", "guid-1")).toBe(
-      "https://iframe.mediadelivery.net/embed/123/guid-1"
-    );
-    expect(isBunnyConfigured()).toBe(
-      Boolean(
-        String(process.env.BUNNY_STREAM_API_KEY || "").trim() &&
-          String(process.env.BUNNY_STREAM_LIBRARY_ID || "").trim()
-      )
-    );
+  it("prepares product video uploads with a signed storage URL", async () => {
+    const { readFileSync } = await import("node:fs");
+    const source = readFileSync("src/lib/services/product-video-service.ts", "utf8");
+    const provider = readFileSync("src/lib/media/supabase-buckets.ts", "utf8");
+    expect(source).toContain("createSignedUploadUrl");
+    expect(source).toContain("SUPABASE_STORAGE_PROVIDER");
+    expect(provider).toContain('SUPABASE_STORAGE_PROVIDER = "supabase_storage"');
+    expect(source.toLowerCase()).not.toContain("imagekit");
+    expect(source.toLowerCase()).not.toContain("bunny");
   });
 
   it("publishes products through a JSON API instead of a raced server action", async () => {
@@ -353,7 +350,7 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     );
   });
 
-  it("rejects fake product ids and normalizes video mime for Bunny", async () => {
+  it("rejects fake product ids and normalizes video mime", async () => {
     const { isUuid, normalizeVideoUploadMeta } = await import("@/lib/products/ids");
     expect(isUuid("prd-abc123")).toBe(false);
     expect(isUuid("pimg-not-a-uuid")).toBe(false);
@@ -364,16 +361,6 @@ describe("Phase 9.7 — sign-out, entitlements, AgriProduct, 60s video", () => {
     });
   });
 
-  it("corrects reversed Bunny library ID and API key", async () => {
-    const { normalizeBunnyCredentials } = await import("@/lib/video/bunny");
-    const swapped = normalizeBunnyCredentials("123456", "aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-    expect(swapped.swapped).toBe(true);
-    expect(swapped.libraryId).toBe("123456");
-    expect(swapped.apiKey).toBe("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee");
-    const ok = normalizeBunnyCredentials("aaaaaaaa-bbbb-cccc-dddd-eeeeeeeeeeee", "123456");
-    expect(ok.swapped).toBe(false);
-    expect(ok.libraryId).toBe("123456");
-  });
 });
 
 describe("Optimistic plan is never the source of truth", () => {

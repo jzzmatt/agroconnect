@@ -4,6 +4,7 @@ import { randomUUID } from "crypto";
 import { tryGetMediaSupabaseClient } from "@/lib/media/db";
 import { tryCreateAdminServerSupabaseClient } from "@/lib/supabase/server";
 import { DISPLAY_SIGNED_URL_TTL_SECONDS } from "@/lib/media/supabase-buckets";
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 
 function getStorageAdminClient() {
   return tryGetMediaSupabaseClient() || tryCreateAdminServerSupabaseClient();
@@ -99,8 +100,8 @@ export async function resolveSignedDisplayUrl(
       const { signedUrl } = await createSignedDisplayUrl(bucket, storagePath.trim());
       return signedUrl;
     } catch {
-      return legacyUrl ?? null;
+      return visibleMediaUrl(legacyUrl);
     }
   }
-  return legacyUrl ?? null;
+  return visibleMediaUrl(legacyUrl);
 }

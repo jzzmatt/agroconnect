@@ -23,8 +23,8 @@ Never use process-local state as durable business state.
 Never bypass RLS or authorization.
 Never expose secrets to the client.
 Roles, subscriptions and entitlements are separate.
-ImageKit = product/application media.
-Bunny Stream = AgriAcademy training videos only.
+Supabase Storage = product, profile, transport, and uploaded lesson media.
+YouTube = AgriAcademy unlisted training videos.
 Supabase = durable application state.
 Clerk = identity.
 Figma = approved UI source of truth.

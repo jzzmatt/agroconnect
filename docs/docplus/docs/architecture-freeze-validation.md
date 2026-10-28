@@ -1,5 +1,7 @@
 # Phase 1 — Architecture Freeze Validation
 
+The ImageKit and Bunny Stream rows in this record are historical. Those providers were retired on 28 October 2026. Current media rules are `.cursor/rules/05-media.mdc` and `docs/docplus/docs/media-architecture.md`: Supabase Storage for stored media, YouTube Unlisted for AgriAcademy training videos.
+
 Record of the contradiction validation performed across the Phase 1 artifacts. Phase 1 is
 documentation and rules only; no application code, schema or configuration was modified.
 

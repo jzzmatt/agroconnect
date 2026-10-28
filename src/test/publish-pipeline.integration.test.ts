@@ -74,14 +74,13 @@ async function rest(path: string, init: RequestInit = {}) {
 }
 
 describe.skipIf(!configured)("product video status reconciliation", () => {
-  it("moves a stuck video row to the state Bunny reports", async () => {
+  it("reads the stored product video status", async () => {
     const pending = await rest(
-      "/product_videos?status=in.(pending,uploading,processing)&select=id,product_id,status,bunny_video_id"
+      "/product_videos?status=in.(pending,uploading,processing)&select=id,product_id,status"
     );
     const rows = (pending.body || []) as Array<{
       product_id: string;
       status: string;
-      bunny_video_id: string | null;
     }>;
 
     if (rows.length === 0) {
@@ -170,16 +169,7 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
     expect(Number(stored.body[0].price)).toBe(45000);
   }, 45000);
 
-  it("issues an ImageKit upload authorization for a product video", async () => {
-    const imageKitConfigured =
-      Boolean(process.env.IMAGEKIT_PRIVATE_KEY) &&
-      Boolean(process.env.IMAGEKIT_PUBLIC_KEY) &&
-      Boolean(process.env.IMAGEKIT_URL_ENDPOINT);
-    if (!imageKitConfigured) {
-      console.warn("[integration] ImageKit keys absent; skipping video authorization check");
-      return;
-    }
-
+  it("issues a signed storage upload for a product video", async () => {
     const { POST } = await import("@/app/api/products/video/create/route");
     const response = await POST(
       new Request("http://localhost:3000/api/products/video/create", {
@@ -199,11 +189,9 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
 
     expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.success).toBe(true);
-    // The browser needs all four to upload directly to ImageKit.
-    expect(payload.upload.uploadUrl).toBe("https://upload.imagekit.io/api/v1/files/upload");
-    expect(payload.upload.token).toBeTruthy();
-    expect(payload.upload.signature).toMatch(/^[0-9a-f]{40}$/);
-    expect(payload.upload.expire).toBeGreaterThan(Math.floor(Date.now() / 1000));
+    expect(payload.upload.signedUrl).toEqual(expect.any(String));
+    expect(payload.upload.storagePath).toEqual(expect.any(String));
+    expect(String(payload.upload.signedUrl)).not.toMatch(/imagekit|bunny|b-cdn|mediadelivery/i);
 
     // Video row was created but never confirmed — clean it up directly.
     await rest(`/product_videos?id=eq.${payload.video.id}`, { method: "DELETE" });
@@ -229,9 +217,7 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
 
     expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.success).toBe(true);
-    // Only ever assert a URL was persisted — its host depends on whether
-    // ImageKit is configured in this environment (falls back to a 500 with
-    // a clear error code otherwise, asserted separately in unit tests).
+    // Only ever assert a URL was persisted. The image is stored in Supabase Storage.
     expect(typeof payload.image.url).toBe("string");
     expect(payload.image.url.length).toBeGreaterThan(0);
 

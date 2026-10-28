@@ -1,6 +1,4 @@
 import { PRODUCT_VIDEO_ALLOWED_MIME } from "@/config/product-catalog";
-import { deleteBunnyVideo } from "@/lib/video/bunny";
-import { deleteImageKitFile } from "@/lib/media/imagekit";
 import { buildProductVideoStoragePath } from "@/lib/media/product-media-paths";
 import {
   PRODUCT_MEDIA_BUCKET,
@@ -26,8 +24,7 @@ const TABLE = "product_videos";
 /**
  * Supabase-backed. There is no module-level Map here: every read goes back
  * to `product_videos`, and every write lands there before this returns.
- * Product video moved off Bunny in Phase 4 — new rows always use ImageKit;
- * `bunny_video_id` is only ever populated on rows created before this phase.
+ * New rows use private Supabase Storage. Playback is a signed URL.
  */
 export class ProductVideoService {
   public static async listByProduct(productId: string): Promise<ProductVideoRecord[]> {
@@ -133,23 +130,16 @@ export class ProductVideoService {
         const { signedUrl } = await createSignedDisplayUrl(PRODUCT_MEDIA_BUCKET, video.upload_storage_path);
         return signedUrl;
       } catch {
-        return video.playback_url;
+        return null;
       }
     }
-    return video.playback_url;
+    return null;
   }
 
-  /**
-   * Called once the browser finishes the direct ImageKit upload. ImageKit
-   * uploads are synchronous — there is no separate transcoding wait like
-   * Bunny's — so this is the terminal "ready" transition instead of a
-   * webhook callback.
-   */
+  /** Called once the browser finishes the direct storage upload. */
   public static async confirmUpload(params: {
     videoId: string;
     ownerId: string;
-    externalId?: string;
-    url?: string;
     storagePath?: string;
     thumbnailUrl?: string | null;
     fileSize?: number;
@@ -194,23 +184,7 @@ export class ProductVideoService {
       return updated;
     }
 
-    const patch: Database["public"]["Tables"]["product_videos"]["Update"] = {
-      status: "ready",
-      external_id: params.externalId,
-      playback_url: params.url,
-      thumbnail_url: params.thumbnailUrl ?? null,
-      updated_at: new Date().toISOString(),
-    };
-    if (typeof params.fileSize === "number" && params.fileSize > 0) {
-      patch.file_size = params.fileSize;
-    }
-    const { data } = await (supabase.from(TABLE) as any)
-      .update(patch)
-      .eq("id", params.videoId)
-      .eq("owner_id", params.ownerId)
-      .select()
-      .maybeSingle();
-    return (data as ProductVideoRecord | null) || null;
+    return null;
   }
 
   public static async markFailed(videoId: string, ownerId: string, message?: string): Promise<boolean> {
@@ -242,11 +216,6 @@ export class ProductVideoService {
 
     if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
       void removeStorageObject(PRODUCT_MEDIA_BUCKET, video.upload_storage_path).catch(() => undefined);
-    } else if (video.provider === "imagekit" && video.external_id) {
-      void deleteImageKitFile(video.external_id).catch(() => undefined);
-    } else if (video.bunny_video_id) {
-      // Legacy rows created before Phase 4 narrowed Bunny to Academy-only.
-      void deleteBunnyVideo(video.bunny_video_id).catch(() => undefined);
     }
     return true;
   }

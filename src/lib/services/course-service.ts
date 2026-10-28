@@ -1,5 +1,6 @@
 import "server-only";
 
+import { visibleMediaUrl } from "@/lib/media/retired-media-url";
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { getAcademyWritableClient } from "@/lib/academy/supabase-client";
@@ -978,7 +979,7 @@ export class CourseService {
       for (const profile of profiles || []) {
         profileMap.set(profile.id, {
           display_name: profile.display_name,
-          avatar_url: profile.avatar_url,
+          avatar_url: visibleMediaUrl(profile.avatar_url),
         });
       }
     }

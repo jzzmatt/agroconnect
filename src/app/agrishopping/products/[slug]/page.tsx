@@ -24,7 +24,7 @@ import { Badge } from "@/components/ui/Badge";
 import { LocationMap } from "@/components/location";
 import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
-import { BunnyPlayer } from "@/components/shopping/BunnyPlayer";
+import { ProductVideoPlayer } from "@/components/shopping/ProductVideoPlayer";
 import { AddToCartControl } from "@/components/commerce/AddToCartControl";
 import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
 import type { ProductListItem } from "@/types/domain";
@@ -166,7 +166,7 @@ export default function ProductDetailPage() {
               {product.has_video && (
                 <div className="space-y-2">
                   <h3 className="text-base font-bold text-foreground">Vídeo do produto</h3>
-                  <BunnyPlayer
+                  <ProductVideoPlayer
                     playbackUrl={product.video_playback_url}
                     title={product.title}
                     ready={product.video_status === "ready"}

@@ -2,7 +2,7 @@
 
 import React from "react";
 
-export function BunnyPlayer({
+export function ProductVideoPlayer({
   playbackUrl,
   title,
   ready,
@@ -20,12 +20,12 @@ export function BunnyPlayer({
   }
 
   return (
-    <iframe
+    <video
       title={title}
       src={playbackUrl}
-      className="w-full aspect-video rounded-2xl border border-border"
-      allow="accelerometer; gyroscope; encrypted-media; picture-in-picture"
-      allowFullScreen
+      controls
+      playsInline
+      className="w-full aspect-video rounded-2xl border border-border bg-black"
     />
   );
 }

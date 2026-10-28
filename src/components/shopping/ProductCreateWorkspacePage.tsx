@@ -284,7 +284,7 @@ export function ProductCreateWorkspacePage() {
         });
         const videoResult = await videoRes.json().catch(() => null);
         if (!videoRes.ok || !videoResult?.success) {
-          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED;
+          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED;
           throw Object.assign(new Error(videoResult?.message || errCode), {
             code: errCode,
             message: videoResult?.message,
@@ -318,14 +318,14 @@ export function ProductCreateWorkspacePage() {
           });
           const confirmResult = await confirmRes.json().catch(() => null);
           if (!confirmRes.ok || !confirmResult?.success) {
-            throw Object.assign(new Error(confirmResult?.message || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED), {
-              code: confirmResult?.code || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED,
+            throw Object.assign(new Error(confirmResult?.message || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED), {
+              code: confirmResult?.code || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED,
             });
           }
           videoProcessing = true;
         } catch (uploadErr: any) {
-          throw Object.assign(new Error(uploadErr?.message || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED), {
-            code: uploadErr?.code || PRODUCT_ERROR_CODES.IMAGEKIT_UPLOAD_FAILED,
+          throw Object.assign(new Error(uploadErr?.message || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED), {
+            code: uploadErr?.code || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED,
             message: uploadErr?.message,
           });
         }

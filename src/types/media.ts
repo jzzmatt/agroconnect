@@ -1,5 +1,5 @@
 export type DomainMediaEntityType = "product" | "course" | "profile" | "provider" | "service" | "general";
-export type MediaProvider = "imagekit" | "bunny_stream" | "supabase" | "local";
+export type MediaProvider = "supabase" | "local";
 
 export interface MediaAssetDescriptor {
   id: string;
