@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import { Inter } from "next/font/google";
 import { ClerkProvider } from "@clerk/nextjs";
 import "./globals.css";
 import { I18nProvider } from "@/i18n/provider";
@@ -7,6 +8,12 @@ import { ThemeProvider, ThemeScript } from "@/lib/theme";
 import { CartProvider } from "@/components/commerce/CartProvider";
 import { OfflineNotice } from "@/components/pwa/OfflineNotice";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+
+const inter = Inter({
+  subsets: ["latin"],
+  display: "swap",
+  variable: "--font-inter",
+});
 
 export const metadata: Metadata = {
   title: "AGROCONNECT — Ecossistema Digital para Agricultura",
@@ -42,12 +49,19 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <ClerkProvider afterSignOutUrl="/">
-      <html lang="pt" suppressHydrationWarning>
+    <ClerkProvider
+      afterSignOutUrl="/"
+      appearance={{
+        variables: {
+          fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
+        },
+      }}
+    >
+      <html lang="pt" className={inter.variable} suppressHydrationWarning>
         <head>
           <ThemeScript />
         </head>
-        <body className="min-h-screen antialiased bg-background text-foreground transition-colors duration-200 overflow-x-hidden">
+        <body className={`${inter.className} min-h-screen antialiased bg-background text-foreground transition-colors duration-200 overflow-x-hidden`}>
           <ThemeProvider defaultTheme="light">
             <I18nProvider initialLocale="pt">
               <LocaleHydrator />

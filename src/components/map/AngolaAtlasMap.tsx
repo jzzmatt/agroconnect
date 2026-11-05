@@ -302,7 +302,7 @@ export function AngolaAtlasMap({
                   fill="#F8F3E8"
                   fontSize={9 / transform.k}
                   fontWeight={600}
-                  style={{ fontFamily: "Inter, ui-sans-serif, system-ui, sans-serif" }}
+                  style={{ fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif" }}
                 >
                   {muni.name}
                 </text>

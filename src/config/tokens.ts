@@ -123,7 +123,7 @@ export const TOKENS = {
     },
   },
   typography: {
-    fontFamily: "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif",
+    fontFamily: "var(--font-inter), ui-sans-serif, system-ui, sans-serif",
     display: "text-4xl sm:text-5xl lg:text-6xl font-black tracking-tight",
     h1: "text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight",
     h2: "text-2xl sm:text-3xl lg:text-4xl font-extrabold tracking-tight",
