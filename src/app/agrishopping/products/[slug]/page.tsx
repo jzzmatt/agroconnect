@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   Package,
@@ -16,6 +16,7 @@ import {
   AlertCircle,
   Truck,
   Sparkles,
+  Trash2,
 } from "lucide-react";
 import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
@@ -26,11 +27,24 @@ import { ProductRequestModal } from "@/components/shopping/ProductRequestModal";
 import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { BunnyPlayer } from "@/components/shopping/BunnyPlayer";
 import { AddToCartControl } from "@/components/commerce/AddToCartControl";
-import { getProductBySlugAction, searchProductsAction, toggleProductFavoriteAction } from "@/lib/services/shopping-actions";
+import { ProductDeleteDialog } from "@/components/shopping/ProductDeleteDialog";
+import {
+  canCurrentUserDeleteProductAction,
+  deleteProductAction,
+  getProductBySlugAction,
+  searchProductsAction,
+  toggleProductFavoriteAction,
+} from "@/lib/services/shopping-actions";
+import { deleteDialogForProductStatus } from "@/lib/products/delete-flow";
+import { useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
+import { useI18n } from "@/i18n/provider";
 import type { ProductListItem } from "@/types/domain";
 
 export default function ProductDetailPage() {
   const params = useParams();
+  const router = useRouter();
+  const productsBase = useProductsWorkspaceBase();
+  const { dict } = useI18n();
   const slug = params?.slug as string;
 
   const [product, setProduct] = useState<ProductListItem | null>(null);
@@ -38,6 +52,9 @@ export default function ProductDetailPage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [canDelete, setCanDelete] = useState(false);
+  const [deleteOpen, setDeleteOpen] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     if (!slug) return;
@@ -53,6 +70,33 @@ export default function ProductDetailPage() {
       }
     });
   }, [slug]);
+
+  useEffect(() => {
+    if (!product?.id) return;
+    let cancelled = false;
+    canCurrentUserDeleteProductAction(product.id).then((allowed) => {
+      if (!cancelled) setCanDelete(allowed);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [product?.id]);
+
+  const handleConfirmDelete = async () => {
+    if (!product) return;
+    setDeleting(true);
+    try {
+      const result = await deleteProductAction(product.id);
+      if (!result.success) {
+        window.alert(result.error || dict.shopping.deleteFailed);
+        return;
+      }
+      setDeleteOpen(false);
+      router.push(productsBase);
+    } finally {
+      setDeleting(false);
+    }
+  };
 
   if (!product) {
     return (
@@ -105,16 +149,16 @@ export default function ProductDetailPage() {
 
       <main className="flex-1 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-12 w-full space-y-8">
         {/* Navigation Breadcrumb */}
-        <div className="flex items-center justify-between gap-2">
+        <div className="flex flex-col items-stretch gap-3 sm:flex-row sm:items-center sm:justify-between">
           <Link
             href="/agrishopping"
-            className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
+            className="inline-flex min-w-0 items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground transition-colors"
           >
-            <ChevronLeft className="w-4 h-4" />
+            <ChevronLeft className="w-4 h-4 shrink-0" />
             <span>Voltar ao AgriShopping</span>
           </Link>
 
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={handleToggleFavorite}
               className="p-2 rounded-xl border border-border bg-surface hover:bg-muted text-foreground transition-colors cursor-pointer"
@@ -129,6 +173,16 @@ export default function ProductDetailPage() {
             >
               <Share2 className="w-4 h-4" />
             </button>
+            {canDelete ? (
+              <button
+                type="button"
+                onClick={() => setDeleteOpen(true)}
+                className="inline-flex min-h-9 items-center gap-1.5 px-3 py-2 rounded-xl border border-destructive/30 bg-surface text-destructive hover:bg-destructive/10 text-xs font-bold transition-colors cursor-pointer"
+              >
+                <Trash2 className="w-4 h-4" />
+                <span>{dict.shopping.deleteProduct}</span>
+              </button>
+            ) : null}
             {copied && <span className="text-xs text-primary font-bold">Copiado!</span>}
           </div>
         </div>
@@ -322,6 +376,17 @@ export default function ProductDetailPage() {
         priceFormatted={formatPrice(product.price, product.currency)}
         unit={product.unit}
         maxAvailable={product.quantity}
+      />
+
+      <ProductDeleteDialog
+        open={deleteOpen}
+        kind={deleteDialogForProductStatus(product.status)}
+        busy={deleting}
+        onClose={() => {
+          if (deleting) return;
+          setDeleteOpen(false);
+        }}
+        onConfirm={() => void handleConfirmDelete()}
       />
 
       <Footer />

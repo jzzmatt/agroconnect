@@ -257,8 +257,8 @@ export function ProductEditWorkspacePage() {
           </div>
         </div>
 
-        <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
-          <Button variant="primary" disabled={saving} onClick={handleSave} className="gap-2">
+        <div className="grid w-full min-w-0 grid-cols-2 gap-2 border-t border-border pt-3 sm:flex sm:flex-wrap">
+          <Button variant="primary" disabled={saving} onClick={handleSave} className="col-span-2 w-full gap-2 sm:col-span-1 sm:w-auto">
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
             <span>Guardar alterações</span>
           </Button>
@@ -268,7 +268,7 @@ export function ProductEditWorkspacePage() {
               variant="outline"
               disabled={saving}
               onClick={() => handleStatusChange("paused")}
-              className="gap-1.5 text-amber-600"
+              className="w-full gap-1.5 text-amber-600 sm:w-auto"
             >
               <PauseCircle className="w-4 h-4" />
               Pausar
@@ -278,7 +278,7 @@ export function ProductEditWorkspacePage() {
               variant="outline"
               disabled={saving}
               onClick={() => handleStatusChange("published")}
-              className="gap-1.5 text-emerald-600"
+              className="w-full gap-1.5 text-emerald-600 sm:w-auto"
             >
               <CheckCircle2 className="w-4 h-4" />
               Publicar
@@ -289,21 +289,21 @@ export function ProductEditWorkspacePage() {
             variant="outline"
             disabled={saving}
             onClick={() => handleStatusChange("archived")}
-            className="gap-1.5"
+            className="w-full gap-1.5 sm:w-auto"
           >
             <Archive className="w-4 h-4" />
             Arquivar
           </Button>
 
-          <Link href={`/agrishopping/products/${product.slug}`}>
-            <Button variant="outline">Ver página pública</Button>
+          <Link href={`/agrishopping/products/${product.slug}`} className="block min-w-0 sm:w-auto">
+            <Button variant="outline" className="w-full sm:w-auto">Ver página pública</Button>
           </Link>
 
           <Button
             variant="outline"
             disabled={saving}
             onClick={() => setDeleteOpen(true)}
-            className="gap-1.5 text-destructive"
+            className="col-span-2 w-full gap-1.5 text-destructive sm:col-span-1 sm:w-auto"
           >
             <Trash2 className="w-4 h-4" />
             {dict.shopping.deleteProduct}

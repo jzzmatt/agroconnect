@@ -85,22 +85,25 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(cartErrorMessage(new Error("Stock insuficiente"), "fallback")).toBe("Stock insuficiente");
   });
 
-  it("only allows deleting draft, paused or archived products", () => {
+  it("allows deleting a product the seller created, including a published one", () => {
     expect(canPermanentlyDeleteProduct("draft")).toBe(true);
     expect(canPermanentlyDeleteProduct("paused")).toBe(true);
     expect(canPermanentlyDeleteProduct("archived")).toBe(true);
-    expect(canPermanentlyDeleteProduct("published")).toBe(false);
-    expect(canPermanentlyDeleteProduct("active")).toBe(false);
-    expect(deleteDialogForProductStatus("published")).toBe("published_block");
+    expect(canPermanentlyDeleteProduct("published")).toBe(true);
+    expect(canPermanentlyDeleteProduct("active")).toBe(true);
+    expect(deleteDialogForProductStatus("published")).toBe("confirm_delete");
     expect(deleteDialogForProductStatus("draft")).toBe("confirm_delete");
   });
 
-  it("refuses to delete a published catalogue product", async () => {
+  it("deletes a published product owned by the seller without touching seed rows", async () => {
+    if (isSupabaseConfigured()) return;
     const published = INITIAL_PRODUCTS.find((item) => item.status === "published" || item.status === "active");
     expect(published).toBeDefined();
-    const result = await ShoppingService.deleteProduct(published!.id, published!.seller_id);
-    expect(result.success).toBe(false);
-    expect(result.error).toMatch(/Pausa ou arquiva/i);
+    const tempId = "prd-temp-delete-published";
+    INITIAL_PRODUCTS.push({ ...published!, id: tempId, slug: `${published!.slug}-temp-delete` });
+    const result = await ShoppingService.deleteProduct(tempId, published!.seller_id);
+    expect(result.success).toBe(true);
+    expect(INITIAL_PRODUCTS.some((item) => item.id === tempId)).toBe(false);
     expect(INITIAL_PRODUCTS.some((item) => item.id === published!.id)).toBe(true);
   });
 
@@ -163,6 +166,8 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(navbar).toContain("NavbarCartLink");
     expect(card).toContain("AddToCartControl");
     expect(detail).toContain("AddToCartControl");
+    expect(detail).toContain("canCurrentUserDeleteProductAction");
+    expect(detail).toContain("deleteProductAction");
     expect(detail).not.toContain("addToCartAction({ productId: product.id");
     expect(cartPage).toContain("updated.success");
     expect(cartPage).toContain("removeFromCartAction");
@@ -170,6 +175,7 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(order).toContain("OrderReceiptActions");
     expect(products).toContain("deleteProductAction");
     expect(editor).toContain("deleteProductAction");
+    expect(actions).toContain("export async function canCurrentUserDeleteProductAction");
     expect(actions).toContain("export async function deleteProductAction");
     expect(actions).toContain('authorize("product.delete")');
     expect(receipts).toContain("printReceiptHtml");
