@@ -1007,7 +1007,7 @@ export class ShoppingService {
   }
 
   /**
-   * Permanently delete an unpublished product owned by the seller.
+   * Permanently delete a product owned by the seller.
    */
   public static async deleteProduct(
     productId: string,

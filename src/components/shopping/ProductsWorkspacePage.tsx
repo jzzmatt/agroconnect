@@ -264,9 +264,9 @@ export function ProductsWorkspacePage() {
           filteredProducts.map((product) => (
             <div
               key={product.id}
-              className="bg-surface-card rounded-2xl border border-border p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4"
+              className="bg-surface-card w-full min-w-0 rounded-2xl border border-border p-4 sm:p-5 shadow-xs hover:shadow-md transition-shadow flex flex-col sm:flex-row sm:items-center justify-between gap-4"
             >
-              <div className="space-y-1.5 min-w-0">
+              <div className="space-y-1.5 min-w-0 flex-1">
                 <div className="flex items-center gap-2 flex-wrap">
                   {getStatusBadge(product.status)}
                   <Badge variant="pillarShopping" className="text-[10px]">
@@ -296,16 +296,16 @@ export function ProductsWorkspacePage() {
               </div>
 
               {/* Action Buttons */}
-              <div className="flex items-center gap-2 shrink-0 pt-2 sm:pt-0 border-t sm:border-t-0 border-border">
-                <Link href={`${productsBase}/${product.id}`}>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
+              <div className="grid w-full min-w-0 grid-cols-2 gap-2 border-t border-border pt-3 sm:flex sm:w-auto sm:max-w-full sm:flex-1 sm:flex-wrap sm:justify-end sm:border-t-0 sm:pt-0">
+                <Link href={`${productsBase}/${product.id}`} className="block min-w-0 sm:w-auto">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs font-semibold sm:w-auto">
                     <Package className="w-3.5 h-3.5" />
                     <span>Editar</span>
                   </Button>
                 </Link>
 
-                <Link href={`/agrishopping/products/${product.slug}`}>
-                  <Button variant="outline" size="sm" className="gap-1.5 text-xs font-semibold">
+                <Link href={`/agrishopping/products/${product.slug}`} className="block min-w-0 sm:w-auto">
+                  <Button variant="outline" size="sm" className="w-full gap-1.5 text-xs font-semibold sm:w-auto">
                     <Eye className="w-3.5 h-3.5" />
                     <span>Ver</span>
                   </Button>
@@ -317,7 +317,7 @@ export function ProductsWorkspacePage() {
                     size="sm"
                     disabled={isUpdating === product.id}
                     onClick={() => handleStatusChange(product.id, "paused")}
-                    className="gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-50"
+                    className="w-full gap-1.5 text-xs font-semibold text-amber-600 hover:text-amber-700 hover:bg-amber-50 sm:w-auto"
                   >
                     <PauseCircle className="w-3.5 h-3.5" />
                     <span>Pausar</span>
@@ -328,7 +328,7 @@ export function ProductsWorkspacePage() {
                     size="sm"
                     disabled={isUpdating === product.id}
                     onClick={() => handleStatusChange(product.id, "published")}
-                    className="gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50"
+                    className="w-full gap-1.5 text-xs font-semibold text-emerald-600 hover:text-emerald-700 hover:bg-emerald-50 sm:w-auto"
                   >
                     <CheckCircle2 className="w-3.5 h-3.5" />
                     <span>Publicar</span>
@@ -340,7 +340,7 @@ export function ProductsWorkspacePage() {
                   size="sm"
                   disabled={isUpdating === product.id}
                   onClick={() => handleStatusChange(product.id, "archived")}
-                  className="gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                  className="w-full gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 sm:w-auto"
                 >
                   <Archive className="w-3.5 h-3.5" />
                   <span>Arquivar</span>
@@ -351,7 +351,7 @@ export function ProductsWorkspacePage() {
                   size="sm"
                   disabled={isUpdating === product.id}
                   onClick={() => setDeleteTarget(product)}
-                  className="gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10"
+                  className="col-span-2 w-full gap-1.5 text-xs font-semibold text-destructive hover:bg-destructive/10 sm:col-span-1 sm:w-auto"
                 >
                   <Trash2 className="w-3.5 h-3.5" />
                   <span>{dict.shopping.deleteProduct}</span>

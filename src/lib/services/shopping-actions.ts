@@ -143,6 +143,16 @@ export async function updateProductAction(
   return !error;
 }
 
+export async function canCurrentUserDeleteProductAction(productId: string): Promise<boolean> {
+  try {
+    const subject = await authorize("product.delete");
+    await requireProductOwnership(productId, subject);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 export async function deleteProductAction(
   productId: string
 ): Promise<{ success: boolean; error?: string }> {

@@ -3,11 +3,17 @@ import type { ProductStatus } from "@/types/database";
 export type ProductDeleteDialogKind = "confirm_delete" | "published_block";
 
 /**
- * Published catalogue products must be paused or archived before they can be
- * removed. Draft, paused and archived rows may be deleted.
+ * A seller may permanently delete a product they created, including one that
+ * is already published. Unknown or missing statuses stay blocked.
  */
 export function canPermanentlyDeleteProduct(status: ProductStatus | string | null | undefined): boolean {
-  return status === "draft" || status === "paused" || status === "archived";
+  return (
+    status === "draft" ||
+    status === "paused" ||
+    status === "archived" ||
+    status === "published" ||
+    status === "active"
+  );
 }
 
 export function deleteDialogForProductStatus(
