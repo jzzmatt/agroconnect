@@ -34,13 +34,8 @@ export async function GET() {
     BUNNY_STREAM_WEBHOOK_SECRET: present("BUNNY_STREAM_WEBHOOK_SECRET"),
   };
 
-  const imagekit = {
-    IMAGEKIT_PUBLIC_KEY: present("IMAGEKIT_PUBLIC_KEY"),
-    IMAGEKIT_PRIVATE_KEY: present("IMAGEKIT_PRIVATE_KEY"),
-    IMAGEKIT_URL_ENDPOINT: present("IMAGEKIT_URL_ENDPOINT"),
-  };
-
   const canPublishProducts = supabase.configured && clerk.CLERK_SECRET_KEY;
+  const canStoreProductMedia = supabase.configured && supabase.SUPABASE_SERVICE_ROLE_KEY;
 
   // Everything plan activation depends on, so a failure can be diagnosed from
   // one request instead of reading server logs.
@@ -66,14 +61,13 @@ export async function GET() {
     {
       environment: process.env.NODE_ENV,
       canPublishProducts,
-      canUploadProductVideo: imagekit.IMAGEKIT_PRIVATE_KEY && imagekit.IMAGEKIT_URL_ENDPOINT,
-      canUploadProductImages: imagekit.IMAGEKIT_PRIVATE_KEY && imagekit.IMAGEKIT_URL_ENDPOINT,
+      canUploadProductVideo: canStoreProductMedia,
+      canUploadProductImages: canStoreProductMedia,
       canUploadAcademyVideo: false,
       canAssignAcademyYouTubeVideo: true,
       planActivation,
       supabase,
       clerk,
-      imagekit,
       bunny,
     },
     { status: canPublishProducts ? 200 : 503 }
