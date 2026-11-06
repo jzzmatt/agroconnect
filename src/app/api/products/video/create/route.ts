@@ -27,9 +27,9 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         success: false,
-        code: "IMAGEKIT_UPLOAD_FAILED",
-        error: message || "IMAGEKIT_UPLOAD_FAILED",
-        message: message || "IMAGEKIT_UPLOAD_FAILED",
+        code: "MEDIA_UPLOAD_FAILED",
+        error: message || "MEDIA_UPLOAD_FAILED",
+        message: message || "MEDIA_UPLOAD_FAILED",
       },
       { status: /autorizado|unauthor/i.test(message) ? 401 : 500 }
     );

@@ -1,6 +1,5 @@
 import { PRODUCT_VIDEO_ALLOWED_MIME } from "@/config/product-catalog";
 import { deleteBunnyVideo } from "@/lib/video/bunny";
-import { deleteImageKitFile } from "@/lib/media/imagekit";
 import { buildProductVideoStoragePath } from "@/lib/media/product-media-paths";
 import {
   PRODUCT_MEDIA_BUCKET,
@@ -26,8 +25,8 @@ const TABLE = "product_videos";
 /**
  * Supabase-backed. There is no module-level Map here: every read goes back
  * to `product_videos`, and every write lands there before this returns.
- * Product video moved off Bunny in Phase 4 — new rows always use ImageKit;
- * `bunny_video_id` is only ever populated on rows created before this phase.
+ * New product videos are stored in the private Supabase `product-media` bucket.
+ * `bunny_video_id` is only populated on rows created before that move.
  */
 export class ProductVideoService {
   public static async listByProduct(productId: string): Promise<ProductVideoRecord[]> {
@@ -139,12 +138,7 @@ export class ProductVideoService {
     return video.playback_url;
   }
 
-  /**
-   * Called once the browser finishes the direct ImageKit upload. ImageKit
-   * uploads are synchronous — there is no separate transcoding wait like
-   * Bunny's — so this is the terminal "ready" transition instead of a
-   * webhook callback.
-   */
+  /** Marks the video ready after the browser stores the file in Supabase. */
   public static async confirmUpload(params: {
     videoId: string;
     ownerId: string;
@@ -242,8 +236,6 @@ export class ProductVideoService {
 
     if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
       void removeStorageObject(PRODUCT_MEDIA_BUCKET, video.upload_storage_path).catch(() => undefined);
-    } else if (video.provider === "imagekit" && video.external_id) {
-      void deleteImageKitFile(video.external_id).catch(() => undefined);
     } else if (video.bunny_video_id) {
       // Legacy rows created before Phase 4 narrowed Bunny to Academy-only.
       void deleteBunnyVideo(video.bunny_video_id).catch(() => undefined);

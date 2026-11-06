@@ -1,7 +1,6 @@
 import type { ProductImageDescriptor } from "@/types/media";
 import { buildProductImageAlt, validateProductImage } from "@/lib/products/product-image-validation";
 import { getMediaSupabaseClient } from "@/lib/media/db";
-import { deleteImageKitFile } from "@/lib/media/imagekit";
 import { SUPABASE_STORAGE_PROVIDER } from "@/lib/media/supabase-buckets";
 import type { Database } from "@/types/database";
 
@@ -30,9 +29,8 @@ function toDescriptor(row: ProductImageRow): ProductImageDescriptor {
 }
 
 /**
- * Supabase-backed (`product_images`), ImageKit-backed for the binary. No
- * module-level Map — every list/add/remove round-trips the database, and the
- * bytes always go to ImageKit, never to Supabase Storage.
+ * Product image bytes live in the private Supabase `product-media` bucket.
+ * `product_images` stores the path and metadata.
  */
 export class ProductMediaService {
   public static async list(productId: string): Promise<ProductImageDescriptor[]> {
@@ -235,12 +233,10 @@ export class ProductMediaService {
       }
     }
 
-    if (target.storage_provider === SUPABASE_STORAGE_PROVIDER && target.storage_path) {
+    if (target.storage_path) {
       void import("@/lib/media/product-media-storage.server").then((storage) =>
         storage.removeProductImageObject(target.storage_path)
       );
-    } else if (target.external_id) {
-      void deleteImageKitFile(target.external_id).catch(() => undefined);
     }
     return true;
   }

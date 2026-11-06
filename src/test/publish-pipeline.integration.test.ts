@@ -170,13 +170,9 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
     expect(Number(stored.body[0].price)).toBe(45000);
   }, 45000);
 
-  it("issues an ImageKit upload authorization for a product video", async () => {
-    const imageKitConfigured =
-      Boolean(process.env.IMAGEKIT_PRIVATE_KEY) &&
-      Boolean(process.env.IMAGEKIT_PUBLIC_KEY) &&
-      Boolean(process.env.IMAGEKIT_URL_ENDPOINT);
-    if (!imageKitConfigured) {
-      console.warn("[integration] ImageKit keys absent; skipping video authorization check");
+  it("issues a Supabase signed upload for a product video", async () => {
+    if (!process.env.SUPABASE_SERVICE_ROLE_KEY || !process.env.NEXT_PUBLIC_SUPABASE_URL) {
+      console.warn("[integration] Supabase storage is not configured; skipping video upload check");
       return;
     }
 
@@ -199,11 +195,9 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
 
     expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.success).toBe(true);
-    // The browser needs all four to upload directly to ImageKit.
-    expect(payload.upload.uploadUrl).toBe("https://upload.imagekit.io/api/v1/files/upload");
+    expect(String(payload.upload.signedUrl)).toContain("/object/upload/sign/");
+    expect(String(payload.upload.storagePath)).toContain("/videos/");
     expect(payload.upload.token).toBeTruthy();
-    expect(payload.upload.signature).toMatch(/^[0-9a-f]{40}$/);
-    expect(payload.upload.expire).toBeGreaterThan(Math.floor(Date.now() / 1000));
 
     // Video row was created but never confirmed — clean it up directly.
     await rest(`/product_videos?id=eq.${payload.video.id}`, { method: "DELETE" });
@@ -229,9 +223,7 @@ describe.skipIf(!configured)("publish pipeline against live Supabase", () => {
 
     expect(response.status, JSON.stringify(payload)).toBe(200);
     expect(payload.success).toBe(true);
-    // Only ever assert a URL was persisted — its host depends on whether
-    // ImageKit is configured in this environment (falls back to a 500 with
-    // a clear error code otherwise, asserted separately in unit tests).
+    // The stored URL is a Supabase signed display URL or the app playback route.
     expect(typeof payload.image.url).toBe("string");
     expect(payload.image.url.length).toBeGreaterThan(0);
 

@@ -74,19 +74,10 @@ export async function removeStorageObject(bucket: string, storagePath: string | 
 
 export async function storageObjectExists(bucket: string, storagePath: string): Promise<boolean> {
   const supabase = getStorageAdminClient();
-  if (!supabase) return false;
+  if (!supabase || !storagePath) return false;
 
-  const folder = storagePath.split("/").slice(0, -1).join("/");
-  const fileName = storagePath.split("/").pop();
-  if (!folder || !fileName) return false;
-
-  const { data, error } = await supabase.storage.from(bucket).list(folder, {
-    search: fileName,
-    limit: 1,
-  });
-
-  if (error) return false;
-  return Boolean(data?.some((item) => item.name === fileName));
+  const signed = await supabase.storage.from(bucket).createSignedUrl(storagePath, 60);
+  return Boolean(signed.data?.signedUrl);
 }
 
 export async function resolveSignedDisplayUrl(
