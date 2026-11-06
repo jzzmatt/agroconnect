@@ -46,6 +46,7 @@ export interface CreateProductInput {
   latitude?: number;
   longitude?: number;
   sellingRadiusKm?: number;
+  transportIncluded?: boolean;
   status?: ProductStatus;
   isFeatured?: boolean;
   metadata?: Record<string, unknown>;

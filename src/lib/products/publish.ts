@@ -179,6 +179,7 @@ export async function insertProductRow(params: {
         latitude: params.input.latitude || null,
         longitude: params.input.longitude || null,
         selling_radius_km: params.input.sellingRadiusKm || 50,
+        transport_included: Boolean(params.input.transportIncluded),
         status: normalizeProductStatus(params.input.status, "draft"),
         is_featured: params.input.isFeatured || false,
         metadata: params.metadata,

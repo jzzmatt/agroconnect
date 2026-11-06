@@ -3,12 +3,14 @@ import { AuthorizationError, authorizationStatus, requirePermission } from "@/li
 import { getCurrentSubject } from "@/lib/authorization/server";
 import { WhatsappServiceError } from "./types";
 
-export async function requireWhatsappUser(): Promise<
-  { userId: string } | { response: NextResponse }
-> {
+async function requirePermissions(
+  permissions: Array<"whatsapp.connect" | "product.publish">
+): Promise<{ userId: string } | { response: NextResponse }> {
   const subject = await getCurrentSubject();
   try {
-    requirePermission(subject, "whatsapp.connect");
+    for (const permission of permissions) {
+      requirePermission(subject, permission);
+    }
   } catch (error) {
     const status = authorizationStatus(error);
     if (status) {
@@ -18,6 +20,18 @@ export async function requireWhatsappUser(): Promise<
     throw error;
   }
   return { userId: subject!.profileId };
+}
+
+export async function requireWhatsappUser(): Promise<
+  { userId: string } | { response: NextResponse }
+> {
+  return requirePermissions(["whatsapp.connect"]);
+}
+
+export async function requireProductWhatsappPublisher(): Promise<
+  { userId: string } | { response: NextResponse }
+> {
+  return requirePermissions(["whatsapp.connect", "product.publish"]);
 }
 
 export function whatsappErrorResponse(error: unknown): NextResponse {

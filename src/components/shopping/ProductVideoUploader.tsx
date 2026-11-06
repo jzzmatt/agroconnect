@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Film, Trash2, AlertCircle, Scissors, Loader2 } from "lucide-react";
+import { Camera, Film, Trash2, AlertCircle, Scissors, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
@@ -45,6 +45,7 @@ export function ProductVideoUploader({
 }) {
   const { dict } = useI18n();
   const inputRef = useRef<HTMLInputElement | null>(null);
+  const cameraRef = useRef<HTMLInputElement | null>(null);
   const abortRef = useRef<AbortController | null>(null);
   const [phase, setPhase] = useState<UploaderPhase>("idle");
   const [error, setError] = useState<string | null>(null);
@@ -181,12 +182,26 @@ export function ProductVideoUploader({
         className="sr-only"
         onChange={(event) => handleFile(event.target.files?.[0])}
       />
+      <input
+        ref={cameraRef}
+        type="file"
+        accept="video/*"
+        capture="environment"
+        className="sr-only"
+        onChange={(event) => handleFile(event.target.files?.[0])}
+      />
 
       {!video ? (
-        <Button type="button" variant="outline" onClick={handlePickClick} className="gap-2">
-          <Film className="w-4 h-4" />
-          <span>{dict.products.videoAdd}</span>
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button type="button" variant="outline" onClick={handlePickClick} className="gap-2">
+            <Film className="w-4 h-4" />
+            <span>{dict.products.videoAdd}</span>
+          </Button>
+          <Button type="button" variant="outline" onClick={() => cameraRef.current?.click()} className="gap-2">
+            <Camera className="w-4 h-4" />
+            <span>{dict.products.captureVideo}</span>
+          </Button>
+        </div>
       ) : (
         <div className="rounded-2xl border border-border bg-surface p-3 space-y-2">
           <video

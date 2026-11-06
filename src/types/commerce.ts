@@ -3,6 +3,8 @@ import type { OrderFulfillmentMethod, PaymentMethod, PaymentStatus } from "./dat
 export interface AddToCartInput {
   productId: string;
   quantity?: number;
+  /** When the line already exists, keep its quantity. Used by the WhatsApp order link. */
+  once?: boolean;
 }
 
 export interface CheckoutOrderInput {

@@ -146,6 +146,8 @@ Row Level Security is enabled on **all 18 application tables**.
 
 Apply `supabase/migrations/20261106104021_whatsapp_connections.sql` before using the dashboard screen.
 
+`products.transport_included` records whether the vendor includes transport. `whatsapp_product_publications` and `whatsapp_product_publication_targets` record each AgriProduct send to a saved group. `sent` means WaAPI accepted the message. It does not mean delivered or read. Apply `supabase/migrations/20261106171305_whatsapp_product_publications.sql` before publishing products to WhatsApp.
+
 ## 8. Next Phase Readiness
 
 The database foundation is 100% prepared for:

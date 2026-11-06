@@ -38,3 +38,13 @@ Localhost cannot receive WaAPI webhooks. The dashboard still polls `GET /instanc
 Webhook events registered for the instance are `qr`, `loading_screen`, `authenticated`, `auth_failure`, `ready` and `disconnected`. The handler checks the URL token against the stored token and checks `instanceId` against that row. Other events are ignored. Message bodies are not stored.
 
 Group chats are the ones whose id ends in `@g.us`. The documented chat object has no image field, so `group_image_url` stays empty unless the payload includes an `https` `profilePicUrl`.
+
+## AgriProduct publishing
+
+Phase 2.1 reuses the connection and the saved groups. It does not create another WhatsApp account. A vendor publishes the product on AgriProduct first. WhatsApp is sent only after they confirm **PUBLICAR NOS GRUPOS**.
+
+The server sends media with `POST /instances/{id}/client/action/send-media` and then the Portuguese text with `POST /instances/{id}/client/action/send-message` (`previewLink: true`). A successful send is `data.status === "success"`. The stored status is `sent`, `failed` or `partially_sent`. Those values are not delivery or read receipts.
+
+Customers open `/order/{productId}?source=whatsapp`. The server checks that the product is public, adds it to the cart once, and redirects to `/cart`. The price comes from the catalogue, not from the link.
+
+Apply `supabase/migrations/20261106171305_whatsapp_product_publications.sql`. No new environment variable is required.
