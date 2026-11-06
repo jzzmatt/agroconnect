@@ -165,6 +165,7 @@ export function DashboardSidebar({
                     <Link
                       key={`${entry.href}-${entry.title}`}
                       href={href}
+                      prefetch={false}
                       onClick={() => onClose && onClose()}
                       className={cn(
                         "flex items-center justify-between py-2.5 rounded-xl text-xs font-semibold transition-colors",

@@ -26,7 +26,10 @@ export function useProfileChangeListener(onChange: () => void): void {
   useEffect(() => {
     if (typeof window === "undefined") return;
 
-    const handler = () => onChange();
+    const handler = () => {
+      if (document.visibilityState === "hidden") return;
+      onChange();
+    };
     window.addEventListener(PROFILE_CHANGED_EVENT, handler);
     window.addEventListener("focus", handler);
     // visibilitychange fires on document, not window.

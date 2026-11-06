@@ -147,7 +147,7 @@ export default function DashboardPage() {
         }
       }
     }
-  }, [user, loadServerProfile]);
+  }, [user?.id, loadServerProfile]);
 
   const greeting = getUserGreeting({
     displayName: profile.displayName,

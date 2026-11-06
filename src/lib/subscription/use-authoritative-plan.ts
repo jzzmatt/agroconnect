@@ -46,7 +46,7 @@ export function useAuthoritativePlan() {
   const [fromDatabase, setFromDatabase] = useState(false);
   const previousUserIdRef = useRef<string | null>(null);
 
-  const refresh = useCallback(async () => {
+  const refresh = useCallback(async (background = false) => {
     if (!isLoaded) return;
 
     if (!isSignedIn) {
@@ -58,12 +58,17 @@ export function useAuthoritativePlan() {
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    // A background refresh must not blank the page. The dashboard treats
+    // `loading` as "replace the whole view with a skeleton".
+    if (!background) {
+      setLoading(true);
+      setError(null);
+    }
 
     try {
       const result = await withTimeout(getAuthoritativeSubscriptionAction(), 8000);
       if (!result) {
+        if (background) return;
         setPlan(null);
         setFromDatabase(false);
         setError("Não foi possível carregar a subscrição a partir da base de dados.");
@@ -76,6 +81,7 @@ export function useAuthoritativePlan() {
         return;
       }
       if (result.error || result.source !== "database") {
+        if (background) return;
         setPlan(null);
         setFromDatabase(false);
         setError(result.error || "Não foi possível carregar a subscrição a partir da base de dados.");
@@ -91,7 +97,7 @@ export function useAuthoritativePlan() {
       }
       setVideoStorageUsedBytes(result.videoStorageUsedBytes || 0);
     } finally {
-      setLoading(false);
+      if (!background) setLoading(false);
     }
   }, [isLoaded, isSignedIn, user?.id]);
 
@@ -102,17 +108,23 @@ export function useAuthoritativePlan() {
       setError(null);
       previousUserIdRef.current = user?.id ?? null;
     }
-    void refresh();
+    void refresh(false);
     if (typeof window === "undefined") return;
 
+    let timer = 0;
     const onChange = () => {
-      invalidateClientProfileCache();
-      void refresh();
+      if (document.visibilityState === "hidden") return;
+      window.clearTimeout(timer);
+      timer = window.setTimeout(() => {
+        invalidateClientProfileCache();
+        void refresh(true);
+      }, 800);
     };
     window.addEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
     window.addEventListener("focus", onChange);
     document.addEventListener("visibilitychange", onChange);
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener(SUBSCRIPTION_CHANGED_EVENT, onChange);
       window.removeEventListener("focus", onChange);
       document.removeEventListener("visibilitychange", onChange);
