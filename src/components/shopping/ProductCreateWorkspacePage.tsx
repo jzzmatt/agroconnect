@@ -23,6 +23,7 @@ import {
 } from "@/config/product-catalog";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
 import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
+import { WhatsAppPublishModal } from "@/components/whatsapp/WhatsAppPublishModal";
 import { compressImageFile } from "@/lib/products/compress-image";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useI18n } from "@/i18n/provider";
@@ -31,6 +32,32 @@ import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
+
+function uploadForm(
+  url: string,
+  form: FormData,
+  onProgress: (percent: number) => void
+): Promise<{ ok: boolean; payload: { success?: boolean; error?: string; code?: string; message?: string } | null }> {
+  return new Promise((resolve, reject) => {
+    const xhr = new XMLHttpRequest();
+    xhr.open("POST", url);
+    xhr.withCredentials = true;
+    xhr.upload.onprogress = (event) => {
+      if (event.lengthComputable) onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+    xhr.onload = () => {
+      let payload = null;
+      try {
+        payload = JSON.parse(xhr.responseText);
+      } catch {
+        payload = null;
+      }
+      resolve({ ok: xhr.status >= 200 && xhr.status < 300, payload });
+    };
+    xhr.onerror = () => reject(new Error("NETWORK_FAILED"));
+    xhr.send(form);
+  });
+}
 
 export function ProductCreateWorkspacePage() {
   const router = useRouter();
@@ -78,6 +105,11 @@ export function ProductCreateWorkspacePage() {
   const [sellingRadiusKm, setSellingRadiusKm] = useState<number>(70);
   const [pendingImages, setPendingImages] = useState<Array<{ id: string; url: string; alt_text: string; is_primary: boolean; file: File }>>([]);
   const [pendingVideo, setPendingVideo] = useState<PendingProductVideo | null>(null);
+  const [transportIncluded, setTransportIncluded] = useState(false);
+  const [previewOpen, setPreviewOpen] = useState(false);
+  const [publishedProductId, setPublishedProductId] = useState<string | null>(null);
+  const [mediaProgress, setMediaProgress] = useState<number | null>(null);
+  const submitMode = React.useRef<"draft" | "publish">("publish");
 
   const [species, setSpecies] = useState<AnimalSpecies>("pigs");
   const [breed, setBreed] = useState("");
@@ -168,9 +200,10 @@ export function ProductCreateWorkspacePage() {
     );
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent, mode: "draft" | "publish" = submitMode.current) => {
     e.preventDefault();
     if (busy) return;
+    submitMode.current = mode;
     if (!title.trim() || title.length < 3 || price < 0) {
       setError(dict.errors.VALIDATION_ERROR);
       setPublishState("error");
@@ -210,7 +243,8 @@ export function ProductCreateWorkspacePage() {
           availabilityStatus,
           locationType,
           sellingRadiusKm,
-          status: "published",
+          transportIncluded,
+          status: mode === "draft" ? "draft" : "published",
           categorySlug: category,
           productType,
           provinceName: selectedProvince,
@@ -243,20 +277,18 @@ export function ProductCreateWorkspacePage() {
         setPublishState("uploading_media");
       }
 
-      for (const img of pendingImages) {
+      for (const [index, img] of pendingImages.entries()) {
         const compressed = await compressImageFile(img.file);
         const form = new FormData();
         form.append("productId", result.product.id);
         form.append("file", compressed.file, compressed.fileName);
         form.append("isPrimary", img.is_primary ? "true" : "false");
         form.append("altText", title);
-        const uploaded = await fetch("/api/products/images", {
-          method: "POST",
-          body: form,
-          credentials: "same-origin",
-          redirect: "manual",
+        const uploaded = await uploadForm("/api/products/images", form, (percent) => {
+          const span = 100 / Math.max(pendingImages.length, 1);
+          setMediaProgress(Math.round(index * span + (percent / 100) * span));
         });
-        const payload = await uploaded.json().catch(() => null);
+        const payload = uploaded.payload;
         if (!uploaded.ok || !payload?.success) {
           const errCode = payload?.error || payload?.code || PRODUCT_ERROR_CODES.PRODUCT_IMAGE_FAILED;
           throw Object.assign(new Error(payload?.message || errCode), {
@@ -302,6 +334,9 @@ export function ProductCreateWorkspacePage() {
             signedUrl: upload.signedUrl,
             file: pendingVideo.file,
             mimeType: upload.mimeType || pendingVideo.file.type || "video/mp4",
+            onProgress: (loaded, total) => {
+              setMediaProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
+            },
           });
           const confirmRes = await fetch("/api/products/video/complete", {
             method: "POST",
@@ -331,12 +366,17 @@ export function ProductCreateWorkspacePage() {
         }
       }
 
-      setPublishState("success");
-      setSuccessMessage(
-        videoProcessing ? dict.products.publishedVideoProcessing : dict.products.publishedOk
-      );
+      setMediaProgress(null);
       void refresh();
-      setTimeout(() => router.push(productsBase), 1200);
+      if (mode === "draft") {
+        setPublishState("success");
+        setSuccessMessage(dict.products.draftSaved);
+        setTimeout(() => router.push(productsBase), 1200);
+        return;
+      }
+      setPublishState("idle");
+      setSuccessMessage(videoProcessing ? dict.products.publishedVideoProcessing : dict.products.publishedOk);
+      setPublishedProductId(result.product.id);
     } catch (err: any) {
       const raw = err?.code || err?.message;
       const isTimeout =
@@ -373,14 +413,14 @@ export function ProductCreateWorkspacePage() {
           <p className="text-xs text-muted-foreground">{dict.products.redirecting}</p>
         </div>
       ) : (
-        <form onSubmit={handleSubmit} className="space-y-6">
+        <form onSubmit={(event) => void handleSubmit(event, "publish")} className="space-y-6">
           {error && (
             <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
                 <AlertCircle className="w-4 h-4 shrink-0" />
                 {error}
               </span>
-              <Button type="button" variant="outline" size="sm" onClick={() => void handleSubmit({ preventDefault() {} } as React.FormEvent)}>
+              <Button type="button" variant="outline" size="sm" onClick={() => void handleSubmit({ preventDefault() {} } as React.FormEvent, submitMode.current)}>
                 {dict.common.retry}
               </Button>
             </div>
@@ -586,12 +626,51 @@ export function ProductCreateWorkspacePage() {
               onSetPrimary={(id) => setPendingImages((prev) => prev.map((i) => ({ ...i, is_primary: i.id === id })))}
             />
             <ProductVideoUploader video={pendingVideo} onChange={setPendingVideo} />
+            {mediaProgress !== null && (
+              <p className="text-xs font-semibold text-primary">
+                {dict.products.uploadProgress.replace("{percent}", String(mediaProgress))}
+              </p>
+            )}
           </div>
 
-          <div className="flex items-center justify-end gap-3 pt-4">
+          <div className="bg-surface-card rounded-3xl border border-border p-6 shadow-xs space-y-3">
+            <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{dict.products.transportSection}</h3>
+            <label className="flex items-center gap-2 text-xs font-semibold">
+              <input
+                type="radio"
+                name="transport"
+                checked={transportIncluded}
+                onChange={() => setTransportIncluded(true)}
+              />
+              {dict.products.transportIncluded}
+            </label>
+            <label className="flex items-center gap-2 text-xs font-semibold">
+              <input
+                type="radio"
+                name="transport"
+                checked={!transportIncluded}
+                onChange={() => setTransportIncluded(false)}
+              />
+              {dict.products.transportExcluded}
+            </label>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-end gap-3 pt-4">
             <Link href={productsBase}>
               <Button variant="outline" size="lg" disabled={busy} type="button">{dict.common.cancel}</Button>
             </Link>
+            <Button
+              type="button"
+              variant="outline"
+              size="lg"
+              disabled={busy}
+              onClick={() => void handleSubmit({ preventDefault() {} } as React.FormEvent, "draft")}
+            >
+              {dict.products.saveDraft}
+            </Button>
+            <Button type="button" variant="outline" size="lg" disabled={busy} onClick={() => setPreviewOpen(true)}>
+              {dict.products.previewProduct}
+            </Button>
             <Button type="submit" variant="primary" size="lg" disabled={busy} className="gap-2 font-bold px-8">
               {busy ? (
                 <>
@@ -601,12 +680,46 @@ export function ProductCreateWorkspacePage() {
               ) : (
                 <>
                   <CheckCircle2 className="w-4 h-4" />
-                  <span>{dict.products.publish}</span>
+                  <span>{dict.products.publishProduct}</span>
                 </>
               )}
             </Button>
           </div>
         </form>
+      )}
+
+      {previewOpen && (
+        <div className="fixed inset-0 z-40 flex items-end justify-center bg-black/50 p-3 sm:items-center">
+          <div className="w-full max-w-lg space-y-3 rounded-3xl bg-surface-card p-5">
+            <h2 className="text-lg font-black">{dict.products.previewProduct}</h2>
+            {pendingImages[0]?.url ? (
+              <img src={pendingImages[0].url} alt="" className="h-40 w-full rounded-2xl object-cover" />
+            ) : null}
+            <p className="text-sm font-black">{title}</p>
+            {description ? <p className="text-xs text-muted-foreground">{description}</p> : null}
+            <p className="text-xs font-bold">{price} Kz</p>
+            <p className="text-xs">{selectedProvince} / {selectedMunicipality}</p>
+            <p className="text-xs">{transportIncluded ? dict.products.transportIncluded : dict.products.transportExcluded}</p>
+            {pendingVideo ? (
+              <video src={pendingVideo.previewUrl} controls playsInline className="w-full max-h-48 rounded-xl bg-black" />
+            ) : null}
+            <div className="flex justify-end">
+              <Button type="button" variant="outline" onClick={() => setPreviewOpen(false)}>{dict.common.close}</Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <WhatsAppPublishModal
+        open={Boolean(publishedProductId)}
+        productId={publishedProductId}
+        onClose={() => {
+          setPublishedProductId(null);
+          router.push(productsBase);
+        }}
+      />
+      {successMessage && publishState !== "success" && (
+        <p className="text-xs font-semibold text-emerald-700">{successMessage}</p>
       )}
     </div>
   );

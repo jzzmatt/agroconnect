@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { isSupabaseConfigured, tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/commerce/ids";
+import { isPublicProductStatus } from "@/lib/products/publication";
 import { PaymentService } from "@/lib/payments";
 import { ShoppingService } from "@/lib/services/shopping-service";
 import { generateDeliveryOTP } from "@/lib/logistics/state-machine";
@@ -179,13 +180,14 @@ export async function persistGetCart(customerId: string): Promise<ShoppingCart |
 export async function persistAddToCart(
   customerId: string,
   productId: string,
-  quantityToAdd: number
+  quantityToAdd: number,
+  options?: { once?: boolean }
 ): Promise<ShoppingCart | null> {
   const supabase = persistClient();
   if (!supabase) return null;
 
   const product = await resolveCatalogProduct(productId);
-  if (!product || !isUuid(product.id)) {
+  if (!product || !isUuid(product.id) || !isPublicProductStatus(product.status)) {
     throw new Error("Produto não encontrado.");
   }
   if (product.availability_status === "out_of_stock") {
@@ -202,6 +204,19 @@ export async function persistAddToCart(
     .eq("cart_id", cart.id)
     .eq("product_id", product.id)
     .maybeSingle();
+
+  if (existing.data?.id && options?.once) {
+    const { error } = await supabase
+      .from("cart_items")
+      .update({
+        unit_price: product.price,
+        seller_id: product.seller_id,
+        currency: product.currency || "AOA",
+      })
+      .eq("id", existing.data.id);
+    if (error) throw new Error(error.message);
+    return persistGetCart(customerId);
+  }
 
   const nextQty = asNumber(existing.data?.quantity) + quantityToAdd;
   if (product.quantity && nextQty > product.quantity) {

@@ -4,6 +4,7 @@ import { calculateDeliveryFee } from "@/lib/logistics/delivery-fee";
 import { LogisticsService } from "@/lib/services/logistics-service";
 import { NotificationService } from "@/lib/services/notification-service";
 import { isUuid } from "@/lib/commerce/ids";
+import { isPublicProductStatus } from "@/lib/products/publication";
 import {
   persistAddToCart,
   persistCancelOrder,
@@ -235,13 +236,14 @@ export class CommerceService {
       const persisted = await persistAddToCart(
         actor.customerId,
         input.productId,
-        input.quantity && input.quantity > 0 ? input.quantity : 1
+        input.quantity && input.quantity > 0 ? input.quantity : 1,
+        { once: input.once }
       );
       if (persisted) return persisted;
     }
 
     const product = await resolveProduct(input.productId);
-    if (!product) {
+    if (!product || !isPublicProductStatus(product.status)) {
       throw new Error("Produto não encontrado.");
     }
     if (product.availability_status === "out_of_stock") {
@@ -254,7 +256,14 @@ export class CommerceService {
     const existingIndex = cart.items.findIndex((item) => item.product_id === product.id);
     const updatedItems = [...cart.items];
 
-    if (existingIndex >= 0) {
+    if (existingIndex >= 0 && input.once) {
+      const existing = updatedItems[existingIndex];
+      updatedItems[existingIndex] = {
+        ...existing,
+        unit_price: product.price,
+        subtotal: existing.quantity * product.price,
+      };
+    } else if (existingIndex >= 0) {
       const existing = updatedItems[existingIndex];
       const nextQty = existing.quantity + qtyToAdd;
       if (product.quantity && nextQty > product.quantity) {

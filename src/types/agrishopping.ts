@@ -27,6 +27,7 @@ export interface ProductListItem {
   latitude?: number | null;
   longitude?: number | null;
   selling_radius_km?: number | null;
+  transport_included?: boolean;
   distance_km?: number | null;
   is_within_selling_area?: boolean;
   status: string;

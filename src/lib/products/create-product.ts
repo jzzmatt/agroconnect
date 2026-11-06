@@ -242,6 +242,7 @@ export async function createPublishedProduct(
       latitude: data.latitude,
       longitude: data.longitude,
       selling_radius_km: data.selling_radius_km,
+      transport_included: Boolean(data.transport_included),
       status: data.status,
       is_featured: data.is_featured,
       metadata,

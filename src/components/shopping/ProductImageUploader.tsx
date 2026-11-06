@@ -1,8 +1,9 @@
 "use client";
 
 import React, { useRef } from "react";
-import { ImagePlus, Star, Trash2 } from "lucide-react";
+import { Camera, ImagePlus, Star, Trash2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
+import { useI18n } from "@/i18n/provider";
 import { validateProductImage } from "@/lib/products/product-image-validation";
 import type { ProductImageDescriptor } from "@/types/media";
 
@@ -23,7 +24,9 @@ export function ProductImageUploader({
   disabled,
   error,
 }: ProductImageUploaderProps) {
+  const { dict } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
 
   const handleFiles = async (fileList: FileList | null) => {
     const file = fileList?.[0];
@@ -48,23 +51,44 @@ export function ProductImageUploader({
 
   return (
     <div className="space-y-3">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-wrap items-center justify-between gap-2">
         <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Imagem do produto</h3>
-        <Button
-          type="button"
-          variant="outline"
-          size="sm"
-          disabled={disabled}
-          onClick={() => inputRef.current?.click()}
-          className="text-xs font-bold"
-        >
-          <ImagePlus className="w-4 h-4 mr-1.5" />
-          Escolher imagem
-        </Button>
+        <div className="flex gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => inputRef.current?.click()}
+            className="text-xs font-bold"
+          >
+            <ImagePlus className="w-4 h-4 mr-1.5" />
+            Escolher imagem
+          </Button>
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            onClick={() => cameraRef.current?.click()}
+            className="text-xs font-bold"
+          >
+            <Camera className="w-4 h-4 mr-1.5" />
+            {dict.products.capturePhoto}
+          </Button>
+        </div>
         <input
           ref={inputRef}
           type="file"
           accept="image/jpeg,image/png,image/webp"
+          className="hidden"
+          onChange={(e) => handleFiles(e.target.files)}
+        />
+        <input
+          ref={cameraRef}
+          type="file"
+          accept="image/*"
+          capture="environment"
           className="hidden"
           onChange={(e) => handleFiles(e.target.files)}
         />
