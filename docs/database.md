@@ -140,7 +140,13 @@ Row Level Security is enabled on **all 18 application tables**.
 
 ---
 
-## 7. Next Phase Readiness
+## 7. WhatsApp connections
+
+`whatsapp_connections` stores one WaAPI instance per profile. `business_id` points at `provider_profiles` when the profile has one, and stays null otherwise. `whatsapp_saved_groups` stores the groups that owner chose to keep. Both tables have row level security: an authenticated user can read only their own rows, and the webhook token plus instance id are not granted to `anon` or `authenticated`. Writes go through the service role after the application checks the Clerk user.
+
+Apply `supabase/migrations/20261106104021_whatsapp_connections.sql` before using the dashboard screen.
+
+## 8. Next Phase Readiness
 
 The database foundation is 100% prepared for:
 👉 **PHASE 4 — CLERK AUTHENTICATION & USER IDENTITY INTEGRATION**

@@ -45,6 +45,7 @@ export const PERMISSIONS = [
 
   // Account and commercial
   "control_panel.access",
+  "whatsapp.connect",
   "market.country.change",
   "payment_gateway.request",
   "subscription.activate_paid",
@@ -182,6 +183,10 @@ export const PERMISSION_POLICY: Record<Permission, PermissionRule> = {
   "control_panel.access": {
     entitlement: "can_access_control_panel",
     describe: "Access the Control Panel",
+  },
+  "whatsapp.connect": {
+    entitlement: "can_access_control_panel",
+    describe: "Connect an individual WhatsApp account",
   },
 
   "market.country.change": {

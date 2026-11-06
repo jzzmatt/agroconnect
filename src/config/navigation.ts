@@ -19,6 +19,7 @@ import {
   Building2,
   DollarSign,
   MessageSquare,
+  MessageCircle,
   type LucideIcon,
 } from "lucide-react";
 import type { UserRoleType } from "@/types/database";
@@ -80,6 +81,12 @@ export function getDashboardNavigation(dict: Dictionary): NavSection[] {
         title: dict.navDash.myProfile,
         href: "/profile",
         icon: User,
+      },
+      {
+        title: dict.navDash.whatsapp,
+        href: "/dashboard/whatsapp",
+        icon: MessageCircle,
+        requiredPermission: "whatsapp.connect",
       },
     ],
   },

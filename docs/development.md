@@ -39,6 +39,11 @@ CLERK_SECRET_KEY=sk_test_...
 # Supabase PostgreSQL & API (Get from supabase.com)
 NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co
 NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=sb_publishable_...
+SUPABASE_SERVICE_ROLE_KEY=
+
+# WaAPI — server only. Do not commit a real token and do not use NEXT_PUBLIC_.
+WAAPI_API_TOKEN=
+WAAPI_API_BASE_URL=https://waapi.app/api/v1
 
 # Map Provider (Phase 1 default: osm)
 NEXT_PUBLIC_MAP_PROVIDER=osm
