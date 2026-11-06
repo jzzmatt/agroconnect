@@ -78,7 +78,7 @@ export function DashboardShell({
         }
       }
     }
-  }, [user, loadServerProfile]);
+  }, [user?.id, loadServerProfile]);
 
   const handleSwitchProfile = async (profile: ProfileType) => {
     const previous = activeProfile;

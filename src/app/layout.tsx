@@ -13,6 +13,9 @@ const inter = Inter({
   subsets: ["latin"],
   display: "swap",
   variable: "--font-inter",
+  // The face is applied from CSS. Preloading it on every navigation leaves
+  // an unused <link rel="preload"> after the next route loads.
+  preload: false,
 });
 
 export const metadata: Metadata = {

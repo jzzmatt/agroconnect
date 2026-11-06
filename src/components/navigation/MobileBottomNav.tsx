@@ -65,6 +65,7 @@ export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBotto
             <Link
               key={item.href}
               href={item.href}
+              prefetch={false}
               className={cn(
                 "flex flex-col items-center justify-center py-1 px-1 rounded-xl text-[10px] font-semibold transition-colors min-w-0 flex-1 max-w-[72px]",
                 isActive
