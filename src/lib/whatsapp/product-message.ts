@@ -37,9 +37,9 @@ export function buildProductWhatsappMessage(input: ProductWhatsappMessageInput):
   const name = line(input.name) || "Produto";
   const description = line(input.description);
   const location = formatProductLocation(input);
-  const video = line(input.videoUrl);
-  const orderUrl = line(input.orderUrl) || "";
-  const listingUrl = line(input.listingUrl);
+  const video = durableWhatsappLink(input.videoUrl);
+  const orderUrl = durableWhatsappLink(input.orderUrl) || "";
+  const listingUrl = durableWhatsappLink(input.listingUrl);
   const rows = [
     "🌱 *NOVO PRODUTO DISPONÍVEL NO AGROCONNECT!*",
     "",
@@ -52,14 +52,13 @@ export function buildProductWhatsappMessage(input: ProductWhatsappMessageInput):
     `🚚 *Transporte:* ${input.transportIncluded ? "Incluído" : "Não incluído"}`,
     "",
     "📸 Consulte as fotografias do produto.",
-    video ? `🎥 *Vídeo:* ${video}` : null,
+    video ? "🎥 Ver o vídeo do produto" : null,
+    video,
     "",
     "🛒 *FAÇA JÁ A SUA ENCOMENDA!*",
-    "",
-    "👇 Encomende aqui:",
-    "",
+    "👇 Encomende aqui",
     orderUrl,
-    listingUrl && listingUrl !== orderUrl ? listingUrl : null,
+    listingUrl && listingUrl !== orderUrl && listingUrl !== video ? `🛍️ Ver o produto\n${listingUrl}` : null,
     "",
     "🌍 Descubra mais produtos no Agroconnect!",
     "",
@@ -80,6 +79,45 @@ export function videoThumbnailCaption(videoUrl?: string | null): string {
 export function orderUrlForProduct(origin: string, productId: string): string {
   const base = origin.replace(/\/$/, "");
   return `${base}/order/${productId}?source=whatsapp`;
+}
+
+/**
+ * WaAPI v1 group sends are text, media, vCard, location, poll, event, and
+ * community announcement. The reference has no interactive URL-button action,
+ * and an ordinary group message cannot hide a URL behind an emoji or Markdown.
+ * Product groups therefore use readable https links on existing app routes.
+ */
+export function waapiGroupUrlButtonsSupported(): false {
+  return false;
+}
+
+export function productActionLinks(input: {
+  origin: string;
+  productId: string;
+  slug: string | null;
+  hasVideo: boolean;
+}): { videoUrl: string | null; orderUrl: string } {
+  const origin = input.origin.replace(/\/$/, "");
+  const slug = input.slug?.trim();
+  if (slug) {
+    const productPath = `${origin}/agrishopping/products/${encodeURIComponent(slug)}`;
+    return {
+      videoUrl: input.hasVideo ? `${productPath}/video` : null,
+      orderUrl: `${productPath}/encomendar`,
+    };
+  }
+  return {
+    videoUrl: input.hasVideo ? `${origin}/api/products/${input.productId}/video-playback` : null,
+    orderUrl: orderUrlForProduct(origin, input.productId),
+  };
+}
+
+/** Signed storage URLs expire and must not be printed as the product video link. */
+export function durableWhatsappLink(url: string | null | undefined): string | null {
+  const text = url?.trim();
+  if (!text || !text.startsWith("https://")) return null;
+  if (/\/object\/sign\/|[?&]token=|supabase/i.test(text)) return null;
+  return text;
 }
 
 export function isHttpsMediaUrl(value: string | null | undefined): value is string {

@@ -4,6 +4,7 @@ import {
   buildProductWhatsappMessage,
   isHttpsMediaUrl,
   orderUrlForProduct,
+  productActionLinks,
 } from "./product-message";
 import { WhatsappServiceError, type PublicGroup } from "./types";
 
@@ -111,7 +112,17 @@ export function listingUrlForProduct(origin: string, slug: string | null): strin
   return `${origin.replace(/\/$/, "")}/agrishopping/products/${encodeURIComponent(slug)}`;
 }
 
+export function publicProductLinks(origin: string, product: Pick<PublishableProduct, "id" | "slug" | "videoUrl">) {
+  return productActionLinks({
+    origin,
+    productId: product.id,
+    slug: product.slug,
+    hasVideo: isHttpsMediaUrl(product.videoUrl),
+  });
+}
+
 export function publicProductMessage(origin: string, product: PublishableProduct): string {
+  const links = publicProductLinks(origin, product);
   return buildProductWhatsappMessage({
     name: product.title,
     description: product.description,
@@ -120,9 +131,9 @@ export function publicProductMessage(origin: string, product: PublishableProduct
     municipality: product.municipality,
     locality: product.locality,
     transportIncluded: product.transportIncluded,
-    videoUrl: isHttpsMediaUrl(product.videoUrl) ? product.videoUrl : null,
-    orderUrl: orderUrlForProduct(origin, product.id),
-    listingUrl: listingUrlForProduct(origin, product.slug),
+    videoUrl: links.videoUrl,
+    orderUrl: links.orderUrl,
+    listingUrl: null,
   });
 }
 
@@ -291,8 +302,8 @@ export function createProductPublishService(deps: {
           transportIncluded: product.transportIncluded,
           imageUrl: product.productImageUrl || product.imageUrls.find(isHttpsMediaUrl) || null,
           thumbnailUrl: isHttpsMediaUrl(product.thumbnailUrl) ? product.thumbnailUrl : null,
-          videoUrl: isHttpsMediaUrl(product.videoUrl) ? product.videoUrl : null,
-          orderUrl: orderUrlForProduct(deps.origin, product.id),
+          videoUrl: publicProductLinks(deps.origin, product).videoUrl,
+          orderUrl: publicProductLinks(deps.origin, product).orderUrl,
           listingUrl:
             listingUrlForProduct(deps.origin, product.slug) ||
             orderUrlForProduct(deps.origin, product.id),

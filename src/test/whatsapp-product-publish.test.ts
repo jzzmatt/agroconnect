@@ -5,9 +5,15 @@ import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { sendWaapiMedia, sendWaapiText } from "@/lib/integrations/waapi/messages";
 import { validateProductVideo } from "@/lib/products/video-validation";
 import { CommerceService } from "@/lib/services/commerce-service";
-import { buildProductWhatsappMessage, productVideoThumbnailMediaUrl } from "@/lib/whatsapp/product-message";
+import {
+  buildProductWhatsappMessage,
+  productActionLinks,
+  productVideoThumbnailMediaUrl,
+  waapiGroupUrlButtonsSupported,
+} from "@/lib/whatsapp/product-message";
 import {
   createProductPublishService,
+  publicProductMessage,
   type GroupSender,
   type PublicationRecord,
   type PublicationTarget,
@@ -162,6 +168,45 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(message).not.toContain("🎥");
   });
 
+  it("uses readable product links because WaAPI group messages have no URL buttons", () => {
+    expect(waapiGroupUrlButtonsSupported()).toBe(false);
+    const links = productActionLinks({
+      origin: "https://agroconnect.ao",
+      productId: product().id,
+      slug: "milho",
+      hasVideo: true,
+    });
+    expect(links.videoUrl).toBe("https://agroconnect.ao/agrishopping/products/milho/video");
+    expect(links.orderUrl).toBe("https://agroconnect.ao/agrishopping/products/milho/encomendar");
+    const signed = "https://supabase.example/storage/v1/object/sign/agroproduct-media/milho.mp4?token=secret";
+    const message = publicProductMessage("https://agroconnect.ao", product({ videoUrl: signed }));
+    expect(message).toContain("🎥 Ver o vídeo do produto");
+    expect(message).toContain(links.videoUrl!);
+    expect(message).toContain("🛒 *FAÇA JÁ A SUA ENCOMENDA!*");
+    expect(message).toContain(links.orderUrl);
+    expect(message).toContain("🥬 *Milho*");
+    expect(message).toContain("📍 *Localização:* Huambo / Caála");
+    expect(message).not.toContain(signed);
+    expect(message).not.toContain("token=");
+    expect(message).not.toContain(product().id);
+    expect(message).not.toContain("[");
+  });
+
+  it("falls back to the existing video and order routes when the product has no slug", () => {
+    const links = productActionLinks({
+      origin: "https://agroconnect.ao",
+      productId: product().id,
+      slug: null,
+      hasVideo: true,
+    });
+    expect(links.videoUrl).toBe(`https://agroconnect.ao/api/products/${product().id}/video-playback`);
+    expect(links.orderUrl).toBe(`https://agroconnect.ao/order/${product().id}?source=whatsapp`);
+    const message = publicProductMessage("https://agroconnect.ao", product({ slug: null, videoUrl: null }));
+    expect(message).not.toContain("🎥");
+    expect(message).toContain(`https://agroconnect.ao/order/${product().id}?source=whatsapp`);
+    expect(message).not.toContain("/object/sign/");
+  });
+
   it("points WhatsApp at the stored generated thumbnail", () => {
     expect(productVideoThumbnailMediaUrl("https://agroconnect.ao/", "33333333-3333-4333-8333-333333333333")).toBe(
       "https://agroconnect.ao/api/products/33333333-3333-4333-8333-333333333333/video-thumbnail"
@@ -198,8 +243,9 @@ describe("AgriProduct WhatsApp publishing", () => {
       async sendText(_instanceId, chatId, message) {
         calls.push(`text:${chatId}`);
         expect(message).toContain("FAÇA JÁ A SUA ENCOMENDA");
-        expect(message).toContain(`/order/`);
-        expect(message).toContain("/agrishopping/products/milho");
+        expect(message).toContain("/agrishopping/products/milho/encomendar");
+        expect(message).toContain("/agrishopping/products/milho/video");
+        expect(message).not.toContain("https://cdn.example/milho.mp4");
         expect(message).not.toContain("undefined");
         if (failText.has(chatId)) throw new Error("rejected");
         return { messageId: `text-${chatId}` };
@@ -248,7 +294,8 @@ describe("AgriProduct WhatsApp publishing", () => {
       },
       async sendText(_instanceId, _chatId, message) {
         calls.push("text");
-        expect(message).toContain("https://cdn.example/milho.mp4");
+        expect(message).toContain("/agrishopping/products/milho/encomendar");
+        expect(message).not.toContain("https://cdn.example/milho.mp4");
         expect(message).toContain("FAÇA JÁ A SUA ENCOMENDA");
         return { messageId: "text-1" };
       },
@@ -276,7 +323,10 @@ describe("AgriProduct WhatsApp publishing", () => {
       async sendMedia(_instanceId, _chatId, mediaUrl, caption) {
         calls.push(mediaUrl);
         if (mediaUrl.includes("milho.jpg")) expect(caption).toContain("FAÇA JÁ A SUA ENCOMENDA");
-        if (mediaUrl.includes("thumb")) expect(caption).toContain("https://cdn.example/milho.mp4");
+        if (mediaUrl.includes("thumb")) {
+          expect(caption).toContain("/agrishopping/products/milho/video");
+          expect(caption).not.toContain("https://cdn.example/milho.mp4");
+        }
         if (failThumbnail && mediaUrl.includes("thumb")) throw new Error("thumbnail");
         return { messageId: mediaUrl };
       },
