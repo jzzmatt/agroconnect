@@ -25,11 +25,13 @@ export function ProductVideoUploader({
   onChange,
   onSave,
   saveState,
+  uploadPercent,
 }: {
   video: PendingProductVideo | null;
   onChange: (video: PendingProductVideo | null) => void;
   onSave: (file: File, duration: number) => Promise<void>;
   saveState: "idle" | "saving" | "saved" | "error";
+  uploadPercent: number | null;
 }) {
   const { dict } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -164,8 +166,25 @@ export function ProductVideoUploader({
                 {dict.products.videoSaved}
               </span>
             ) : null}
-            {saveState === "saving" ? <span className="text-xs font-semibold">{dict.products.videoSaving}</span> : null}
           </div>
+          {saveState === "saving" && uploadPercent !== null ? (
+            <div className="space-y-1" role="status" aria-live="polite">
+              <div className="flex items-center justify-between text-xs font-semibold">
+                <span>{dict.products.videoSaving}</span>
+                <span>{dict.products.uploadProgress.replace("{percent}", String(uploadPercent))}</span>
+              </div>
+              <div
+                className="h-2 overflow-hidden rounded-full bg-muted"
+                role="progressbar"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={uploadPercent}
+                aria-label={dict.products.videoSaving}
+              >
+                <div className="h-full bg-primary transition-all" style={{ width: `${uploadPercent}%` }} />
+              </div>
+            </div>
+          ) : null}
         </div>
       )}
 

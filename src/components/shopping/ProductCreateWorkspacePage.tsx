@@ -107,6 +107,7 @@ export function ProductCreateWorkspacePage() {
   const [pendingVideo, setPendingVideo] = useState<PendingProductVideo | null>(null);
   const [tempVideoId, setTempVideoId] = useState<string | null>(null);
   const [videoSaveState, setVideoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const [videoUploadPercent, setVideoUploadPercent] = useState<number | null>(null);
   const videoRequestId = useRef<string>(crypto.randomUUID());
   const [transportIncluded, setTransportIncluded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
@@ -637,6 +638,7 @@ export function ProductCreateWorkspacePage() {
                   const id = tempVideoId;
                   setTempVideoId(null);
                   setVideoSaveState("idle");
+                  setVideoUploadPercent(null);
                   void fetch("/api/products/video/temp/cancel", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
@@ -647,23 +649,30 @@ export function ProductCreateWorkspacePage() {
                 if (next && next.file !== pendingVideo?.file) {
                   setTempVideoId(null);
                   setVideoSaveState("idle");
+                  setVideoUploadPercent(null);
                   videoRequestId.current = crypto.randomUUID();
                 }
                 setPendingVideo(next);
               }}
+              uploadPercent={videoUploadPercent}
               onSave={async (file, duration) => {
                 setVideoSaveState("saving");
+                setVideoUploadPercent(0);
                 const form = new FormData();
                 form.append("file", file, file.name || "product-video.webm");
                 form.append("clientRequestId", videoRequestId.current);
                 form.append("durationSeconds", String(duration));
-                const saved = await uploadForm("/api/products/video/temp", form, () => undefined);
+                const saved = await uploadForm("/api/products/video/temp", form, (percent) => {
+                  setVideoUploadPercent(percent);
+                });
                 if (!saved.ok || !saved.payload?.success || !(saved.payload as { video?: { id?: string } }).video?.id) {
+                  setVideoUploadPercent(null);
                   setVideoSaveState("error");
                   throw Object.assign(new Error(saved.payload?.code || "TEMP_VIDEO_FAILED"), {
                     code: saved.payload?.code || "TEMP_VIDEO_FAILED",
                   });
                 }
+                setVideoUploadPercent(100);
                 setTempVideoId((saved.payload as { video: { id: string } }).video.id);
                 setVideoSaveState("saved");
               }}
