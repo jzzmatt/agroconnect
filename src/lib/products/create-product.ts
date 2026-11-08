@@ -18,6 +18,7 @@ import {
   describeSupabaseReachability,
   isTransientSupabaseError,
 } from "@/lib/supabase/retry";
+import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isSupabaseConfigured, missingSupabaseEnvVars } from "@/lib/supabase/server";
 import {
   PRODUCT_ERROR_CODES,
@@ -66,9 +67,11 @@ export async function createPublishedProduct(
       return { success: false, code: PRODUCT_ERROR_CODES.AUTH_REQUIRED, requestId };
     }
 
-    if (input.idempotencyKey && publishedByIdempotencyKey.has(input.idempotencyKey)) {
-      const existing = publishedByIdempotencyKey.get(input.idempotencyKey)!;
-      return { success: true, product: existing, data: existing, requestId };
+    const cachedProduct = input.idempotencyKey ? publishedByIdempotencyKey.get(input.idempotencyKey) : undefined;
+    const publishCachedDraft =
+      cachedProduct?.status === "draft" && (input.status === "published" || input.status === "active");
+    if (cachedProduct && !publishCachedDraft) {
+      return { success: true, product: cachedProduct, data: cachedProduct, requestId };
     }
 
     const currentUser = context.profile;
@@ -171,7 +174,7 @@ export async function createPublishedProduct(
       status: "ok",
     });
 
-    if (entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
+    if (!publishCachedDraft && entitlements.product_limit !== null && activeCount >= entitlements.product_limit) {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_LIMIT_REACHED, requestId };
     }
 
@@ -196,6 +199,25 @@ export async function createPublishedProduct(
       } catch {
         return { success: false, code: PRODUCT_ERROR_CODES.FEATURE_NOT_AVAILABLE, requestId };
       }
+    }
+
+    if (publishCachedDraft && cachedProduct && input.idempotencyKey) {
+      const supabase = tryCreateAdminSupabaseClient();
+      if (!supabase) {
+        return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED, requestId };
+      }
+      const { data: publishedRow, error: publishError } = await (supabase.from("products") as any)
+        .update({ status: "published", updated_at: new Date().toISOString() })
+        .eq("id", cachedProduct.id)
+        .eq("seller_id", sellerRow.id)
+        .select("id,status")
+        .maybeSingle();
+      if (publishError || !publishedRow) {
+        return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_PUBLISH_FAILED, requestId };
+      }
+      const published = { ...cachedProduct, status: "published" as ProductListItem["status"] };
+      publishedByIdempotencyKey.set(input.idempotencyKey, published);
+      return { success: true, product: published, data: published, requestId };
     }
 
     const data = await insertProductRow({

@@ -32,6 +32,9 @@ const nextConfig: NextConfig = {
     serverActions: {
       bodySizeLimit: "10mb",
     },
+    // Product videos are posted to our API, then stored in Supabase. The
+    // optimized file can be up to 40 MB, plus the multipart envelope.
+    proxyClientMaxBodySize: "45mb",
   },
 };
 

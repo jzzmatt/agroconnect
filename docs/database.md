@@ -148,7 +148,11 @@ Apply `supabase/migrations/20261106104021_whatsapp_connections.sql` before using
 
 `products.transport_included` records whether the vendor includes transport. `whatsapp_product_publications` and `whatsapp_product_publication_targets` record each AgriProduct send to a saved group. `sent` means WaAPI accepted the message. It does not mean delivered or read. Apply `supabase/migrations/20261106171305_whatsapp_product_publications.sql` before publishing products to WhatsApp.
 
-## 8. Next Phase Readiness
+## 8. AgriProduct temporary videos
+
+`product_temp_videos` stores the processed video before the product is published. The file lives in the private bucket `agroproduct-temp-videos`. Publishing copies it into the private bucket `agroproduct-media`, confirms the object can be read, then removes the temporary object. `product_videos.storage_bucket` names the bucket for `upload_storage_path`. A null bucket means the older `product-media` bucket. Authenticated users can read only their own temporary rows. Writes use the service role after the route checks the Clerk user. Apply `supabase/migrations/20261108050911_product_temp_videos.sql` before saving product videos.
+
+## 9. Next Phase Readiness
 
 The database foundation is 100% prepared for:
 👉 **PHASE 4 — CLERK AUTHENTICATION & USER IDENTITY INTEGRATION**

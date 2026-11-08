@@ -7,21 +7,23 @@ function read(path: string) {
 }
 
 describe("product media is stored in Supabase", () => {
-  it("uploads product videos with the Supabase signed-upload body", () => {
-    const client = read("src/lib/academy/upload-storage-client.ts");
+  it("stores product videos through the app so the browser does not call Storage", () => {
     const create = read("src/lib/services/product-video-service.ts");
     const images = read("src/lib/services/product-media-service.ts");
     const page = read("src/components/shopping/ProductCreateWorkspacePage.tsx");
+    const upload = read("src/app/api/products/video/upload/route.ts");
 
-    expect(client).toContain('xhr.setRequestHeader("x-upsert", "true")');
-    expect(client).toContain("new FormData()");
-    expect(client).not.toContain("imagekit");
     expect(create).toContain('provider: SUPABASE_STORAGE_PROVIDER');
-    expect(create).toContain("createSignedUploadUrl");
+    expect(create).toContain("uploadBufferToStorage");
     expect(create).not.toContain("imagekit");
     expect(images).toContain("uploadProductImageBuffer");
     expect(images).not.toContain("imagekit");
-    expect(page).not.toContain("IMAGEKIT_UPLOAD_FAILED");
-    expect(page).toContain("MEDIA_UPLOAD_FAILED");
+    expect(page).toContain('uploadForm("/api/products/video/temp"');
+    expect(page).toContain("/api/products/video/temp/promote");
+    expect(page).not.toContain('uploadForm("/api/products/video/upload"');
+    expect(page).not.toContain("uploadBlobWithProgress");
+    expect(page).not.toContain("supabase-pg17");
+    expect(upload).toContain("saveUploadedFile");
+    expect(upload).not.toContain("signedUrl");
   });
 });

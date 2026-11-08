@@ -10,6 +10,7 @@ import {
   createSignedUploadUrl,
   removeStorageObject,
   storageObjectExists,
+  uploadBufferToStorage,
 } from "@/lib/media/supabase-storage-core";
 import { getMediaSupabaseClient } from "@/lib/media/db";
 import { validateProductVideo } from "@/lib/products/video-validation";
@@ -126,10 +127,40 @@ export class ProductVideoService {
     };
   }
 
+  /** Stores the file from the app server. The browser never calls Storage directly. */
+  public static async saveUploadedFile(params: {
+    videoId: string;
+    ownerId: string;
+    productId: string;
+    buffer: Buffer;
+    fileSize: number;
+    contentType: string;
+  }): Promise<ProductVideoRecord | null> {
+    const video = await this.get(params.videoId);
+    const path = video?.upload_storage_path;
+    const prefix = `${params.ownerId}/${params.productId}/videos/`;
+    if (!video || video.owner_id !== params.ownerId || video.product_id !== params.productId || !path?.startsWith(prefix)) {
+      return null;
+    }
+    await uploadBufferToStorage({
+      bucket: PRODUCT_MEDIA_BUCKET,
+      storagePath: path,
+      buffer: params.buffer,
+      contentType: params.contentType,
+    });
+    return this.confirmUpload({
+      videoId: params.videoId,
+      ownerId: params.ownerId,
+      storagePath: path,
+      fileSize: params.fileSize,
+    });
+  }
+
   public static async resolvePlaybackUrl(video: ProductVideoRecord): Promise<string | null> {
     if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
+      const bucket = (video as ProductVideoRecord & { storage_bucket?: string | null }).storage_bucket || PRODUCT_MEDIA_BUCKET;
       try {
-        const { signedUrl } = await createSignedDisplayUrl(PRODUCT_MEDIA_BUCKET, video.upload_storage_path);
+        const { signedUrl } = await createSignedDisplayUrl(bucket, video.upload_storage_path);
         return signedUrl;
       } catch {
         return video.playback_url;
@@ -235,7 +266,8 @@ export class ProductVideoService {
       .eq("owner_id", ownerId);
 
     if (video.provider === SUPABASE_STORAGE_PROVIDER && video.upload_storage_path) {
-      void removeStorageObject(PRODUCT_MEDIA_BUCKET, video.upload_storage_path).catch(() => undefined);
+      const bucket = (video as ProductVideoRecord & { storage_bucket?: string | null }).storage_bucket || PRODUCT_MEDIA_BUCKET;
+      void removeStorageObject(bucket, video.upload_storage_path).catch(() => undefined);
     } else if (video.bunny_video_id) {
       // Legacy rows created before Phase 4 narrowed Bunny to Academy-only.
       void deleteBunnyVideo(video.bunny_video_id).catch(() => undefined);

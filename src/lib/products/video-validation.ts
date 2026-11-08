@@ -97,3 +97,12 @@ export function clampTrimWindow(
 export function needsProductVideoTrim(durationSeconds: number): boolean {
   return durationSeconds > PRODUCT_VIDEO_MAX_SECONDS + 0.05;
 }
+
+/** Always keep the opening of the clip. Shorter videos stay whole. */
+export function firstMinuteWindow(durationSeconds: number): { start: number; end: number } {
+  const duration = Number(durationSeconds);
+  if (!Number.isFinite(duration) || duration <= 0) {
+    return { start: 0, end: 0 };
+  }
+  return { start: 0, end: Math.min(duration, PRODUCT_VIDEO_MAX_SECONDS) };
+}
