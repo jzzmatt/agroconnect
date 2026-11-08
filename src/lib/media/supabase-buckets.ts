@@ -1,4 +1,6 @@
 export const PRODUCT_MEDIA_BUCKET = "product-media";
+export const AGROPRODUCT_TEMP_VIDEO_BUCKET = "agroproduct-temp-videos";
+export const AGROPRODUCT_MEDIA_BUCKET = "agroproduct-media";
 export const TRANSPORT_MEDIA_BUCKET = "transport-media";
 export const PROFILE_MEDIA_BUCKET = "profile-media";
 

@@ -1,23 +1,15 @@
 "use client";
 
 import React, { useRef, useState } from "react";
-import { Camera, Film, Trash2, AlertCircle, Scissors, Loader2 } from "lucide-react";
+import { Camera, Film, Trash2, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
 import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { readVideoDuration } from "@/lib/products/compress-image";
-import {
-  clampTrimWindow,
-  needsProductVideoTrim,
-  validateProductVideoSource,
-} from "@/lib/products/video-validation";
-import {
-  formatBytes,
-  formatClock,
-  optimizeProductVideo,
-  type VideoOptimizeProgress,
-} from "@/lib/products/video-optimizer";
+import { validateProductVideoSource } from "@/lib/products/video-validation";
+import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
+import { formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
 
 export type PendingProductVideo = {
   file: File;
@@ -28,172 +20,105 @@ export type PendingProductVideo = {
   optimized?: boolean;
 };
 
-type UploaderPhase =
-  | "idle"
-  | "info"
-  | "trim"
-  | "processing"
-  | "ready"
-  | "error";
-
 export function ProductVideoUploader({
   video,
   onChange,
+  onSave,
+  saveState,
 }: {
   video: PendingProductVideo | null;
-  onChange: (next: PendingProductVideo | null) => void;
+  onChange: (video: PendingProductVideo | null) => void;
+  onSave: (file: File, duration: number) => Promise<void>;
+  saveState: "idle" | "saving" | "saved" | "error";
 }) {
   const { dict } = useI18n();
-  const inputRef = useRef<HTMLInputElement | null>(null);
-  const cameraRef = useRef<HTMLInputElement | null>(null);
-  const abortRef = useRef<AbortController | null>(null);
-  const [phase, setPhase] = useState<UploaderPhase>("idle");
+  const fileRef = useRef<HTMLInputElement>(null);
+  const cameraRef = useRef<HTMLInputElement>(null);
+  const working = useRef(false);
+  const [source, setSource] = useState<File | null>(video?.file || null);
+  const [duration, setDuration] = useState(video?.duration || 0);
+  const [phase, setPhase] = useState<"idle" | "processing" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
-  const [progress, setProgress] = useState<VideoOptimizeProgress>("analyzing");
-  const [source, setSource] = useState<{ file: File; duration: number } | null>(null);
-  const [start, setStart] = useState(0);
-  const [end, setEnd] = useState(PRODUCT_VIDEO_MAX_SECONDS);
 
-  const resetInput = () => {
-    if (inputRef.current) inputRef.current.value = "";
-  };
+  const busy = phase === "processing" || saveState === "saving";
 
-  const cancelWork = () => {
-    abortRef.current?.abort();
-    abortRef.current = null;
-  };
-
-  const closeModals = () => {
-    setPhase(video ? "ready" : "idle");
-    setSource(null);
-    resetInput();
-  };
-
-  const handlePickClick = () => {
-    setError(null);
-    setPhase("info");
-  };
-
-  const handleChooseFromInfo = () => {
-    inputRef.current?.click();
-  };
-
-  const applyOptimized = (file: File, duration: number, originalSize: number, optimizedSize: number) => {
-    if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
-    onChange({
-      file,
-      previewUrl: URL.createObjectURL(file),
-      duration,
-      fileSize: optimizedSize,
-      originalSize,
-      optimized: true,
-    });
-    setPhase("ready");
-    setSource(null);
-    resetInput();
-  };
-
-  const processFile = async (file: File, startSeconds: number, endSeconds: number) => {
-    setPhase("processing");
-    setProgress("analyzing");
-    cancelWork();
-    const controller = new AbortController();
-    abortRef.current = controller;
-    try {
-      const optimized = await optimizeProductVideo(file, {
-        startSeconds,
-        endSeconds,
-        signal: controller.signal,
-        onProgress: setProgress,
-      });
-      applyOptimized(optimized.file, optimized.duration, optimized.originalSize, optimized.optimizedSize);
-    } catch (err: any) {
-      if (err?.message === "video_optimize_cancelled") {
-        setPhase(source ? "trim" : "idle");
-        return;
-      }
-      setError(dict.errors.VIDEO_OPTIMIZE_FAILED);
-      setPhase("error");
-    }
-  };
-
-  const handleFile = async (file: File | undefined) => {
-    if (!file) return;
-    setError(null);
+  async function handleFile(file: File | undefined) {
+    if (!file || busy) return;
     const sourceCheck = validateProductVideoSource({
       mimeType: file.type,
       fileSize: file.size,
       fileName: file.name,
     });
     if (!sourceCheck.ok) {
-      setError(localizeError(dict, sourceCheck.code, sourceCheck.error));
-      setPhase("error");
-      resetInput();
+      setError(localizeError(dict, sourceCheck.code));
       return;
     }
-
+    setError(null);
+    setPhase("processing");
     try {
-      const duration = await readVideoDuration(file);
-      if (!duration || Number.isNaN(duration)) {
-        setError(dict.errors.PRODUCT_VIDEO_INVALID);
-        setPhase("error");
-        return;
-      }
-      if (needsProductVideoTrim(duration)) {
-        setSource({ file, duration });
-        setStart(0);
-        setEnd(PRODUCT_VIDEO_MAX_SECONDS);
-        setPhase("trim");
-        return;
-      }
-      await processFile(file, 0, duration);
-    } catch {
-      setError(dict.errors.PRODUCT_VIDEO_INVALID);
+      const seconds = await readVideoDuration(file);
+      if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
+      const previewUrl = URL.createObjectURL(file);
+      setSource(file);
+      setDuration(seconds);
+      onChange({
+        file,
+        previewUrl,
+        duration: seconds,
+        fileSize: file.size,
+        originalSize: file.size,
+        optimized: false,
+      });
+      setPhase("idle");
+    } catch (err) {
       setPhase("error");
+      setError(localizeError(dict, err instanceof Error ? err.message : "PRODUCT_VIDEO_INVALID"));
     }
-  };
+  }
 
-  const trimWindow = source
-    ? clampTrimWindow(start, end, source.duration)
-    : { start: 0, end: PRODUCT_VIDEO_MAX_SECONDS };
-
-  const progressLabel = {
-    analyzing: dict.products.videoAnalyzing,
-    trimming: dict.products.videoTrimming,
-    optimizing: dict.products.videoOptimizing,
-    preparing: dict.products.videoPreparing,
-    ready: dict.products.videoReady,
-  }[progress];
+  async function saveVideo() {
+    if (!source || busy || working.current || saveState === "saved") return;
+    working.current = true;
+    setError(null);
+    setPhase("processing");
+    try {
+      let file = source;
+      let seconds = duration;
+      if (!keepsOriginalFile(duration, source.type)) {
+        const processed = await optimizeProductVideo(source, {
+          startSeconds: 0,
+          endSeconds: Math.min(duration, PRODUCT_VIDEO_MAX_SECONDS),
+        });
+        file = processed.file;
+        seconds = processed.duration;
+        if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
+        onChange({
+          file,
+          previewUrl: URL.createObjectURL(file),
+          duration: seconds,
+          fileSize: file.size,
+          originalSize: source.size,
+          optimized: true,
+        });
+      }
+      await onSave(file, seconds);
+      setPhase("idle");
+    } catch (err) {
+      setPhase("error");
+      setError(localizeError(dict, err instanceof Error ? err.message : "TEMP_VIDEO_FAILED"));
+    } finally {
+      working.current = false;
+    }
+  }
 
   return (
     <div className="space-y-3">
-      <div>
-        <label className="text-xs font-bold text-foreground block mb-1" htmlFor="product-video">
-          {dict.products.videoLabel} <span className="text-muted-foreground">({dict.common.optional})</span>
-        </label>
-        <p className="text-[11px] text-muted-foreground">{dict.products.videoHelper}</p>
-      </div>
-
-      <input
-        id="product-video"
-        ref={inputRef}
-        type="file"
-        accept="video/mp4,video/webm,video/quicktime"
-        className="sr-only"
-        onChange={(event) => handleFile(event.target.files?.[0])}
-      />
-      <input
-        ref={cameraRef}
-        type="file"
-        accept="video/*"
-        capture="environment"
-        className="sr-only"
-        onChange={(event) => handleFile(event.target.files?.[0])}
-      />
+      <input ref={fileRef} type="file" accept="video/mp4,video/webm,video/quicktime" className="sr-only" onChange={(event) => handleFile(event.target.files?.[0])} />
+      <input ref={cameraRef} type="file" accept="video/*" capture="environment" className="sr-only" onChange={(event) => handleFile(event.target.files?.[0])} />
 
       {!video ? (
         <div className="flex flex-wrap gap-2">
-          <Button type="button" variant="outline" onClick={handlePickClick} className="gap-2">
+          <Button type="button" variant="outline" onClick={() => fileRef.current?.click()} className="gap-2">
             <Film className="w-4 h-4" />
             <span>{dict.products.videoAdd}</span>
           </Button>
@@ -204,31 +129,23 @@ export function ProductVideoUploader({
         </div>
       ) : (
         <div className="rounded-2xl border border-border bg-surface p-3 space-y-2">
-          <video
-            src={video.previewUrl}
-            controls
-            playsInline
-            preload="metadata"
-            className="w-full max-h-56 rounded-xl bg-black"
-          />
+          <video src={video.previewUrl} controls playsInline preload="metadata" className="w-full max-h-56 rounded-xl bg-black" />
           <div className="flex items-center justify-between gap-2 text-xs">
             <div className="min-w-0">
               <p className="font-bold truncate">{video.file.name}</p>
               <p className="text-muted-foreground">
-                {formatClock(video.duration)} · {dict.products.videoOriginal}: {formatBytes(video.originalSize || video.fileSize)}
-                {video.optimized ? ` · ${dict.products.videoOptimized}: ${formatBytes(video.fileSize)}` : ""}
-                {" · "}max {PRODUCT_VIDEO_MAX_SECONDS}s
+                {formatClock(video.duration)} · {formatBytes(video.fileSize)} · max {PRODUCT_VIDEO_MAX_SECONDS}s
               </p>
             </div>
             <Button
               type="button"
               variant="outline"
               size="sm"
+              disabled={busy}
               onClick={() => {
-                cancelWork();
                 if (video.previewUrl) URL.revokeObjectURL(video.previewUrl);
+                setSource(null);
                 onChange(null);
-                setPhase("idle");
               }}
               className="gap-1"
             >
@@ -236,129 +153,28 @@ export function ProductVideoUploader({
               <span>{dict.common.remove}</span>
             </Button>
           </div>
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" disabled={busy || saveState === "saved"} onClick={() => void saveVideo()}>
+              {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
+              <span>{dict.products.saveVideo}</span>
+            </Button>
+            {saveState === "saved" ? (
+              <span className="inline-flex items-center gap-1 text-xs font-semibold text-primary">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                {dict.products.videoSaved}
+              </span>
+            ) : null}
+            {saveState === "saving" ? <span className="text-xs font-semibold">{dict.products.videoSaving}</span> : null}
+          </div>
         </div>
       )}
 
-      {error && (
+      {error ? (
         <p className="text-xs text-destructive font-semibold flex items-center gap-1.5">
           <AlertCircle className="w-3.5 h-3.5" />
           {error}
         </p>
-      )}
-
-      {phase === "error" && (
-        <div className="flex flex-wrap gap-2">
-          <Button type="button" size="sm" onClick={() => source ? processFile(source.file, trimWindow.start, trimWindow.end) : handlePickClick()}>
-            {dict.common.retry}
-          </Button>
-          <Button type="button" size="sm" variant="outline" onClick={handlePickClick}>
-            {dict.products.videoChooseOther}
-          </Button>
-        </div>
-      )}
-
-      {phase === "info" && (
-        <ModalShell onClose={closeModals}>
-          <h3 className="text-base font-black text-foreground">{dict.products.videoIntroTitle}</h3>
-          <p className="text-xs text-muted-foreground leading-relaxed whitespace-pre-line">{dict.products.videoIntroBody}</p>
-          <div className="flex flex-wrap gap-2 pt-2">
-            <Button type="button" onClick={handleChooseFromInfo}>{dict.products.videoChoose}</Button>
-            <Button type="button" variant="outline" onClick={closeModals}>{dict.common.cancel}</Button>
-          </div>
-        </ModalShell>
-      )}
-
-      {phase === "trim" && source && (
-        <ModalShell onClose={closeModals}>
-          <h3 className="text-base font-black text-foreground">{dict.products.videoExceeds}</h3>
-          <p className="text-xs text-muted-foreground">
-            {dict.products.videoDuration}: {formatClock(source.duration)}
-          </p>
-          <div className="h-2 rounded-full bg-muted overflow-hidden">
-            <div className="h-full bg-primary" style={{ width: `${Math.min(100, (PRODUCT_VIDEO_MAX_SECONDS / source.duration) * 100)}%` }} />
-          </div>
-          <div className="grid grid-cols-2 gap-3 text-xs">
-            <label className="space-y-1">
-              <span className="font-bold">{dict.products.videoStart}</span>
-              <input
-                type="range"
-                min={0}
-                max={Math.max(0, source.duration - 1)}
-                step={0.5}
-                value={trimWindow.start}
-                onChange={(event) => {
-                  const nextStart = Number(event.target.value);
-                  const next = clampTrimWindow(nextStart, nextStart + PRODUCT_VIDEO_MAX_SECONDS, source.duration);
-                  setStart(next.start);
-                  setEnd(next.end);
-                }}
-              />
-              <span>{formatClock(trimWindow.start)}</span>
-            </label>
-            <label className="space-y-1">
-              <span className="font-bold">{dict.products.videoEnd}</span>
-              <input
-                type="range"
-                min={1}
-                max={source.duration}
-                step={0.5}
-                value={trimWindow.end}
-                onChange={(event) => {
-                  const nextEnd = Number(event.target.value);
-                  const next = clampTrimWindow(nextEnd - PRODUCT_VIDEO_MAX_SECONDS, nextEnd, source.duration);
-                  setStart(next.start);
-                  setEnd(next.end);
-                }}
-              />
-              <span>{formatClock(trimWindow.end)}</span>
-            </label>
-          </div>
-          <p className="text-[11px] font-semibold text-primary">
-            {formatClock(trimWindow.end - trimWindow.start)} / 01:00
-          </p>
-          <div className="flex flex-col sm:flex-row flex-wrap gap-2 pt-1">
-            <Button type="button" onClick={() => processFile(source.file, 0, PRODUCT_VIDEO_MAX_SECONDS)} className="gap-1.5">
-              <Scissors className="w-3.5 h-3.5" />
-              {dict.products.videoUseFirstMinute}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => processFile(source.file, trimWindow.start, trimWindow.end)}>
-              {dict.products.videoApplyTrim}
-            </Button>
-            <Button type="button" variant="outline" onClick={handlePickClick}>
-              {dict.products.videoChooseOther}
-            </Button>
-          </div>
-        </ModalShell>
-      )}
-
-      {phase === "processing" && (
-        <ModalShell>
-          <div className="flex items-center gap-2 text-sm font-bold">
-            <Loader2 className="w-4 h-4 animate-spin text-primary" />
-            {progressLabel}
-          </div>
-          <Button type="button" variant="outline" size="sm" onClick={() => { cancelWork(); closeModals(); }}>
-            {dict.common.cancel}
-          </Button>
-        </ModalShell>
-      )}
-    </div>
-  );
-}
-
-function ModalShell({
-  children,
-  onClose,
-}: {
-  children: React.ReactNode;
-  onClose?: () => void;
-}) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
-      <div className="relative w-full max-w-md bg-surface-elevated border border-border rounded-3xl p-5 space-y-3 shadow-xl">
-        {children}
-      </div>
+      ) : null}
     </div>
   );
 }

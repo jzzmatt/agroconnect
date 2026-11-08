@@ -65,6 +65,28 @@ export async function uploadBufferToStorage(params: {
   if (error) throw new Error(error.message || "STORAGE_UPLOAD_FAILED");
 }
 
+export async function copyStorageObject(params: {
+  sourceBucket: string;
+  sourcePath: string;
+  targetBucket: string;
+  targetPath: string;
+  contentType: string;
+}) {
+  const supabase = getStorageAdminClient();
+  if (!supabase) throw new Error("STORAGE_UNAVAILABLE");
+  const downloaded = await supabase.storage.from(params.sourceBucket).download(params.sourcePath);
+  if (downloaded.error || !downloaded.data) {
+    throw new Error(downloaded.error?.message || "TEMP_VIDEO_MISSING");
+  }
+  const buffer = Buffer.from(await downloaded.data.arrayBuffer());
+  await uploadBufferToStorage({
+    bucket: params.targetBucket,
+    storagePath: params.targetPath,
+    buffer,
+    contentType: params.contentType,
+  });
+}
+
 export async function removeStorageObject(bucket: string, storagePath: string | null | undefined) {
   if (!storagePath) return;
   const supabase = getStorageAdminClient();

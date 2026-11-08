@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, CheckCircle2, AlertCircle, Loader2, Lock, Sparkles, ArrowRight } from "lucide-react";
@@ -105,6 +105,9 @@ export function ProductCreateWorkspacePage() {
   const [sellingRadiusKm, setSellingRadiusKm] = useState<number>(70);
   const [pendingImages, setPendingImages] = useState<Array<{ id: string; url: string; alt_text: string; is_primary: boolean; file: File }>>([]);
   const [pendingVideo, setPendingVideo] = useState<PendingProductVideo | null>(null);
+  const [tempVideoId, setTempVideoId] = useState<string | null>(null);
+  const [videoSaveState, setVideoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
+  const videoRequestId = useRef<string>(crypto.randomUUID());
   const [transportIncluded, setTransportIncluded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishedProductId, setPublishedProductId] = useState<string | null>(null);
@@ -219,6 +222,11 @@ export function ProductCreateWorkspacePage() {
       setPublishState("error");
       return;
     }
+    if (pendingVideo && !tempVideoId) {
+      setError(dict.products.videoMustSave);
+      setPublishState("error");
+      return;
+    }
 
     setPublishState("validating");
     setError(null);
@@ -298,80 +306,48 @@ export function ProductCreateWorkspacePage() {
         }
       }
 
-      if (pendingVideo) {
-        const videoRes = await fetch("/api/products/video/create", {
+      if (tempVideoId && mode === "publish") {
+        const promoted = await fetch("/api/products/video/temp/promote", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "same-origin",
-          cache: "no-store",
-          redirect: "manual",
-          body: JSON.stringify({
-            productId: result.product.id,
-            title,
-            filename: pendingVideo.file.name,
-            mimeType: pendingVideo.file.type,
-            fileSize: pendingVideo.file.size,
-            durationSeconds: pendingVideo.duration,
-          }),
+          body: JSON.stringify({ tempId: tempVideoId, productId: result.product.id }),
         });
-        const videoResult = await videoRes.json().catch(() => null);
-        if (!videoRes.ok || !videoResult?.success) {
-          const errCode = videoResult?.code || videoResult?.error || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED;
-          throw Object.assign(new Error(videoResult?.message || errCode), {
-            code: errCode,
-            message: videoResult?.message,
+        const promotedBody = await promoted.json().catch(() => null);
+        if (!promoted.ok || !promotedBody?.success) {
+          throw Object.assign(new Error(promotedBody?.code || "PERMANENT_TRANSFER_FAILED"), {
+            code: promotedBody?.code || "PERMANENT_TRANSFER_FAILED",
           });
         }
-        const upload = videoResult.upload;
-        if (!upload?.signedUrl || !upload?.storagePath) {
-          throw Object.assign(new Error(PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID), {
-            code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID,
-          });
-        }
-        try {
-          const { uploadBlobWithProgress } = await import("@/lib/academy/upload-storage-client");
-          await uploadBlobWithProgress({
-            signedUrl: upload.signedUrl,
-            file: pendingVideo.file,
-            mimeType: upload.mimeType || pendingVideo.file.type || "video/mp4",
-            onProgress: (loaded, total) => {
-              setMediaProgress(total > 0 ? Math.round((loaded / total) * 100) : 0);
-            },
-          });
-          const confirmRes = await fetch("/api/products/video/complete", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            credentials: "same-origin",
-            cache: "no-store",
-            redirect: "manual",
-            body: JSON.stringify({
-              videoId: videoResult.video.id,
-              productId: result.product.id,
-              storagePath: upload.storagePath,
-              fileSize: pendingVideo.file.size,
-            }),
-          });
-          const confirmResult = await confirmRes.json().catch(() => null);
-          if (!confirmRes.ok || !confirmResult?.success) {
-            throw Object.assign(new Error(confirmResult?.message || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED), {
-              code: confirmResult?.code || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED,
+        const finalized = await fetch("/api/products/video/temp/finalize", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "same-origin",
+          body: JSON.stringify({ tempId: tempVideoId, productId: result.product.id }),
+        });
+        const finalizedBody = await finalized.json().catch(() => null);
+        if (!finalized.ok || !finalizedBody?.success) {
+          if (finalizedBody?.code === "TEMP_VIDEO_DELETE_UNCONFIRMED") {
+            setError(dict.errors.TEMP_VIDEO_DELETE_UNCONFIRMED);
+          } else {
+            throw Object.assign(new Error(finalizedBody?.code || "TEMP_VIDEO_DELETE_UNCONFIRMED"), {
+              code: finalizedBody?.code || "TEMP_VIDEO_DELETE_UNCONFIRMED",
             });
           }
-          videoProcessing = true;
-        } catch (uploadErr: any) {
-          throw Object.assign(new Error(uploadErr?.message || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED), {
-            code: uploadErr?.code || PRODUCT_ERROR_CODES.MEDIA_UPLOAD_FAILED,
-            message: uploadErr?.message,
-          });
         }
+        videoProcessing = true;
       }
 
       setMediaProgress(null);
       void refresh();
       if (mode === "draft") {
-        setPublishState("success");
         setSuccessMessage(dict.products.draftSaved);
-        setTimeout(() => router.push(productsBase), 1200);
+        if (tempVideoId) {
+          setPublishState("idle");
+        } else {
+          setPublishState("success");
+          setTimeout(() => router.push(productsBase), 1200);
+        }
         return;
       }
       setPublishState("idle");
@@ -394,13 +370,41 @@ export function ProductCreateWorkspacePage() {
     }
   };
 
+  const leaveProductForm = async () => {
+    if (!tempVideoId) {
+      router.push(productsBase);
+      return;
+    }
+    try {
+      const response = await fetch("/api/products/video/temp/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "same-origin",
+        body: JSON.stringify({ tempId: tempVideoId }),
+      });
+      const body = await response.json().catch(() => null);
+      if (!response.ok || !body?.success) {
+        setError(dict.products.videoCancelFailed);
+        return;
+      }
+      setTempVideoId(null);
+      router.push(productsBase);
+    } catch {
+      setError(dict.products.videoCancelFailed);
+    }
+  };
+
   return (
     <div className="max-w-4xl mx-auto space-y-6">
       <div>
-        <Link href={productsBase} className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3">
+        <button
+          type="button"
+          onClick={() => void leaveProductForm()}
+          className="inline-flex items-center gap-1.5 text-xs font-bold text-muted-foreground hover:text-foreground mb-3"
+        >
           <ChevronLeft className="w-4 h-4" />
           <span>{dict.products.backToProducts}</span>
-        </Link>
+        </button>
         <h1 className="text-2xl sm:text-3xl font-black text-foreground">{dict.products.addNew}</h1>
       </div>
 
@@ -625,7 +629,45 @@ export function ProductCreateWorkspacePage() {
               onRemove={(id) => setPendingImages((prev) => prev.filter((i) => i.id !== id))}
               onSetPrimary={(id) => setPendingImages((prev) => prev.map((i) => ({ ...i, is_primary: i.id === id })))}
             />
-            <ProductVideoUploader video={pendingVideo} onChange={setPendingVideo} />
+            <ProductVideoUploader
+              video={pendingVideo}
+              saveState={videoSaveState}
+              onChange={(next) => {
+                if (!next && tempVideoId) {
+                  const id = tempVideoId;
+                  setTempVideoId(null);
+                  setVideoSaveState("idle");
+                  void fetch("/api/products/video/temp/cancel", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "same-origin",
+                    body: JSON.stringify({ tempId: id }),
+                  });
+                }
+                if (next && next.file !== pendingVideo?.file) {
+                  setTempVideoId(null);
+                  setVideoSaveState("idle");
+                  videoRequestId.current = crypto.randomUUID();
+                }
+                setPendingVideo(next);
+              }}
+              onSave={async (file, duration) => {
+                setVideoSaveState("saving");
+                const form = new FormData();
+                form.append("file", file, file.name || "product-video.webm");
+                form.append("clientRequestId", videoRequestId.current);
+                form.append("durationSeconds", String(duration));
+                const saved = await uploadForm("/api/products/video/temp", form, () => undefined);
+                if (!saved.ok || !saved.payload?.success || !(saved.payload as { video?: { id?: string } }).video?.id) {
+                  setVideoSaveState("error");
+                  throw Object.assign(new Error(saved.payload?.code || "TEMP_VIDEO_FAILED"), {
+                    code: saved.payload?.code || "TEMP_VIDEO_FAILED",
+                  });
+                }
+                setTempVideoId((saved.payload as { video: { id: string } }).video.id);
+                setVideoSaveState("saved");
+              }}
+            />
             {mediaProgress !== null && (
               <p className="text-xs font-semibold text-primary">
                 {dict.products.uploadProgress.replace("{percent}", String(mediaProgress))}
@@ -656,9 +698,15 @@ export function ProductCreateWorkspacePage() {
           </div>
 
           <div className="flex flex-wrap items-center justify-end gap-3 pt-4">
-            <Link href={productsBase}>
-              <Button variant="outline" size="lg" disabled={busy} type="button">{dict.common.cancel}</Button>
-            </Link>
+            <Button
+              variant="outline"
+              size="lg"
+              disabled={busy}
+              type="button"
+              onClick={() => void leaveProductForm()}
+            >
+              {dict.common.cancel}
+            </Button>
             <Button
               type="button"
               variant="outline"
