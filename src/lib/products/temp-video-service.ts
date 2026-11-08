@@ -51,8 +51,6 @@ export async function saveTempVideo(params: {
   fileSize: number;
   durationSeconds: number;
   bytes: Buffer;
-  thumbnailBytes: Buffer;
-  thumbnailMimeType: string;
   store: TempVideoStore;
   objects: TempVideoObjects;
 }): Promise<TempVideoRecord> {
@@ -66,31 +64,13 @@ export async function saveTempVideo(params: {
   });
   if (!valid.ok) fail(valid.code);
 
-  const thumbnailMime = assertThumbnail(params.thumbnailBytes, params.thumbnailMimeType);
   const existing = await params.store.findByRequest(params.userId, params.clientRequestId);
   const decision = decideSave(existing);
   if (decision === "return" && existing) return existing;
   if (decision === "busy") fail("TEMP_VIDEO_BUSY");
-  if (decision === "thumbnail" && existing?.tempPath) {
-    const thumbnailTempPath = `${params.userId}/${existing.id}.jpg`;
-    try {
-      await params.objects.putTemp(thumbnailTempPath, params.thumbnailBytes, thumbnailMime);
-    } catch (error) {
-      await params.store.update(existing.id, params.userId, { errorCode: "THUMBNAIL_UPLOAD_FAILED" });
-      throw error;
-    }
-    return (
-      (await params.store.update(existing.id, params.userId, {
-        status: "saved",
-        thumbnailTempPath,
-        errorCode: null,
-      })) || existing
-    );
-  }
 
   const id = existing?.id || randomUUID();
   const tempPath = `${params.userId}/${id}.${extensionFor(mime)}`;
-  const thumbnailTempPath = `${params.userId}/${id}.jpg`;
   const draft: TempVideoRecord = {
     id,
     userId: params.userId,
@@ -120,22 +100,42 @@ export async function saveTempVideo(params: {
     throw error;
   }
 
-  try {
-    await params.objects.putTemp(thumbnailTempPath, params.thumbnailBytes, thumbnailMime);
-  } catch (error) {
-    await params.store.update(created.id, params.userId, {
-      status: "saved",
-      errorCode: "THUMBNAIL_UPLOAD_FAILED",
-    });
-    throw error;
-  }
-
   const saved = await params.store.update(created.id, params.userId, {
     status: "saved",
-    thumbnailTempPath,
     errorCode: null,
   });
   return saved || created;
+}
+
+export async function attachTempVideoThumbnail(params: {
+  userId: string;
+  tempId: string;
+  bytes: Buffer;
+  mimeType: string;
+  store: TempVideoStore;
+  objects: TempVideoObjects;
+}): Promise<TempVideoRecord> {
+  const record = await params.store.findById(params.tempId);
+  if (!record || record.userId !== params.userId) fail("TEMP_VIDEO_NOT_FOUND");
+  if (record.status !== "saved" && record.status !== "permanent_ready" && record.status !== "transferring") {
+    fail("TEMP_VIDEO_NOT_READY");
+  }
+  if (record.thumbnailTempPath) return record;
+  const thumbnailMime = assertThumbnail(params.bytes, params.mimeType);
+  const thumbnailTempPath = `${params.userId}/${record.id}.${thumbnailMime === "image/webp" ? "webp" : "jpg"}`;
+  try {
+    await params.objects.putTemp(thumbnailTempPath, params.bytes, thumbnailMime);
+  } catch (error) {
+    await params.store.update(record.id, params.userId, { errorCode: "THUMBNAIL_UPLOAD_FAILED" });
+    throw error;
+  }
+  return (
+    (await params.store.update(record.id, params.userId, {
+      status: record.status === "transferring" ? "saved" : record.status,
+      thumbnailTempPath,
+      errorCode: null,
+    })) || record
+  );
 }
 
 export async function cancelTempVideo(params: {
@@ -177,23 +177,20 @@ export async function promoteTempVideo(params: {
   const decision = decidePromote(record, params.userId);
   if (decision === "reject") fail("TEMP_VIDEO_NOT_READY");
 
-  if (decision === "reuse" && record.permanentPath && record.thumbnailPermanentPath) {
+  if (decision === "reuse" && record.permanentPath) {
     const readable = await params.objects.permanentReadable(record.permanentPath);
-    const thumbnailReadable = await params.objects.permanentReadable(record.thumbnailPermanentPath);
     if (!readable) {
       await params.store.update(record.id, params.userId, { errorCode: "PERMANENT_VIDEO_UNREADABLE" });
       fail("PERMANENT_VIDEO_UNREADABLE");
     }
-    if (!thumbnailReadable) {
-      await params.store.update(record.id, params.userId, { errorCode: "THUMBNAIL_UNREADABLE" });
-      fail("THUMBNAIL_UNREADABLE");
-    }
     return (await params.store.update(record.id, params.userId, { productId: params.productId, errorCode: null })) || record;
   }
 
-  if (!record.tempPath || !record.thumbnailTempPath) fail("THUMBNAIL_REQUIRED");
+  if (!record.tempPath) fail("TEMP_VIDEO_NOT_READY");
   const permanentPath = record.permanentPath || `${params.userId}/${params.productId}/videos/${record.id}.${record.mimeType === "video/mp4" ? "mp4" : "webm"}`;
-  const thumbnailPermanentPath = record.thumbnailPermanentPath || `${params.userId}/${params.productId}/videos/${record.id}.jpg`;
+  let thumbnailPermanentPath = record.thumbnailTempPath
+    ? record.thumbnailPermanentPath || `${params.userId}/${params.productId}/videos/${record.id}.jpg`
+    : null;
   await params.store.update(record.id, params.userId, {
     status: "transferring",
     productId: params.productId,
@@ -207,29 +204,27 @@ export async function promoteTempVideo(params: {
     if (!already) {
       await params.objects.copyToPermanent(record.tempPath, permanentPath, record.mimeType);
     }
-    const thumbnailAlready = await params.objects.permanentReadable(thumbnailPermanentPath);
-    if (!thumbnailAlready) {
-      await params.objects.copyToPermanent(record.thumbnailTempPath, thumbnailPermanentPath, "image/jpeg");
-    }
   } catch (error) {
     await params.store.update(record.id, params.userId, { status: "saved", errorCode: "PERMANENT_TRANSFER_FAILED" });
     throw error;
   }
 
+  if (record.thumbnailTempPath && thumbnailPermanentPath) {
+    try {
+      const thumbnailAlready = await params.objects.permanentReadable(thumbnailPermanentPath);
+      if (!thumbnailAlready) {
+        await params.objects.copyToPermanent(record.thumbnailTempPath, thumbnailPermanentPath, "image/jpeg");
+      }
+      if (!(await params.objects.permanentReadable(thumbnailPermanentPath))) thumbnailPermanentPath = null;
+    } catch {
+      thumbnailPermanentPath = null;
+    }
+  }
+
   const readable = await params.objects.permanentReadable(permanentPath);
-  const thumbnailReadable = await params.objects.permanentReadable(thumbnailPermanentPath);
   if (!readable) {
     await params.store.update(record.id, params.userId, { status: "saved", permanentPath, errorCode: "PERMANENT_VIDEO_UNREADABLE" });
     fail("PERMANENT_VIDEO_UNREADABLE");
-  }
-  if (!thumbnailReadable) {
-    await params.store.update(record.id, params.userId, {
-      status: "saved",
-      permanentPath,
-      thumbnailPermanentPath,
-      errorCode: "THUMBNAIL_UNREADABLE",
-    });
-    fail("THUMBNAIL_UNREADABLE");
   }
 
   const ready = await params.store.update(record.id, params.userId, {
@@ -262,28 +257,29 @@ export async function finalizeTempVideo(params: {
   if (!record.permanentPath) fail("TEMP_VIDEO_NOT_READY");
 
   const readable = await params.objects.permanentReadable(record.permanentPath);
-  const thumbnailReadable = record.thumbnailPermanentPath
-    ? await params.objects.permanentReadable(record.thumbnailPermanentPath)
-    : false;
   if (!readable) {
     await params.store.update(record.id, params.userId, { errorCode: "PERMANENT_VIDEO_UNREADABLE" });
     fail("PERMANENT_VIDEO_UNREADABLE");
   }
-  if (!thumbnailReadable) {
-    await params.store.update(record.id, params.userId, { errorCode: "THUMBNAIL_UNREADABLE" });
-    fail("THUMBNAIL_UNREADABLE");
-  }
+  const thumbnailPermanentPath = record.thumbnailPermanentPath && (await params.objects.permanentReadable(record.thumbnailPermanentPath))
+    ? record.thumbnailPermanentPath
+    : null;
 
   const attached = await params.store.findReadyVideo(params.productId, params.userId, record.permanentPath);
   if (!attached) {
-    await params.store.attachPermanentVideo({ ...record, productId: params.productId }, params.productId);
+    await params.store.attachPermanentVideo(
+      { ...record, productId: params.productId, thumbnailPermanentPath },
+      params.productId
+    );
   }
 
   const videoGone = !record.tempPath || (await params.objects.deleteTemp(record.tempPath));
-  const thumbnailGone = !record.thumbnailTempPath || (await params.objects.deleteTemp(record.thumbnailTempPath));
-  if (!videoGone || !thumbnailGone) {
+  if (!videoGone) {
     await params.store.update(record.id, params.userId, { status: "cleanup_failed", errorCode: "TEMP_VIDEO_DELETE_UNCONFIRMED" });
     fail("TEMP_VIDEO_DELETE_UNCONFIRMED");
+  }
+  if (record.thumbnailTempPath) {
+    await params.objects.deleteTemp(record.thumbnailTempPath);
   }
   const done = await params.store.update(record.id, params.userId, {
     status: "transferred",

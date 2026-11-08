@@ -74,17 +74,13 @@ export async function finishChunkedTempVideo(params: {
     fileSize: number;
     durationSeconds: number;
     bytes: Buffer;
-    thumbnailBytes: Buffer;
-    thumbnailMimeType: string;
   }) => Promise<TempVideoRecord>;
 }): Promise<TempVideoRecord> {
   const existing = await params.findSaved(params.userId, params.clientRequestId);
-  if (existing && (existing.status === "saved" || existing.status === "permanent_ready" || existing.status === "transferred") && existing.thumbnailTempPath) {
+  if (existing && (existing.status === "saved" || existing.status === "permanent_ready" || existing.status === "transferred")) {
     return existing;
   }
   const bytes = await assembleTempVideoChunks(params);
-  const thumbnailBytes = await params.read(tempVideoThumbnailStagingPath(params.userId, params.clientRequestId));
-  if (!thumbnailBytes) fail("THUMBNAIL_REQUIRED");
   const saved = await params.save({
     userId: params.userId,
     clientRequestId: params.clientRequestId,
@@ -92,11 +88,8 @@ export async function finishChunkedTempVideo(params: {
     fileSize: params.fileSize,
     durationSeconds: params.durationSeconds,
     bytes,
-    thumbnailBytes,
-    thumbnailMimeType: "image/jpeg",
   });
   const paths = [
-    tempVideoThumbnailStagingPath(params.userId, params.clientRequestId),
     ...Array.from({ length: params.total }, (_, index) => tempVideoChunkPath(params.userId, params.clientRequestId, index, params.total)),
   ];
   for (const path of paths) {

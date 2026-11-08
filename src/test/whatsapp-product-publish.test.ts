@@ -231,6 +231,37 @@ describe("AgriProduct WhatsApp publishing", () => {
     );
   });
 
+  it("publishes the product image, message, and video link without a thumbnail", async () => {
+    const calls: string[] = [];
+    const sender: GroupSender = {
+      async sendMedia(_instanceId, _chatId, mediaUrl, caption) {
+        calls.push(`media:${mediaUrl}`);
+        expect(caption).toContain("FAÇA JÁ A SUA ENCOMENDA");
+        return { messageId: mediaUrl };
+      },
+      async sendText(_instanceId, _chatId, message) {
+        calls.push("text");
+        expect(message).toContain("https://cdn.example/milho.mp4");
+        expect(message).toContain("FAÇA JÁ A SUA ENCOMENDA");
+        return { messageId: "text-1" };
+      },
+    };
+    const { store } = memoryStore();
+    store.findProduct = async () => product({ thumbnailUrl: null });
+    const service = createProductPublishService({ store, sender, origin: "https://agroconnect.ao" });
+    const published = await service.publish(USER, {
+      productId: product().id,
+      groupIds: [GROUP_A],
+      clientRequestId: "request-id-00000008",
+    });
+    expect(published.status).toBe("sent");
+    expect(published.targets[0]?.thumbnailStatus).toBe("skipped");
+    expect(calls).toEqual(["media:https://cdn.example/milho.jpg", "text"]);
+    const retried = await service.retry(USER, published.id);
+    expect(retried.status).toBe("sent");
+    expect(calls).toEqual(["media:https://cdn.example/milho.jpg", "text"]);
+  });
+
   it("retries only the thumbnail after the product image was already sent", async () => {
     const calls: string[] = [];
     let failThumbnail = true;
@@ -356,7 +387,8 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(video).toContain('capture="environment"');
     expect(form).toContain("transportIncluded");
     expect(form).toContain("WhatsAppPublishModal");
-    expect(form).toContain('handleSubmit(event, "publish")');
+    expect(form).toContain("requestPublish(event)");
+    expect(form).toContain('"publish"');
     expect(modal).toContain("clientRequestId");
     expect(order).toContain("once: true");
     expect(order).toContain('redirect("/cart")');

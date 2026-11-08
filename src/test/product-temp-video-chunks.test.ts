@@ -84,7 +84,6 @@ describe("temporary video chunks", () => {
     const parts = new Map<string, Buffer>([
       [`${USER}/chunks/${REQUEST}/0`, head],
       [`${USER}/chunks/${REQUEST}/1`, tail],
-      [`${USER}/chunks/${REQUEST}/thumbnail.jpg`, Buffer.from("jpg")],
     ]);
     let saves = 0;
     const seen: { bytes: Buffer | null } = { bytes: null };
@@ -103,8 +102,8 @@ describe("temporary video chunks", () => {
       save: async (input) => {
         saves += 1;
         seen.bytes = input.bytes;
-        expect(input.thumbnailBytes.toString()).toBe("jpg");
-        return savedRecord(`${USER}/temp-1.jpg`);
+        expect("thumbnailBytes" in input).toBe(false);
+        return savedRecord(null);
       },
     });
     expect(seen.bytes?.subarray(0, 2).every((byte) => byte === 1)).toBe(true);
@@ -123,7 +122,7 @@ describe("temporary video chunks", () => {
       durationSeconds: 2,
       read: async () => null,
       remove: async () => undefined,
-      findSaved: async () => savedRecord(`${USER}/temp-1.jpg`),
+      findSaved: async () => savedRecord(null),
       save: async () => {
         saves += 1;
         return savedRecord("thumb");
