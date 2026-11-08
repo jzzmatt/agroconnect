@@ -9,7 +9,7 @@ export const maxDuration = 60;
 
 function errorResponse(error: unknown) {
   const code = error && typeof error === "object" && "code" in error ? String((error as { code: string }).code) : "TEMP_VIDEO_FAILED";
-  const status = code === "PRODUCT_VIDEO_TOO_LARGE" || code === "PRODUCT_VIDEO_TOO_LONG" || code === "PRODUCT_VIDEO_INVALID" || code === "INVALID_REQUEST"
+  const status = code === "PRODUCT_VIDEO_TOO_LARGE" || code === "PRODUCT_VIDEO_TOO_LONG" || code === "PRODUCT_VIDEO_INVALID" || code === "INVALID_REQUEST" || code === "THUMBNAIL_REQUIRED"
     ? 400
     : code === "TEMP_VIDEO_BUSY"
       ? 409
@@ -35,10 +35,11 @@ export async function POST(request: Request) {
 
     const form = await request.formData();
     const file = form.get("file");
+    const thumbnail = form.get("thumbnail");
     const clientRequestId = String(form.get("clientRequestId") || "");
     const durationSeconds = Number(form.get("durationSeconds"));
-    if (!(file instanceof File)) {
-      return NextResponse.json({ success: false, code: "PRODUCT_VIDEO_INVALID" }, { status: 400 });
+    if (!(file instanceof File) || !(thumbnail instanceof File)) {
+      return NextResponse.json({ success: false, code: "THUMBNAIL_REQUIRED" }, { status: 400 });
     }
     const record = await saveOwnedTempVideo({
       userId: profile.id,
@@ -47,6 +48,8 @@ export async function POST(request: Request) {
       fileSize: file.size,
       durationSeconds,
       bytes: Buffer.from(await file.arrayBuffer()),
+      thumbnailBytes: Buffer.from(await thumbnail.arrayBuffer()),
+      thumbnailMimeType: thumbnail.type || "image/jpeg",
     });
     return NextResponse.json({
       success: true,

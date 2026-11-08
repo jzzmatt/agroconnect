@@ -26,6 +26,10 @@ function targetFromRow(row: Record<string, unknown>): PublicationTarget {
     groupName: String(row.group_name),
     status: row.status as TargetStatus,
     mediaStatus: row.media_status as MediaStatus,
+    productImageStatus: (row.product_image_status as MediaStatus) || "pending",
+    thumbnailStatus: (row.thumbnail_status as MediaStatus) || "pending",
+    productImageMessageId: typeof row.product_image_message_id === "string" ? row.product_image_message_id : null,
+    thumbnailMessageId: typeof row.thumbnail_message_id === "string" ? row.thumbnail_message_id : null,
     providerMessageId: typeof row.provider_message_id === "string" ? row.provider_message_id : null,
     errorCode: typeof row.error_code === "string" ? row.error_code : null,
     sentAt: typeof row.sent_at === "string" ? row.sent_at : null,
@@ -129,9 +133,11 @@ export function createSupabasePublishStore(): PublishStore {
         .limit(1)
         .maybeSingle();
       const location = (data.metadata as { location?: Record<string, string> } | null)?.location;
-      const imageUrls = await httpsImages((images || []) as Record<string, unknown>[]);
+      const rows = ((images || []) as Record<string, unknown>[]).slice().sort((left, right) => Number(Boolean(right.is_primary)) - Number(Boolean(left.is_primary)));
+      const imageUrls = await httpsImages(rows);
       if (imageUrls.length === 0 && isHttpsMediaUrl(data.primary_image_url)) imageUrls.push(data.primary_image_url);
       const playback = video ? await ProductVideoService.resolvePlaybackUrl(video) : null;
+      const thumbnailUrl = video ? await ProductVideoService.resolveThumbnailUrl(video) : null;
       return {
         id: String(data.id),
         ownerUserId: String(seller.profile_id),
@@ -145,6 +151,8 @@ export function createSupabasePublishStore(): PublishStore {
         status: String(data.status),
         availability: String(data.availability_status || ""),
         imageUrls,
+        productImageUrl: imageUrls.find(isHttpsMediaUrl) || null,
+        thumbnailUrl: isHttpsMediaUrl(thumbnailUrl) ? thumbnailUrl : null,
         videoUrl: isHttpsMediaUrl(playback) ? playback : null,
         slug: data.slug ? String(data.slug) : null,
       };
@@ -195,6 +203,8 @@ export function createSupabasePublishStore(): PublishStore {
         group_name: group.name,
         status: "pending",
         media_status: "pending",
+        product_image_status: "pending",
+        thumbnail_status: "pending",
       }));
       const inserted = await db.from("whatsapp_product_publication_targets").insert(targets).select("*");
       if (inserted.error) throw new WhatsappServiceError("PROVIDER_ERROR", 502);
@@ -207,6 +217,10 @@ export function createSupabasePublishStore(): PublishStore {
         .update({
           status: target.status,
           media_status: target.mediaStatus,
+          product_image_status: target.productImageStatus,
+          thumbnail_status: target.thumbnailStatus,
+          product_image_message_id: target.productImageMessageId,
+          thumbnail_message_id: target.thumbnailMessageId,
           provider_message_id: target.providerMessageId,
           error_code: target.errorCode,
           sent_at: target.sentAt,

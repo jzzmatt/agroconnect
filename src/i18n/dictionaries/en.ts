@@ -869,6 +869,10 @@ export const en: Dictionary = {
     PERMANENT_TRANSFER_FAILED: "Could not store the permanent video.",
     PERMANENT_VIDEO_UNREADABLE: "The permanent video is not readable.",
     TEMP_VIDEO_NOT_READY: "Save the video before publishing.",
+    THUMBNAIL_FAILED: "Could not create the video thumbnail.",
+    THUMBNAIL_REQUIRED: "The video thumbnail is required.",
+    THUMBNAIL_UPLOAD_FAILED: "Could not save the thumbnail. The temporary video was kept.",
+    THUMBNAIL_UNREADABLE: "The permanent thumbnail is not readable.",
     BUNNY_NOT_CONFIGURED: "Video upload is not configured. Add the Bunny Stream keys.",
     BUNNY_LIBRARY_ID_INVALID:
       "The Bunny Stream library ID is invalid. Use the numeric library ID (Stream → Library → API), not the account API key.",

@@ -655,11 +655,12 @@ export function ProductCreateWorkspacePage() {
                 setPendingVideo(next);
               }}
               uploadPercent={videoUploadPercent}
-              onSave={async (file, duration) => {
+              onSave={async (file, duration, thumbnail) => {
                 setVideoSaveState("saving");
                 setVideoUploadPercent(0);
                 const form = new FormData();
                 form.append("file", file, file.name || "product-video.webm");
+                form.append("thumbnail", thumbnail, thumbnail.name || "thumbnail.jpg");
                 form.append("clientRequestId", videoRequestId.current);
                 form.append("durationSeconds", String(duration));
                 const saved = await uploadForm("/api/products/video/temp", form, (percent) => {

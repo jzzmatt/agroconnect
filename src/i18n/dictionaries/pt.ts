@@ -869,6 +869,10 @@ export const pt = {
     PERMANENT_TRANSFER_FAILED: "Não foi possível guardar o vídeo permanente.",
     PERMANENT_VIDEO_UNREADABLE: "O vídeo permanente não ficou disponível.",
     TEMP_VIDEO_NOT_READY: "Guarde o vídeo antes de publicar.",
+    THUMBNAIL_FAILED: "Não foi possível criar a miniatura do vídeo.",
+    THUMBNAIL_REQUIRED: "A miniatura do vídeo é obrigatória.",
+    THUMBNAIL_UPLOAD_FAILED: "Não foi possível guardar a miniatura. O vídeo temporário foi mantido.",
+    THUMBNAIL_UNREADABLE: "A miniatura permanente não ficou disponível.",
     BUNNY_NOT_CONFIGURED: "O carregamento de vídeo não está configurado. Adicione as chaves Bunny Stream.",
     BUNNY_LIBRARY_ID_INVALID:
       "O ID da biblioteca Bunny Stream é inválido. Use o ID numérico da biblioteca (Stream → Biblioteca → API), não a chave da conta.",

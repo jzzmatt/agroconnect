@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { firstMinuteWindow } from "@/lib/products/video-validation";
 import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
+import { representativeFrameSeconds } from "@/lib/products/video-optimizer";
 import type { TempVideoRecord } from "@/lib/products/temp-video-lifecycle";
 import {
   cancelTempVideo,
@@ -19,6 +20,8 @@ function memory() {
   const permanent = new Map<string, Buffer>();
   const attached: string[] = [];
   let failPut = false;
+  let failThumb = false;
+  let failThumbCopy = false;
   let failCopy = false;
   let failDelete = false;
   let copies = 0;
@@ -52,10 +55,16 @@ function memory() {
   const objects: TempVideoObjects = {
     async putTemp(path, bytes) {
       if (failPut) throw Object.assign(new Error("TEMP_VIDEO_UPLOAD_FAILED"), { code: "TEMP_VIDEO_UPLOAD_FAILED" });
+      if (failThumb && path.endsWith(".jpg")) {
+        throw Object.assign(new Error("THUMBNAIL_UPLOAD_FAILED"), { code: "THUMBNAIL_UPLOAD_FAILED" });
+      }
       temp.set(path, bytes);
     },
     async copyToPermanent(tempPath, permanentPath) {
       copies += 1;
+      if (failThumbCopy && permanentPath.endsWith(".jpg")) {
+        throw Object.assign(new Error("PERMANENT_TRANSFER_FAILED"), { code: "PERMANENT_TRANSFER_FAILED" });
+      }
       if (failCopy) throw Object.assign(new Error("PERMANENT_TRANSFER_FAILED"), { code: "PERMANENT_TRANSFER_FAILED" });
       const bytes = temp.get(tempPath);
       if (!bytes) throw new Error("TEMP_VIDEO_MISSING");
@@ -81,6 +90,12 @@ function memory() {
     set failPut(value: boolean) {
       failPut = value;
     },
+    set failThumb(value: boolean) {
+      failThumb = value;
+    },
+    set failThumbCopy(value: boolean) {
+      failThumbCopy = value;
+    },
     set failCopy(value: boolean) {
       failCopy = value;
     },
@@ -101,6 +116,8 @@ function clip(seconds: number) {
     fileSize: 1200,
     durationSeconds: seconds,
     bytes: Buffer.from("video"),
+    thumbnailBytes: Buffer.from("thumb"),
+    thumbnailMimeType: "image/jpeg",
   };
 }
 
@@ -138,7 +155,7 @@ describe("AgriProduct temporary video lifecycle", () => {
     await expect(cancelTempVideo({ userId: "other", tempId: saved.id, store: box.store, objects: box.objects })).rejects.toMatchObject({
       code: "TEMP_VIDEO_NOT_FOUND",
     });
-    expect(box.temp.size).toBe(1);
+    expect(box.temp.size).toBe(2);
     const removed = await cancelTempVideo({ userId: "user-1", tempId: saved.id, store: box.store, objects: box.objects });
     expect(removed.deleted).toBe(true);
     expect(box.temp.size).toBe(0);
@@ -152,7 +169,7 @@ describe("AgriProduct temporary video lifecycle", () => {
     await expect(cancelTempVideo({ userId: "user-1", tempId: saved.id, store: box.store, objects: box.objects })).rejects.toMatchObject({
       code: "TEMP_VIDEO_DELETE_UNCONFIRMED",
     });
-    expect(box.temp.size).toBe(1);
+    expect(box.temp.size).toBe(2);
     expect(box.rows.get(saved.id)?.status).toBe("cleanup_failed");
   });
 
@@ -163,7 +180,7 @@ describe("AgriProduct temporary video lifecycle", () => {
     await expect(
       promoteTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects })
     ).rejects.toThrow(/TRANSFER_FAILED/);
-    expect(box.temp.size).toBe(1);
+    expect(box.temp.size).toBe(2);
     expect(box.permanent.size).toBe(0);
     expect(box.rows.get(saved.id)?.status).toBe("saved");
   });
@@ -185,8 +202,8 @@ describe("AgriProduct temporary video lifecycle", () => {
     };
     await expect(publishProduct()).rejects.toMatchObject({ code: "PRODUCT_PUBLISH_FAILED" });
     expect(published).toBe(false);
-    expect(box.temp.size).toBe(1);
-    expect(box.permanent.size).toBe(1);
+    expect(box.temp.size).toBe(2);
+    expect(box.permanent.size).toBe(2);
     expect(box.attached).toHaveLength(0);
   });
 
@@ -196,17 +213,17 @@ describe("AgriProduct temporary video lifecycle", () => {
     await promoteTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects });
     await finalizeTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects });
     expect(box.temp.size).toBe(0);
-    expect(box.permanent.size).toBe(1);
+    expect(box.permanent.size).toBe(2);
     const whatsapp = async () => {
       throw Object.assign(new Error("WAAPI_FAILED"), { code: "WAAPI_FAILED" });
     };
     await expect(whatsapp()).rejects.toMatchObject({ code: "WAAPI_FAILED" });
-    expect(box.permanent.size).toBe(1);
+    expect(box.permanent.size).toBe(2);
     await promoteTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects });
     await finalizeTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects });
-    expect(box.copies).toBe(1);
+    expect(box.copies).toBe(2);
     expect(box.attached).toHaveLength(1);
-    expect(box.permanent.size).toBe(1);
+    expect(box.permanent.size).toBe(2);
   });
 
   it("returns the saved video when the same request is repeated", async () => {
@@ -214,7 +231,7 @@ describe("AgriProduct temporary video lifecycle", () => {
     const first = await saveTempVideo({ ...clip(15), store: box.store, objects: box.objects });
     const second = await saveTempVideo({ ...clip(15), store: box.store, objects: box.objects });
     expect(second.id).toBe(first.id);
-    expect(box.temp.size).toBe(1);
+    expect(box.temp.size).toBe(2);
     await expect(
       saveTempVideo({
         ...clip(15),
@@ -227,5 +244,35 @@ describe("AgriProduct temporary video lifecycle", () => {
         objects: box.objects,
       })
     ).rejects.toMatchObject({ code: "TEMP_VIDEO_BUSY" });
+  });
+
+  it("keeps the temporary video when the thumbnail upload fails and accepts the thumbnail on retry", async () => {
+    const box = memory();
+    box.failThumb = true;
+    await expect(saveTempVideo({ ...clip(20), store: box.store, objects: box.objects })).rejects.toThrow(/THUMBNAIL_UPLOAD_FAILED/);
+    expect([...box.temp.keys()].some((path) => path.endsWith(".webm"))).toBe(true);
+    expect([...box.temp.keys()].some((path) => path.endsWith(".jpg"))).toBe(false);
+    box.failThumb = false;
+    const saved = await saveTempVideo({ ...clip(20), store: box.store, objects: box.objects });
+    expect(saved.thumbnailTempPath?.endsWith(".jpg")).toBe(true);
+    expect(box.temp.size).toBe(2);
+  });
+
+  it("keeps both temporary files when the thumbnail cannot be copied", async () => {
+    const box = memory();
+    const saved = await saveTempVideo({ ...clip(20), store: box.store, objects: box.objects });
+    box.failThumbCopy = true;
+    await expect(
+      promoteTempVideo({ userId: "user-1", tempId: saved.id, productId: "product-1", store: box.store, objects: box.objects })
+    ).rejects.toThrow(/TRANSFER_FAILED/);
+    expect(box.temp.size).toBe(2);
+    expect([...box.permanent.keys()].some((path) => path.endsWith(".jpg"))).toBe(false);
+    expect(box.rows.get(saved.id)?.status).toBe("saved");
+  });
+
+  it("chooses a frame after the start of a longer clip", () => {
+    expect(representativeFrameSeconds(0.2)).toBe(0);
+    expect(representativeFrameSeconds(8)).toBe(1);
+    expect(representativeFrameSeconds(1.2)).toBe(0.6);
   });
 });

@@ -872,6 +872,10 @@ export const fr: Dictionary = {
     PERMANENT_TRANSFER_FAILED: "Impossible d'enregistrer la vidéo permanente.",
     PERMANENT_VIDEO_UNREADABLE: "La vidéo permanente n'est pas lisible.",
     TEMP_VIDEO_NOT_READY: "Enregistrez la vidéo avant de publier.",
+    THUMBNAIL_FAILED: "Impossible de créer la miniature de la vidéo.",
+    THUMBNAIL_REQUIRED: "La miniature de la vidéo est obligatoire.",
+    THUMBNAIL_UPLOAD_FAILED: "Impossible d'enregistrer la miniature. La vidéo temporaire a été conservée.",
+    THUMBNAIL_UNREADABLE: "La miniature permanente n'est pas lisible.",
     BUNNY_NOT_CONFIGURED: "Le chargement vidéo n'est pas configuré. Ajoutez les clés Bunny Stream.",
     BUNNY_LIBRARY_ID_INVALID:
       "L'identifiant de bibliothèque Bunny Stream est invalide. Utilisez l'ID numérique de la bibliothèque (Stream → Bibliothèque → API), pas la clé du compte.",

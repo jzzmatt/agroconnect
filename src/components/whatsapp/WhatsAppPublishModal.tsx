@@ -20,6 +20,7 @@ interface PreviewPayload {
     location: string;
     transportIncluded: boolean;
     imageUrl: string | null;
+    thumbnailUrl?: string | null;
     videoUrl: string | null;
     orderUrl: string;
     listingUrl: string;
@@ -209,6 +210,13 @@ export function WhatsAppPublishModal({
               ) : (
                 <div className="h-16 w-16 rounded-2xl bg-muted" />
               )}
+              {preview.product.thumbnailUrl ? (
+                <img
+                  src={preview.product.thumbnailUrl}
+                  alt={copy.videoLink}
+                  className="h-16 w-16 rounded-2xl object-cover bg-muted"
+                />
+              ) : null}
               <div className="min-w-0 text-xs space-y-1">
                 <p className="font-black text-sm text-foreground">{preview.product.name}</p>
                 {preview.product.description ? <p className="text-muted-foreground">{preview.product.description}</p> : null}

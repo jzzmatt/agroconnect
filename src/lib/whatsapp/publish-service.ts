@@ -4,6 +4,7 @@ import {
   buildProductWhatsappMessage,
   isHttpsMediaUrl,
   orderUrlForProduct,
+  videoThumbnailCaption,
 } from "./product-message";
 import { WhatsappServiceError, type PublicGroup } from "./types";
 
@@ -19,6 +20,10 @@ export interface PublicationTarget {
   groupName: string;
   status: TargetStatus;
   mediaStatus: MediaStatus;
+  productImageStatus: MediaStatus;
+  thumbnailStatus: MediaStatus;
+  productImageMessageId: string | null;
+  thumbnailMessageId: string | null;
   providerMessageId: string | null;
   errorCode: string | null;
   sentAt: string | null;
@@ -48,6 +53,8 @@ export interface PublishableProduct {
   status: string;
   availability: string;
   imageUrls: string[];
+  productImageUrl: string | null;
+  thumbnailUrl: string | null;
   videoUrl: string | null;
   slug: string | null;
 }
@@ -62,7 +69,7 @@ export interface PublishConnection {
 
 export interface GroupSender {
   sendText(instanceId: string, chatId: string, message: string): Promise<{ messageId: string | null }>;
-  sendMedia(instanceId: string, chatId: string, mediaUrl: string): Promise<{ messageId: string | null }>;
+  sendMedia(instanceId: string, chatId: string, mediaUrl: string, caption?: string): Promise<{ messageId: string | null }>;
 }
 
 export interface PublishStore {
@@ -135,53 +142,94 @@ function assertOwnedGroups(saved: PublicGroup[], requested: string[]) {
   return selected;
 }
 
+function mediaRollup(productImageStatus: MediaStatus, thumbnailStatus: MediaStatus): MediaStatus {
+  const statuses = [productImageStatus, thumbnailStatus];
+  if (statuses.every((status) => status === "skipped")) return "skipped";
+  if (statuses.some((status) => status === "failed" || status === "pending")) return statuses.some((status) => status === "failed") ? "failed" : "pending";
+  return "sent";
+}
+
+async function sendTrackedImage(
+  sender: GroupSender,
+  instanceId: string,
+  target: PublicationTarget,
+  kind: "product" | "thumbnail",
+  url: string | null,
+  caption: string
+): Promise<PublicationTarget> {
+  const statusKey = kind === "product" ? "productImageStatus" : "thumbnailStatus";
+  const messageKey = kind === "product" ? "productImageMessageId" : "thumbnailMessageId";
+  if (target[statusKey] === "sent" || target[statusKey] === "skipped") return target;
+  if (!isHttpsMediaUrl(url)) {
+    return { ...target, [statusKey]: "skipped", mediaStatus: mediaRollup(
+      kind === "product" ? "skipped" : target.productImageStatus,
+      kind === "thumbnail" ? "skipped" : target.thumbnailStatus
+    ) };
+  }
+  try {
+    const sent = await sender.sendMedia(instanceId, target.groupId, url, caption);
+    const productImageStatus = kind === "product" ? "sent" : target.productImageStatus;
+    const thumbnailStatus = kind === "thumbnail" ? "sent" : target.thumbnailStatus;
+    return {
+      ...target,
+      [statusKey]: "sent",
+      [messageKey]: sent.messageId,
+      mediaStatus: mediaRollup(productImageStatus, thumbnailStatus),
+      providerMessageId: sent.messageId || target.providerMessageId,
+    };
+  } catch {
+    const productImageStatus = kind === "product" ? "failed" : target.productImageStatus;
+    const thumbnailStatus = kind === "thumbnail" ? "failed" : target.thumbnailStatus;
+    return {
+      ...target,
+      status: "failed",
+      [statusKey]: "failed",
+      mediaStatus: mediaRollup(productImageStatus, thumbnailStatus),
+      errorCode: "MEDIA_FAILED",
+    };
+  }
+}
+
 async function deliverGroup(
   sender: GroupSender,
   instanceId: string,
   target: PublicationTarget,
-  mediaUrls: string[],
+  product: PublishableProduct,
   message: string,
   now: string
 ): Promise<PublicationTarget> {
-  let mediaStatus = target.mediaStatus;
-  let messageId = target.providerMessageId;
-  if (mediaStatus !== "sent" && mediaStatus !== "skipped") {
-    if (mediaUrls.length === 0) {
-      mediaStatus = "skipped";
-    } else {
-      try {
-        for (const url of mediaUrls) {
-          const sent = await sender.sendMedia(instanceId, target.groupId, url);
-          messageId = sent.messageId || messageId;
-        }
-        mediaStatus = "sent";
-      } catch {
-        return {
-          ...target,
-          status: "failed",
-          mediaStatus: "failed",
-          providerMessageId: messageId,
-          errorCode: "MEDIA_FAILED",
-        };
-      }
-    }
-  }
+  const withProductImage = await sendTrackedImage(
+    sender,
+    instanceId,
+    target,
+    "product",
+    product.productImageUrl || product.imageUrls.find(isHttpsMediaUrl) || null,
+    message.slice(0, 1000)
+  );
+  if (withProductImage.productImageStatus === "failed") return withProductImage;
+  const withThumbnail = await sendTrackedImage(
+    sender,
+    instanceId,
+    withProductImage,
+    "thumbnail",
+    product.thumbnailUrl,
+    videoThumbnailCaption(product.videoUrl)
+  );
+  if (withThumbnail.thumbnailStatus === "failed") return withThumbnail;
   try {
     const sent = await sender.sendText(instanceId, target.groupId, message);
     return {
-      ...target,
+      ...withThumbnail,
       status: "sent",
-      mediaStatus,
-      providerMessageId: sent.messageId || messageId,
+      providerMessageId: sent.messageId || withThumbnail.providerMessageId,
       errorCode: null,
       sentAt: now,
     };
   } catch {
     return {
-      ...target,
+      ...withThumbnail,
       status: "failed",
-      mediaStatus,
-      providerMessageId: messageId,
+      providerMessageId: withThumbnail.providerMessageId,
       errorCode: "TEXT_FAILED",
     };
   }
@@ -197,7 +245,6 @@ export function createProductPublishService(deps: {
 
   async function runTargets(publication: PublicationRecord, product: PublishableProduct, connection: PublishConnection) {
     const message = publicProductMessage(deps.origin, product);
-    const mediaUrls = [...product.imageUrls, product.videoUrl].filter(isHttpsMediaUrl);
     const next: PublicationTarget[] = [];
     for (const target of publication.targets) {
       if (target.status === "sent") {
@@ -210,7 +257,7 @@ export function createProductPublishService(deps: {
         deps.sender,
         connection.instanceId,
         processing,
-        mediaUrls,
+        product,
         message,
         now().toISOString()
       );
@@ -243,7 +290,8 @@ export function createProductPublishService(deps: {
           priceKz: product.price,
           location: [product.province, product.municipality, product.locality].filter(Boolean).join(" / "),
           transportIncluded: product.transportIncluded,
-          imageUrl: product.imageUrls.find(isHttpsMediaUrl) || null,
+          imageUrl: product.productImageUrl || product.imageUrls.find(isHttpsMediaUrl) || null,
+          thumbnailUrl: isHttpsMediaUrl(product.thumbnailUrl) ? product.thumbnailUrl : null,
           videoUrl: isHttpsMediaUrl(product.videoUrl) ? product.videoUrl : null,
           orderUrl: orderUrlForProduct(deps.origin, product.id),
           listingUrl:

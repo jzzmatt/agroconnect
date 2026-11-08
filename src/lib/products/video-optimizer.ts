@@ -239,6 +239,47 @@ async function recordClip(
   return new File([blob], `product-video.${extension}`, { type: blob.type || `video/${extension}` });
 }
 
+/** A frame after the opening, so the thumbnail is not an empty first frame. */
+export function representativeFrameSeconds(durationSeconds: number): number {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0.4) return 0;
+  return Math.min(1, durationSeconds / 2);
+}
+
+export async function captureProductVideoFrame(file: File): Promise<File> {
+  const video = await loadVideo(file);
+  try {
+    const at = representativeFrameSeconds(Number.isFinite(video.duration) ? video.duration : 0);
+    if (at > 0) {
+      video.currentTime = at;
+      await new Promise<void>((resolve, reject) => {
+        const onSeeked = () => {
+          video.removeEventListener("seeked", onSeeked);
+          resolve();
+        };
+        video.addEventListener("seeked", onSeeked);
+        video.onerror = () => reject(new Error("THUMBNAIL_FAILED"));
+      });
+    }
+    const width = video.videoWidth || 640;
+    const height = video.videoHeight || 360;
+    const canvas = document.createElement("canvas");
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext("2d");
+    if (!ctx) throw new Error("THUMBNAIL_FAILED");
+    ctx.drawImage(video, 0, 0, width, height);
+    const blob = await new Promise<Blob>((resolve, reject) => {
+      canvas.toBlob((value) => (value ? resolve(value) : reject(new Error("THUMBNAIL_FAILED"))), "image/jpeg", 0.82);
+    });
+    return new File([blob], "thumbnail.jpg", { type: "image/jpeg" });
+  } catch (error) {
+    if (error instanceof Error && error.message === "THUMBNAIL_FAILED") throw error;
+    throw new Error("THUMBNAIL_FAILED");
+  } finally {
+    URL.revokeObjectURL(video.src);
+  }
+}
+
 export function formatBytes(bytes: number) {
   if (bytes < 1024 * 1024) return `${Math.round(bytes / 1024)} KB`;
   return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;

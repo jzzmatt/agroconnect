@@ -21,6 +21,8 @@ export interface TempVideoRecord {
   status: TempVideoStatus;
   tempPath: string | null;
   permanentPath: string | null;
+  thumbnailTempPath: string | null;
+  thumbnailPermanentPath: string | null;
   mimeType: string;
   fileSize: number;
   durationSeconds: number;
@@ -45,10 +47,11 @@ export function keepsOriginalFile(durationSeconds: number, mimeType: string | nu
   return end > 0 && end <= PRODUCT_VIDEO_MAX_SECONDS + 0.05 && durationSeconds <= PRODUCT_VIDEO_MAX_SECONDS + 0.05 && (mime === "video/mp4" || mime === "video/webm");
 }
 
-export type SaveDecision = "upload" | "return" | "busy";
+export type SaveDecision = "upload" | "thumbnail" | "return" | "busy";
 
 export function decideSave(existing: TempVideoRecord | null): SaveDecision {
   if (!existing) return "upload";
+  if (existing.status === "saved" && !existing.thumbnailTempPath) return "thumbnail";
   if (existing.status === "saved" || existing.status === "permanent_ready" || existing.status === "transferred") {
     return "return";
   }
@@ -63,7 +66,8 @@ export function decidePromote(record: TempVideoRecord, userId: string): PromoteD
   if (record.status === "deleted") return "reject";
   if (
     (record.status === "permanent_ready" || record.status === "transferred" || record.status === "cleanup_failed") &&
-    record.permanentPath
+    record.permanentPath &&
+    record.thumbnailPermanentPath
   ) {
     return "reuse";
   }
