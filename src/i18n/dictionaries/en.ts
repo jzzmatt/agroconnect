@@ -873,6 +873,7 @@ export const en: Dictionary = {
     THUMBNAIL_REQUIRED: "The video thumbnail is required.",
     THUMBNAIL_UPLOAD_FAILED: "Could not save the thumbnail. The temporary video was kept.",
     THUMBNAIL_UNREADABLE: "The permanent thumbnail is not readable.",
+    CHUNK_MISSING: "The video upload was incomplete. Try saving it again.",
     BUNNY_NOT_CONFIGURED: "Video upload is not configured. Add the Bunny Stream keys.",
     BUNNY_LIBRARY_ID_INVALID:
       "The Bunny Stream library ID is invalid. Use the numeric library ID (Stream → Library → API), not the account API key.",

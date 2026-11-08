@@ -873,6 +873,7 @@ export const pt = {
     THUMBNAIL_REQUIRED: "A miniatura do vídeo é obrigatória.",
     THUMBNAIL_UPLOAD_FAILED: "Não foi possível guardar a miniatura. O vídeo temporário foi mantido.",
     THUMBNAIL_UNREADABLE: "A miniatura permanente não ficou disponível.",
+    CHUNK_MISSING: "O envio do vídeo ficou incompleto. Tente guardar novamente.",
     BUNNY_NOT_CONFIGURED: "O carregamento de vídeo não está configurado. Adicione as chaves Bunny Stream.",
     BUNNY_LIBRARY_ID_INVALID:
       "O ID da biblioteca Bunny Stream é inválido. Use o ID numérico da biblioteca (Stream → Biblioteca → API), não a chave da conta.",
