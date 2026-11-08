@@ -44,13 +44,14 @@ export async function assembleTempVideoChunks(params: {
 }): Promise<Buffer> {
   const plan = planTempVideoUpload(params.fileSize);
   if (params.total !== plan.total) fail("INVALID_REQUEST");
-  const parts: Buffer[] = [];
-  for (let index = 0; index < params.total; index += 1) {
-    const path = tempVideoChunkPath(params.userId, params.clientRequestId, index, params.total);
-    const part = await params.read(path);
-    if (!part || part.length === 0) fail("CHUNK_MISSING");
-    parts.push(part);
-  }
+  const parts = await Promise.all(
+    Array.from({ length: params.total }, async (_, index) => {
+      const path = tempVideoChunkPath(params.userId, params.clientRequestId, index, params.total);
+      const part = await params.read(path);
+      if (!part || part.length === 0) fail("CHUNK_MISSING");
+      return part;
+    })
+  );
   const video = Buffer.concat(parts);
   if (video.length !== params.fileSize) fail("CHUNK_MISSING");
   return video;

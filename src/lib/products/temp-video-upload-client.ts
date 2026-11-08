@@ -38,7 +38,7 @@ export async function uploadProcessedTempVideo(params: {
     throw Object.assign(new Error("THUMBNAIL_FAILED"), { code: "THUMBNAIL_FAILED" });
   }
   const plan = planTempVideoUpload(params.file.size);
-  const steps = plan.total + 1;
+  const steps = plan.total + 2;
   const report = (step: number, partPercent: number) => {
     params.onProgress(Math.min(99, Math.round(((step + partPercent / 100) / steps) * 100)));
   };
@@ -53,7 +53,6 @@ export async function uploadProcessedTempVideo(params: {
     throw Object.assign(new Error(code), { code });
   }
 
-  let videoId = "";
   for (let index = 0; index < plan.total; index += 1) {
     const start = index * TEMP_VIDEO_CHUNK_BYTES;
     const slice = params.file.slice(start, start + TEMP_VIDEO_CHUNK_BYTES);
@@ -65,17 +64,35 @@ export async function uploadProcessedTempVideo(params: {
     form.append("fileSize", String(params.file.size));
     form.append("mimeType", params.file.type || "video/webm");
     form.append("file", slice, params.file.name || "product-video.webm");
-    if (index === plan.total - 1) {
-      form.append("durationSeconds", String(params.durationSeconds));
-    }
     const result = await uploadForm(form, (percent) => report(index + 1, percent));
     if (!result.ok || !result.payload?.success) {
       const code = result.status === 413 ? "PRODUCT_VIDEO_TOO_LARGE" : result.payload?.code || "TEMP_VIDEO_FAILED";
       throw Object.assign(new Error(code), { code });
     }
-    if (result.payload.video?.id) videoId = result.payload.video.id;
   }
-  if (!videoId) throw Object.assign(new Error("TEMP_VIDEO_FAILED"), { code: "TEMP_VIDEO_FAILED" });
+
+  const complete = await fetch("/api/products/video/temp/chunk/complete", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({
+      clientRequestId: params.clientRequestId,
+      total: plan.total,
+      fileSize: params.file.size,
+      mimeType: params.file.type || "video/webm",
+      durationSeconds: params.durationSeconds,
+    }),
+  });
+  let payload: { success?: boolean; code?: string; video?: { id?: string } } | null = null;
+  try {
+    payload = await complete.json();
+  } catch {
+    payload = null;
+  }
+  if (!complete.ok || !payload?.success || !payload.video?.id) {
+    const code = payload?.code || "TEMP_VIDEO_FAILED";
+    throw Object.assign(new Error(code), { code });
+  }
   params.onProgress(100);
-  return { id: videoId };
+  return { id: payload.video.id };
 }

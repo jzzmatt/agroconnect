@@ -70,7 +70,11 @@ export async function downloadStorageObject(bucket: string, storagePath: string)
   if (!supabase) throw new Error("STORAGE_UNAVAILABLE");
   const downloaded = await supabase.storage.from(bucket).download(storagePath);
   if (downloaded.error || !downloaded.data) return null;
-  return Buffer.from(await downloaded.data.arrayBuffer());
+  const data = downloaded.data as Blob | ArrayBuffer | Buffer;
+  if (Buffer.isBuffer(data)) return data;
+  if (data instanceof ArrayBuffer) return Buffer.from(data);
+  if (typeof data.arrayBuffer === "function") return Buffer.from(await data.arrayBuffer());
+  throw Object.assign(new Error("TEMP_VIDEO_FAILED"), { code: "TEMP_VIDEO_FAILED" });
 }
 
 export async function copyStorageObject(params: {
