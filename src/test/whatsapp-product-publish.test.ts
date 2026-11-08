@@ -165,6 +165,7 @@ describe("AgriProduct WhatsApp publishing", () => {
   it("rejects a video longer than 60 seconds and accepts a shorter one", () => {
     const file = { mimeType: "video/mp4", fileSize: 1024, fileName: "campo.mp4" };
     expect(validateProductVideo({ ...file, durationSeconds: PRODUCT_VIDEO_MAX_SECONDS + 1 }).ok).toBe(false);
+    expect(validateProductVideo({ ...file, durationSeconds: PRODUCT_VIDEO_MAX_SECONDS }).ok).toBe(true);
     expect(validateProductVideo({ ...file, durationSeconds: 45 }).ok).toBe(true);
   });
 

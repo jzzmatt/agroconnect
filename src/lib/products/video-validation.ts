@@ -33,10 +33,10 @@ export function validateProductVideo(params: {
       error: `Maximum product video size is ${Math.round(PRODUCT_VIDEO_MAX_BYTES / (1024 * 1024))} MB.`,
     };
   }
-  if (params.durationSeconds == null || Number.isNaN(params.durationSeconds) || params.durationSeconds <= 0) {
+  if (productVideoDurationDecision(Number(params.durationSeconds)) === "invalid") {
     return { ok: false, code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_INVALID, error: "Could not read video duration." };
   }
-  if (params.durationSeconds > PRODUCT_VIDEO_MAX_SECONDS + 0.05) {
+  if (productVideoDurationDecision(Number(params.durationSeconds)) === "too_long") {
     return {
       ok: false,
       code: PRODUCT_ERROR_CODES.PRODUCT_VIDEO_TOO_LONG,
@@ -92,6 +92,13 @@ export function clampTrimWindow(
     }
   }
   return { start, end };
+}
+
+/** Inclusive 60-second limit. Longer videos are rejected and are not trimmed. */
+export function productVideoDurationDecision(durationSeconds: number): "save" | "too_long" | "invalid" {
+  if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return "invalid";
+  if (durationSeconds > PRODUCT_VIDEO_MAX_SECONDS) return "too_long";
+  return "save";
 }
 
 export function needsProductVideoTrim(durationSeconds: number): boolean {

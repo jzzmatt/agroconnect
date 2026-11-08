@@ -84,6 +84,23 @@ export async function uploadProcessedTempVideo(params: {
   return { id: payload.video.id };
 }
 
+export async function confirmSavedTempVideo(tempId: string): Promise<string | null> {
+  const response = await fetch("/api/products/video/temp/status", {
+    method: "POST",
+    credentials: "same-origin",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ tempId }),
+  });
+  let payload: { confirmed?: boolean; video?: { id?: string } } | null = null;
+  try {
+    payload = await response.json();
+  } catch {
+    payload = null;
+  }
+  if (!response.ok || !payload?.confirmed || payload.video?.id !== tempId) return null;
+  return payload.video.id;
+}
+
 export function uploadGeneratedThumbnail(params: {
   tempId: string;
   frame: File;

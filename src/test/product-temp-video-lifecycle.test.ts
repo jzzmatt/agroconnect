@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { firstMinuteWindow } from "@/lib/products/video-validation";
-import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
+import { productVideoDurationDecision } from "@/lib/products/video-validation";
+import { confirmedSavedVideoReference } from "@/lib/products/temp-video-lifecycle";
 import { representativeFrameSeconds } from "@/lib/products/video-optimizer";
 import type { TempVideoRecord } from "@/lib/products/temp-video-lifecycle";
 import {
@@ -121,15 +121,22 @@ function clip(seconds: number) {
 }
 
 describe("AgriProduct temporary video lifecycle", () => {
-  it("keeps a video shorter than 60 seconds intact", () => {
-    expect(firstMinuteWindow(18).end).toBe(18);
-    expect(keepsOriginalFile(18, "video/mp4")).toBe(true);
-  });
-
-  it("keeps only the first 60 seconds of a longer video", () => {
-    expect(firstMinuteWindow(125).start).toBe(0);
-    expect(firstMinuteWindow(125).end).toBe(60);
-    expect(keepsOriginalFile(125, "video/mp4")).toBe(false);
+  it("allows a video of 60 seconds or less and rejects a longer one before storage", async () => {
+    expect(productVideoDurationDecision(18)).toBe("save");
+    expect(productVideoDurationDecision(60)).toBe("save");
+    expect(productVideoDurationDecision(60.01)).toBe("too_long");
+    expect(productVideoDurationDecision(125)).toBe("too_long");
+    const box = memory();
+    const saved = await saveTempVideo({ ...clip(60), store: box.store, objects: box.objects });
+    expect(saved.durationSeconds).toBe(60);
+    expect(box.temp.get(saved.tempPath || "")?.toString()).toBe("video");
+    expect(confirmedSavedVideoReference(saved)?.id).toBe(saved.id);
+    const rejected = memory();
+    await expect(saveTempVideo({ ...clip(60.01), store: rejected.store, objects: rejected.objects })).rejects.toMatchObject({
+      code: "PRODUCT_VIDEO_TOO_LONG",
+    });
+    expect(rejected.temp.size).toBe(0);
+    expect(confirmedSavedVideoReference({ id: "temp", status: "processing", tempPath: "video.webm" })).toBeNull();
   });
 
   it("does not store a file when processing or upload fails", async () => {

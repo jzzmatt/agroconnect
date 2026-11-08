@@ -7,9 +7,9 @@ import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
 import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { readVideoDuration } from "@/lib/products/compress-image";
-import { validateProductVideoSource } from "@/lib/products/video-validation";
-import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
-import { formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
+import { productVideoDurationDecision, validateProductVideoSource } from "@/lib/products/video-validation";
+import { formatBytes, formatClock } from "@/lib/products/video-optimizer";
+import { ProductVideoDurationModal } from "@/components/shopping/ProductVideoDurationModal";
 
 export type PendingProductVideo = {
   file: File;
@@ -43,6 +43,7 @@ export function ProductVideoUploader({
   const [duration, setDuration] = useState(video?.duration || 0);
   const [phase, setPhase] = useState<"idle" | "processing" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
+  const [durationCheck, setDurationCheck] = useState<"save" | "too_long" | null>(null);
 
   const busy = phase === "processing" || saveState === "saving";
 
@@ -91,33 +92,33 @@ export function ProductVideoUploader({
     }
   }
 
-  async function saveVideo() {
-    if (!source || busy || working.current || saveState === "saved") return;
+  function openDurationCheck() {
+    if (!source || busy || working.current || saveState === "saved" || durationCheck) return;
+    const seconds = video?.duration || duration;
+    const decision = productVideoDurationDecision(seconds);
+    setError(null);
+    if (decision !== "save") {
+      setDurationCheck("too_long");
+      return;
+    }
+    setDurationCheck("save");
+  }
+
+  async function confirmSave() {
+    if (!source || busy || working.current || saveState === "saved" || durationCheck !== "save") return;
+    const seconds = video?.duration || duration;
+    if (productVideoDurationDecision(seconds) !== "save") {
+      setDurationCheck("too_long");
+      setError(dict.products.videoDurationTooLong);
+      return;
+    }
+    setDurationCheck(null);
     working.current = true;
     setError(null);
     setPhase("processing");
     onSaveStart?.();
     try {
-      let file = source;
-      let seconds = duration;
-      if (!keepsOriginalFile(duration, source.type)) {
-        const processed = await optimizeProductVideo(source, {
-          startSeconds: 0,
-          endSeconds: Math.min(duration, PRODUCT_VIDEO_MAX_SECONDS),
-        });
-        file = processed.file;
-        seconds = processed.duration;
-        if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
-        onChange({
-          file,
-          previewUrl: URL.createObjectURL(file),
-          duration: seconds,
-          fileSize: file.size,
-          originalSize: source.size,
-          optimized: true,
-        });
-      }
-      await onSave(file, seconds);
+      await onSave(source, seconds);
       setPhase("idle");
     } catch (err) {
       setPhase("error");
@@ -170,7 +171,7 @@ export function ProductVideoUploader({
             </Button>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" disabled={busy || saveState === "saved"} onClick={() => void saveVideo()}>
+            <Button type="button" size="sm" disabled={busy || saveState === "saved"} onClick={openDurationCheck}>
               {busy ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : null}
               <span>{dict.products.saveVideo}</span>
             </Button>
@@ -201,6 +202,14 @@ export function ProductVideoUploader({
           ) : null}
         </div>
       )}
+
+      <ProductVideoDurationModal
+        open={durationCheck !== null}
+        decision={durationCheck === "too_long" ? "too_long" : "save"}
+        seconds={video?.duration || duration}
+        onContinue={() => void confirmSave()}
+        onClose={() => setDurationCheck(null)}
+      />
 
       {error ? (
         <p className="text-xs text-destructive font-semibold flex items-center gap-1.5">
