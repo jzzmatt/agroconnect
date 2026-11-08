@@ -18,8 +18,9 @@ describe("product media is stored in Supabase", () => {
     expect(create).not.toContain("imagekit");
     expect(images).toContain("uploadProductImageBuffer");
     expect(images).not.toContain("imagekit");
-    expect(page).toContain('uploadForm("/api/products/video/temp"');
-    expect(page).toContain("setVideoUploadPercent(percent)");
+    expect(page).toContain("uploadProcessedTempVideo");
+    expect(read("src/lib/products/temp-video-upload-client.ts")).toContain('"/api/products/video/temp/chunk"');
+    expect(page).toContain("setVideoUploadPercent");
     expect(read("src/components/shopping/ProductVideoUploader.tsx")).toContain('role="progressbar"');
     expect(page).toContain("/api/products/video/temp/promote");
     expect(page).not.toContain('uploadForm("/api/products/video/upload"');

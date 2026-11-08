@@ -181,6 +181,10 @@ const objects: TempVideoObjects = {
   },
 };
 
+export function findOwnedTempVideo(userId: string, clientRequestId: string) {
+  return store.findByRequest(userId, clientRequestId);
+}
+
 export function saveOwnedTempVideo(params: {
   userId: string;
   clientRequestId: string;

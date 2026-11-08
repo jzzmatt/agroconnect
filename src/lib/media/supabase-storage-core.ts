@@ -65,6 +65,14 @@ export async function uploadBufferToStorage(params: {
   if (error) throw new Error(error.message || "STORAGE_UPLOAD_FAILED");
 }
 
+export async function downloadStorageObject(bucket: string, storagePath: string): Promise<Buffer | null> {
+  const supabase = getStorageAdminClient();
+  if (!supabase) throw new Error("STORAGE_UNAVAILABLE");
+  const downloaded = await supabase.storage.from(bucket).download(storagePath);
+  if (downloaded.error || !downloaded.data) return null;
+  return Buffer.from(await downloaded.data.arrayBuffer());
+}
+
 export async function copyStorageObject(params: {
   sourceBucket: string;
   sourcePath: string;

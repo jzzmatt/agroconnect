@@ -31,6 +31,7 @@ import { localizeError } from "@/i18n/errors";
 import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
+import { uploadProcessedTempVideo } from "@/lib/products/temp-video-upload-client";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 function uploadForm(
@@ -658,24 +659,22 @@ export function ProductCreateWorkspacePage() {
               onSave={async (file, duration, thumbnail) => {
                 setVideoSaveState("saving");
                 setVideoUploadPercent(0);
-                const form = new FormData();
-                form.append("file", file, file.name || "product-video.webm");
-                form.append("thumbnail", thumbnail, thumbnail.name || "thumbnail.jpg");
-                form.append("clientRequestId", videoRequestId.current);
-                form.append("durationSeconds", String(duration));
-                const saved = await uploadForm("/api/products/video/temp", form, (percent) => {
-                  setVideoUploadPercent(percent);
-                });
-                if (!saved.ok || !saved.payload?.success || !(saved.payload as { video?: { id?: string } }).video?.id) {
+                try {
+                  const saved = await uploadProcessedTempVideo({
+                    file,
+                    thumbnail,
+                    clientRequestId: videoRequestId.current,
+                    durationSeconds: duration,
+                    onProgress: setVideoUploadPercent,
+                  });
+                  setVideoUploadPercent(100);
+                  setTempVideoId(saved.id);
+                  setVideoSaveState("saved");
+                } catch (error) {
                   setVideoUploadPercent(null);
                   setVideoSaveState("error");
-                  throw Object.assign(new Error(saved.payload?.code || "TEMP_VIDEO_FAILED"), {
-                    code: saved.payload?.code || "TEMP_VIDEO_FAILED",
-                  });
+                  throw error;
                 }
-                setVideoUploadPercent(100);
-                setTempVideoId((saved.payload as { video: { id: string } }).video.id);
-                setVideoSaveState("saved");
               }}
             />
             {mediaProgress !== null && (
