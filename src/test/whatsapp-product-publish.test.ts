@@ -5,7 +5,7 @@ import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { sendWaapiMedia, sendWaapiText } from "@/lib/integrations/waapi/messages";
 import { validateProductVideo } from "@/lib/products/video-validation";
 import { CommerceService } from "@/lib/services/commerce-service";
-import { buildProductWhatsappMessage } from "@/lib/whatsapp/product-message";
+import { buildProductWhatsappMessage, productVideoThumbnailMediaUrl } from "@/lib/whatsapp/product-message";
 import {
   createProductPublishService,
   type GroupSender,
@@ -160,6 +160,12 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(message).not.toContain("undefined");
     expect(message).not.toContain("📝");
     expect(message).not.toContain("🎥");
+  });
+
+  it("points WhatsApp at the stored generated thumbnail", () => {
+    expect(productVideoThumbnailMediaUrl("https://agroconnect.ao/", "33333333-3333-4333-8333-333333333333")).toBe(
+      "https://agroconnect.ao/api/products/33333333-3333-4333-8333-333333333333/video-thumbnail"
+    );
   });
 
   it("rejects a video longer than 60 seconds and accepts a shorter one", () => {

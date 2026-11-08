@@ -4,7 +4,6 @@ import {
   buildProductWhatsappMessage,
   isHttpsMediaUrl,
   orderUrlForProduct,
-  videoThumbnailCaption,
 } from "./product-message";
 import { WhatsappServiceError, type PublicGroup } from "./types";
 
@@ -213,7 +212,7 @@ async function deliverGroup(
     withProductImage,
     "thumbnail",
     product.thumbnailUrl,
-    videoThumbnailCaption(product.videoUrl)
+    message.slice(0, 1000)
   );
   if (withThumbnail.thumbnailStatus === "failed") return withThumbnail;
   try {

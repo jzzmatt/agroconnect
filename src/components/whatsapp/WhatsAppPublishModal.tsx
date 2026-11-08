@@ -287,9 +287,18 @@ export function WhatsAppPublishModal({
               )}
             </div>
 
-            <pre className="whitespace-pre-wrap rounded-2xl bg-surface p-3 text-[11px] leading-relaxed text-foreground">
-              {preview.message}
-            </pre>
+            <div className="space-y-2 rounded-2xl bg-surface p-3">
+              {preview.product.thumbnailUrl ? (
+                <img
+                  src={preview.product.thumbnailUrl}
+                  alt={copy.thumbnailPreview}
+                  className="max-h-56 w-full rounded-2xl object-cover bg-muted"
+                />
+              ) : null}
+              <pre className="whitespace-pre-wrap text-[11px] leading-relaxed text-foreground">
+                {preview.message}
+              </pre>
+            </div>
 
             {publication && (
               <ul className="space-y-1 text-xs">

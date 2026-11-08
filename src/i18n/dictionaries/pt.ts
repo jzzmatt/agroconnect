@@ -1398,6 +1398,7 @@ export const pt = {
     transportIncluded: "Transporte incluído",
     transportExcluded: "Transporte não incluído",
     videoLink: "Vídeo do produto",
+    thumbnailPreview: "Miniatura gerada",
     groupSent: "Publicado",
     groupSending: "A enviar",
     groupFailed: "Falha na publicação",
