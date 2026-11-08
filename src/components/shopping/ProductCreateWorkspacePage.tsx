@@ -23,6 +23,7 @@ import {
 } from "@/config/product-catalog";
 import { ProductImageUploader } from "@/components/shopping/ProductImageUploader";
 import { ProductVideoUploader, type PendingProductVideo } from "@/components/shopping/ProductVideoUploader";
+import { ProductThumbnailOfferModal } from "@/components/shopping/ProductThumbnailOfferModal";
 import { WhatsAppPublishModal } from "@/components/whatsapp/WhatsAppPublishModal";
 import { compressImageFile } from "@/lib/products/compress-image";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
@@ -31,7 +32,9 @@ import { localizeError } from "@/i18n/errors";
 import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
-import { uploadProcessedTempVideo } from "@/lib/products/temp-video-upload-client";
+import { uploadGeneratedThumbnail, uploadProcessedTempVideo } from "@/lib/products/temp-video-upload-client";
+import { captureProductVideoFrame } from "@/lib/products/video-optimizer";
+import { publishVideoGate } from "@/lib/products/publish-video-gate";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
 
 function uploadForm(
@@ -110,6 +113,12 @@ export function ProductCreateWorkspacePage() {
   const [videoSaveState, setVideoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [videoUploadPercent, setVideoUploadPercent] = useState<number | null>(null);
   const videoRequestId = useRef<string>(crypto.randomUUID());
+  const videoSaveLock = useRef(false);
+  const [thumbnailOfferOpen, setThumbnailOfferOpen] = useState(false);
+  const [thumbnailGenerating, setThumbnailGenerating] = useState(false);
+  const [thumbnailPercent, setThumbnailPercent] = useState<number | null>(null);
+  const [thumbnailError, setThumbnailError] = useState<string | null>(null);
+  const thumbnailAbort = useRef<AbortController | null>(null);
   const [transportIncluded, setTransportIncluded] = useState(false);
   const [previewOpen, setPreviewOpen] = useState(false);
   const [publishedProductId, setPublishedProductId] = useState<string | null>(null);
@@ -204,6 +213,71 @@ export function ProductCreateWorkspacePage() {
       </div>
     );
   }
+
+  const publishWithoutThumbnail = () => {
+    setThumbnailOfferOpen(false);
+    setThumbnailGenerating(false);
+    setThumbnailPercent(null);
+    void handleSubmit({ preventDefault() {} } as React.FormEvent, "publish");
+  };
+
+  const requestPublish = (event?: React.FormEvent) => {
+    event?.preventDefault();
+    if (busy || thumbnailGenerating) return;
+    const gate = publishVideoGate({
+      hasVideoFile: Boolean(pendingVideo),
+      videoSaved: videoSaveState === "saved" && Boolean(tempVideoId),
+      videoSaving: videoSaveState === "saving" || videoSaveLock.current,
+    });
+    if (gate === "wait") return;
+    if (gate === "save_required") {
+      setError(dict.products.videoMustSave);
+      setPublishState("error");
+      return;
+    }
+    if (gate === "ask_thumbnail") {
+      setThumbnailError(null);
+      setThumbnailPercent(null);
+      setThumbnailGenerating(false);
+      setThumbnailOfferOpen(true);
+      return;
+    }
+    void handleSubmit({ preventDefault() {} } as React.FormEvent, "publish");
+  };
+
+  const acceptThumbnail = async () => {
+    if (!pendingVideo || !tempVideoId || thumbnailGenerating) return;
+    const controller = new AbortController();
+    thumbnailAbort.current = controller;
+    setThumbnailGenerating(true);
+    setThumbnailError(null);
+    setThumbnailPercent(5);
+    try {
+      const frame = await captureProductVideoFrame(pendingVideo.file);
+      if (controller.signal.aborted) {
+        publishWithoutThumbnail();
+        return;
+      }
+      await uploadGeneratedThumbnail({
+        tempId: tempVideoId,
+        frame,
+        productTitle: title,
+        onProgress: setThumbnailPercent,
+        signal: controller.signal,
+      });
+      setThumbnailPercent(100);
+      publishWithoutThumbnail();
+    } catch (err) {
+      const code = err instanceof Error ? err.message : "THUMBNAIL_GENERATION_FAILED";
+      if (code === "THUMBNAIL_GENERATION_CANCELLED" || controller.signal.aborted) {
+        publishWithoutThumbnail();
+        return;
+      }
+      setThumbnailGenerating(false);
+      setThumbnailPercent(null);
+      setThumbnailError(localizeError(dict, code));
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent, mode: "draft" | "publish" = submitMode.current) => {
     e.preventDefault();
@@ -419,7 +493,7 @@ export function ProductCreateWorkspacePage() {
           <p className="text-xs text-muted-foreground">{dict.products.redirecting}</p>
         </div>
       ) : (
-        <form onSubmit={(event) => void handleSubmit(event, "publish")} className="space-y-6">
+        <form onSubmit={(event) => requestPublish(event)} className="space-y-6">
           {error && (
             <div className="p-4 rounded-2xl bg-destructive/10 border border-destructive/20 text-destructive text-xs font-semibold flex items-center justify-between gap-2">
               <span className="flex items-center gap-2">
@@ -637,6 +711,7 @@ export function ProductCreateWorkspacePage() {
               onChange={(next) => {
                 if (!next && tempVideoId) {
                   const id = tempVideoId;
+                  videoSaveLock.current = false;
                   setTempVideoId(null);
                   setVideoSaveState("idle");
                   setVideoUploadPercent(null);
@@ -647,7 +722,7 @@ export function ProductCreateWorkspacePage() {
                     body: JSON.stringify({ tempId: id }),
                   });
                 }
-                if (next && next.file !== pendingVideo?.file) {
+                if (next && next.file !== pendingVideo?.file && !videoSaveLock.current) {
                   setTempVideoId(null);
                   setVideoSaveState("idle");
                   setVideoUploadPercent(null);
@@ -656,24 +731,29 @@ export function ProductCreateWorkspacePage() {
                 setPendingVideo(next);
               }}
               uploadPercent={videoUploadPercent}
-              onSave={async (file, duration, thumbnail) => {
+              onSaveStart={() => {
+                videoSaveLock.current = true;
                 setVideoSaveState("saving");
                 setVideoUploadPercent(0);
+              }}
+              onSave={async (file, duration) => {
+                setVideoSaveState("saving");
+                setVideoUploadPercent((current) => current ?? 0);
                 try {
                   const saved = await uploadProcessedTempVideo({
                     file,
-                    thumbnail,
                     clientRequestId: videoRequestId.current,
                     durationSeconds: duration,
                     onProgress: setVideoUploadPercent,
                   });
-                  setVideoUploadPercent(100);
                   setTempVideoId(saved.id);
                   setVideoSaveState("saved");
                 } catch (error) {
-                  setVideoUploadPercent(null);
                   setVideoSaveState("error");
                   throw error;
+                } finally {
+                  videoSaveLock.current = false;
+                  setVideoUploadPercent(null);
                 }
               }}
             />
@@ -728,7 +808,7 @@ export function ProductCreateWorkspacePage() {
             <Button type="button" variant="outline" size="lg" disabled={busy} onClick={() => setPreviewOpen(true)}>
               {dict.products.previewProduct}
             </Button>
-            <Button type="submit" variant="primary" size="lg" disabled={busy} className="gap-2 font-bold px-8">
+            <Button type="submit" variant="primary" size="lg" disabled={busy || videoSaveState === "saving" || thumbnailGenerating} className="gap-2 font-bold px-8">
               {busy ? (
                 <>
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -767,6 +847,22 @@ export function ProductCreateWorkspacePage() {
         </div>
       )}
 
+      <ProductThumbnailOfferModal
+        open={thumbnailOfferOpen}
+        generating={thumbnailGenerating}
+        percent={thumbnailPercent}
+        error={thumbnailError}
+        onAccept={() => void acceptThumbnail()}
+        onDecline={publishWithoutThumbnail}
+        onDismiss={() => {
+          if (thumbnailGenerating) {
+            thumbnailAbort.current?.abort();
+            return;
+          }
+          publishWithoutThumbnail();
+        }}
+        onRetry={() => void acceptThumbnail()}
+      />
       <WhatsAppPublishModal
         open={Boolean(publishedProductId)}
         productId={publishedProductId}

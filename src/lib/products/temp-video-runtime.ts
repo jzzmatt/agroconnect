@@ -16,6 +16,7 @@ import {
   cancelTempVideo,
   finalizeTempVideo,
   promoteTempVideo,
+  attachTempVideoThumbnail,
   saveTempVideo,
   type TempVideoObjects,
   type TempVideoStore,
@@ -185,6 +186,10 @@ export function findOwnedTempVideo(userId: string, clientRequestId: string) {
   return store.findByRequest(userId, clientRequestId);
 }
 
+export function findOwnedTempVideoById(userId: string, tempId: string) {
+  return store.findById(tempId).then((record) => (record && record.userId === userId ? record : null));
+}
+
 export function saveOwnedTempVideo(params: {
   userId: string;
   clientRequestId: string;
@@ -192,10 +197,17 @@ export function saveOwnedTempVideo(params: {
   fileSize: number;
   durationSeconds: number;
   bytes: Buffer;
-  thumbnailBytes: Buffer;
-  thumbnailMimeType: string;
 }) {
   return saveTempVideo({ ...params, store, objects });
+}
+
+export function attachOwnedTempVideoThumbnail(params: {
+  userId: string;
+  tempId: string;
+  bytes: Buffer;
+  mimeType: string;
+}) {
+  return attachTempVideoThumbnail({ ...params, store, objects });
 }
 
 export function cancelOwnedTempVideo(userId: string, tempId: string) {

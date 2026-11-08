@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useRef, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import { Camera, Film, Trash2, AlertCircle, Loader2, CheckCircle2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
@@ -9,7 +9,7 @@ import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { readVideoDuration } from "@/lib/products/compress-image";
 import { validateProductVideoSource } from "@/lib/products/video-validation";
 import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
-import { captureProductVideoFrame, formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
+import { formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
 
 export type PendingProductVideo = {
   file: File;
@@ -23,13 +23,15 @@ export type PendingProductVideo = {
 export function ProductVideoUploader({
   video,
   onChange,
+  onSaveStart,
   onSave,
   saveState,
   uploadPercent,
 }: {
   video: PendingProductVideo | null;
   onChange: (video: PendingProductVideo | null) => void;
-  onSave: (file: File, duration: number, thumbnail: File) => Promise<void>;
+  onSaveStart?: () => void;
+  onSave: (file: File, duration: number) => Promise<void>;
   saveState: "idle" | "saving" | "saved" | "error";
   uploadPercent: number | null;
 }) {
@@ -43,6 +45,17 @@ export function ProductVideoUploader({
   const [error, setError] = useState<string | null>(null);
 
   const busy = phase === "processing" || saveState === "saving";
+
+  useEffect(() => {
+    if (saveState === "saved") {
+      setPhase("idle");
+      setError(null);
+      working.current = false;
+    }
+    if (saveState === "error" || saveState === "idle") {
+      working.current = false;
+    }
+  }, [saveState]);
 
   async function handleFile(file: File | undefined) {
     if (!file || busy) return;
@@ -83,6 +96,7 @@ export function ProductVideoUploader({
     working.current = true;
     setError(null);
     setPhase("processing");
+    onSaveStart?.();
     try {
       let file = source;
       let seconds = duration;
@@ -103,8 +117,7 @@ export function ProductVideoUploader({
           optimized: true,
         });
       }
-      const thumbnail = await captureProductVideoFrame(file);
-      await onSave(file, seconds, thumbnail);
+      await onSave(file, seconds);
       setPhase("idle");
     } catch (err) {
       setPhase("error");
