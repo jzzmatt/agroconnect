@@ -11,7 +11,7 @@ export function createProductPublishRuntime() {
     origin,
     sender: {
       sendText: (instanceId, chatId, message) => sendWaapiText(instanceId, chatId, message),
-      sendMedia: (instanceId, chatId, mediaUrl) => sendWaapiMedia(instanceId, chatId, mediaUrl),
+      sendMedia: (instanceId, chatId, mediaUrl, caption) => sendWaapiMedia(instanceId, chatId, mediaUrl, undefined, caption),
     },
   });
 }

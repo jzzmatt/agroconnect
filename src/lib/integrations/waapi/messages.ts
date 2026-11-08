@@ -49,9 +49,13 @@ export async function sendWaapiMedia(
   instanceId: string,
   chatId: string,
   mediaUrl: string,
-  fetchImpl?: typeof fetch
+  fetchImpl?: typeof fetch,
+  caption?: string
 ): Promise<WaapiSendResult> {
   if (!isWhatsappGroupId(chatId)) throw new WaapiError(400);
   if (!mediaUrl.startsWith("https://")) throw new WaapiError(400);
-  return sendAction(instanceId, "send-media", { chatId, mediaUrl }, fetchImpl);
+  const body: Record<string, unknown> = { chatId, mediaUrl };
+  const text = caption?.trim();
+  if (text) body.mediaCaption = text.slice(0, 1000);
+  return sendAction(instanceId, "send-media", body, fetchImpl);
 }

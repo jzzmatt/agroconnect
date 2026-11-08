@@ -169,6 +169,20 @@ export class ProductVideoService {
     return video.playback_url;
   }
 
+  public static async resolveThumbnailUrl(video: ProductVideoRecord): Promise<string | null> {
+    const path = (video as ProductVideoRecord & { thumbnail_storage_path?: string | null }).thumbnail_storage_path;
+    if (video.provider === SUPABASE_STORAGE_PROVIDER && path) {
+      const bucket = (video as ProductVideoRecord & { storage_bucket?: string | null }).storage_bucket || PRODUCT_MEDIA_BUCKET;
+      try {
+        const { signedUrl } = await createSignedDisplayUrl(bucket, path);
+        return signedUrl;
+      } catch {
+        return null;
+      }
+    }
+    return video.thumbnail_url?.startsWith("https://") ? video.thumbnail_url : null;
+  }
+
   /** Marks the video ready after the browser stores the file in Supabase. */
   public static async confirmUpload(params: {
     videoId: string;

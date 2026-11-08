@@ -9,7 +9,7 @@ import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { readVideoDuration } from "@/lib/products/compress-image";
 import { validateProductVideoSource } from "@/lib/products/video-validation";
 import { keepsOriginalFile } from "@/lib/products/temp-video-lifecycle";
-import { formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
+import { captureProductVideoFrame, formatBytes, formatClock, optimizeProductVideo } from "@/lib/products/video-optimizer";
 
 export type PendingProductVideo = {
   file: File;
@@ -29,7 +29,7 @@ export function ProductVideoUploader({
 }: {
   video: PendingProductVideo | null;
   onChange: (video: PendingProductVideo | null) => void;
-  onSave: (file: File, duration: number) => Promise<void>;
+  onSave: (file: File, duration: number, thumbnail: File) => Promise<void>;
   saveState: "idle" | "saving" | "saved" | "error";
   uploadPercent: number | null;
 }) {
@@ -103,7 +103,8 @@ export function ProductVideoUploader({
           optimized: true,
         });
       }
-      await onSave(file, seconds);
+      const thumbnail = await captureProductVideoFrame(file);
+      await onSave(file, seconds, thumbnail);
       setPhase("idle");
     } catch (err) {
       setPhase("error");

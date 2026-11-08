@@ -37,6 +37,8 @@ function product(patch: Partial<PublishableProduct> = {}): PublishableProduct {
     status: "published",
     availability: "in_stock",
     imageUrls: ["https://cdn.example/milho.jpg"],
+    productImageUrl: "https://cdn.example/milho.jpg",
+    thumbnailUrl: "https://cdn.example/milho-thumb.jpg",
     videoUrl: "https://cdn.example/milho.mp4",
     slug: "milho",
     ...patch,
@@ -90,6 +92,10 @@ function memoryStore(options?: { latestAt?: string | null; ownerId?: string }) {
           groupName: group.name,
           status: "pending",
           mediaStatus: "pending",
+          productImageStatus: "pending",
+          thumbnailStatus: "pending",
+          productImageMessageId: null,
+          thumbnailMessageId: null,
           providerMessageId: null,
           errorCode: null,
           sentAt: null,
@@ -220,6 +226,43 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(calls.filter((call) => call.startsWith(`text:${GROUP_A}`))).toHaveLength(2);
     expect(calls.filter((call) => call.startsWith(`text:${GROUP_B}`))).toHaveLength(1);
     expect(calls.filter((call) => call.startsWith(`media:${GROUP_B}`))).toHaveLength(2);
+    expect(calls.indexOf(`media:${GROUP_A}:https://cdn.example/milho.jpg`)).toBeLessThan(
+      calls.indexOf(`media:${GROUP_A}:https://cdn.example/milho-thumb.jpg`)
+    );
+  });
+
+  it("retries only the thumbnail after the product image was already sent", async () => {
+    const calls: string[] = [];
+    let failThumbnail = true;
+    const sender: GroupSender = {
+      async sendMedia(_instanceId, _chatId, mediaUrl, caption) {
+        calls.push(mediaUrl);
+        if (mediaUrl.includes("milho.jpg")) expect(caption).toContain("FAÇA JÁ A SUA ENCOMENDA");
+        if (mediaUrl.includes("thumb")) expect(caption).toContain("https://cdn.example/milho.mp4");
+        if (failThumbnail && mediaUrl.includes("thumb")) throw new Error("thumbnail");
+        return { messageId: mediaUrl };
+      },
+      async sendText() {
+        return { messageId: "text" };
+      },
+    };
+    const { store } = memoryStore();
+    const service = createProductPublishService({ store, sender, origin: "https://agroconnect.ao" });
+    const first = await service.publish(USER, {
+      productId: product().id,
+      groupIds: [GROUP_A],
+      clientRequestId: "request-id-00000009",
+    });
+    expect(first.status).toBe("failed");
+    expect(first.targets[0]?.productImageStatus).toBe("sent");
+    expect(first.targets[0]?.thumbnailStatus).toBe("failed");
+    expect(calls.filter((call) => call.includes("milho.jpg"))).toHaveLength(1);
+    failThumbnail = false;
+    const retried = await service.retry(USER, first.id);
+    expect(retried.status).toBe("sent");
+    expect(calls.filter((call) => call.includes("milho.jpg"))).toHaveLength(1);
+    expect(calls.filter((call) => call.includes("thumb"))).toHaveLength(2);
+    expect(retried.targets[0]?.productImageMessageId).toContain("milho.jpg");
   });
 
   it("refuses another account's group and an unpublished product", async () => {
@@ -294,9 +337,10 @@ describe("AgriProduct WhatsApp publishing", () => {
       );
     }) as typeof fetch;
 
-    await sendWaapiMedia("42", GROUP_A, "https://cdn.example/milho.jpg", fetchImpl);
+    await sendWaapiMedia("42", GROUP_A, "https://cdn.example/milho.jpg", fetchImpl, "Milho 15000 Kz");
     await sendWaapiText("42", GROUP_A, "Encomende aqui", fetchImpl);
     expect(bodies[0]).toContain("/instances/42/client/action/send-media");
+    expect(bodies[0]).toContain("\"mediaCaption\":\"Milho 15000 Kz\"");
     expect(bodies[1]).toContain("/instances/42/client/action/send-message");
     expect(bodies[1]).toContain("\"previewLink\":true");
   });

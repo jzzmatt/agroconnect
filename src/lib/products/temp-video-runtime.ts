@@ -37,6 +37,8 @@ function fromRow(row: Record<string, unknown>): TempVideoRecord {
     status: row.status as TempVideoStatus,
     tempPath: typeof row.temp_path === "string" ? row.temp_path : null,
     permanentPath: typeof row.permanent_path === "string" ? row.permanent_path : null,
+    thumbnailTempPath: typeof row.thumbnail_temp_path === "string" ? row.thumbnail_temp_path : null,
+    thumbnailPermanentPath: typeof row.thumbnail_permanent_path === "string" ? row.thumbnail_permanent_path : null,
     mimeType: String(row.mime_type),
     fileSize: Number(row.file_size),
     durationSeconds: Number(row.duration_seconds),
@@ -50,6 +52,8 @@ function toPatch(patch: Partial<TempVideoRecord>) {
   if (patch.status) row.status = patch.status;
   if (patch.tempPath !== undefined) row.temp_path = patch.tempPath;
   if (patch.permanentPath !== undefined) row.permanent_path = patch.permanentPath;
+  if (patch.thumbnailTempPath !== undefined) row.thumbnail_temp_path = patch.thumbnailTempPath;
+  if (patch.thumbnailPermanentPath !== undefined) row.thumbnail_permanent_path = patch.thumbnailPermanentPath;
   if (patch.mimeType) row.mime_type = patch.mimeType;
   if (patch.fileSize) row.file_size = patch.fileSize;
   if (patch.durationSeconds) row.duration_seconds = patch.durationSeconds;
@@ -82,8 +86,10 @@ const store: TempVideoStore = {
         status: record.status,
         temp_bucket: AGROPRODUCT_TEMP_VIDEO_BUCKET,
         temp_path: record.tempPath,
+        thumbnail_temp_path: record.thumbnailTempPath,
         permanent_bucket: AGROPRODUCT_MEDIA_BUCKET,
         permanent_path: record.permanentPath,
+        thumbnail_permanent_path: record.thumbnailPermanentPath,
         mime_type: record.mimeType,
         file_size: record.fileSize,
         duration_seconds: record.durationSeconds,
@@ -131,6 +137,7 @@ const store: TempVideoStore = {
         owner_id: record.userId,
         provider: SUPABASE_STORAGE_PROVIDER,
         upload_storage_path: record.permanentPath,
+        thumbnail_storage_path: record.thumbnailPermanentPath,
         storage_bucket: AGROPRODUCT_MEDIA_BUCKET,
         filename: `product.${record.mimeType === "video/mp4" ? "mp4" : "webm"}`,
         mime_type: record.mimeType,
@@ -181,6 +188,8 @@ export function saveOwnedTempVideo(params: {
   fileSize: number;
   durationSeconds: number;
   bytes: Buffer;
+  thumbnailBytes: Buffer;
+  thumbnailMimeType: string;
 }) {
   return saveTempVideo({ ...params, store, objects });
 }

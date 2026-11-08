@@ -68,6 +68,11 @@ export function buildProductWhatsappMessage(input: ProductWhatsappMessageInput):
   return rows.filter((row) => row !== null).join("\n");
 }
 
+export function videoThumbnailCaption(videoUrl?: string | null): string {
+  const video = line(videoUrl);
+  return (video ? `🎥 Vídeo do produto: ${video}` : "🎥 Vídeo do produto").slice(0, 1000);
+}
+
 export function orderUrlForProduct(origin: string, productId: string): string {
   const base = origin.replace(/\/$/, "");
   return `${base}/order/${productId}?source=whatsapp`;
