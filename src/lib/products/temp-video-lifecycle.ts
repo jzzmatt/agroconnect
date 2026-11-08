@@ -37,6 +37,14 @@ export function assertTempVideoRequestId(value: string) {
   }
 }
 
+export function confirmedSavedVideoReference(
+  record: Pick<TempVideoRecord, "id" | "status" | "tempPath"> | null
+): { id: string } | null {
+  if (!record?.id || !record.tempPath) return null;
+  if (record.status !== "saved" && record.status !== "permanent_ready" && record.status !== "transferred") return null;
+  return { id: record.id };
+}
+
 export function processedClipEnd(durationSeconds: number): number {
   return firstMinuteWindow(durationSeconds).end;
 }

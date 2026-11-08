@@ -5,6 +5,7 @@ import { I18nProvider } from "@/i18n/provider";
 import { ProductVideoUploader } from "@/components/shopping/ProductVideoUploader";
 import { ProductThumbnailOfferModal } from "@/components/shopping/ProductThumbnailOfferModal";
 import { publishVideoGate } from "@/lib/products/publish-video-gate";
+import { productVideoDurationDecision } from "@/lib/products/video-validation";
 import { assertProductThumbnailSource } from "@/lib/products/product-thumbnail-source";
 
 const video = {
@@ -81,9 +82,67 @@ describe("product video save progress", () => {
       </I18nProvider>
     );
     fireEvent.click(screen.getByRole("button", { name: "Guardar vídeo" }));
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
     expect(await screen.findByText("Não foi possível guardar o vídeo.")).toBeTruthy();
     expect(screen.queryByRole("progressbar")).toBeNull();
     expect(screen.getByRole("button", { name: "Guardar vídeo" })).toBeTruthy();
+  });
+});
+
+describe("product video duration gate", () => {
+  it("checks the duration before saving and keeps a short video unchanged", () => {
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <I18nProvider>
+        <ProductVideoUploader
+          video={video}
+          onChange={() => undefined}
+          onSave={onSave}
+          saveState="idle"
+          uploadPercent={null}
+        />
+      </I18nProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar vídeo" }));
+    expect(screen.getByText("O vídeo tem 20 segundos e pode ser guardado na íntegra.")).toBeTruthy();
+    expect(onSave).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(onSave).toHaveBeenCalledWith(video.file, 20);
+  });
+
+  it("saves a video that is exactly 60 seconds", () => {
+    const exact = { ...video, duration: 60 };
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <I18nProvider>
+        <ProductVideoUploader video={exact} onChange={() => undefined} onSave={onSave} saveState="idle" uploadPercent={null} />
+      </I18nProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar vídeo" }));
+    fireEvent.click(screen.getByRole("button", { name: "Continuar" }));
+    expect(onSave).toHaveBeenCalledWith(exact.file, 60);
+  });
+
+  it("rejects a video longer than 60 seconds without saving", () => {
+    const onSave = vi.fn(async () => undefined);
+    render(
+      <I18nProvider>
+        <ProductVideoUploader
+          video={{ ...video, duration: 61 }}
+          onChange={() => undefined}
+          onSave={onSave}
+          saveState="idle"
+          uploadPercent={null}
+        />
+      </I18nProvider>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Guardar vídeo" }));
+    expect(screen.getByText("Este vídeo não pode ser guardado porque ultrapassa o limite de 60 segundos.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
+    expect(onSave).not.toHaveBeenCalled();
+    expect(productVideoDurationDecision(61)).toBe("too_long");
   });
 });
 

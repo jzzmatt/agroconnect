@@ -32,7 +32,7 @@ import { localizeError } from "@/i18n/errors";
 import { useAgriprofileBase, useProductsWorkspaceBase } from "@/lib/agriprofile/use-workspace-base";
 import { createRequestId, PRODUCT_ERROR_CODES } from "@/lib/products/errors";
 import { sanitizePublishError } from "@/lib/products/publish-errors";
-import { uploadGeneratedThumbnail, uploadProcessedTempVideo } from "@/lib/products/temp-video-upload-client";
+import { confirmSavedTempVideo, uploadGeneratedThumbnail, uploadProcessedTempVideo } from "@/lib/products/temp-video-upload-client";
 import { captureProductVideoFrame } from "@/lib/products/video-optimizer";
 import { publishVideoGate } from "@/lib/products/publish-video-gate";
 import type { ProductCondition, ProductAvailabilityStatus, ProductLocationType } from "@/types/database";
@@ -221,7 +221,7 @@ export function ProductCreateWorkspacePage() {
     void handleSubmit({ preventDefault() {} } as React.FormEvent, "publish");
   };
 
-  const requestPublish = (event?: React.FormEvent) => {
+  const requestPublish = async (event?: React.FormEvent) => {
     event?.preventDefault();
     if (busy || thumbnailGenerating) return;
     const gate = publishVideoGate({
@@ -230,12 +230,20 @@ export function ProductCreateWorkspacePage() {
       videoSaving: videoSaveState === "saving" || videoSaveLock.current,
     });
     if (gate === "wait") return;
-    if (gate === "save_required") {
+    if (gate === "save_required" || (pendingVideo && !tempVideoId)) {
       setError(dict.products.videoMustSave);
       setPublishState("error");
       return;
     }
-    if (gate === "ask_thumbnail") {
+    if (gate === "ask_thumbnail" && tempVideoId) {
+      const confirmedId = await confirmSavedTempVideo(tempVideoId);
+      if (confirmedId !== tempVideoId) {
+        setTempVideoId(null);
+        setVideoSaveState("error");
+        setError(dict.products.videoMustSave);
+        setPublishState("error");
+        return;
+      }
       setThumbnailError(null);
       setThumbnailPercent(null);
       setThumbnailGenerating(false);
@@ -298,10 +306,20 @@ export function ProductCreateWorkspacePage() {
       setPublishState("error");
       return;
     }
-    if (pendingVideo && !tempVideoId) {
-      setError(dict.products.videoMustSave);
-      setPublishState("error");
-      return;
+    if (pendingVideo) {
+      if (!tempVideoId) {
+        setError(dict.products.videoMustSave);
+        setPublishState("error");
+        return;
+      }
+      const confirmedId = await confirmSavedTempVideo(tempVideoId);
+      if (confirmedId !== tempVideoId) {
+        setTempVideoId(null);
+        setVideoSaveState("error");
+        setError(dict.products.videoMustSave);
+        setPublishState("error");
+        return;
+      }
     }
 
     setPublishState("validating");
