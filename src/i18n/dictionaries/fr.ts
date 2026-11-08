@@ -1402,6 +1402,7 @@ export const fr: Dictionary = {
     transportIncluded: "Transport inclus",
     transportExcluded: "Transport non inclus",
     videoLink: "Vidéo du produit",
+    thumbnailPreview: "Miniature générée",
     groupSent: "Publié",
     groupSending: "Envoi en cours",
     groupFailed: "Échec de la publication",

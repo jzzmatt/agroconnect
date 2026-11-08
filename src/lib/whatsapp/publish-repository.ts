@@ -2,7 +2,7 @@ import { randomUUID } from "node:crypto";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { ProductMediaService } from "@/lib/services/product-media-service";
 import { ProductVideoService } from "@/lib/services/product-video-service";
-import { isHttpsMediaUrl } from "./product-message";
+import { isHttpsMediaUrl, productVideoThumbnailMediaUrl } from "./product-message";
 import {
   type MediaStatus,
   type PublicationRecord,
@@ -137,7 +137,15 @@ export function createSupabasePublishStore(): PublishStore {
       const imageUrls = await httpsImages(rows);
       if (imageUrls.length === 0 && isHttpsMediaUrl(data.primary_image_url)) imageUrls.push(data.primary_image_url);
       const playback = video ? await ProductVideoService.resolvePlaybackUrl(video) : null;
-      const thumbnailUrl = video ? await ProductVideoService.resolveThumbnailUrl(video) : null;
+      const thumbnailPath = video
+        ? (video as { thumbnail_storage_path?: string | null }).thumbnail_storage_path
+        : null;
+      const origin = (process.env.NEXT_PUBLIC_APP_URL || "").trim();
+      const thumbnailUrl = thumbnailPath && origin.startsWith("https://")
+        ? productVideoThumbnailMediaUrl(origin, String(data.id))
+        : video
+          ? await ProductVideoService.resolveThumbnailUrl(video)
+          : null;
       return {
         id: String(data.id),
         ownerUserId: String(seller.profile_id),

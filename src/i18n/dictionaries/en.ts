@@ -1395,6 +1395,7 @@ export const en: Dictionary = {
     transportIncluded: "Transport included",
     transportExcluded: "Transport not included",
     videoLink: "Product video",
+    thumbnailPreview: "Generated thumbnail",
     groupSent: "Published",
     groupSending: "Sending",
     groupFailed: "Publication failed",
