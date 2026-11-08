@@ -20,6 +20,7 @@ describe("product media is stored in Supabase", () => {
     expect(images).not.toContain("imagekit");
     expect(page).toContain("uploadProcessedTempVideo");
     expect(read("src/lib/products/temp-video-upload-client.ts")).toContain('"/api/products/video/temp/chunk"');
+    expect(read("src/lib/products/temp-video-upload-client.ts")).toContain('"/api/products/video/temp/chunk/complete"');
     expect(page).toContain("setVideoUploadPercent");
     expect(read("src/components/shopping/ProductVideoUploader.tsx")).toContain('role="progressbar"');
     expect(page).toContain("/api/products/video/temp/promote");
