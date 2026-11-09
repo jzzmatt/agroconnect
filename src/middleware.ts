@@ -11,6 +11,9 @@ const isPublicRoute = createRouteMatcher([
   "/providers(.*)",
   "/agriacademy(.*)",
   "/agrishopping(.*)",
+  // WhatsApp customers can open the product cart before they sign in.
+  "/cart",
+  "/order(.*)",
   "/agrilocalizacao(.*)",
   "/pricing(.*)",
   "/planos(.*)",

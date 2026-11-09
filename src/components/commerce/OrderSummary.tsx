@@ -14,6 +14,7 @@ interface OrderSummaryProps {
   isCheckout?: boolean;
   onProceedToCheckout?: () => void;
   isLoading?: boolean;
+  checkoutHref?: string;
 }
 
 export function OrderSummary({
@@ -25,6 +26,7 @@ export function OrderSummary({
   isCheckout = false,
   onProceedToCheckout,
   isLoading = false,
+  checkoutHref = "/checkout",
 }: OrderSummaryProps) {
   const format = (v: number) => `${new Intl.NumberFormat("pt-AO").format(v)} ${currency}`;
 
@@ -59,7 +61,7 @@ export function OrderSummary({
       </div>
 
       {!isCheckout ? (
-        <Link href="/checkout" className="block">
+        <Link href={checkoutHref} className="block">
           <Button
             variant="primary"
             size="lg"

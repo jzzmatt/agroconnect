@@ -28,7 +28,7 @@ export default function SignInPage() {
         <SignIn
           routing="path"
           path="/sign-in"
-          signUpUrl="/sign-up"
+          signUpUrl={`/sign-up?redirect_url=${encodeURIComponent(redirectUrl)}`}
           fallbackRedirectUrl={redirectUrl}
           forceRedirectUrl={redirectUrl}
           appearance={{

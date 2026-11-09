@@ -480,7 +480,7 @@ describe("AgriProduct WhatsApp publishing", () => {
     const image = readFileSync(resolve(root, "components/shopping/ProductImageUploader.tsx"), "utf8");
     const video = readFileSync(resolve(root, "components/shopping/ProductVideoUploader.tsx"), "utf8");
     const form = readFileSync(resolve(root, "components/shopping/ProductCreateWorkspacePage.tsx"), "utf8");
-    const order = readFileSync(resolve(root, "app/order/[productId]/page.tsx"), "utf8");
+    const order = readFileSync(resolve(root, "app/order/[productId]/route.ts"), "utf8");
     const modal = readFileSync(resolve(root, "components/whatsapp/WhatsAppPublishModal.tsx"), "utf8");
     expect(image).toContain('capture="environment"');
     expect(video).toContain('capture="environment"');
@@ -490,7 +490,8 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(form).toContain('"publish"');
     expect(modal).toContain("clientRequestId");
     expect(order).toContain("once: true");
-    expect(order).toContain('redirect("/cart")');
-    expect(order).toContain("redirect_url");
+    expect(order).toContain('new URL("/cart"');
+    expect(order).not.toContain("sign-in");
+    expect(order).not.toContain("sign-up");
   });
 });
