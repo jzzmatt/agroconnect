@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { buildAnonymousEnrollSignUpPath, buildCourseLearnPath } from "@/lib/academy/course-navigation";
+import { formatKwanza } from "@/lib/whatsapp/product-message";
 import { useI18n } from "@/i18n/provider";
 import {
   getCourseEnrollmentStatusAction,
@@ -147,6 +148,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
           )}
         </div>
         <h1 className="text-3xl font-black">{course.title}</h1>
+        <p className="text-base font-black">{formatKwanza(course.price)}</p>
         {course.description && (
           <p className="text-sm text-muted-foreground max-w-3xl">{course.description}</p>
         )}

@@ -13,6 +13,7 @@ import {
   syncSubscriptionPlanRow,
 } from "@/lib/products/publish";
 import { isUuid } from "@/lib/products/ids";
+import { isValidAoaPrice } from "@/lib/commerce/aoa-price";
 import {
   describeSupabaseError,
   describeSupabaseReachability,
@@ -110,7 +111,7 @@ export async function createPublishedProduct(
     if (!input.title || input.title.trim().length < 3) {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VALIDATION_FAILED, requestId };
     }
-    if (input.price === undefined || input.price < 0) {
+    if (!isValidAoaPrice(input.price)) {
       return { success: false, code: PRODUCT_ERROR_CODES.PRODUCT_VALIDATION_FAILED, requestId };
     }
 

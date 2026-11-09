@@ -133,6 +133,32 @@ export async function getCourseEditorAction(courseId: string) {
   }
 }
 
+export async function setCoursePriceAction(
+  courseId: string,
+  price: number
+): Promise<CourseMutationResult<CourseRecord>> {
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+
+    const parsedPrice = parseCoursePrice(price);
+    if (!parsedPrice.ok) return mutationFail("VALIDATION_ERROR");
+
+    const owned = await CourseService.getOwnedCourse(userProfile.id, courseId);
+    if (!owned.success) return owned;
+
+    return CourseService.updateCourse(userProfile.id, {
+      id: courseId,
+      price: parsedPrice.price,
+      confirmPrice: true,
+      currency: "AOA",
+    });
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
+}
+
 export async function publishCourseAction(
   courseId: string,
   price: number

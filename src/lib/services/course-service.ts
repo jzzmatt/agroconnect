@@ -623,8 +623,12 @@ export class CourseService {
         if (input.description !== undefined) patch.description = input.description;
         if (input.level) patch.level = input.level;
         if (confirmedPrice !== undefined) patch.price = confirmedPrice;
-        if (input.confirmPrice) patch.price_confirmed = true;
-        if (input.currency) patch.currency = input.currency;
+        if (input.confirmPrice) {
+          patch.price_confirmed = true;
+          patch.currency = "AOA";
+        } else if (input.currency) {
+          patch.currency = input.currency;
+        }
         if (input.thumbnailUrl !== undefined) patch.thumbnail_url = input.thumbnailUrl;
         if (input.provinceName !== undefined) patch.province_name = input.provinceName;
         if (input.municipalityName !== undefined) patch.municipality_name = input.municipalityName;
@@ -688,7 +692,7 @@ export class CourseService {
       description: input.description ?? current.data.description ?? null,
       level: input.level ?? current.data.level,
       price: confirmedPrice ?? current.data.price,
-      currency: input.currency ?? current.data.currency,
+      currency: input.confirmPrice ? "AOA" : input.currency ?? current.data.currency,
       price_confirmed: input.confirmPrice ? true : Boolean(current.data.price_confirmed),
       status: nextStatus,
       thumbnail_url: input.thumbnailUrl ?? current.data.thumbnail_url ?? null,
