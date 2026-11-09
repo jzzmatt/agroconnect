@@ -7,7 +7,9 @@ import {
   countCompletedSoldUnits,
   formatDashboardAmount,
   selectUpcomingAppointments,
+  sumActiveConsultationIncome,
   sumOwnedCourseStats,
+  sumSoldProductIncome,
 } from "@/lib/agriprofile/overview";
 import type { OrderDescriptor, OrderSellerGroupDescriptor } from "@/types/commerce";
 import type { ServiceRequestItem } from "@/types/agriexpert";
@@ -89,6 +91,7 @@ function request(overrides: Partial<ServiceRequestItem>): ServiceRequestItem {
     service_title: overrides.service_title || "Consulta",
     requested_date: overrides.requested_date,
     location_notes: overrides.location_notes,
+    estimated_price: overrides.estimated_price,
   };
 }
 
@@ -187,26 +190,45 @@ describe("AgriProfile dashboard overview KPIs", () => {
     expect(upcoming[0].location).toBe("Huambo");
   });
 
-  it("adds product earnings and course sales into total earnings", () => {
+  it("sums course sales, sold product value, and active consultation prices", () => {
+    const orders = [
+      order({
+        payment_status: "pending",
+        groups: [
+          group({ seller_id: "seller-a", status: "completed" }),
+          group({
+            id: "grp-processing",
+            seller_id: "seller-a",
+            status: "processing",
+            subtotal: 90000,
+            items: [],
+          }),
+        ],
+      }),
+    ];
+    const requests = [
+      request({ status: "accepted", requested_date: "2099-01-01", estimated_price: 12000 }),
+      request({ id: "req-done", status: "completed", estimated_price: 50000 }),
+      request({ id: "req-rejected", status: "rejected", estimated_price: 8000 }),
+    ];
+    expect(sumSoldProductIncome(orders)).toBe(30000);
+    expect(sumActiveConsultationIncome(requests)).toBe(12000);
+
     const overview = buildAgriprofileOverview({
       currency: "AOA",
-      productEarnings: 40000,
-      orders: [
-        order({
-          payment_status: "paid",
-          groups: [group({ seller_id: "seller-a", status: "completed" })],
-        }),
-      ],
+      productEarnings: 0,
+      orders,
       courses: [{ id: "c1", price: 10000, status: "published" }],
       enrollmentCounts: { c1: 3 },
-      requests: [request({ status: "accepted", requested_date: "2099-01-01" })],
+      requests,
     });
     expect(overview.courseSales).toBe(30000);
-    expect(overview.totalEarnings).toBe(70000);
+    expect(overview.productEarnings).toBe(30000);
+    expect(overview.totalEarnings).toBe(72000);
     expect(overview.productsSold).toBe(2);
     expect(overview.activeConsultations).toBe(1);
     expect(overview.totalStudents).toBe(3);
-    expect(formatDashboardAmount(overview.totalEarnings, overview.currency)).toMatch(/70/);
+    expect(formatDashboardAmount(overview.totalEarnings, overview.currency)).toMatch(/72/);
     expect(formatDashboardAmount(overview.totalEarnings, "AOA")).toContain("Kz");
     expect(formatDashboardAmount(1500.4, "AOA")).not.toContain("USD");
   });
