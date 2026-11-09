@@ -122,56 +122,28 @@ export function LessonVideoModal({
       setUploadProgress({ loaded: 0, total: file.size });
 
       try {
-        const prepareRes = await fetch(`/api/academy/lessons/${lesson.id}/video/upload/prepare`, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: file.type,
-          }),
-        });
-        const preparePayload = await prepareRes.json().catch(() => null);
-        if (!prepareRes.ok || !preparePayload?.signedUrl || !preparePayload?.storagePath) {
-          throw new Error(preparePayload?.error || "PREPARE_FAILED");
-        }
-
-        await uploadLessonVideoWithProgress({
-          signedUrl: preparePayload.signedUrl,
+        const saved = await uploadLessonVideoWithProgress({
+          lessonId: lesson.id,
           file,
-          mimeType: preparePayload.mimeType || file.type || "video/mp4",
-          onProgress: (loaded, total) => setUploadProgress({ loaded, total }),
+          mimeType: validation.mimeType,
+          onProgress: (loaded, total) => {
+            setUploadProgress({ loaded, total });
+            if (loaded >= total) setUploadPhase("saving");
+          },
         });
-
-        setUploadPhase("saving");
-        const completeRes = await fetch(`/api/academy/lessons/${lesson.id}/video/upload/complete`, {
-          method: "POST",
-          credentials: "same-origin",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            storagePath: preparePayload.storagePath,
-            fileName: file.name,
-            fileSize: file.size,
-            mimeType: preparePayload.mimeType || file.type,
-            replace: Boolean(lesson.upload_storage_path),
-          }),
-        });
-        const completePayload = await completeRes.json().catch(() => null);
-        if (!completeRes.ok || !completePayload?.lesson) {
-          throw new Error(completePayload?.error || dict.agriacademy.courseEditorVideoDbFailed);
-        }
-
         setUploadPhase("ready");
-        onUploadComplete(completePayload.lesson as CourseLessonRecord);
+        onUploadComplete(saved);
       } catch (error) {
         setUploadPhase("failed");
+        const code = error && typeof error === "object" && "code" in error ? String((error as { code?: string }).code) : "";
         setUploadError(
-          error instanceof Error && error.message === "PREPARE_FAILED"
-            ? dict.agriacademy.courseEditorVideoUploadFailed
-            : error instanceof Error && error.message.includes("guardar")
-              ? dict.agriacademy.courseEditorVideoDbFailed
-              : dict.agriacademy.courseEditorVideoUploadFailed
+          code === "VIDEO_FILE_TOO_LARGE"
+            ? dict.agriacademy.courseEditorVideoFileTooLarge
+            : code === "VIDEO_FORMAT_UNSUPPORTED"
+              ? dict.agriacademy.courseEditorVideoFormatUnsupported
+              : code === "DATABASE_ERROR"
+                ? dict.agriacademy.courseEditorVideoDbFailed
+                : dict.agriacademy.courseEditorVideoUploadFailed
         );
       }
     },

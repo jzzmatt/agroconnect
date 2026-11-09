@@ -60,6 +60,13 @@ export function validateLessonVideoFileMeta(params: {
   return { ok: true, extension, mimeType: mime || mimeFromExt || "video/mp4" };
 }
 
+/** Stored when the browser can read it. Length is not a reason to reject a lesson video. */
+export function optionalLessonDurationSeconds(value: unknown): number | null {
+  const duration = typeof value === "number" ? value : Number(value);
+  if (!Number.isFinite(duration) || duration <= 0) return null;
+  return Math.round(duration * 100) / 100;
+}
+
 export function lessonHasPlayableVideo(lesson: {
   video_source?: CourseLessonRecord["video_source"] | null;
   youtube_video_id?: string | null;
