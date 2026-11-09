@@ -6,9 +6,16 @@ export const CHECKOUT_PATH = "/checkout";
 const MAX_LINES = 30;
 const MAX_QUANTITY = 99;
 
+const COURSE_CART_ID = /^[A-Za-z0-9_-]{1,80}$/;
+
+export function isCartCourseId(value: string | null | undefined): value is string {
+  return Boolean(value && COURSE_CART_ID.test(value));
+}
+
 export interface GuestCartLine {
   productId: string;
   quantity: number;
+  courseId?: string;
 }
 
 function cleanQuantity(quantity: number): number {
@@ -24,11 +31,18 @@ export function parseGuestCart(raw: string | null | undefined): GuestCartLine[] 
     const lines: GuestCartLine[] = [];
     for (const entry of parsed) {
       if (!entry || typeof entry !== "object") continue;
-      const productId = String((entry as { productId?: unknown }).productId || "");
+      const record = entry as { productId?: unknown; courseId?: unknown; quantity?: unknown };
+      const courseId = String(record.courseId || "");
+      if (isCartCourseId(courseId)) {
+        lines.push({ productId: courseId, courseId, quantity: 1 });
+        if (lines.length >= MAX_LINES) break;
+        continue;
+      }
+      const productId = String(record.productId || "");
       if (!isUuid(productId)) continue;
       lines.push({
         productId,
-        quantity: cleanQuantity(Number((entry as { quantity?: unknown }).quantity)),
+        quantity: cleanQuantity(Number(record.quantity)),
       });
       if (lines.length >= MAX_LINES) break;
     }
@@ -50,7 +64,7 @@ export function addGuestProduct(
 ): GuestCartLine[] {
   if (!isUuid(productId)) return lines;
   const next = [...lines];
-  const index = next.findIndex((line) => line.productId === productId);
+  const index = next.findIndex((line) => !line.courseId && line.productId === productId);
   if (index >= 0 && once) return next;
   if (index >= 0) {
     next[index] = {
@@ -64,30 +78,52 @@ export function addGuestProduct(
   return next;
 }
 
+export function addGuestCourse(lines: GuestCartLine[], courseId: string): GuestCartLine[] {
+  if (!isCartCourseId(courseId)) return lines;
+  const without = lines.filter((line) => line.courseId !== courseId);
+  if (!lines.some((line) => line.courseId === courseId) && without.length >= MAX_LINES) return lines;
+  return [...without, { productId: courseId, courseId, quantity: 1 }];
+}
+
 export function setGuestQuantity(lines: GuestCartLine[], productId: string, quantity: number): GuestCartLine[] {
+  if (lines.some((line) => line.courseId === productId)) {
+    if (quantity <= 0) return lines.filter((line) => line.courseId !== productId);
+    return lines.map((line) => (line.courseId === productId ? { ...line, quantity: 1 } : line));
+  }
   if (!isUuid(productId)) return lines;
   if (quantity <= 0) return lines.filter((line) => line.productId !== productId);
   return lines.map((line) =>
-    line.productId === productId ? { productId, quantity: cleanQuantity(quantity) } : line
+    !line.courseId && line.productId === productId ? { productId, quantity: cleanQuantity(quantity) } : line
   );
 }
 
 export function removeGuestProduct(lines: GuestCartLine[], productId: string): GuestCartLine[] {
-  return lines.filter((line) => line.productId !== productId);
+  return lines.filter((line) => line.courseId !== productId && line.productId !== productId);
 }
 
-/** Account quantities stay, and guest quantities are added on top. */
+function sameGuestLine(left: GuestCartLine, right: GuestCartLine): boolean {
+  if (left.courseId || right.courseId) return left.courseId === right.courseId && Boolean(left.courseId);
+  return left.productId === right.productId;
+}
+
+/** Account quantities stay, and guest quantities are added on top. A course stays at one. */
 export function mergeGuestIntoAccount(account: GuestCartLine[], guest: GuestCartLine[]): GuestCartLine[] {
   const merged = [...account];
   for (const line of guest) {
-    const index = merged.findIndex((entry) => entry.productId === line.productId);
+    const index = merged.findIndex((entry) => sameGuestLine(entry, line));
     if (index >= 0) {
-      merged[index] = {
-        productId: line.productId,
-        quantity: cleanQuantity(merged[index].quantity + line.quantity),
-      };
+      merged[index] = line.courseId
+        ? { productId: line.courseId, courseId: line.courseId, quantity: 1 }
+        : {
+            productId: line.productId,
+            quantity: cleanQuantity(merged[index].quantity + line.quantity),
+          };
     } else if (merged.length < MAX_LINES) {
-      merged.push({ productId: line.productId, quantity: cleanQuantity(line.quantity) });
+      merged.push(
+        line.courseId
+          ? { productId: line.courseId, courseId: line.courseId, quantity: 1 }
+          : { productId: line.productId, quantity: cleanQuantity(line.quantity) }
+      );
     }
   }
   return merged;

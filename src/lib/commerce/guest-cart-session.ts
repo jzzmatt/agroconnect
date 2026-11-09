@@ -3,6 +3,7 @@ import { NextResponse } from "next/server";
 import { CommerceService } from "@/lib/services/commerce-service";
 import { ShoppingService } from "@/lib/services/shopping-service";
 import { isPublicProductStatus } from "@/lib/products/publication";
+import { courseCartItem, publishedCourseLine } from "@/lib/commerce/course-cart";
 import { emptyShoppingCart } from "@/lib/commerce/serialize";
 import type { CartItemDescriptor, ShoppingCart } from "@/types/commerce";
 import {
@@ -53,6 +54,12 @@ export async function writeGuestCart(lines: GuestCartLine[]): Promise<void> {
 export async function shoppingCartFromLines(lines: GuestCartLine[]): Promise<ShoppingCart> {
   const items: CartItemDescriptor[] = [];
   for (const line of lines) {
+    if (line.courseId) {
+      const course = await publishedCourseLine(line.courseId);
+      if (!course) continue;
+      items.push(courseCartItem(course, `guest-${course.courseId}`));
+      continue;
+    }
     const product = await ShoppingService.getProductById(line.productId).catch(() => null);
     if (!product || !isPublicProductStatus(product.status)) continue;
     if (product.availability_status === "out_of_stock") continue;
@@ -98,21 +105,30 @@ export async function readGuestShoppingCart(): Promise<ShoppingCart> {
   return shoppingCartFromLines(lines);
 }
 
-/** Copy the guest cart into the signed-in customer's cart, then drop the saved lines. */
-export async function claimGuestCart(customerId: string): Promise<void> {
-  const lines = await readGuestCart();
-  if (lines.length === 0) return;
+/** Copy guest lines into the signed-in cart. Course lines stay at quantity one. */
+export async function claimGuestLines(customerId: string, lines: GuestCartLine[]): Promise<GuestCartLine[]> {
   let remaining = [...lines];
   for (const line of lines) {
     try {
-      await CommerceService.addToCart(
-        { productId: line.productId, quantity: line.quantity },
-        { customerId, persist: true }
-      );
-      remaining = removeGuestProduct(remaining, line.productId);
+      if (line.courseId) {
+        await CommerceService.addCatalogCourse(line.courseId, { customerId, persist: true });
+      } else {
+        await CommerceService.addToCart(
+          { productId: line.productId, quantity: line.quantity },
+          { customerId, persist: true }
+        );
+      }
+      remaining = removeGuestProduct(remaining, line.courseId || line.productId);
     } catch {
       // Keep a line that could not be saved so the customer does not lose it.
     }
   }
-  await writeGuestCart(remaining);
+  return remaining;
+}
+
+/** Copy the guest cart into the signed-in customer's cart, then drop the saved lines. */
+export async function claimGuestCart(customerId: string): Promise<void> {
+  const lines = await readGuestCart();
+  if (lines.length === 0) return;
+  await writeGuestCart(await claimGuestLines(customerId, lines));
 }

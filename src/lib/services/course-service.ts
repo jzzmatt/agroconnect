@@ -182,6 +182,8 @@ function applyMemoryOverlay(courses: CourseListItem[]): CourseListItem[] {
         short_description: overlay.short_description,
         status: overlay.status,
         published_at: overlay.published_at,
+        price: overlay.price,
+        currency: overlay.currency,
         provider_id: overlay.provider_id ?? course.provider_id ?? null,
       };
     })

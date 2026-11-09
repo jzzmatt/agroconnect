@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import { getCurrentUserProfile } from "@/lib/clerk/auth";
+import { courseRegistrationPath } from "@/lib/academy/course-registration";
+import { getPublishedCourseForCommerce } from "@/lib/academy/commerce-contract";
 import { EnrollmentService } from "@/lib/services/enrollment-service";
-import { CourseService } from "@/lib/services/course-service";
 
 export const runtime = "nodejs";
 
@@ -18,9 +19,12 @@ export async function POST(request: Request) {
       return NextResponse.json({ success: false, code: "VALIDATION_ERROR" }, { status: 400 });
     }
 
-    const published = await CourseService.isCoursePublished(courseId);
-    if (!published) {
+    const course = await getPublishedCourseForCommerce(courseId);
+    if (!course) {
       return NextResponse.json({ success: false, code: "COURSE_NOT_AVAILABLE" }, { status: 403 });
+    }
+    if (courseRegistrationPath(course.price) === "cart") {
+      return NextResponse.json({ success: false, code: "PAYMENT_REQUIRED" }, { status: 409 });
     }
 
     const existing = await EnrollmentService.isEnrolled(profile.id, courseId);

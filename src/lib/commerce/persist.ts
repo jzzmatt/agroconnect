@@ -1,6 +1,9 @@
 import { createHash } from "node:crypto";
 import { isSupabaseConfigured, tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isUuid } from "@/lib/commerce/ids";
+import { settlePaidCourseOrder } from "@/lib/commerce/academy-purchase";
+import { getPublishedCourseForCommerce } from "@/lib/academy/commerce-contract";
+import { courseCartItem, publishedCourseLine } from "@/lib/commerce/course-cart";
 import { isPublicProductStatus } from "@/lib/products/publication";
 import { PaymentService } from "@/lib/payments";
 import { ShoppingService } from "@/lib/services/shopping-service";
@@ -127,14 +130,43 @@ async function mapCartItems(rows: Array<Record<string, unknown>>): Promise<CartI
       products.set(id, await resolveCatalogProduct(id));
     })
   );
+  const courseIds = [...new Set(rows.map((row) => String(row.course_id || "")).filter(Boolean))];
+  const courses = new Map<string, Awaited<ReturnType<typeof publishedCourseLine>>>();
+  await Promise.all(
+    courseIds.map(async (id) => {
+      courses.set(id, await publishedCourseLine(id));
+    })
+  );
 
   return rows.map((row) => {
+    const courseId = String(row.course_id || "");
+    const course = courseId ? courses.get(courseId) : null;
+    if (courseId) {
+      if (course) return courseCartItem(course, String(row.id));
+      const unitPrice = asNumber(row.unit_price);
+      return {
+        id: String(row.id),
+        product_id: courseId,
+        course_id: courseId,
+        seller_id: String(row.seller_id || ""),
+        seller_name: "Instrutor",
+        title: "Curso",
+        slug: "",
+        unit_price: unitPrice,
+        quantity: 1,
+        unit: "curso",
+        subtotal: unitPrice,
+        currency: String(row.currency || "AOA"),
+        max_available_quantity: 1,
+        is_available: false,
+      };
+    }
     const product = products.get(String(row.product_id || ""));
     const quantity = asNumber(row.quantity, 1);
     const unitPrice = product?.price ?? asNumber(row.unit_price);
     return {
       id: String(row.id),
-      product_id: String(row.product_id),
+      product_id: String(row.product_id || ""),
       seller_id: product?.seller_id || String(row.seller_id),
       seller_name: product?.seller_name || "Vendedor Agrícola",
       seller_slug: product?.seller_slug,
@@ -150,6 +182,54 @@ async function mapCartItems(rows: Array<Record<string, unknown>>): Promise<CartI
       is_available: product?.availability_status !== "out_of_stock",
     };
   });
+}
+
+export async function persistAddCourseToCart(
+  customerId: string,
+  courseId: string
+): Promise<ShoppingCart | null> {
+  const supabase = persistClient();
+  if (!supabase) return null;
+
+  const course = await publishedCourseLine(courseId);
+  if (!course || !isUuid(course.courseId) || !isUuid(course.sellerId)) {
+    throw new Error("Este curso não está disponível para compra.");
+  }
+
+  const cart = await getOrCreateActiveCart(supabase, customerId);
+  const existing = await supabase
+    .from("cart_items")
+    .select("id")
+    .eq("cart_id", cart.id)
+    .eq("course_id", course.courseId)
+    .maybeSingle();
+  if (existing.error) throw new Error(existing.error.message);
+
+  if (existing.data?.id) {
+    const { error } = await supabase
+      .from("cart_items")
+      .update({
+        quantity: 1,
+        unit_price: course.price,
+        seller_id: course.sellerId,
+        currency: course.currency,
+      })
+      .eq("id", existing.data.id);
+    if (error) throw new Error(error.message);
+  } else {
+    const { error } = await supabase.from("cart_items").insert({
+      cart_id: cart.id,
+      product_id: null,
+      course_id: course.courseId,
+      seller_id: course.sellerId,
+      quantity: 1,
+      unit_price: course.price,
+      currency: course.currency,
+    });
+    if (error) throw new Error(error.message);
+  }
+
+  return persistGetCart(customerId);
 }
 
 export async function persistGetCart(customerId: string): Promise<ShoppingCart | null> {
@@ -259,11 +339,26 @@ export async function persistUpdateCartItemQuantity(
 
   const cart = await persistGetCart(customerId);
   if (!cart) return null;
-  const item = cart.items.find((entry) => entry.product_id === productId || entry.slug === productId);
+  const item = cart.items.find(
+    (entry) => entry.product_id === productId || entry.course_id === productId || entry.slug === productId
+  );
   if (!item) return cart;
 
   if (quantity <= 0) {
     return persistRemoveFromCart(customerId, productId);
+  }
+
+  if (item.course_id) {
+    const course = await getPublishedCourseForCommerce(item.course_id);
+    const { error } = await supabase
+      .from("cart_items")
+      .update({
+        quantity: 1,
+        unit_price: course && course.price > 0 ? course.price : item.unit_price,
+      })
+      .eq("id", item.id);
+    if (error) throw new Error(error.message);
+    return persistGetCart(customerId);
   }
 
   const product = await resolveCatalogProduct(item.product_id);
@@ -477,6 +572,7 @@ async function assembleOrder(
     id: item.id,
     order_id: item.order_id,
     product_id: item.product_id,
+    course_id: item.course_id || null,
     seller_id: item.seller_id,
     product_title: item.product_title,
     product_slug: item.product_slug,
@@ -586,6 +682,7 @@ export async function persistCheckoutOrder(
 
   const pricedItems: Array<{
     cartItem: CartItemDescriptor;
+    courseId?: string | null;
     unitPrice: number;
     sellerId: string;
     title: string;
@@ -598,6 +695,26 @@ export async function persistCheckoutOrder(
   }> = [];
 
   for (const item of cart.items) {
+    if (item.course_id) {
+      const course = await getPublishedCourseForCommerce(item.course_id);
+      if (!course || course.price <= 0 || !isUuid(item.seller_id)) {
+        throw new Error(`O curso "${item.title}" já não está disponível.`);
+      }
+      pricedItems.push({
+        cartItem: item,
+        courseId: course.id,
+        unitPrice: course.price,
+        sellerId: item.seller_id,
+        title: course.title,
+        slug: course.slug,
+        unit: "curso",
+        sku: null,
+        quantity: 1,
+        subtotal: course.price,
+        currency: course.currency || "AOA",
+      });
+      continue;
+    }
     const product = await resolveCatalogProduct(item.product_id);
     if (!product || !isUuid(product.id)) {
       throw new Error(`O produto "${item.title}" já não está disponível.`);
@@ -694,7 +811,8 @@ export async function persistCheckoutOrder(
   const itemRows = pricedItems.map((item) => ({
     order_id: orderRow.id,
     seller_group_id: groupIds.get(item.sellerId) || null,
-    product_id: item.cartItem.product_id,
+    product_id: item.courseId ? null : item.cartItem.product_id,
+    course_id: item.courseId || null,
     seller_id: item.sellerId,
     product_title: item.title,
     product_slug: item.slug,
@@ -746,12 +864,14 @@ export async function persistCheckoutOrder(
 
   if (paymentStatus === "paid") {
     for (const item of pricedItems) {
+      if (item.courseId || !item.cartItem.product_id) continue;
       const product = await resolveCatalogProduct(item.cartItem.product_id);
       const remaining = Math.max(0, (product?.quantity || 0) - item.quantity);
       await ShoppingService.updateInventory(item.cartItem.product_id, item.sellerId, {
         quantity: remaining,
       });
     }
+    await grantPaidCoursesFromOrder(supabase, orderRow.id);
   }
 
   const fresh = await supabase.from("orders").select("*").eq("id", orderRow.id).single();
@@ -1414,6 +1534,46 @@ export function summarizeSellerEarnings(
   };
 }
 
+async function grantPaidCoursesFromOrder(
+  supabase: NonNullable<ReturnType<typeof persistClient>>,
+  orderId: string
+): Promise<void> {
+  const { data: order, error: orderError } = await supabase
+    .from("orders")
+    .select("customer_id, total, payment_status")
+    .eq("id", orderId)
+    .maybeSingle();
+  if (orderError || !order?.customer_id) return;
+
+  const { data: payments, error: paymentsError } = await supabase
+    .from("payments")
+    .select("status, amount")
+    .eq("order_id", orderId);
+  if (paymentsError) return;
+
+  const { data: items, error: itemsError } = await supabase
+    .from("order_items")
+    .select("course_id")
+    .eq("order_id", orderId);
+  if (itemsError) {
+    if (/course_id/i.test(itemsError.message || "")) return;
+    throw new Error(itemsError.message);
+  }
+
+  const courseIds = (items || [])
+    .map((item: { course_id?: string | null }) => item.course_id)
+    .filter((courseId: string | null | undefined): courseId is string => Boolean(courseId));
+  if (courseIds.length === 0) return;
+
+  await settlePaidCourseOrder({
+    studentId: String(order.customer_id),
+    orderTotal: asNumber(order.total),
+    paymentStatus: order.payment_status,
+    payments: payments || [],
+    courseIds,
+  });
+}
+
 export async function persistApplyPaymentWebhook(params: {
   eventId: string;
   eventType: string;
@@ -1465,7 +1625,12 @@ export async function persistApplyPaymentWebhook(params: {
     reportedStatus: params.status,
     reportedAmount: params.amount,
   });
-  if (!decision.apply || !decision.nextStatus) return { applied: false };
+  if (!decision.apply || !decision.nextStatus) {
+    if (String(payment.status) === "paid") {
+      await grantPaidCoursesFromOrder(supabase, String(payment.order_id));
+    }
+    return { applied: false };
+  }
 
   const nextStatus = decision.nextStatus;
   const { data: updatedPayment } = await supabase
@@ -1488,6 +1653,10 @@ export async function persistApplyPaymentWebhook(params: {
       status: orderStatus,
     })
     .eq("id", payment.order_id);
+
+  if (nextStatus === "paid") {
+    await grantPaidCoursesFromOrder(supabase, String(payment.order_id));
+  }
 
   await supabase.from("payment_events").update({ processed: true }).eq("provider_event_id", params.eventId);
   return { applied: true };
