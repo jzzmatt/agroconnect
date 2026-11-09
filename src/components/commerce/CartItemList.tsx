@@ -55,7 +55,11 @@ export function CartItemList({ items, onUpdateQuantity, onRemoveItem }: CartItem
 
                     <div className="min-w-0">
                       <Link
-                        href={`/agrishopping/products/${item.slug}`}
+                        href={
+                          item.course_id
+                            ? `/agriacademy/courses/${item.slug}`
+                            : `/agrishopping/products/${item.slug}`
+                        }
                         className="font-bold text-sm text-foreground hover:text-primary transition-colors line-clamp-2"
                       >
                         {item.title}
@@ -70,25 +74,33 @@ export function CartItemList({ items, onUpdateQuantity, onRemoveItem }: CartItem
                   <div className="flex items-center justify-between sm:justify-end gap-6 pt-2 sm:pt-0">
                     {/* Quantity Selector */}
                     <div className="flex items-center gap-2 bg-surface rounded-xl border border-input-border p-1">
-                      <button
-                        type="button"
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
-                        className="p-1 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer"
-                        aria-label="Diminuir quantidade"
-                      >
-                        <Minus className="w-3.5 h-3.5" />
-                      </button>
-                      <span className="text-xs font-bold text-foreground px-2 min-w-[24px] text-center">
-                        {item.quantity}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
-                        className="p-1 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer"
-                        aria-label="Aumentar quantidade"
-                      >
-                        <Plus className="w-3.5 h-3.5" />
-                      </button>
+                      {item.course_id ? (
+                        <span className="text-xs font-bold text-foreground px-2 min-w-[24px] text-center">
+                          1
+                        </span>
+                      ) : (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity(item.product_id, item.quantity - 1)}
+                            className="p-1 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer"
+                            aria-label="Diminuir quantidade"
+                          >
+                            <Minus className="w-3.5 h-3.5" />
+                          </button>
+                          <span className="text-xs font-bold text-foreground px-2 min-w-[24px] text-center">
+                            {item.quantity}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => onUpdateQuantity(item.product_id, item.quantity + 1)}
+                            className="p-1 rounded-lg hover:bg-muted text-foreground transition-colors cursor-pointer"
+                            aria-label="Aumentar quantidade"
+                          >
+                            <Plus className="w-3.5 h-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
 
                     {/* Subtotal */}

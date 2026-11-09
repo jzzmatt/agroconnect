@@ -4,8 +4,12 @@ import { calculateDeliveryFee } from "@/lib/logistics/delivery-fee";
 import { LogisticsService } from "@/lib/services/logistics-service";
 import { NotificationService } from "@/lib/services/notification-service";
 import { isUuid } from "@/lib/commerce/ids";
+import { settlePaidCourseOrder } from "@/lib/commerce/academy-purchase";
+import { courseCartItem, publishedCourseLine } from "@/lib/commerce/course-cart";
+import { getPublishedCourseForCommerce } from "@/lib/academy/commerce-contract";
 import { isPublicProductStatus } from "@/lib/products/publication";
 import {
+  persistAddCourseToCart,
   persistAddToCart,
   persistCancelOrder,
   persistCheckoutOrder,
@@ -298,6 +302,25 @@ export class CommerceService {
     return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
   }
 
+  public static async addCatalogCourse(courseId: string, actor?: CommerceActor): Promise<ShoppingCart> {
+    if (shouldPersist(actor) && actor?.customerId) {
+      const persisted = await persistAddCourseToCart(actor.customerId, courseId);
+      if (persisted) return persisted;
+    }
+
+    const course = await publishedCourseLine(courseId);
+    if (!course) {
+      throw new Error("Este curso não está disponível para compra.");
+    }
+
+    const customerId = customerKey(actor);
+    const cart = memoryGetCart(customerId);
+    const updatedItems = cart.items.filter((item) => item.course_id !== course.courseId);
+    const existing = cart.items.find((item) => item.course_id === course.courseId);
+    updatedItems.push(courseCartItem(course, existing?.id || `ci-${Math.random().toString(36).substring(2, 8)}`));
+    return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
+  }
+
   public static async updateCartItemQuantity(
     productId: string,
     quantity: number,
@@ -314,6 +337,17 @@ export class CommerceService {
 
     const customerId = customerKey(actor);
     const cart = memoryGetCart(customerId);
+    const courseLine = cart.items.find((item) => item.course_id === productId || (item.course_id && item.slug === productId));
+    if (courseLine?.course_id) {
+      const course = await getPublishedCourseForCommerce(courseLine.course_id);
+      const unitPrice = course && course.price > 0 ? course.price : courseLine.unit_price;
+      const updatedItems = cart.items.map((item) =>
+        item.id === courseLine.id
+          ? { ...item, quantity: 1, unit_price: unitPrice, subtotal: unitPrice }
+          : item
+      );
+      return memorySetCart(customerId, recalculateCart(updatedItems, customerId));
+    }
     const product = await resolveProduct(productId);
     if (product && product.quantity && quantity > product.quantity) {
       throw new Error(`Apenas ${product.quantity} ${product.unit} disponíveis em stock.`);
@@ -405,6 +439,28 @@ export class CommerceService {
 
     const pricedItems: OrderItemDescriptor[] = [];
     for (const item of cart.items) {
+      if (item.course_id) {
+        const course = await getPublishedCourseForCommerce(item.course_id);
+        if (!course || course.price <= 0) {
+          throw new Error(`O curso "${item.title}" já não está disponível.`);
+        }
+        pricedItems.push({
+          id: `oi-${Math.random().toString(36).substring(2, 8)}`,
+          order_id: "",
+          product_id: null,
+          course_id: course.id,
+          seller_id: item.seller_id,
+          product_title: course.title,
+          product_slug: course.slug,
+          sku: null,
+          unit: "curso",
+          quantity: 1,
+          unit_price: course.price,
+          subtotal: course.price,
+          currency: course.currency || "AOA",
+        });
+        continue;
+      }
       const freshProduct = await resolveProduct(item.product_id);
       if (!freshProduct) {
         throw new Error(`O produto "${item.title}" já não está disponível.`);
@@ -532,6 +588,14 @@ export class CommerceService {
     };
 
     memoryOrders.unshift(newOrder);
+
+    await settlePaidCourseOrder({
+      studentId: customerId,
+      orderTotal: total,
+      paymentStatus,
+      payments: [{ status: paymentStatus, amount: total }],
+      courseIds: pricedItems.map((item) => item.course_id),
+    });
 
     if (paymentStatus === "paid") {
       for (const item of pricedItems) {

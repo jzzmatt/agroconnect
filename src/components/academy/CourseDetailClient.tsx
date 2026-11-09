@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/Button";
 import { Badge } from "@/components/ui/Badge";
 import { formatChapterNumber, formatLessonNumber } from "@/lib/academy/lesson-numbering";
 import { buildAnonymousEnrollSignUpPath, buildCourseLearnPath } from "@/lib/academy/course-navigation";
+import { courseRegistrationPath } from "@/lib/academy/course-registration";
 import { formatKwanza } from "@/lib/whatsapp/product-message";
 import { useI18n } from "@/i18n/provider";
 import {
@@ -54,6 +55,31 @@ export function CourseDetailClient({ slug }: { slug: string }) {
     [router, slug]
   );
 
+  const addPaidCourseToCart = useCallback(async () => {
+    if (!course) return;
+    setIsEnrolling(true);
+    setError(null);
+    setMessage(null);
+    try {
+      const res = await fetch(`/api/academy/courses/${encodeURIComponent(course.id)}/register`, {
+        method: "POST",
+        credentials: "same-origin",
+      });
+      const payload = await res.json().catch(() => null);
+      if (!res.ok || !payload?.success || payload.next !== "/cart") {
+        setError(
+          payload?.code === "COURSE_NOT_AVAILABLE"
+            ? dict.agriacademy.courseNotAvailable
+            : dict.agriacademy.enrollmentFailed
+        );
+        return;
+      }
+      router.push("/cart");
+    } finally {
+      setIsEnrolling(false);
+    }
+  }, [course, dict.agriacademy.courseNotAvailable, dict.agriacademy.enrollmentFailed, router]);
+
   const completeEnrollment = useCallback(async () => {
     if (!course) return;
 
@@ -71,6 +97,10 @@ export function CourseDetailClient({ slug }: { slug: string }) {
       const payload = await res.json().catch(() => null);
 
       if (!res.ok || !payload?.success) {
+        if (payload?.code === "PAYMENT_REQUIRED") {
+          await addPaidCourseToCart();
+          return;
+        }
         if (payload?.code === "COURSE_NOT_AVAILABLE") {
           setError(dict.agriacademy.courseNotAvailable);
         } else if (payload?.code === "AUTH_REQUIRED") {
@@ -99,7 +129,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
     } finally {
       setIsEnrolling(false);
     }
-  }, [course, dict.agriacademy, redirectToLearning]);
+  }, [addPaidCourseToCart, course, dict.agriacademy, redirectToLearning]);
 
   useEffect(() => {
     if (
@@ -112,13 +142,22 @@ export function CourseDetailClient({ slug }: { slug: string }) {
       return;
     }
     autoEnrollStarted.current = true;
+    if (courseRegistrationPath(course.price) === "cart") {
+      void addPaidCourseToCart();
+      return;
+    }
     void completeEnrollment();
-  }, [completeEnrollment, course, isEnrolling, isSignedIn, searchParams]);
+  }, [addPaidCourseToCart, completeEnrollment, course, isEnrolling, isSignedIn, searchParams]);
 
   const handleEnroll = async () => {
     if (!course || enrolled) return;
     setError(null);
     setMessage(null);
+
+    if (courseRegistrationPath(course.price) === "cart") {
+      await addPaidCourseToCart();
+      return;
+    }
 
     if (!isSignedIn) {
       router.push(buildAnonymousEnrollSignUpPath(slug));
@@ -163,7 +202,7 @@ export function CourseDetailClient({ slug }: { slug: string }) {
             <Button
               type="button"
               onClick={handleEnroll}
-              disabled={isPending || isEnrolling}
+              disabled={isEnrolling}
               className="font-bold"
             >
               {dict.agriacademy.register}

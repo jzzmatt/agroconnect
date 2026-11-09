@@ -67,6 +67,7 @@ export interface CustomerAddress {
 export interface CartItemDescriptor {
   id: string;
   product_id: string;
+  course_id?: string | null;
   seller_id: string;
   seller_name: string;
   seller_slug?: string;
@@ -99,6 +100,7 @@ export interface OrderItemDescriptor {
   id: string;
   order_id: string;
   product_id: string | null;
+  course_id?: string | null;
   seller_id: string;
   product_title: string;
   product_slug?: string | null;

@@ -1038,7 +1038,8 @@ export interface Database {
         Row: {
           id: string;
           cart_id: string;
-          product_id: string;
+          product_id: string | null;
+          course_id: string | null;
           seller_id: string;
           quantity: number;
           unit_price: number;
@@ -1049,7 +1050,8 @@ export interface Database {
         Insert: {
           id?: string;
           cart_id: string;
-          product_id: string;
+          product_id?: string | null;
+          course_id?: string | null;
           seller_id: string;
           quantity?: number;
           unit_price?: number;
@@ -1060,7 +1062,8 @@ export interface Database {
         Update: {
           id?: string;
           cart_id?: string;
-          product_id?: string;
+          product_id?: string | null;
+          course_id?: string | null;
           seller_id?: string;
           quantity?: number;
           unit_price?: number;
@@ -1352,6 +1355,7 @@ export interface Database {
           order_id: string;
           seller_group_id: string | null;
           product_id: string | null;
+          course_id: string | null;
           seller_id: string;
           product_title: string;
           product_slug: string | null;
@@ -1368,6 +1372,7 @@ export interface Database {
           order_id: string;
           seller_group_id?: string | null;
           product_id?: string | null;
+          course_id?: string | null;
           seller_id: string;
           product_title: string;
           product_slug?: string | null;
@@ -1384,6 +1389,7 @@ export interface Database {
           order_id?: string;
           seller_group_id?: string | null;
           product_id?: string | null;
+          course_id?: string | null;
           seller_id?: string;
           product_title?: string;
           product_slug?: string | null;
