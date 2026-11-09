@@ -97,7 +97,7 @@ export default function CourseCreatorPage() {
         title: dict.agriacademy.newCourseDefaultTitle,
         description: dict.agriacademy.newCourseDefaultDescription,
       });
-      router.push(`/dashboard/academy/courses/${created.id}/edit`);
+      router.push(`/academy/courses/${created.id}`);
     } catch (err: unknown) {
       setCreateError(
         err instanceof Error ? err.message : dict.agriacademy.unableToCreateCourse
@@ -171,7 +171,7 @@ export default function CourseCreatorPage() {
             {attentionCourses.map((course) => (
               <Link
                 key={`attention-${course.id}`}
-                href={`/dashboard/academy/courses/${course.id}/edit`}
+                href={`/academy/courses/${course.id}`}
                 className="bg-amber-50 dark:bg-amber-950/30 rounded-3xl border border-amber-300 dark:border-amber-800 p-5 hover:border-primary transition-colors space-y-2"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -196,7 +196,7 @@ export default function CourseCreatorPage() {
             {draftCourses.map((course) => (
               <Link
                 key={course.id}
-                href={`/dashboard/academy/courses/${course.id}/edit`}
+                href={`/academy/courses/${course.id}`}
                 className="bg-surface-card rounded-3xl border border-border p-5 hover:border-primary transition-colors space-y-3"
               >
                 <div className="flex items-center justify-between gap-3">
@@ -247,7 +247,7 @@ export default function CourseCreatorPage() {
                   >
                     {dict.agriacademy.viewStudents}
                   </Button>
-                  <Link href={`/dashboard/academy/courses/${course.id}/edit`}>
+                  <Link href={`/academy/courses/${course.id}`}>
                     <Button type="button" size="sm" variant="outline">
                       {dict.common.edit}
                     </Button>
@@ -289,7 +289,7 @@ export default function CourseCreatorPage() {
                   >
                     {dict.agriacademy.viewStudents}
                   </Button>
-                  <Link href={`/dashboard/academy/courses/${course.id}/edit`}>
+                  <Link href={`/academy/courses/${course.id}`}>
                     <Button type="button" size="sm" variant="outline">
                       {dict.common.edit}
                     </Button>
@@ -310,7 +310,7 @@ export default function CourseCreatorPage() {
             {archivedCourses.map((course) => (
               <Link
                 key={course.id}
-                href={`/dashboard/academy/courses/${course.id}/edit`}
+                href={`/academy/courses/${course.id}`}
                 className="bg-surface-card rounded-3xl border border-border p-5 hover:border-primary transition-colors flex items-center justify-between gap-3"
               >
                 <div>
