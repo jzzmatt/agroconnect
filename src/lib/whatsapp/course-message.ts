@@ -12,10 +12,12 @@ export function buildCourseCompletionMessage(input: {
   price: number;
   currency?: string | null;
   courseUrl: string;
+  demoVideoUrl?: string | null;
 }): string {
   const title = input.title.replace(/\s+/g, " ").trim() || "Curso";
   const instructor = input.instructorName?.replace(/\s+/g, " ").trim();
   const url = durableWhatsappLink(input.courseUrl) || "";
+  const video = durableWhatsappLink(input.demoVideoUrl);
   const rows = [
     "🎓 *CURSO CONCLUÍDO NO AGROCONNECT!*",
     "",
@@ -25,6 +27,9 @@ export function buildCourseCompletionMessage(input: {
     instructor ? `👨‍🏫 *Instrutor:* ${instructor}` : null,
     `💰 *Preço:* ${formatCoursePrice(input.price, input.currency || "AOA")}`,
     "",
+    video ? "🎥 Ver a aula de demonstração" : null,
+    video,
+    video ? "" : null,
     "🔗 Ver o curso",
     url,
     "",

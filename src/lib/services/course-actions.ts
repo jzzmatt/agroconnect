@@ -331,6 +331,19 @@ export async function createLessonAction(sectionId: string, title: string) {
   }
 }
 
+export async function setLessonDemoCampaignAction(lessonId: string) {
+  try {
+    await authorize("academy.course.update");
+    const userProfile = await getCurrentUserProfile();
+    if (!userProfile) return mutationFail("UNAUTHORIZED");
+    const lesson = await AcademyAuthoringService.markLessonDemoCampaign(userProfile.id, lessonId);
+    if (!lesson?.demo_campaign) return mutationFail("VALIDATION_ERROR");
+    return mutationOk(lesson);
+  } catch (err: unknown) {
+    return toCourseMutationFailure(err);
+  }
+}
+
 export async function updateLessonAction(
   lessonId: string,
   patch: { title?: string; description?: string | null }

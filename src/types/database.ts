@@ -1875,6 +1875,8 @@ export interface Database {
           upload_status: string | null;
           duration_seconds: number | null;
           is_free_preview: boolean;
+          demo_campaign: boolean;
+          demo_share_code: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -1896,6 +1898,8 @@ export interface Database {
           upload_status?: string | null;
           duration_seconds?: number | null;
           is_free_preview?: boolean;
+          demo_campaign?: boolean;
+          demo_share_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };
@@ -1917,6 +1921,8 @@ export interface Database {
           upload_status?: string | null;
           duration_seconds?: number | null;
           is_free_preview?: boolean;
+          demo_campaign?: boolean;
+          demo_share_code?: string | null;
           created_at?: string;
           updated_at?: string;
         };

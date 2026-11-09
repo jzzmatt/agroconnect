@@ -11,6 +11,18 @@ import type {
 } from "@/lib/whatsapp/course-publish-service";
 import { WhatsappServiceError, type PublicGroup } from "@/lib/whatsapp/types";
 
+async function demoShareCode(db: { from: (table: string) => any }, courseId: string): Promise<string | null> {
+  const { data, error } = await db
+    .from("course_lessons")
+    .select("demo_share_code")
+    .eq("course_id", courseId)
+    .eq("demo_campaign", true)
+    .limit(1)
+    .maybeSingle();
+  if (error || !data?.demo_share_code) return null;
+  return String(data.demo_share_code);
+}
+
 function client() {
   const supabase = tryCreateAdminSupabaseClient();
   if (!supabase) throw new WhatsappServiceError("NOT_CONFIGURED", 503);
@@ -111,6 +123,7 @@ export function createSupabaseCoursePublishStore(): CourseShareStore {
         currency: String(data.currency || "AOA"),
         status: String(data.status),
         priceConfirmed: Boolean(data.price_confirmed),
+        demoShareCode: await demoShareCode(db, String(data.id)),
       } satisfies ShareableCourse;
     },
 

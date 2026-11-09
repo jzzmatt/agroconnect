@@ -134,6 +134,7 @@ describe("course completion WhatsApp share", () => {
     expect(preview.message).toContain("Mateus Junior");
     expect(preview.message).toContain("Gratuito");
     expect(preview.message).toContain("https://www.agroconnect.ao/agriacademy/courses/gestao-de-milho");
+    expect(preview.message).not.toContain("/a/");
     expect(preview.groups.map((group) => group.id)).toEqual([GROUP_A, GROUP_B]);
     expect(buildCourseCompletionMessage({
       title: "Gestão de milho",
@@ -142,6 +143,16 @@ describe("course completion WhatsApp share", () => {
       currency: "AOA",
       courseUrl: preview.course.courseUrl,
     })).toContain("15.000 Kz");
+  });
+
+  it("adds the short demo video link and leaves signed storage urls out", async () => {
+    const { store } = memoryStore(course({ demoShareCode: "k3m9qx2p" }));
+    const sender: CourseTextSender = { sendText: vi.fn() };
+    const preview = await service(store, sender).preview(USER, COURSE);
+    expect(preview.message).toContain("https://www.agroconnect.ao/a/k3m9qx2p");
+    expect(preview.message).toContain("Ver a aula de demonstração");
+    expect(preview.message).not.toContain("token=");
+    expect(preview.message).not.toContain("supabase");
   });
 
   it("sends only to saved groups and does not send again for the same request", async () => {

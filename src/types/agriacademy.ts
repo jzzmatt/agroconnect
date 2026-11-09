@@ -128,6 +128,8 @@ export interface CourseLessonRecord {
   upload_status?: "uploading" | "ready" | "failed" | null;
   duration_seconds?: number | null;
   is_free_preview: boolean;
+  demo_campaign?: boolean;
+  demo_share_code?: string | null;
   created_at: string;
   updated_at: string;
 }
