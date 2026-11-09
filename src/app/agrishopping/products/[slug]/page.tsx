@@ -28,8 +28,10 @@ import { ShoppingProductCard } from "@/components/shopping/ShoppingProductCard";
 import { BunnyPlayer } from "@/components/shopping/BunnyPlayer";
 import { AddToCartControl } from "@/components/commerce/AddToCartControl";
 import { ProductDeleteDialog } from "@/components/shopping/ProductDeleteDialog";
+import { WhatsAppPublishModal } from "@/components/whatsapp/WhatsAppPublishModal";
 import {
   canCurrentUserDeleteProductAction,
+  canCurrentUserPublishProductWhatsappAction,
   deleteProductAction,
   getProductBySlugAction,
   searchProductsAction,
@@ -53,6 +55,8 @@ export default function ProductDetailPage() {
   const [isFavorited, setIsFavorited] = useState(false);
   const [copied, setCopied] = useState(false);
   const [canDelete, setCanDelete] = useState(false);
+  const [canPublishWhatsapp, setCanPublishWhatsapp] = useState(false);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
   const [deleteOpen, setDeleteOpen] = useState(false);
   const [deleting, setDeleting] = useState(false);
 
@@ -76,6 +80,9 @@ export default function ProductDetailPage() {
     let cancelled = false;
     canCurrentUserDeleteProductAction(product.id).then((allowed) => {
       if (!cancelled) setCanDelete(allowed);
+    });
+    canCurrentUserPublishProductWhatsappAction(product.id).then((allowed) => {
+      if (!cancelled) setCanPublishWhatsapp(allowed);
     });
     return () => {
       cancelled = true;
@@ -325,6 +332,18 @@ export default function ProductDetailPage() {
                   <Send className="w-3.5 h-3.5" />
                   <span>Pedir Cotação Especial</span>
                 </Button>
+
+                {canPublishWhatsapp ? (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="lg"
+                    onClick={() => setWhatsappOpen(true)}
+                    className="w-full font-bold h-11 text-xs cursor-pointer"
+                  >
+                    {dict.whatsapp.publishToGroups}
+                  </Button>
+                ) : null}
               </div>
 
               {/* Seller Summary */}
@@ -376,6 +395,12 @@ export default function ProductDetailPage() {
         priceFormatted={formatPrice(product.price, product.currency)}
         unit={product.unit}
         maxAvailable={product.quantity}
+      />
+
+      <WhatsAppPublishModal
+        open={whatsappOpen}
+        productId={product.id}
+        onClose={() => setWhatsappOpen(false)}
       />
 
       <ProductDeleteDialog

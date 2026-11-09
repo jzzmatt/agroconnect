@@ -101,6 +101,15 @@ export function WhatsAppPublishModal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, productId]);
 
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
   const groups = preview?.groups ?? [];
   const allSelected = groups.length > 0 && groups.every((group) => selected.includes(group.id));
   const connected = preview?.connection.status === "connected";
@@ -186,10 +195,21 @@ export function WhatsAppPublishModal({
   const failed = publication?.targets.some((target) => target.status === "failed") ?? false;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center">
-      <div className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-surface-card p-5 shadow-lg space-y-4">
-        <div className="flex items-start justify-between gap-3">
-          <h2 className="text-lg font-black text-foreground">{copy.publishTitle}</h2>
+    <div
+      className="fixed inset-0 z-50 flex items-end justify-center bg-black/50 p-3 sm:items-center"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="whatsapp-publish-title"
+        className="max-h-[92vh] w-full max-w-lg overflow-y-auto rounded-3xl bg-surface-card p-5 shadow-lg space-y-4"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="sticky top-0 z-10 -mx-5 flex items-start justify-between gap-3 bg-surface-card px-5 pb-3">
+          <h2 id="whatsapp-publish-title" className="text-lg font-black text-foreground">
+            {copy.publishTitle}
+          </h2>
           <Button type="button" variant="outline" size="sm" onClick={onClose}>
             {copy.close}
           </Button>
@@ -317,7 +337,10 @@ export function WhatsAppPublishModal({
               </ul>
             )}
 
-            <div className="flex flex-wrap justify-end gap-2">
+            <div className="sticky bottom-0 z-10 -mx-5 flex flex-wrap justify-end gap-2 bg-surface-card px-5 pt-3">
+              <Button type="button" variant="outline" onClick={onClose}>
+                {copy.close}
+              </Button>
               {failed && (
                 <Button type="button" variant="outline" disabled={sending} onClick={() => void retry()}>
                   {copy.retryFailed}
