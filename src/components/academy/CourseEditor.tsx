@@ -500,8 +500,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         : dict.agriacademy.saveDraft;
 
   const parsedPrice = parseCoursePrice(priceInput);
-  const structureReady = publicationIssues.length === 0;
-  const showPriceField = structureReady && (course.status === "draft" || course.status === "paused");
+  const canSetPrice = course.status !== "archived";
   const priceReady = Boolean(course.price_confirmed) && parseCoursePrice(course.price).ok;
 
   const saveCoursePrice = () => {
@@ -608,6 +607,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
           />
         </div>
         <div className="flex flex-wrap gap-2">
+          {canSetPrice ? (
+            <Button type="button" size="sm" variant="outline" onClick={() => setPriceOpen(true)} disabled={isSaving}>
+              {dict.agriacademy.setCoursePrice}
+            </Button>
+          ) : null}
           <Button
             type="button"
             size="sm"
@@ -726,16 +730,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         </p>
       )}
 
-      {showPriceField ? (
+      {canSetPrice ? (
         <div className="max-w-xs space-y-2">
-          <div className="flex flex-wrap items-center gap-2">
-            <Button type="button" size="sm" variant="outline" onClick={() => setPriceOpen(true)} disabled={isSaving}>
-              {dict.agriacademy.setCoursePrice}
-            </Button>
-            {course.price_confirmed ? (
-              <p className="text-sm font-bold">{formatKwanza(course.price)}</p>
-            ) : null}
-          </div>
+          {course.price_confirmed ? (
+            <p className="text-sm font-bold">{formatKwanza(course.price)}</p>
+          ) : null}
           {priceOpen ? (
             <div className="space-y-1">
               <label htmlFor="course-price" className="block text-xs font-bold">
