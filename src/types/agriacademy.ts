@@ -44,6 +44,7 @@ export interface CourseRecord {
   level: CourseLevel;
   price: number;
   currency: string;
+  price_confirmed?: boolean;
   status: CourseStatus;
   thumbnail_url?: string | null;
   thumbnail_storage_path?: string | null;
@@ -197,6 +198,7 @@ export interface UpdateCourseInput extends Partial<CreateCourseInput> {
   id: string;
   status?: CourseStatus;
   clearLocation?: boolean;
+  confirmPrice?: boolean;
 }
 
 export interface SearchCoursesFilterParams {

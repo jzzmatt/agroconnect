@@ -8,6 +8,7 @@ export const READINESS_ITEM_IDS = [
   "lessons",
   "youtube",
   "structure",
+  "price",
 ] as const;
 
 export type ReadinessItemId = (typeof READINESS_ITEM_IDS)[number];
@@ -38,6 +39,7 @@ export function deriveReadinessChecklist(course: CourseWithSections): ReadinessC
     { id: "lessons", complete: hasLessons },
     { id: "youtube", complete: hasYouTube },
     { id: "structure", complete: hasStructure },
+    { id: "price", complete: Boolean(course.price_confirmed) && Number(course.price) >= 0 },
   ];
 
   return {

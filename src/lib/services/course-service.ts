@@ -10,6 +10,7 @@ import {
   slugifyCourse,
   type SearchCoursesFilterParams,
 } from "@/lib/academy/course-catalog";
+import { parseCoursePrice } from "@/lib/academy/course-price";
 import {
   assertCourseStatusTransition,
   canPermanentlyDeleteCourse,
@@ -97,6 +98,7 @@ function normalizeCourseRecord(row: Record<string, unknown>): CourseRecord {
     level: (row.level as CourseRecord["level"]) ?? "all_levels",
     price: Number(row.price ?? 0),
     currency: String(row.currency ?? "AOA"),
+    price_confirmed: Boolean(row.price_confirmed),
     status: (row.status as CourseRecord["status"]) ?? "draft",
     thumbnail_url: (row.thumbnail_url as string | null) ?? null,
     thumbnail_storage_path: (row.thumbnail_storage_path as string | null) ?? null,
@@ -503,6 +505,7 @@ export class CourseService {
       level: input.level ?? "all_levels",
       price: input.price ?? 0,
       currency: input.currency ?? "AOA",
+      price_confirmed: false,
       status: "draft",
       thumbnail_url: input.thumbnailUrl ?? null,
       duration_hours: null,
@@ -583,6 +586,13 @@ export class CourseService {
     const current = await this.getOwnedCourse(ownerId, input.id);
     if (!current.success) return current;
 
+    let confirmedPrice = input.price;
+    if (input.confirmPrice || input.price !== undefined) {
+      const parsed = parseCoursePrice(input.confirmPrice ? input.price : input.price);
+      if (!parsed.ok) return mutationFail("VALIDATION_ERROR");
+      confirmedPrice = parsed.price;
+    }
+
     let nextStatus = current.data.status;
     if (input.status && input.status !== current.data.status) {
       try {
@@ -612,7 +622,8 @@ export class CourseService {
         if (input.shortDescription !== undefined) patch.short_description = input.shortDescription;
         if (input.description !== undefined) patch.description = input.description;
         if (input.level) patch.level = input.level;
-        if (input.price !== undefined) patch.price = input.price;
+        if (confirmedPrice !== undefined) patch.price = confirmedPrice;
+        if (input.confirmPrice) patch.price_confirmed = true;
         if (input.currency) patch.currency = input.currency;
         if (input.thumbnailUrl !== undefined) patch.thumbnail_url = input.thumbnailUrl;
         if (input.provinceName !== undefined) patch.province_name = input.provinceName;
@@ -676,8 +687,9 @@ export class CourseService {
       short_description: input.shortDescription ?? current.data.short_description ?? null,
       description: input.description ?? current.data.description ?? null,
       level: input.level ?? current.data.level,
-      price: input.price ?? current.data.price,
+      price: confirmedPrice ?? current.data.price,
       currency: input.currency ?? current.data.currency,
+      price_confirmed: input.confirmPrice ? true : Boolean(current.data.price_confirmed),
       status: nextStatus,
       thumbnail_url: input.thumbnailUrl ?? current.data.thumbnail_url ?? null,
       province_name: input.provinceName ?? current.data.province_name ?? null,

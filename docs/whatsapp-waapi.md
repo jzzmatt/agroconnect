@@ -50,3 +50,7 @@ WaAPI’s documented group actions do not include interactive URL buttons. The m
 Customers who open the order link reach `/order/{productId}?source=whatsapp`. The server checks that the product is public, adds it to the cart once, and redirects to `/cart` without asking them to sign in. A signed-in customer continues through `/checkout`. A guest can review that same cart and is sent to `/sign-in?redirect_url=/checkout` only after choosing to finish the purchase. The sign-in page also opens sign-up with the same return path. After either, the guest cart is copied into the account cart and checkout continues. The price comes from the catalogue, not from the link.
 
 Apply `supabase/migrations/20261106171305_whatsapp_product_publications.sql`. No new environment variable is required.
+
+## AgriAcademy course completion
+
+After an instructor publishes a course with an entered price, they can optionally send a completion note to saved WhatsApp groups on the same connection. The note includes the course title, the status Concluído, the instructor name when the profile has one, the saved price, and `https://{origin}/agriacademy/courses/{slug}`. A failed send does not unpublish the course or clear the price. Retry sends only the groups WaAPI did not accept. Apply `supabase/migrations/20261109103206_course_completion_price_whatsapp.sql`. No new environment variable is required.

@@ -4,7 +4,7 @@ import { getCurrentSubject } from "@/lib/authorization/server";
 import { WhatsappServiceError } from "./types";
 
 async function requirePermissions(
-  permissions: Array<"whatsapp.connect" | "product.publish">
+  permissions: Array<"whatsapp.connect" | "product.publish" | "academy.course.publish">
 ): Promise<{ userId: string } | { response: NextResponse }> {
   const subject = await getCurrentSubject();
   try {
@@ -32,6 +32,12 @@ export async function requireProductWhatsappPublisher(): Promise<
   { userId: string } | { response: NextResponse }
 > {
   return requirePermissions(["whatsapp.connect", "product.publish"]);
+}
+
+export async function requireCourseWhatsappPublisher(): Promise<
+  { userId: string } | { response: NextResponse }
+> {
+  return requirePermissions(["whatsapp.connect", "academy.course.publish"]);
 }
 
 export function whatsappErrorResponse(error: unknown): NextResponse {

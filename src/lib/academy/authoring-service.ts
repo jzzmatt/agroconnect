@@ -270,6 +270,7 @@ export class AcademyAuthoringService {
       level: course?.level || "all_levels",
       price: course?.price ?? 0,
       currency: course?.currency || "AOA",
+      price_confirmed: Boolean(course?.price_confirmed),
       status: course?.status || "draft",
       thumbnail_url: course?.thumbnail_url,
       thumbnail_storage_path: course?.thumbnail_storage_path ?? null,

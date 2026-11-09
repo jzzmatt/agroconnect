@@ -57,6 +57,7 @@ export function readinessItemLabels(dict: AcademyCopy): Record<ReadinessItemId, 
     lessons: dict.readinessLessons,
     youtube: dict.readinessYouTube,
     structure: dict.readinessStructure,
+    price: dict.readinessPrice,
   };
 }
 
