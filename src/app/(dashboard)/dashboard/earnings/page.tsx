@@ -6,10 +6,11 @@ import { ArrowUpRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { useI18n } from "@/i18n/provider";
 import { getSellerEarningsAction } from "@/lib/services/commerce-actions";
+import { formatDashboardAmount } from "@/lib/agriprofile/overview";
 import type { SellerEarningsSummary } from "@/types/commerce";
 
 function formatAmount(value: number, currency: string) {
-  return `${new Intl.NumberFormat("pt-AO").format(value)} ${currency}`;
+  return formatDashboardAmount(value, currency);
 }
 
 export default function CommerceEarningsPage() {
@@ -20,10 +21,23 @@ export default function CommerceEarningsPage() {
   const dateLocale = locale === "en" ? "en-GB" : locale === "fr" ? "fr-FR" : "pt-AO";
 
   useEffect(() => {
-    getSellerEarningsAction()
-      .then((result) => setSummary(result))
-      .catch(() => setSummary(null))
-      .finally(() => setIsLoading(false));
+    const load = () => {
+      getSellerEarningsAction()
+        .then((result) => setSummary(result))
+        .catch(() => setSummary(null))
+        .finally(() => setIsLoading(false));
+    };
+    load();
+    const refresh = () => {
+      if (document.visibilityState === "hidden") return;
+      load();
+    };
+    window.addEventListener("focus", refresh);
+    document.addEventListener("visibilitychange", refresh);
+    return () => {
+      window.removeEventListener("focus", refresh);
+      document.removeEventListener("visibilitychange", refresh);
+    };
   }, []);
 
   const completedEntries = useMemo(

@@ -207,6 +207,8 @@ describe("AgriProfile dashboard overview KPIs", () => {
     expect(overview.activeConsultations).toBe(1);
     expect(overview.totalStudents).toBe(3);
     expect(formatDashboardAmount(overview.totalEarnings, overview.currency)).toMatch(/70/);
+    expect(formatDashboardAmount(overview.totalEarnings, "AOA")).toContain("Kz");
+    expect(formatDashboardAmount(1500.4, "AOA")).not.toContain("USD");
   });
 
   it("wires the agriprofile dashboard to the overview action instead of mock KPIs", () => {
