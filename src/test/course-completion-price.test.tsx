@@ -1,6 +1,6 @@
 import React from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { I18nProvider } from "@/i18n/provider";
 import { CourseEditor } from "@/components/academy/CourseEditor";
 import type { CourseEditorTree } from "@/types/agriacademy";
@@ -10,11 +10,13 @@ vi.mock("next/navigation", () => ({
 }));
 
 const publishCourseAction = vi.fn();
+const setCoursePriceAction = vi.fn();
 const getCourseEditorAction = vi.fn();
 
 vi.mock("@/lib/services/course-actions", () => ({
   getCourseEditorAction: (...args: unknown[]) => getCourseEditorAction(...args),
   publishCourseAction: (...args: unknown[]) => publishCourseAction(...args),
+  setCoursePriceAction: (...args: unknown[]) => setCoursePriceAction(...args),
   pauseCourseAction: vi.fn(),
   resumeCourseAction: vi.fn(),
   archiveCourseAction: vi.fn(),
@@ -78,6 +80,7 @@ describe("course creator price before completion", () => {
   beforeEach(() => {
     cleanup();
     publishCourseAction.mockReset();
+    setCoursePriceAction.mockReset();
     getCourseEditorAction.mockReset();
     vi.stubGlobal(
       "fetch",
@@ -100,8 +103,14 @@ describe("course creator price before completion", () => {
     );
   });
 
-  it("requires a valid price and then publishes that amount", async () => {
-    getCourseEditorAction.mockResolvedValue(readyCourse());
+  it("requires a saved price and then publishes that amount", async () => {
+    getCourseEditorAction
+      .mockResolvedValueOnce(readyCourse())
+      .mockResolvedValue({ ...readyCourse(), price: 0, price_confirmed: true });
+    setCoursePriceAction.mockResolvedValue({
+      success: true,
+      data: { price: 0, price_confirmed: true, status: "draft" },
+    });
     publishCourseAction.mockResolvedValue({ success: true, data: { status: "published" } });
     render(
       <I18nProvider initialLocale="pt">
@@ -109,16 +118,23 @@ describe("course creator price before completion", () => {
       </I18nProvider>
     );
 
-    const input = await screen.findByLabelText("Preço do curso (Kz)");
-    const publish = screen.getByRole("button", { name: "Publicar" });
+    const publish = await screen.findByRole("button", { name: "Publicar" });
     expect(publish).toBeDisabled();
+    expect(screen.queryByLabelText("Preço do curso (Kz)")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Definir preço do curso" }));
+    const input = screen.getByLabelText("Preço do curso (Kz)");
     fireEvent.change(input, { target: { value: "-5" } });
     expect(screen.getByText("Introduza um valor igual ou superior a zero.")).toBeTruthy();
-    expect(screen.getByRole("button", { name: "Publicar" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Guardar preço" })).toBeDisabled();
     fireEvent.change(input, { target: { value: "0" } });
-    const enabled = screen.getAllByRole("button", { name: "Publicar" });
-    expect(enabled.some((button) => !button.hasAttribute("disabled"))).toBe(true);
-    fireEvent.click(enabled.find((button) => !button.hasAttribute("disabled")) || enabled[0]);
+    fireEvent.click(screen.getByRole("button", { name: "Guardar preço" }));
+    expect(setCoursePriceAction).toHaveBeenCalledWith(readyCourse().id, 0);
+    await waitFor(() => {
+      const enabled = screen.getAllByRole("button", { name: "Publicar" });
+      expect(enabled.some((button) => !button.hasAttribute("disabled"))).toBe(true);
+    });
+    const ready = screen.getAllByRole("button", { name: "Publicar" }).find((button) => !button.hasAttribute("disabled"));
+    fireEvent.click(ready!);
     expect(publishCourseAction).toHaveBeenCalledWith(readyCourse().id, 0);
     expect(await screen.findByRole("dialog")).toBeTruthy();
   });

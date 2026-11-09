@@ -44,6 +44,7 @@ import {
 } from "@/lib/academy/authoring-copy";
 import { deriveReadinessChecklist } from "@/lib/academy/course-readiness";
 import { parseCoursePrice } from "@/lib/academy/course-price";
+import { formatKwanza } from "@/lib/whatsapp/product-message";
 import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 import { isYouTubeVideoId } from "@/lib/academy/youtube";
 import {
@@ -64,6 +65,7 @@ import {
   getCourseEditorAction,
   pauseCourseAction,
   publishCourseAction,
+  setCoursePriceAction,
   reorderLessonsAction,
   reorderSectionsAction,
   resumeCourseAction,
@@ -132,6 +134,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
   const [previewLesson, setPreviewLesson] = useState<LessonVideoPreviewTarget | null>(null);
   const [priceInput, setPriceInput] = useState("");
+  const [priceOpen, setPriceOpen] = useState(false);
   const [shareOpen, setShareOpen] = useState(false);
   const priceCourseId = useRef<string | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
@@ -499,12 +502,23 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const parsedPrice = parseCoursePrice(priceInput);
   const structureReady = publicationIssues.length === 0;
   const showPriceField = structureReady && (course.status === "draft" || course.status === "paused");
+  const priceReady = Boolean(course.price_confirmed) && parseCoursePrice(course.price).ok;
+
+  const saveCoursePrice = () => {
+    if (!parsedPrice.ok) return;
+    void runAction(
+      () => setCoursePriceAction(course.id, parsedPrice.price),
+      dict.agriacademy.coursePriceSaved,
+      { require: (data) => (data as { price_confirmed?: boolean } | undefined)?.price_confirmed === true }
+    ).then((saved) => {
+      if (saved) setPriceOpen(false);
+    });
+  };
 
   const publishWithPrice = () => {
-    if (!parsedPrice.ok || !authoringProgress?.readyToPublish) return;
-    const amount = parsedPrice.price;
+    if (!priceReady || !authoringProgress?.readyToPublish) return;
     void runAction(
-      () => publishCourseAction(course.id, amount),
+      () => publishCourseAction(course.id, course.price),
       dict.agriacademy.coursePublished,
       { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
     ).then((saved) => {
@@ -537,7 +551,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         void handleSaveDraft();
         return;
       case "publish":
-        if (!authoringProgress?.readyToPublish || !parseCoursePrice(priceInput).ok) return;
+        if (!authoringProgress?.readyToPublish || !priceReady) return;
         void publishWithPrice();
         return;
       default:
@@ -620,7 +634,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
               type="button"
               size="sm"
               onClick={publishWithPrice}
-              disabled={isSaving || !authoringProgress?.readyToPublish || !parsedPrice.ok}
+              disabled={isSaving || !authoringProgress?.readyToPublish || !priceReady}
             >
               <Eye className="w-3.5 h-3.5 mr-1" />
               {dict.common.publish}
@@ -713,24 +727,42 @@ export function CourseEditor({ courseId }: { courseId: string }) {
       )}
 
       {showPriceField ? (
-        <div className="max-w-xs space-y-1">
-          <label htmlFor="course-price" className="block text-xs font-bold">
-            {dict.agriacademy.coursePriceLabel}
-          </label>
-          <input
-            id="course-price"
-            inputMode="decimal"
-            value={priceInput}
-            onChange={(event) => setPriceInput(event.target.value)}
-            disabled={isSaving}
-            aria-describedby="course-price-hint"
-            className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-sm"
-          />
-          <p id="course-price-hint" className="text-[11px] text-muted-foreground">
-            {dict.agriacademy.coursePriceFreeHint}
-          </p>
-          {priceInput.trim() !== "" && !parsedPrice.ok ? (
-            <p className="text-[11px] font-semibold text-destructive">{dict.agriacademy.coursePriceInvalid}</p>
+        <div className="max-w-xs space-y-2">
+          <div className="flex flex-wrap items-center gap-2">
+            <Button type="button" size="sm" variant="outline" onClick={() => setPriceOpen(true)} disabled={isSaving}>
+              {dict.agriacademy.setCoursePrice}
+            </Button>
+            {course.price_confirmed ? (
+              <p className="text-sm font-bold">{formatKwanza(course.price)}</p>
+            ) : null}
+          </div>
+          {priceOpen ? (
+            <div className="space-y-1">
+              <label htmlFor="course-price" className="block text-xs font-bold">
+                {dict.agriacademy.coursePriceLabel}
+              </label>
+              <input
+                id="course-price"
+                type="number"
+                min={0}
+                step="0.01"
+                inputMode="decimal"
+                value={priceInput}
+                onChange={(event) => setPriceInput(event.target.value)}
+                disabled={isSaving}
+                aria-describedby="course-price-hint"
+                className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-sm"
+              />
+              <p id="course-price-hint" className="text-[11px] text-muted-foreground">
+                {dict.agriacademy.coursePriceFreeHint}
+              </p>
+              {priceInput.trim() !== "" && !parsedPrice.ok ? (
+                <p className="text-[11px] font-semibold text-destructive">{dict.agriacademy.coursePriceInvalid}</p>
+              ) : null}
+              <Button type="button" size="sm" onClick={saveCoursePrice} disabled={isSaving || !parsedPrice.ok}>
+                {dict.agriacademy.saveCoursePrice}
+              </Button>
+            </div>
           ) : null}
         </div>
       ) : null}
@@ -744,7 +776,7 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             stepLabels={authoringStepLabels(dict.agriacademy)}
             nextActionMessage={formatAuthoringNextAction(authoringProgress.nextAction, dict.agriacademy)}
             actionLabel={
-              authoringProgress.nextAction.kind === "publish" && !parsedPrice.ok
+              authoringProgress.nextAction.kind === "publish" && !priceReady
                 ? null
                 : authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)
             }
