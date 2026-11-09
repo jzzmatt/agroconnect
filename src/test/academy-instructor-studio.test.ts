@@ -77,17 +77,21 @@ describe("AGROCONNECT Phase 9 — Instructor studio", () => {
     expect(result.issues.some((issue) => issue.code === "MISSING_STRUCTURE")).toBe(true);
   });
 
-  it("builds the five-item readiness checklist including course structure", () => {
-    const ready = deriveReadinessChecklist(course());
+  it("builds the readiness checklist including course structure and price", () => {
+    const ready = deriveReadinessChecklist(course({ price: 15000, price_confirmed: true }));
     expect(ready.items.map((item) => item.id)).toEqual([
       "course_info",
       "chapters",
       "lessons",
       "youtube",
       "structure",
+      "price",
     ]);
     expect(ready.items.every((item) => item.complete)).toBe(true);
     expect(ready.ready).toBe(true);
+    const missingPrice = deriveReadinessChecklist(course());
+    expect(missingPrice.items.find((item) => item.id === "price")?.complete).toBe(false);
+    expect(missingPrice.ready).toBe(false);
 
     const incomplete = deriveReadinessChecklist(course({ sections: [] }));
     expect(incomplete.items.find((item) => item.id === "structure")?.complete).toBe(false);

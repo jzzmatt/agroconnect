@@ -22,6 +22,7 @@ import { CourseAuthoringGuide } from "@/components/academy/CourseAuthoringGuide"
 import { CourseThumbnailUploader } from "@/components/academy/CourseThumbnailUploader";
 import { CourseLocationEditor } from "@/components/academy/CourseLocationEditor";
 import { CourseReadinessChecklist } from "@/components/academy/CourseReadinessChecklist";
+import { CourseWhatsAppShareModal } from "@/components/academy/CourseWhatsAppShareModal";
 import { LessonVideoModal } from "@/components/academy/LessonVideoModal";
 import {
   LessonVideoPreviewDialog,
@@ -42,6 +43,7 @@ import {
   readinessItemLabels,
 } from "@/lib/academy/authoring-copy";
 import { deriveReadinessChecklist } from "@/lib/academy/course-readiness";
+import { parseCoursePrice } from "@/lib/academy/course-price";
 import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 import { isYouTubeVideoId } from "@/lib/academy/youtube";
 import {
@@ -129,6 +131,9 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const [deleteBusy, setDeleteBusy] = useState(false);
   const [collapsedSectionIds, setCollapsedSectionIds] = useState<Set<string>>(new Set());
   const [previewLesson, setPreviewLesson] = useState<LessonVideoPreviewTarget | null>(null);
+  const [priceInput, setPriceInput] = useState("");
+  const [shareOpen, setShareOpen] = useState(false);
+  const priceCourseId = useRef<string | null>(null);
   const successTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const statusLabels: Record<string, string> = {
@@ -209,6 +214,10 @@ export function CourseEditor({ courseId }: { courseId: string }) {
   const applyCourseTree = useCallback((tree: CourseEditorTree) => {
     setCourse(tree);
     setSavedSnapshot(courseEditorFingerprint(tree));
+    if (priceCourseId.current !== tree.id) {
+      priceCourseId.current = tree.id;
+      setPriceInput(tree.price_confirmed ? String(tree.price) : "");
+    }
   }, []);
 
   const loadCourse = useCallback(
@@ -487,6 +496,22 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         ? dict.agriacademy.draftSaved
         : dict.agriacademy.saveDraft;
 
+  const parsedPrice = parseCoursePrice(priceInput);
+  const structureReady = publicationIssues.length === 0;
+  const showPriceField = structureReady && (course.status === "draft" || course.status === "paused");
+
+  const publishWithPrice = () => {
+    if (!parsedPrice.ok || !authoringProgress?.readyToPublish) return;
+    const amount = parsedPrice.price;
+    void runAction(
+      () => publishCourseAction(course.id, amount),
+      dict.agriacademy.coursePublished,
+      { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
+    ).then((saved) => {
+      if (saved) setShareOpen(true);
+    });
+  };
+
   const handleGuideAction = (action: AuthoringNextAction) => {
     if (!course || isSaving) return;
     switch (action.kind) {
@@ -512,12 +537,8 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         void handleSaveDraft();
         return;
       case "publish":
-        if (!authoringProgress?.readyToPublish) return;
-        void runAction(
-          () => publishCourseAction(course.id),
-          dict.agriacademy.coursePublished,
-          { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
-        );
+        if (!authoringProgress?.readyToPublish || !parseCoursePrice(priceInput).ok) return;
+        void publishWithPrice();
         return;
       default:
         return;
@@ -598,17 +619,22 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             <Button
               type="button"
               size="sm"
-              onClick={() =>
-                void runAction(
-                  () => publishCourseAction(course.id),
-                  dict.agriacademy.coursePublished,
-                  { require: (data) => (data as { status?: string } | undefined)?.status === "published" }
-                )
-              }
-              disabled={isSaving || !authoringProgress?.readyToPublish}
+              onClick={publishWithPrice}
+              disabled={isSaving || !authoringProgress?.readyToPublish || !parsedPrice.ok}
             >
               <Eye className="w-3.5 h-3.5 mr-1" />
               {dict.common.publish}
+            </Button>
+          ) : null}
+          {course.status === "published" ? (
+            <Button
+              type="button"
+              size="sm"
+              variant="outline"
+              onClick={() => setShareOpen(true)}
+              disabled={isSaving}
+            >
+              {dict.agriacademy.shareCourseCompletion}
             </Button>
           ) : null}
           {course.status === "published" ? (
@@ -686,6 +712,29 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         </p>
       )}
 
+      {showPriceField ? (
+        <div className="max-w-xs space-y-1">
+          <label htmlFor="course-price" className="block text-xs font-bold">
+            {dict.agriacademy.coursePriceLabel}
+          </label>
+          <input
+            id="course-price"
+            inputMode="decimal"
+            value={priceInput}
+            onChange={(event) => setPriceInput(event.target.value)}
+            disabled={isSaving}
+            aria-describedby="course-price-hint"
+            className="w-full rounded-2xl border border-border bg-surface px-3 py-2 text-sm"
+          />
+          <p id="course-price-hint" className="text-[11px] text-muted-foreground">
+            {dict.agriacademy.coursePriceFreeHint}
+          </p>
+          {priceInput.trim() !== "" && !parsedPrice.ok ? (
+            <p className="text-[11px] font-semibold text-destructive">{dict.agriacademy.coursePriceInvalid}</p>
+          ) : null}
+        </div>
+      ) : null}
+
       {authoringProgress ? (
         <div className="grid gap-4 lg:grid-cols-[minmax(0,1.4fr)_minmax(220px,0.8fr)]">
           <CourseAuthoringGuide
@@ -694,7 +743,11 @@ export function CourseEditor({ courseId }: { courseId: string }) {
             nextStepLabel={dict.agriacademy.authoringNextStep}
             stepLabels={authoringStepLabels(dict.agriacademy)}
             nextActionMessage={formatAuthoringNextAction(authoringProgress.nextAction, dict.agriacademy)}
-            actionLabel={authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)}
+            actionLabel={
+              authoringProgress.nextAction.kind === "publish" && !parsedPrice.ok
+                ? null
+                : authoringNextActionLabel(authoringProgress.nextAction, dict.agriacademy, dict.common.publish)
+            }
             onAction={handleGuideAction}
           />
           {readinessChecklist ? (
@@ -1088,6 +1141,12 @@ export function CourseEditor({ courseId }: { courseId: string }) {
         error={deleteError}
         onConfirm={() => void removeFromPublication()}
         onCancel={closeDeleteDialog}
+      />
+
+      <CourseWhatsAppShareModal
+        open={shareOpen}
+        courseId={shareOpen ? course.id : null}
+        onClose={() => setShareOpen(false)}
       />
     </div>
   );

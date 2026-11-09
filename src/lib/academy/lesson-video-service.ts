@@ -6,15 +6,25 @@ import { CoursePersistenceError, COURSE_MUTATION_MESSAGES } from "@/lib/academy/
 import { analyzeYouTubeInput } from "@/lib/academy/youtube";
 import {
   buildLessonUploadStoragePath,
+  optionalLessonDurationSeconds,
   validateLessonVideoFileMeta,
   type LessonVideoSource,
 } from "@/lib/academy/lesson-video";
+import {
+  assembleLessonVideoChunks,
+  assertLessonChunkPlan,
+  lessonChunkContentType,
+  lessonVideoChunkPath,
+  LESSON_VIDEO_PART_MAX_BYTES,
+} from "@/lib/academy/lesson-video-chunks";
 import {
   createLessonVideoSignedPlaybackUrl,
   createLessonVideoSignedUploadUrl,
   lessonVideoObjectExists,
   removeLessonVideoObject,
 } from "@/lib/academy/lesson-video-storage";
+import { ACADEMY_VIDEOS_BUCKET } from "@/lib/academy/lesson-video";
+import { downloadStorageObject, removeStorageObject, uploadBufferToStorage } from "@/lib/media/supabase-storage-core";
 import type { CourseLessonRecord } from "@/types/agriacademy";
 
 const LESSONS_TABLE = "course_lessons";
@@ -185,6 +195,140 @@ export class AcademyLessonVideoService {
       await removeLessonVideoObject(previousPath);
     }
 
+    return normalizeLesson(data as Record<string, unknown>);
+  }
+
+  public static async saveUploadChunk(params: {
+    ownerId: string;
+    lessonId: string;
+    clientRequestId: string;
+    index: number;
+    total: number;
+    fileName: string;
+    fileSize: number;
+    mimeType?: string | null;
+    bytes: Buffer;
+  }) {
+    if (params.bytes.length <= 0 || params.bytes.length > LESSON_VIDEO_PART_MAX_BYTES) {
+      throw new CoursePersistenceError("VIDEO_FILE_TOO_LARGE", COURSE_MUTATION_MESSAGES.VIDEO_FILE_TOO_LARGE);
+    }
+    const owned = await getOwnedLesson(params.ownerId, params.lessonId);
+    if (!owned) {
+      throw new CoursePersistenceError("UNAUTHORIZED", COURSE_MUTATION_MESSAGES.UNAUTHORIZED);
+    }
+    assertLessonChunkPlan({ fileSize: params.fileSize, total: params.total, index: params.index });
+    const contentType = lessonChunkContentType(params.fileName, params.mimeType, params.fileSize);
+    const storagePath = lessonVideoChunkPath({
+      ownerId: params.ownerId,
+      courseId: String(owned.lesson.course_id),
+      lessonId: params.lessonId,
+      clientRequestId: params.clientRequestId,
+      index: params.index,
+      total: params.total,
+    });
+    await uploadBufferToStorage({
+      bucket: ACADEMY_VIDEOS_BUCKET,
+      storagePath,
+      buffer: params.bytes,
+      contentType,
+    });
+    return { received: params.index };
+  }
+
+  public static async completeChunkedUpload(params: {
+    ownerId: string;
+    lessonId: string;
+    clientRequestId: string;
+    total: number;
+    fileName: string;
+    fileSize: number;
+    mimeType?: string | null;
+    durationSeconds?: unknown;
+  }) {
+    const owned = await getOwnedLesson(params.ownerId, params.lessonId);
+    if (!owned) {
+      throw new CoursePersistenceError("UNAUTHORIZED", COURSE_MUTATION_MESSAGES.UNAUTHORIZED);
+    }
+    const contentType = lessonChunkContentType(params.fileName, params.mimeType, params.fileSize);
+    const validation = validateLessonVideoFileMeta({
+      fileName: params.fileName,
+      fileSize: params.fileSize,
+      mimeType: params.mimeType,
+    });
+    if (!validation.ok) {
+      throw new CoursePersistenceError(validation.code, COURSE_MUTATION_MESSAGES[validation.code]);
+    }
+    assertLessonChunkPlan({ fileSize: params.fileSize, total: params.total });
+    const storagePath = buildLessonUploadStoragePath({
+      ownerId: params.ownerId,
+      courseId: String(owned.lesson.course_id),
+      lessonId: params.lessonId,
+      assetId: params.clientRequestId,
+      extension: validation.extension,
+    });
+    const alreadySaved =
+      owned.lesson.upload_status === "ready" &&
+      owned.lesson.upload_storage_path === storagePath &&
+      Number(owned.lesson.upload_original_size) === params.fileSize;
+    if (alreadySaved) {
+      return normalizeLesson(owned.lesson as Record<string, unknown>);
+    }
+
+    const bytes = await assembleLessonVideoChunks({
+      ownerId: params.ownerId,
+      courseId: String(owned.lesson.course_id),
+      lessonId: params.lessonId,
+      clientRequestId: params.clientRequestId,
+      total: params.total,
+      fileSize: params.fileSize,
+      read: (path) => downloadStorageObject(ACADEMY_VIDEOS_BUCKET, path),
+    });
+    await uploadBufferToStorage({
+      bucket: ACADEMY_VIDEOS_BUCKET,
+      storagePath,
+      buffer: bytes,
+      contentType,
+    });
+
+    const previousPath = owned.lesson.upload_storage_path as string | null;
+    const supabase = await getAcademyWritableClient();
+    const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+      .update({
+        video_source: "upload",
+        upload_storage_path: storagePath,
+        upload_original_filename: params.fileName,
+        upload_original_size: params.fileSize,
+        upload_original_mime_type: contentType,
+        upload_status: "ready",
+        duration_seconds: optionalLessonDurationSeconds(params.durationSeconds),
+        youtube_video_id: null,
+        youtube_source_url: null,
+        academy_video_id: null,
+        updated_at: new Date().toISOString(),
+      })
+      .eq("id", params.lessonId)
+      .select()
+      .single();
+
+    if (error || !data) {
+      await removeLessonVideoObject(storagePath);
+      throw new CoursePersistenceError("DATABASE_ERROR", COURSE_MUTATION_MESSAGES.DATABASE_ERROR, error);
+    }
+
+    for (let index = 0; index < params.total; index += 1) {
+      const chunkPath = lessonVideoChunkPath({
+        ownerId: params.ownerId,
+        courseId: String(owned.lesson.course_id),
+        lessonId: params.lessonId,
+        clientRequestId: params.clientRequestId,
+        index,
+        total: params.total,
+      });
+      await removeStorageObject(ACADEMY_VIDEOS_BUCKET, chunkPath);
+    }
+    if (previousPath && previousPath !== storagePath) {
+      await removeLessonVideoObject(previousPath);
+    }
     return normalizeLesson(data as Record<string, unknown>);
   }
 

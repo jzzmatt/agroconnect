@@ -1730,6 +1730,7 @@ export interface Database {
           level: CourseLevel;
           price: number;
           currency: string;
+          price_confirmed: boolean;
           status: CourseStatus;
           thumbnail_url: string | null;
           thumbnail_storage_path: string | null;
@@ -1766,6 +1767,7 @@ export interface Database {
           level?: CourseLevel;
           price?: number;
           currency?: string;
+          price_confirmed?: boolean;
           status?: CourseStatus;
           thumbnail_url?: string | null;
           thumbnail_storage_path?: string | null;
@@ -1802,6 +1804,7 @@ export interface Database {
           level?: CourseLevel;
           price?: number;
           currency?: string;
+          price_confirmed?: boolean;
           status?: CourseStatus;
           thumbnail_url?: string | null;
           thumbnail_storage_path?: string | null;

@@ -5,6 +5,7 @@ import { authorize } from "@/lib/authorization/server";
 import { AcademyAuthoringService } from "@/lib/academy/authoring-service";
 import { AcademyLessonVideoService } from "@/lib/academy/lesson-video-service";
 import { validateCourseForPublication } from "@/lib/academy/publication-validation";
+import { parseCoursePrice } from "@/lib/academy/course-price";
 import { canSetCourseStatusViaGenericUpdate } from "@/lib/academy/course-lifecycle";
 import { CourseService } from "@/lib/services/course-service";
 import {
@@ -132,11 +133,17 @@ export async function getCourseEditorAction(courseId: string) {
   }
 }
 
-export async function publishCourseAction(courseId: string): Promise<CourseMutationResult<CourseRecord>> {
+export async function publishCourseAction(
+  courseId: string,
+  price: number
+): Promise<CourseMutationResult<CourseRecord>> {
   try {
     await authorize("academy.course.publish");
     const userProfile = await getCurrentUserProfile();
     if (!userProfile) return mutationFail("UNAUTHORIZED");
+
+    const parsedPrice = parseCoursePrice(price);
+    if (!parsedPrice.ok) return mutationFail("VALIDATION_ERROR");
 
     const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
     if (!tree) return mutationFail("COURSE_NOT_FOUND");
@@ -146,7 +153,12 @@ export async function publishCourseAction(courseId: string): Promise<CourseMutat
       return mutationFail("VALIDATION_ERROR", validation.errors.join(" "));
     }
 
-    const updated = await CourseService.updateCourse(userProfile.id, { id: courseId, status: "published" });
+    const updated = await CourseService.updateCourse(userProfile.id, {
+      id: courseId,
+      price: parsedPrice.price,
+      confirmPrice: true,
+      status: "published",
+    });
     if (!updated.success) return updated;
     if (updated.data.status !== "published") {
       return mutationFail("DATABASE_ERROR", "Não foi possível publicar o curso. Tente novamente.");
@@ -181,6 +193,7 @@ export async function resumeCourseAction(courseId: string): Promise<CourseMutati
 
     const tree = await AcademyAuthoringService.getCourseEditorTree(courseId, userProfile.id);
     if (!tree) return mutationFail("COURSE_NOT_FOUND");
+    if (!tree.price_confirmed) return mutationFail("VALIDATION_ERROR");
     const validation = validateCourseForPublication(tree);
     if (!validation.ok) {
       return mutationFail("VALIDATION_ERROR", validation.errors.join(" "));
