@@ -1,6 +1,8 @@
 import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
-import { afterEach, describe, expect, it } from "vitest";
+import { createElement } from "react";
+import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { sendWaapiMedia, sendWaapiText } from "@/lib/integrations/waapi/messages";
 import { validateProductVideo } from "@/lib/products/video-validation";
@@ -22,6 +24,7 @@ import {
   type PublishStore,
 } from "@/lib/whatsapp/publish-service";
 import { WhatsappServiceError } from "@/lib/whatsapp/types";
+import { WhatsAppPublishModal } from "@/components/whatsapp/WhatsAppPublishModal";
 
 const GROUP_A = "120363000000000001@g.us";
 const GROUP_B = "120363000000000002@g.us";
@@ -431,6 +434,45 @@ describe("AgriProduct WhatsApp publishing", () => {
     expect(bodies[0]).toContain("\"mediaCaption\":\"Milho 15000 Kz\"");
     expect(bodies[1]).toContain("/instances/42/client/action/send-message");
     expect(bodies[1]).toContain("\"previewLink\":true");
+  });
+
+  it("closes the publish modal from the button next to publish", async () => {
+    const onClose = vi.fn();
+    vi.stubGlobal(
+      "fetch",
+      vi.fn(async () =>
+        new Response(
+          JSON.stringify({
+            message: "🌱 produto",
+            product: {
+              id: product().id,
+              name: "Milho",
+              description: null,
+              priceKz: 15000,
+              location: "Huambo",
+              transportIncluded: false,
+              imageUrl: null,
+              videoUrl: null,
+              orderUrl: "https://agroconnect.ao/agrishopping/products/milho/encomendar",
+              listingUrl: "https://agroconnect.ao/agrishopping/products/milho",
+            },
+            connection: { status: "connected", phone: null },
+            groups: [{ id: GROUP_A, name: "AGROCONNECTAPPS" }],
+          }),
+          { status: 200, headers: { "Content-Type": "application/json" } }
+        )
+      )
+    );
+    render(createElement(WhatsAppPublishModal, { open: true, productId: product().id, onClose }));
+    try {
+      await waitFor(() => expect(screen.getByRole("button", { name: "PUBLICAR NOS GRUPOS" })).toBeTruthy());
+      const closeButtons = screen.getAllByRole("button", { name: "Fechar" });
+      expect(closeButtons.length).toBeGreaterThanOrEqual(2);
+      fireEvent.click(closeButtons[closeButtons.length - 1]);
+      expect(onClose).toHaveBeenCalledOnce();
+    } finally {
+      vi.unstubAllGlobals();
+    }
   });
 
   it("keeps capture, transport, confirmation and the order link in the product flow", () => {

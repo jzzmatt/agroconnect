@@ -1391,6 +1391,7 @@ export const pt = {
     errorForbidden: "A sua conta não pode ligar o WhatsApp.",
     publishTitle: "Publicar no WhatsApp",
     publishGroups: "PUBLICAR NOS GRUPOS",
+    publishToGroups: "Publicar nos grupos",
     publishingGroups: "A publicar...",
     selectAll: "Selecionar todos",
     accountLabel: "Conta WhatsApp",

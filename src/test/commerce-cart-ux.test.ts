@@ -167,6 +167,9 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(card).toContain("AddToCartControl");
     expect(detail).toContain("AddToCartControl");
     expect(detail).toContain("canCurrentUserDeleteProductAction");
+    expect(detail).toContain("canCurrentUserPublishProductWhatsappAction");
+    expect(detail).toContain("WhatsAppPublishModal");
+    expect(detail).toContain("dict.whatsapp.publishToGroups");
     expect(detail).toContain("deleteProductAction");
     expect(detail).not.toContain("addToCartAction({ productId: product.id");
     expect(cartPage).toContain("updated.success");
@@ -175,6 +178,9 @@ describe("Commerce cart UX, product delete and receipts", () => {
     expect(order).toContain("OrderReceiptActions");
     expect(products).toContain("deleteProductAction");
     expect(editor).toContain("deleteProductAction");
+    expect(actions).toContain("export async function canCurrentUserPublishProductWhatsappAction");
+    expect(actions).toContain('requirePermission(subject, "whatsapp.connect")');
+    expect(actions).toContain('requirePermission(subject, "product.publish")');
     expect(actions).toContain("export async function canCurrentUserDeleteProductAction");
     expect(actions).toContain("export async function deleteProductAction");
     expect(actions).toContain('authorize("product.delete")');

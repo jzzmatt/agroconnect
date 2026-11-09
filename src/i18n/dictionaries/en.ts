@@ -1388,6 +1388,7 @@ export const en: Dictionary = {
     errorForbidden: "This account cannot connect WhatsApp.",
     publishTitle: "Publish on WhatsApp",
     publishGroups: "PUBLISH TO GROUPS",
+    publishToGroups: "Publish to groups",
     publishingGroups: "Publishing...",
     selectAll: "Select all",
     accountLabel: "WhatsApp account",

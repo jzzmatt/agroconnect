@@ -4,6 +4,7 @@ import { createServerSupabaseClient } from "@/lib/supabase/server";
 import {
   authorize,
   getCurrentSubject,
+  requirePermission,
   requireProductOwnership,
 } from "@/lib/authorization/server";
 import { AuthorizationError } from "@/lib/authorization/policy";
@@ -141,6 +142,18 @@ export async function updateProductAction(
     .eq("seller_id", seller.id);
 
   return !error;
+}
+
+export async function canCurrentUserPublishProductWhatsappAction(productId: string): Promise<boolean> {
+  try {
+    const subject = await getCurrentSubject();
+    requirePermission(subject, "whatsapp.connect");
+    requirePermission(subject, "product.publish");
+    await requireProductOwnership(productId, subject);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function canCurrentUserDeleteProductAction(productId: string): Promise<boolean> {

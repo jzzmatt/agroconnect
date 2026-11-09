@@ -1395,6 +1395,7 @@ export const fr: Dictionary = {
     errorForbidden: "Ce compte ne peut pas lier WhatsApp.",
     publishTitle: "Publier sur WhatsApp",
     publishGroups: "PUBLIER DANS LES GROUPES",
+    publishToGroups: "Publier dans les groupes",
     publishingGroups: "Publication...",
     selectAll: "Tout sélectionner",
     accountLabel: "Compte WhatsApp",
