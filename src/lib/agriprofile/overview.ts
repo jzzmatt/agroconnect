@@ -1,4 +1,4 @@
-import { isCompletedPaidProductGroup, sellerGroupProductValue } from "@/lib/commerce/persist";
+import { isCompletedPaidProductGroup, sellerGroupProductValue } from "@/lib/commerce/order-value";
 import type { AgriprofileOverview, AgriprofileUpcomingAppointment } from "@/types/agriprofile";
 import type { ServiceRequestItem } from "@/types/agriexpert";
 import type { CourseListItem } from "@/types/agriacademy";
