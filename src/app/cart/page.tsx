@@ -21,12 +21,15 @@ import {
   clearCartAction,
 } from "@/lib/services/commerce-actions";
 import { useCart } from "@/components/commerce/CartProvider";
+import { cartCheckoutHref } from "@/lib/commerce/guest-cart";
+import { useAuth } from "@clerk/nextjs";
 import type { ShoppingCart } from "@/types/domain";
 
 export default function CartPage() {
   const [cart, setCart] = useState<ShoppingCart | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const { applyCart } = useCart();
+  const { isSignedIn } = useAuth();
 
   useEffect(() => {
     getCartAction().then((res) => {
@@ -128,6 +131,7 @@ export default function CartPage() {
                 discount={cart.discount}
                 total={cart.total}
                 currency={cart.currency}
+                checkoutHref={cartCheckoutHref(Boolean(isSignedIn))}
               />
             </div>
           </div>

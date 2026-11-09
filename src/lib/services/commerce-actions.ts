@@ -1,6 +1,18 @@
 "use server";
 
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
+import {
+  addGuestProduct,
+  removeGuestProduct,
+  setGuestQuantity,
+} from "@/lib/commerce/guest-cart";
+import {
+  claimGuestCart,
+  readGuestCart,
+  readGuestShoppingCart,
+  shoppingCartFromLines,
+  writeGuestCart,
+} from "@/lib/commerce/guest-cart-session";
 import { resolveSessionSellerId, resolveSessionSellerIds } from "@/lib/commerce/session-seller";
 import {
   CommerceService,
@@ -46,19 +58,42 @@ async function runCartMutation(
   }
 }
 
+async function currentProfile() {
+  try {
+    return await getCurrentUserProfile();
+  } catch {
+    return null;
+  }
+}
+
 export async function getCartAction(): Promise<ShoppingCart> {
   try {
-    const profile = await getCurrentUserProfile();
-    if (!profile) return emptyShoppingCart();
-    return toSerializableCart(await CommerceService.getCart({ customerId: profile.id, ...PERSIST }));
+    const profile = await currentProfile();
+    if (profile) {
+      await claimGuestCart(profile.id);
+      return toSerializableCart(await CommerceService.getCart({ customerId: profile.id, ...PERSIST }));
+    }
+    return toSerializableCart(await readGuestShoppingCart());
   } catch {
     return emptyShoppingCart();
   }
 }
 
 export async function addToCartAction(input: AddToCartInput): Promise<CartMutationResult> {
+  const profile = await currentProfile();
+  if (!profile) {
+    return runCartMutation(async () => {
+      const quantity = input.quantity && input.quantity > 0 ? input.quantity : 1;
+      const next = addGuestProduct(await readGuestCart(), input.productId, quantity, input.once);
+      const cart = await shoppingCartFromLines(next);
+      if (!cart.items.some((item) => item.product_id === input.productId)) {
+        throw new Error("Produto não encontrado.");
+      }
+      await writeGuestCart(next);
+      return cart;
+    });
+  }
   return runCartMutation(async () => {
-    const profile = await requireCustomer();
     return CommerceService.addToCart(input, { customerId: profile.id, ...PERSIST });
   });
 }
@@ -67,8 +102,15 @@ export async function updateCartItemQuantityAction(
   productId: string,
   quantity: number
 ): Promise<CartMutationResult> {
+  const profile = await currentProfile();
+  if (!profile) {
+    return runCartMutation(async () => {
+      const next = setGuestQuantity(await readGuestCart(), productId, quantity);
+      await writeGuestCart(next);
+      return shoppingCartFromLines(next);
+    });
+  }
   return runCartMutation(async () => {
-    const profile = await requireCustomer();
     return CommerceService.updateCartItemQuantity(productId, quantity, {
       customerId: profile.id,
       ...PERSIST,
@@ -77,15 +119,28 @@ export async function updateCartItemQuantityAction(
 }
 
 export async function removeFromCartAction(productId: string): Promise<CartMutationResult> {
+  const profile = await currentProfile();
+  if (!profile) {
+    return runCartMutation(async () => {
+      const next = removeGuestProduct(await readGuestCart(), productId);
+      await writeGuestCart(next);
+      return shoppingCartFromLines(next);
+    });
+  }
   return runCartMutation(async () => {
-    const profile = await requireCustomer();
     return CommerceService.removeFromCart(productId, { customerId: profile.id, ...PERSIST });
   });
 }
 
 export async function clearCartAction(): Promise<CartMutationResult> {
+  const profile = await currentProfile();
+  if (!profile) {
+    return runCartMutation(async () => {
+      await writeGuestCart([]);
+      return readGuestShoppingCart();
+    });
+  }
   return runCartMutation(async () => {
-    const profile = await requireCustomer();
     return CommerceService.clearCart({ customerId: profile.id, ...PERSIST });
   });
 }
