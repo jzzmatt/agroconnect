@@ -68,6 +68,7 @@ import {
   setCoursePriceAction,
   reorderLessonsAction,
   reorderSectionsAction,
+  setLessonDemoCampaignAction,
   resumeCourseAction,
   updateCourseAction,
   updateLessonAction,
@@ -1013,6 +1014,26 @@ export function CourseEditor({ courseId }: { courseId: string }) {
                       }}
                     >
                       {dict.agriacademy.previewLesson}
+                    </Button>
+                  ) : null}
+                  {lessonHasPlayableVideo(lesson) ? (
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant={lesson.demo_campaign ? "primary" : "outline"}
+                      aria-pressed={Boolean(lesson.demo_campaign)}
+                      disabled={isSaving}
+                      onClick={() =>
+                        void runAction(
+                          () => setLessonDemoCampaignAction(lesson.id),
+                          dict.agriacademy.lessonDemoCampaignSaved,
+                          { require: (data) => (data as CourseLessonRecord).demo_campaign === true }
+                        )
+                      }
+                    >
+                      {lesson.demo_campaign
+                        ? dict.agriacademy.lessonDemoCampaignActive
+                        : dict.agriacademy.lessonDemoCampaign}
                     </Button>
                   ) : null}
                   {lessonHasPlayableVideo(lesson) ? (

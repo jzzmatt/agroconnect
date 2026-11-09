@@ -1,3 +1,4 @@
+import { lessonDemoVideoUrl } from "@/lib/academy/lesson-demo";
 import { isWhatsappGroupId } from "@/lib/integrations/waapi/groups";
 import { coursePageUrl, buildCourseCompletionMessage } from "@/lib/whatsapp/course-message";
 import { PUBLICATION_WINDOW_MS, rollupPublicationStatus } from "@/lib/whatsapp/publish-service";
@@ -37,6 +38,7 @@ export interface ShareableCourse {
   currency: string;
   status: string;
   priceConfirmed: boolean;
+  demoShareCode?: string | null;
 }
 
 export interface CourseShareConnection {
@@ -105,6 +107,7 @@ export function courseCompletionMessage(origin: string, course: ShareableCourse)
     price: course.price,
     currency: course.currency,
     courseUrl: coursePageUrl(origin, course.slug),
+    demoVideoUrl: lessonDemoVideoUrl(origin, course.demoShareCode),
   });
 }
 

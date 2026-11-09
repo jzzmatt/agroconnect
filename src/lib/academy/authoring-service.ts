@@ -6,6 +6,8 @@ import {
   CoursePersistenceError,
   COURSE_MUTATION_MESSAGES,
 } from "@/lib/academy/course-errors";
+import { createDemoShareCode } from "@/lib/academy/lesson-demo";
+import { lessonHasPlayableVideo } from "@/lib/academy/lesson-video";
 import { analyzeYouTubeInput } from "@/lib/academy/youtube";
 import { isMissingYoutubeColumnError } from "@/lib/academy/db-errors";
 import { CourseService } from "@/lib/services/course-service";
@@ -62,6 +64,8 @@ function seedMemoryStore(): void {
     upload_status: null,
     duration_seconds: null,
     is_free_preview: false,
+    demo_campaign: false,
+    demo_share_code: null,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   });
@@ -110,6 +114,8 @@ function normalizeLesson(row: Record<string, unknown>): CourseLessonRecord {
     upload_status: (row.upload_status as CourseLessonRecord["upload_status"]) ?? null,
     duration_seconds: row.duration_seconds != null ? Number(row.duration_seconds) : null,
     is_free_preview: Boolean(row.is_free_preview),
+    demo_campaign: Boolean(row.demo_campaign),
+    demo_share_code: (row.demo_share_code as string | null) ?? null,
     created_at: String(row.created_at ?? new Date().toISOString()),
     updated_at: String(row.updated_at ?? new Date().toISOString()),
   };
@@ -481,6 +487,8 @@ export class AcademyAuthoringService {
       youtube_source_url: null,
       duration_seconds: null,
       is_free_preview: false,
+      demo_campaign: false,
+      demo_share_code: null,
       created_at: now,
       updated_at: now,
     };
@@ -515,6 +523,55 @@ export class AcademyAuthoringService {
     if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
     const idx = memoryLessons.findIndex((item) => item.id === lessonId);
     memoryLessons[idx] = { ...memoryLessons[idx], ...patch, updated_at: new Date().toISOString() };
+    return memoryLessons[idx];
+  }
+
+  public static async markLessonDemoCampaign(
+    ownerId: string,
+    lessonId: string
+  ): Promise<CourseLessonRecord | null> {
+    if (hasLiveSupabase()) {
+      const supabase = await getAcademyWritableClient();
+      const { data: current, error: readError } = await (supabase.from(LESSONS_TABLE) as any)
+        .select("*")
+        .eq("id", lessonId)
+        .maybeSingle();
+      if (readError) throw databaseError(readError);
+      if (!current || !(await assertCourseOwner(current.course_id, ownerId))) return null;
+      const lesson = normalizeLesson(current as Record<string, unknown>);
+      if (!lessonHasPlayableVideo(lesson)) return null;
+
+      const code = lesson.demo_share_code || createDemoShareCode();
+      const now = new Date().toISOString();
+      const { error: clearError } = await (supabase.from(LESSONS_TABLE) as any)
+        .update({ demo_campaign: false, updated_at: now })
+        .eq("course_id", lesson.course_id)
+        .neq("id", lesson.id);
+      if (clearError) throw databaseError(clearError);
+      const { data, error } = await (supabase.from(LESSONS_TABLE) as any)
+        .update({ demo_campaign: true, demo_share_code: code, updated_at: now })
+        .eq("id", lesson.id)
+        .select()
+        .single();
+      if (error || !data) throw databaseError(error);
+      return normalizeLesson(data as Record<string, unknown>);
+    }
+
+    const lesson = memoryLessons.find((item) => item.id === lessonId);
+    if (!lesson || !(await assertCourseOwner(lesson.course_id, ownerId))) return null;
+    if (!lessonHasPlayableVideo(lesson)) return null;
+    const code = lesson.demo_share_code || createDemoShareCode();
+    const now = new Date().toISOString();
+    for (const item of memoryLessons) {
+      if (item.course_id === lesson.course_id) item.demo_campaign = false;
+    }
+    const idx = memoryLessons.findIndex((item) => item.id === lessonId);
+    memoryLessons[idx] = {
+      ...memoryLessons[idx],
+      demo_campaign: true,
+      demo_share_code: code,
+      updated_at: now,
+    };
     return memoryLessons[idx];
   }
 

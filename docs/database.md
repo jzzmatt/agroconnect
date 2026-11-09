@@ -148,7 +148,7 @@ Apply `supabase/migrations/20261106104021_whatsapp_connections.sql` before using
 
 `products.transport_included` records whether the vendor includes transport. `whatsapp_product_publications` and `whatsapp_product_publication_targets` record each AgriProduct send to a saved group. `sent` means WaAPI accepted the message. It does not mean delivered or read. Apply `supabase/migrations/20261106171305_whatsapp_product_publications.sql` before publishing products to WhatsApp.
 
-`courses.price_confirmed` is true only after the instructor enters a price. Zero is a free course. Courses that were already published or paused stay confirmed at their stored price. `whatsapp_course_publications` and `whatsapp_course_publication_targets` record each completion message sent to a saved group. Apply `supabase/migrations/20261109103206_course_completion_price_whatsapp.sql` before asking for a course price or sharing a completed course. No new environment variable is required.
+`courses.price_confirmed` is true only after the instructor enters a price. Zero is a free course. Courses that were already published or paused stay confirmed at their stored price. `whatsapp_course_publications` and `whatsapp_course_publication_targets` record each completion message sent to a saved group. Apply `supabase/migrations/20261109103206_course_completion_price_whatsapp.sql` before asking for a course price or sharing a completed course. Apply `supabase/migrations/20261109150035_lesson_demo_campaign.sql` before marking a lesson as the WhatsApp demo. The public video address is `https://{origin}/a/{code}`. No new environment variable is required.
 
 ## 8. AgriProduct temporary videos
 
