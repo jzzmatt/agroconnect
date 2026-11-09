@@ -1,4 +1,4 @@
-import { isCompletedPaidProductGroup } from "@/lib/commerce/persist";
+import { isCompletedPaidProductGroup, sellerGroupProductValue } from "@/lib/commerce/persist";
 import type { AgriprofileOverview, AgriprofileUpcomingAppointment } from "@/types/agriprofile";
 import type { ServiceRequestItem } from "@/types/agriexpert";
 import type { CourseListItem } from "@/types/agriacademy";
@@ -68,6 +68,35 @@ export function countActiveConsultations(requests: ServiceRequestItem[]): number
   return requests.filter((request) => ACTIVE_CONSULT_STATUSES.has(request.status)).length;
 }
 
+/** Product value of the same completed groups counted as products sold. */
+export function sumSoldProductIncome(orders: OrderDescriptor[]): number {
+  let total = 0;
+  for (const order of orders) {
+    for (const group of order.seller_groups || []) {
+      if (group.status === "cancelled" || order.status === "cancelled") continue;
+      if (
+        !isCompletedPaidProductGroup({
+          paymentStatus: order.payment_status,
+          fulfillmentStatus: group.status,
+          orderStatus: order.status,
+        })
+      ) {
+        continue;
+      }
+      total += sellerGroupProductValue(group);
+    }
+  }
+  return total;
+}
+
+/** Quoted price of pending and accepted consultations. */
+export function sumActiveConsultationIncome(requests: ServiceRequestItem[]): number {
+  return requests.reduce((sum, request) => {
+    if (!ACTIVE_CONSULT_STATUSES.has(request.status)) return sum;
+    return sum + Math.max(0, Number(request.estimated_price) || 0);
+  }, 0);
+}
+
 function startOfLocalDay(now: Date): Date {
   const start = new Date(now);
   start.setHours(0, 0, 0, 0);
@@ -126,12 +155,15 @@ export function buildAgriprofileOverview(input: {
     input.courses,
     input.enrollmentCounts
   );
-  const productEarnings = Number(input.productEarnings) || 0;
+  const soldProductIncome = sumSoldProductIncome(input.orders);
+  const recordedProductEarnings = Number(input.productEarnings) || 0;
+  const productEarnings = input.orders.length > 0 ? soldProductIncome : recordedProductEarnings;
+  const consultationIncome = sumActiveConsultationIncome(input.requests);
   return {
     currency: input.currency || "AOA",
     productEarnings,
     courseSales,
-    totalEarnings: productEarnings + courseSales,
+    totalEarnings: productEarnings + courseSales + consultationIncome,
     activeConsultations: countActiveConsultations(input.requests),
     productsSold: countCompletedSoldUnits(input.orders),
     totalStudents,
