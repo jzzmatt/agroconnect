@@ -94,8 +94,8 @@ export class SandboxPaymentAdapter implements IPaymentProvider {
         eventType: parsed.eventType || "payment.confirmed",
         orderId: parsed.orderId,
         providerPaymentId: parsed.providerPaymentId,
-        status: parsed.status || "paid",
-        amount: parsed.amount,
+        status: parsed.status,
+        amount: typeof parsed.amount === "number" ? parsed.amount : undefined,
         currency: parsed.currency || "AOA",
       };
     } catch {

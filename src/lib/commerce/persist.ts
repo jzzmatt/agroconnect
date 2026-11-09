@@ -1163,11 +1163,21 @@ export async function persistGetSellerEarnings(
     ];
     if (orderIds.length === 0) return summarizeSellerEarnings(sellerIds, []);
 
-    const { data: orderRows, error: orderError } = await supabase
-      .from("orders")
-      .select("id, order_number, payment_status, status, currency, created_at, subtotal, total")
-      .in("id", orderIds);
+    const [{ data: orderRows, error: orderError }, { data: paymentRows }] = await Promise.all([
+      supabase
+        .from("orders")
+        .select("id, order_number, payment_status, status, currency, created_at, subtotal, total")
+        .in("id", orderIds),
+      supabase.from("payments").select("order_id, amount, status").in("order_id", orderIds).eq("status", "paid"),
+    ]);
     if (orderError) return fallbackSellerEarnings(sellerIds);
+
+    const paidAmountByOrder = new Map<string, number>();
+    for (const row of (paymentRows || []) as Array<{ order_id?: string; amount?: number }>) {
+      const orderId = String(row.order_id || "");
+      if (!orderId) continue;
+      paidAmountByOrder.set(orderId, (paidAmountByOrder.get(orderId) || 0) + asNumber(row.amount));
+    }
 
     const ordersById = new Map<string, Record<string, unknown>>(
       (orderRows || []).map((row: Record<string, unknown>) => [String(row.id), row])
@@ -1246,7 +1256,18 @@ export async function persistGetSellerEarnings(
         shipping_address: null,
         items: [],
         seller_groups: sellerGroups,
-        payment: null,
+        payment: paidAmountByOrder.has(orderId)
+          ? {
+              id: `${orderId}:paid`,
+              order_id: orderId,
+              provider: "recorded",
+              payment_method: "mock_sandbox",
+              amount: paidAmountByOrder.get(orderId) || 0,
+              currency: String(orderRow.currency || "AOA"),
+              status: "paid" as const,
+              created_at: String(orderRow.created_at || ""),
+            }
+          : null,
         created_at: String(orderRow.created_at || ""),
         updated_at: String(orderRow.created_at || ""),
       });
@@ -1288,6 +1309,64 @@ export function isCompletedPaidProductGroup(params: {
   return fulfillment === "completed" || orderStatus === "completed";
 }
 
+const CLOSED_ORDER_STATUSES = new Set(["cancelled", "failed", "refunded", "draft", "abandoned"]);
+
+/** Paid rows only. Duplicate rows cannot push the received total above the order total. */
+export function confirmedReceivedTotal(
+  orderTotal: number,
+  paymentStatus: string | null | undefined,
+  payments: Array<{ status?: string | null; amount?: number | null }>
+): number {
+  const payable = Math.max(0, asNumber(orderTotal));
+  const paid = payments.filter((payment) => String(payment.status || "") === "paid");
+  if (paid.length > 0) {
+    const received = paid.reduce((sum, payment) => sum + Math.max(0, asNumber(payment.amount)), 0);
+    return Math.min(payable || received, received);
+  }
+  if (String(paymentStatus || "") === "paid") return payable;
+  return 0;
+}
+
+export function confirmedOrderIncome(params: {
+  paymentStatus?: string | null;
+  orderStatus?: string | null;
+  fulfillmentStatus?: string | null;
+  orderTotal?: number | null;
+  productValue?: number | null;
+  payments?: Array<{ status?: string | null; amount?: number | null }>;
+}): number {
+  const orderStatus = String(params.orderStatus || "");
+  const fulfillment = String(params.fulfillmentStatus || "");
+  if (CLOSED_ORDER_STATUSES.has(orderStatus) || fulfillment === "cancelled") return 0;
+  const productValue = Math.max(0, asNumber(params.productValue));
+  const orderTotal = Math.max(0, asNumber(params.orderTotal));
+  const received = confirmedReceivedTotal(orderTotal, params.paymentStatus, params.payments || []);
+  if (received <= 0 || productValue <= 0) return 0;
+  if (orderTotal <= 0) return productValue;
+  return Math.round(productValue * Math.min(1, received / orderTotal));
+}
+
+export function decidePaymentConfirmation(params: {
+  duplicateEvent: boolean;
+  storedStatus?: string | null;
+  storedAmount?: number | null;
+  reportedStatus?: string | null;
+  reportedAmount?: number | null;
+}): { apply: boolean; nextStatus: PaymentStatus | null } {
+  if (params.duplicateEvent) return { apply: false, nextStatus: null };
+  const nextStatus = String(params.reportedStatus || "") as PaymentStatus;
+  const allowed: PaymentStatus[] = ["pending", "processing", "paid", "failed", "cancelled", "refunded", "partially_refunded"];
+  if (!allowed.includes(nextStatus)) return { apply: false, nextStatus: null };
+  if (params.reportedAmount != null && Number.isFinite(params.reportedAmount)) {
+    const stored = asNumber(params.storedAmount);
+    if (Math.abs(stored - Number(params.reportedAmount)) > 0.009) {
+      return { apply: false, nextStatus: null };
+    }
+  }
+  if (String(params.storedStatus || "") === nextStatus) return { apply: false, nextStatus: null };
+  return { apply: true, nextStatus };
+}
+
 export function summarizeSellerEarnings(
   sellerId: string | string[],
   orders: OrderDescriptor[]
@@ -1300,19 +1379,21 @@ export function summarizeSellerEarnings(
       .filter((group) => allowed.has(group.seller_id))
       .map((group) => {
         const cancelled = group.status === "cancelled" || order.status === "cancelled";
-        const completed =
-          !cancelled &&
-          isCompletedPaidProductGroup({
-            paymentStatus: order.payment_status,
-            fulfillmentStatus: group.status,
-            orderStatus: order.status,
-          });
         const productValue = sellerGroupProductValue(group) || asNumber(order.subtotal);
+        const payments = order.payment ? [order.payment] : [];
+        const received = confirmedOrderIncome({
+          paymentStatus: order.payment_status,
+          orderStatus: order.status,
+          fulfillmentStatus: group.status,
+          orderTotal: order.total,
+          productValue,
+          payments,
+        });
         return {
           order_number: order.order_number,
-          status: cancelled ? "cancelled" : completed ? "completed" : group.status,
+          status: cancelled ? "cancelled" : received > 0 ? "completed" : "processing",
           payment_status: order.payment_status,
-          total: productValue,
+          total: received > 0 ? received : productValue,
           created_at: order.created_at,
         };
       })
@@ -1365,7 +1446,7 @@ export async function persistApplyPaymentWebhook(params: {
     return { applied: true };
   }
 
-  let paymentQuery = supabase.from("payments").select("id, order_id").limit(1);
+  let paymentQuery = supabase.from("payments").select("id, order_id, amount, status").limit(1);
   if (params.providerPaymentId) {
     paymentQuery = paymentQuery.eq("provider_payment_id", params.providerPaymentId);
   } else if (params.orderId) {
@@ -1377,14 +1458,27 @@ export async function persistApplyPaymentWebhook(params: {
   const { data: payment } = await paymentQuery.maybeSingle();
   if (!payment?.id) return { applied: false };
 
-  const nextStatus = params.status || "paid";
-  await supabase
+  const decision = decidePaymentConfirmation({
+    duplicateEvent: false,
+    storedStatus: payment.status,
+    storedAmount: asNumber(payment.amount),
+    reportedStatus: params.status,
+    reportedAmount: params.amount,
+  });
+  if (!decision.apply || !decision.nextStatus) return { applied: false };
+
+  const nextStatus = decision.nextStatus;
+  const { data: updatedPayment } = await supabase
     .from("payments")
     .update({
       status: nextStatus,
       paid_at: nextStatus === "paid" ? new Date().toISOString() : null,
     })
-    .eq("id", payment.id);
+    .eq("id", payment.id)
+    .eq("status", payment.status)
+    .select("id")
+    .maybeSingle();
+  if (!updatedPayment?.id) return { applied: false };
 
   const orderStatus: OrderStatus = nextStatus === "paid" ? "paid" : nextStatus === "failed" ? "failed" : "pending_payment";
   await supabase

@@ -106,10 +106,19 @@ export default function DashboardPage() {
       setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
     }).catch(() => undefined);
 
-    getAgriprofileOverviewAction()
-      .then((result) => setOverview(result))
-      .catch(() => setOverview(emptyAgriprofileOverview()))
-      .finally(() => setOverviewLoaded(true));
+    const loadOverview = () => {
+      getAgriprofileOverviewAction()
+        .then((result) => setOverview(result))
+        .catch(() => setOverview(emptyAgriprofileOverview()))
+        .finally(() => setOverviewLoaded(true));
+    };
+    loadOverview();
+    const refreshOverview = () => {
+      if (document.visibilityState === "hidden") return;
+      loadOverview();
+    };
+    window.addEventListener("focus", refreshOverview);
+    document.addEventListener("visibilitychange", refreshOverview);
 
     if (typeof window !== "undefined") {
       const realEmail = user?.primaryEmailAddress?.emailAddress || user?.emailAddresses?.[0]?.emailAddress || "";
@@ -147,6 +156,11 @@ export default function DashboardPage() {
         }
       }
     }
+
+    return () => {
+      window.removeEventListener("focus", refreshOverview);
+      document.removeEventListener("visibilitychange", refreshOverview);
+    };
   }, [user?.id, loadServerProfile]);
 
   const greeting = getUserGreeting({

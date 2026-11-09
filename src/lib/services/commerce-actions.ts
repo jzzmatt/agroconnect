@@ -1,5 +1,6 @@
 "use server";
 
+import { revalidatePath } from "next/cache";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import {
   addGuestProduct,
@@ -154,6 +155,9 @@ export async function checkoutOrderAction(input: CheckoutOrderInput): Promise<{
   try {
     const profile = await requireCustomer();
     const result = await CommerceService.checkoutOrder(input, { customerId: profile.id, ...PERSIST });
+    revalidatePath("/dashboard");
+    revalidatePath("/dashboard/earnings");
+    revalidatePath("/dashboard/orders");
     return {
       success: true,
       order: result.order,

@@ -20,7 +20,9 @@ export function emptyAgriprofileOverview(): AgriprofileOverview {
 }
 
 export function formatDashboardAmount(value: number, currency = "AOA"): string {
-  return `${new Intl.NumberFormat("pt-AO").format(Math.round(Number(value) || 0))} ${currency}`;
+  const amount = new Intl.NumberFormat("pt-AO", { maximumFractionDigits: 2 }).format(Number(value) || 0);
+  const code = String(currency || "AOA").trim().toUpperCase();
+  return `${amount} ${code === "AOA" ? "Kz" : code}`;
 }
 
 export function countCompletedSoldUnits(orders: OrderDescriptor[]): number {

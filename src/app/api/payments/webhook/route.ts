@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { revalidatePath } from "next/cache";
 import { NextResponse } from "next/server";
 import { PaymentService } from "@/lib/payments";
 import { persistApplyPaymentWebhook } from "@/lib/commerce/persist";
@@ -24,7 +25,7 @@ export async function POST(req: Request) {
       );
     }
 
-    await persistApplyPaymentWebhook({
+    const applied = await persistApplyPaymentWebhook({
       eventId: validation.eventId,
       eventType: validation.eventType,
       provider: validation.provider,
@@ -34,6 +35,11 @@ export async function POST(req: Request) {
       amount: validation.amount,
       payloadHash: createHash("sha256").update(rawBody).digest("hex"),
     });
+    if (applied.applied && validation.status === "paid") {
+      revalidatePath("/dashboard");
+      revalidatePath("/dashboard/earnings");
+      revalidatePath("/dashboard/orders");
+    }
 
     return NextResponse.json({
       received: true,
