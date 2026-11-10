@@ -6,22 +6,22 @@ import Link from "next/link";
 import {
   GraduationCap,
   Leaf,
-  MapPin,
-  ShoppingCart,
-  Truck,
+  MessageCircle,
+  ShoppingBag,
+  Wrench,
 } from "lucide-react";
 import { motion, useReducedMotion } from "motion/react";
 import { SectionHeader } from "@/components/ui";
 import { useI18n } from "@/i18n/provider";
 import { cn } from "@/lib/utils";
 
-type CapabilityId = "shopping" | "localization" | "academy" | "logistics";
+type CapabilityId = "product" | "academy" | "service" | "whatsapp";
 
 const capabilityLinks: Record<CapabilityId, string> = {
-  shopping: "/agrishopping",
-  localization: "/agrilocalizacao",
+  product: "/agrishopping",
   academy: "/agriacademy",
-  logistics: "/services",
+  service: "/agriservice",
+  whatsapp: "/dashboard/whatsapp",
 };
 
 function EcosystemConnections({
@@ -34,9 +34,9 @@ function EcosystemConnections({
   const shouldReduceMotion = useReducedMotion();
   const paths: { id: CapabilityId; d: string }[] = [
     { id: "academy", d: "M 50 18 L 50 38" },
-    { id: "shopping", d: "M 18 50 L 38 50" },
-    { id: "logistics", d: "M 82 50 L 62 50" },
-    { id: "localization", d: "M 50 82 L 50 62" },
+    { id: "product", d: "M 18 50 L 38 50" },
+    { id: "service", d: "M 82 50 L 62 50" },
+    { id: "whatsapp", d: "M 50 82 L 50 62" },
   ];
 
   return (
@@ -200,10 +200,10 @@ export function LandingEcosystemCapabilities() {
 
             <div className="lg:col-start-1 lg:row-start-2">
               <CapabilityCard
-                id="shopping"
-                title={dict.landing.ecosystemShoppingTitle}
-                description={dict.landing.ecosystemShoppingDesc}
-                icon={<ShoppingCart className="h-5 w-5" aria-hidden />}
+                id="product"
+                title={dict.landing.ecosystemProductTitle}
+                description={dict.landing.ecosystemProductDesc}
+                icon={<ShoppingBag className="h-5 w-5" aria-hidden />}
                 delay={0.18}
                 activeId={activeId}
                 onHover={setActiveId}
@@ -247,17 +247,21 @@ export function LandingEcosystemCapabilities() {
 
             <div className="lg:col-start-3 lg:row-start-2">
               <CapabilityCard
-                id="logistics"
-                title={dict.landing.ecosystemLogisticsTitle}
-                description={dict.landing.ecosystemLogisticsDesc}
-                icon={<Truck className="h-5 w-5" aria-hidden />}
+                id="service"
+                title={dict.landing.ecosystemServiceTitle}
+                description={dict.landing.ecosystemServiceDesc}
+                icon={<Wrench className="h-5 w-5" aria-hidden />}
                 delay={0.26}
                 activeId={activeId}
                 onHover={setActiveId}
                 preview={
-                  <div className="flex items-center gap-2 rounded-xl border border-dashed border-border p-3">
-                    <Truck className="h-8 w-8 text-teal-600 shrink-0" aria-hidden />
-                    <div className="h-1 flex-1 rounded-full bg-gradient-to-r from-teal-500/40 via-primary/30 to-transparent" />
+                  <div className="flex items-center gap-3 rounded-xl border border-border bg-surface-card p-2">
+                    <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-teal-100 text-teal-800 dark:bg-teal-950/50 dark:text-teal-200">
+                      <Wrench className="h-5 w-5" aria-hidden />
+                    </div>
+                    <p className="min-w-0 flex-1 truncate text-xs font-bold">
+                      {dict.landing.ecosystemMiniServiceTitle}
+                    </p>
                   </div>
                 }
               />
@@ -265,21 +269,21 @@ export function LandingEcosystemCapabilities() {
 
             <div className="lg:col-start-2 lg:row-start-3">
               <CapabilityCard
-                id="localization"
-                title={dict.landing.ecosystemLocalizationTitle}
-                description={dict.landing.ecosystemLocalizationDesc}
-                icon={<MapPin className="h-5 w-5" aria-hidden />}
+                id="whatsapp"
+                title={dict.landing.ecosystemWhatsappTitle}
+                description={dict.landing.ecosystemWhatsappDesc}
+                icon={<MessageCircle className="h-5 w-5" aria-hidden />}
                 delay={0.34}
                 activeId={activeId}
                 onHover={setActiveId}
                 preview={
-                  <div className="relative h-20 overflow-hidden rounded-xl border border-border bg-emerald-50/80 dark:bg-emerald-950/30">
-                    <div className="absolute inset-0 opacity-40 bg-[radial-gradient(circle_at_30%_40%,#0E6B38_0%,transparent_55%),radial-gradient(circle_at_70%_60%,#1D4ED8_0%,transparent_50%)]" />
-                    <div className="absolute bottom-2 left-2 right-2 rounded-lg border border-border bg-surface-card/95 p-2 shadow-sm">
-                      <p className="text-[10px] font-bold">{dict.landing.ecosystemMiniLocalSupplier}</p>
-                      <p className="text-[9px] text-muted-foreground">Benguela</p>
+                  <div className="space-y-2 rounded-xl border border-border bg-surface-card p-3">
+                    <div className="flex items-center gap-2">
+                      <MessageCircle className="h-4 w-4 shrink-0 text-primary" aria-hidden />
+                      <p className="truncate text-xs font-bold">{dict.landing.ecosystemMiniWhatsappTitle}</p>
                     </div>
-                    <MapPin className="absolute left-1/2 top-1/3 h-5 w-5 -translate-x-1/2 text-primary" aria-hidden />
+                    <div className="h-1.5 w-3/4 rounded-full bg-primary/20" />
+                    <div className="h-1.5 w-1/2 rounded-full bg-muted" />
                   </div>
                 }
               />
