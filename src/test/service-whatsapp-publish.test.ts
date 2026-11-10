@@ -7,10 +7,12 @@ import { I18nProvider } from "@/i18n/provider";
 import { resolveAuthRedirectUrl } from "@/lib/auth/redirect-url";
 import { buildServiceWhatsappMessage, formatServicePrice } from "@/lib/whatsapp/service-message";
 import {
+  readServiceRequestDraft,
   serviceBookingPath,
   serviceRequestOutcome,
   serviceSignInPath,
   serviceSignUpPath,
+  writeServiceRequestDraft,
 } from "@/lib/whatsapp/service-booking";
 import {
   createServicePublishService,
@@ -175,11 +177,38 @@ describe("service WhatsApp publishing", () => {
     const page = readFileSync("src/app/services/[slug]/page.tsx", "utf8");
     expect(page).toContain("serviceSignInPath");
     expect(page).toContain('searchParams.get("book") === "1"');
+    expect(page).toContain("setIsRequestModalOpen(true)");
+    expect(page).not.toContain("router.replace");
+    expect(page).not.toContain("router.push");
     expect(page).not.toContain("createServiceRequestAction");
     const modal = readFileSync("src/components/marketplace/ServiceRequestModal.tsx", "utf8");
     expect(modal).toContain('serviceRequestOutcome(res) === "saved"');
     expect(modal).toContain("Pedido Enviado com Sucesso!");
+    expect(modal).toContain("writeServiceRequestDraft");
+    expect(modal).toContain("router.push(signInPath)");
     expect(modal).not.toContain("consulta confirmada");
+    const storage = new Map<string, string>();
+    const memory = {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => {
+        storage.set(key, value);
+      },
+      removeItem: (key: string) => {
+        storage.delete(key);
+      },
+    };
+    writeServiceRequestDraft(memory, {
+      serviceId: "33333333-3333-4333-8333-333333333333",
+      message: "  Preciso de análise do solo  ",
+      requestedDate: "2026-11-20",
+      locationNotes: "Caála",
+    });
+    expect(readServiceRequestDraft(memory, "33333333-3333-4333-8333-333333333333")).toEqual({
+      serviceId: "33333333-3333-4333-8333-333333333333",
+      message: "Preciso de análise do solo",
+      requestedDate: "2026-11-20",
+      locationNotes: "Caála",
+    });
     expect(serviceRequestOutcome({ success: true })).toBe("saved");
     expect(serviceRequestOutcome({ success: false })).toBe("incomplete");
     expect(serviceRequestOutcome(null)).toBe("incomplete");

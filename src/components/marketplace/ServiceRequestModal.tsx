@@ -1,10 +1,17 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
+import { useRouter } from "next/navigation";
 import { X, Send, Calendar, MapPin, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createServiceRequestAction } from "@/lib/services/marketplace-actions";
-import { serviceRequestOutcome } from "@/lib/whatsapp/service-booking";
+import {
+  clearServiceRequestDraft,
+  readServiceRequestDraft,
+  serviceRequestOutcome,
+  writeServiceRequestDraft,
+  type ServiceRequestDraft,
+} from "@/lib/whatsapp/service-booking";
 
 interface ServiceRequestModalProps {
   isOpen: boolean;
@@ -14,6 +21,9 @@ interface ServiceRequestModalProps {
   providerId: string;
   providerName: string;
   priceFormatted: string;
+  authLoaded: boolean;
+  isSignedIn: boolean;
+  signInPath: string;
 }
 
 export function ServiceRequestModal({
@@ -24,36 +34,33 @@ export function ServiceRequestModal({
   providerId,
   providerName,
   priceFormatted,
+  authLoaded,
+  isSignedIn,
+  signInPath,
 }: ServiceRequestModalProps) {
+  const router = useRouter();
   const [message, setMessage] = useState("");
   const [requestedDate, setRequestedDate] = useState("");
   const [locationNotes, setLocationNotes] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState(false);
+  const resumed = useRef(false);
 
-  if (!isOpen) return null;
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!message.trim()) {
-      setError("Por favor, descreva o que necessita para este serviço.");
-      return;
-    }
-
+  const sendRequest = async (draft: ServiceRequestDraft) => {
     setIsLoading(true);
     setError(null);
-
     try {
       const res = await createServiceRequestAction({
         serviceId,
         providerId,
-        message,
-        requestedDate: requestedDate || undefined,
-        locationNotes: locationNotes || undefined,
+        message: draft.message,
+        requestedDate: draft.requestedDate || undefined,
+        locationNotes: draft.locationNotes || undefined,
       });
 
       if (serviceRequestOutcome(res) === "saved") {
+        clearServiceRequestDraft(window.sessionStorage, serviceId);
         setSuccess(true);
         setTimeout(() => {
           onClose();
@@ -65,11 +72,43 @@ export function ServiceRequestModal({
       } else {
         setError(res.error || res.message || "Não foi possível enviar o pedido. Tente novamente.");
       }
-    } catch (err: any) {
-      setError(err?.message || "Não foi possível enviar o pedido. Inicie sessão para continuar.");
+    } catch (err: unknown) {
+      const text = err instanceof Error ? err.message : "Não foi possível enviar o pedido. Inicie sessão para continuar.";
+      setError(text);
     } finally {
       setIsLoading(false);
     }
+  };
+
+  useEffect(() => {
+    if (!isOpen || !authLoaded || !isSignedIn || resumed.current) return;
+    const draft = readServiceRequestDraft(window.sessionStorage, serviceId);
+    if (!draft) return;
+    resumed.current = true;
+    setMessage(draft.message);
+    setRequestedDate(draft.requestedDate);
+    setLocationNotes(draft.locationNotes);
+    void sendRequest(draft);
+    // The saved draft is sent once, after the visitor returns from sign-in.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isOpen, authLoaded, isSignedIn, serviceId]);
+
+  if (!isOpen) return null;
+
+  const handleSubmit = async (event: React.FormEvent) => {
+    event.preventDefault();
+    if (!message.trim()) {
+      setError("Por favor, descreva o que necessita para este serviço.");
+      return;
+    }
+    if (!authLoaded) return;
+    const draft: ServiceRequestDraft = { serviceId, message, requestedDate, locationNotes };
+    if (!isSignedIn) {
+      writeServiceRequestDraft(window.sessionStorage, draft);
+      router.push(signInPath);
+      return;
+    }
+    await sendRequest(draft);
   };
 
   return (
@@ -175,7 +214,7 @@ export function ServiceRequestModal({
                 type="submit"
                 variant="primary"
                 size="sm"
-                disabled={isLoading}
+                disabled={isLoading || !authLoaded}
                 className="gap-1.5 font-bold"
               >
                 {isLoading ? (

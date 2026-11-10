@@ -59,7 +59,7 @@ export function buildServiceWhatsappMessage(input: {
     location ? `📍 *Localização:* ${location}` : null,
     "",
     "📅 *Marque uma consulta*",
-    "Registe-se ou inicie sessão e escolha a data deste serviço. O pedido só fica registado depois de o enviar.",
+    "Preencha o pedido nesta página. A sessão só é pedida ao clicar em Enviar Pedido, e o pedido só fica registado depois de o enviar.",
     booking,
     "",
     "🔗 Ver o serviço",
