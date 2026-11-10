@@ -46,6 +46,8 @@ export default function ServiceDetailPage() {
   const [isRequestModalOpen, setIsRequestModalOpen] = useState(false);
   const [isFavorited, setIsFavorited] = useState(false);
   const [copied, setCopied] = useState(false);
+  const [servicePhoto, setServicePhoto] = useState<string | null>(null);
+  const [serviceVideo, setServiceVideo] = useState<string | null>(null);
 
   useEffect(() => {
     if (!slug) return;
@@ -72,6 +74,25 @@ export default function ServiceDetailPage() {
     openedBooking.current = true;
     setIsRequestModalOpen(true);
   }, [bookingRequested, service, isLoaded, isSignedIn, router]);
+
+  useEffect(() => {
+    if (!service?.id) return;
+    let cancelled = false;
+    fetch(`/api/services/${service.id}/media`)
+      .then((response) => response.json())
+      .then((payload) => {
+        if (cancelled) return;
+        const primary = Array.isArray(payload?.images)
+          ? payload.images.find((image: { is_primary?: boolean; url?: string }) => image.is_primary) || payload.images[0]
+          : null;
+        setServicePhoto(primary?.url || null);
+        setServiceVideo(payload?.video?.url || null);
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [service?.id]);
 
   const startBooking = () => {
     if (!service) return;
@@ -187,6 +208,13 @@ export default function ServiceDetailPage() {
               <h1 className="text-2xl sm:text-3xl font-black text-foreground tracking-tight leading-tight">
                 {service.title}
               </h1>
+              {servicePhoto ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={servicePhoto} alt={service.title} className="h-64 w-full rounded-2xl object-cover border border-border" />
+              ) : null}
+              {serviceVideo ? (
+                <video src={serviceVideo} controls playsInline preload="metadata" className="w-full max-h-80 rounded-2xl bg-black" />
+              ) : null}
 
               {/* Location and Distance Row */}
               <div className="flex flex-wrap items-center gap-3 text-xs text-muted-foreground pt-1">

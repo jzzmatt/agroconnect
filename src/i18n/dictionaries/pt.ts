@@ -808,6 +808,9 @@ export const pt = {
     thumbnailSaved: "Miniatura guardada.",
     thumbnailFailed: "Não foi possível gerar a miniatura.",
     thumbnailNotConfigured: "A criação de miniaturas não está configurada.",
+    mediaSection: "Imagem e vídeo",
+    servicePhoto: "Imagem do serviço",
+    mediaFailed: "Não foi possível guardar a imagem.",
   },
   agrilocalization: {
     title: "AgriLocalização",

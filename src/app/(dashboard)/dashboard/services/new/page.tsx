@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/Button";
 import { LocationSelector } from "@/components/location";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { createServiceAction } from "@/lib/services/marketplace-actions";
+import { ServiceMediaControls } from "@/components/marketplace/ServiceMediaControls";
 import { ServiceThumbnailControls } from "@/components/marketplace/ServiceThumbnailControls";
 import { ServiceWhatsAppPublishModal } from "@/components/marketplace/ServiceWhatsAppPublishModal";
 import { useI18n } from "@/i18n/provider";
@@ -162,6 +163,7 @@ export default function NewServicePage() {
           </div>
           <h3 className="text-lg font-bold text-foreground">Serviço Publicado com Sucesso!</h3>
           <p className="text-xs text-muted-foreground">{dict.whatsapp.serviceShareReady}</p>
+          <ServiceMediaControls serviceId={createdService.id} />
           <ServiceThumbnailControls serviceId={createdService.id} />
           <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
             <Button variant="primary" onClick={() => setWhatsappOpen(true)}>
