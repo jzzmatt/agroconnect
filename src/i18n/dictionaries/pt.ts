@@ -1404,6 +1404,8 @@ export const pt = {
     publishTitle: "Publicar no WhatsApp",
     publishGroups: "PUBLICAR NOS GRUPOS",
     publishToGroups: "Publicar nos grupos",
+    serviceShareTitle: "Publicar serviço no WhatsApp",
+    serviceShareReady: "O serviço foi guardado. Pode publicá-lo nos grupos WhatsApp.",
     publishingGroups: "A publicar...",
     selectAll: "Selecionar todos",
     accountLabel: "Conta WhatsApp",

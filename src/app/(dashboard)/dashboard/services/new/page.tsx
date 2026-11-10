@@ -17,12 +17,16 @@ import { Button } from "@/components/ui/Button";
 import { LocationSelector } from "@/components/location";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { createServiceAction } from "@/lib/services/marketplace-actions";
+import { ServiceWhatsAppPublishModal } from "@/components/marketplace/ServiceWhatsAppPublishModal";
+import { useI18n } from "@/i18n/provider";
+import type { ServiceListItem } from "@/types/domain";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { Lock, ArrowRight } from "lucide-react";
 import type { PricingType, ServiceLocationType } from "@/types/database";
 
 export default function NewServicePage() {
   const router = useRouter();
+  const { dict } = useI18n();
   const { entitlements, loading } = useAuthoritativePlan();
   const isBasic = !loading && !entitlements.can_manage_services;
 
@@ -40,7 +44,8 @@ export default function NewServicePage() {
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [success, setSuccess] = useState(false);
+  const [createdService, setCreatedService] = useState<ServiceListItem | null>(null);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   if (isBasic) {
     return (
@@ -116,11 +121,8 @@ export default function NewServicePage() {
         return;
       }
 
-      setSuccess(true);
-      setTimeout(() => {
-        router.push("/dashboard/services");
-        router.refresh();
-      }, 1500);
+      setCreatedService(result.service);
+      router.refresh();
     } catch (err: unknown) {
       const raw = err instanceof Error ? err.message : "";
       if (!raw || /minified react error|#441|server components render/i.test(raw)) {
@@ -152,13 +154,26 @@ export default function NewServicePage() {
         </p>
       </div>
 
-      {success ? (
-        <div className="bg-surface-card rounded-3xl p-12 text-center border border-border space-y-3">
+      {createdService ? (
+        <div className="bg-surface-card rounded-3xl p-12 text-center border border-border space-y-4">
           <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-950 text-emerald-600 flex items-center justify-center mx-auto">
             <CheckCircle2 className="w-7 h-7" />
           </div>
           <h3 className="text-lg font-bold text-foreground">Serviço Publicado com Sucesso!</h3>
-          <p className="text-xs text-muted-foreground">A redirecionar para a gestão de serviços...</p>
+          <p className="text-xs text-muted-foreground">{dict.whatsapp.serviceShareReady}</p>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Button variant="primary" onClick={() => setWhatsappOpen(true)}>
+              {dict.whatsapp.publishToGroups}
+            </Button>
+            <Link href="/dashboard/services">
+              <Button variant="outline">Voltar para Os Meus Serviços</Button>
+            </Link>
+          </div>
+          <ServiceWhatsAppPublishModal
+            serviceId={createdService.id}
+            open={whatsappOpen}
+            onClose={() => setWhatsappOpen(false)}
+          />
         </div>
       ) : (
         <form onSubmit={handleSubmit} className="space-y-6">

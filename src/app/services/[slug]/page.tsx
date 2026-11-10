@@ -1,7 +1,8 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
-import { useParams, useRouter } from "next/navigation";
+import React, { useState, useEffect, useRef } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import {
   MapPin,
@@ -27,13 +28,18 @@ import { Badge } from "@/components/ui/Badge";
 import { LocationMap } from "@/components/location";
 import { ServiceRequestModal } from "@/components/marketplace/ServiceRequestModal";
 import { getServiceBySlugAction, searchServicesAction, toggleFavoriteAction } from "@/lib/services/marketplace-actions";
+import { serviceSignInPath } from "@/lib/whatsapp/service-booking";
 import { INITIAL_SERVICES } from "@/lib/services/marketplace-service";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function ServiceDetailPage() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  const { isLoaded, isSignedIn } = useAuth();
   const slug = params?.slug as string;
+  const bookingRequested = searchParams.get("book") === "1";
+  const openedBooking = useRef(false);
 
   const [service, setService] = useState<ServiceListItem | null>(null);
   const [relatedServices, setRelatedServices] = useState<ServiceListItem[]>([]);
@@ -56,6 +62,25 @@ export default function ServiceDetailPage() {
       }
     });
   }, [slug]);
+
+  useEffect(() => {
+    if (!bookingRequested || !service || !isLoaded || openedBooking.current) return;
+    if (!isSignedIn) {
+      router.replace(serviceSignInPath(service.slug));
+      return;
+    }
+    openedBooking.current = true;
+    setIsRequestModalOpen(true);
+  }, [bookingRequested, service, isLoaded, isSignedIn, router]);
+
+  const startBooking = () => {
+    if (!service) return;
+    if (isLoaded && !isSignedIn) {
+      router.push(serviceSignInPath(service.slug));
+      return;
+    }
+    setIsRequestModalOpen(true);
+  };
 
   if (!service) {
     return (
@@ -254,7 +279,7 @@ export default function ServiceDetailPage() {
               <Button
                 variant="primary"
                 size="lg"
-                onClick={() => setIsRequestModalOpen(true)}
+                onClick={startBooking}
                 className="w-full gap-2 font-bold h-12 text-sm shadow-md cursor-pointer"
               >
                 <Send className="w-4 h-4" />
