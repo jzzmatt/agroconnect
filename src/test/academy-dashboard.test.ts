@@ -59,42 +59,38 @@ describe("AGROCONNECT Phase 7.2 — AgriAcademy Dashboard Refactor", () => {
     CourseService.resetMemoryStore();
   });
 
-  it("1. Exposes Course Creator and My Courses in the Academy sidebar", () => {
+  it("1. Exposes course creation in the seller sidebar and keeps the student page", () => {
     const pt = getDictionary("pt");
-    const academy = getDashboardNavigation(pt).find((section) => section.pillar === "agriAcademy");
-    expect(academy).toBeDefined();
-    const hrefs = academy?.items.map((item) => item.href) ?? [];
-    const titles = academy?.items.map((item) => item.title) ?? [];
-
-    expect(hrefs).toEqual(["/dashboard/academy", "/dashboard/academy/my-courses"]);
-    expect(titles).toContain(pt.navDash.courseCreator);
-    expect(titles).toContain(pt.navDash.myEnrolledCourses);
+    const items = getDashboardNavigation(pt).flatMap((section) => section.items);
+    const hrefs = items.map((item) => item.href);
+    expect(hrefs).toContain("/dashboard/academy");
+    expect(hrefs).not.toContain("/dashboard/academy/my-courses");
     expect(hrefs).not.toContain("/dashboard/academy/students");
+    expect(items.find((item) => item.href === "/dashboard/academy")?.title).toBe(pt.navDash.createCourse);
+    expect(existsSync("src/app/(academy-student)/dashboard/academy/my-courses/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/academy/courses/[courseId]/edit/page.tsx")).toBe(true);
   });
 
   it("2. Removes obsolete Videos, Storage and Students nav entries", () => {
     const en = getDictionary("en");
-    const academy = getDashboardNavigation(en).find((section) => section.pillar === "agriAcademy");
-    const titles = academy?.items.map((item) => item.title) ?? [];
+    const titles = getDashboardNavigation(en).flatMap((section) => section.items).map((item) => item.title);
     expect(titles).not.toContain("Videos and storage");
     expect(titles).not.toContain("Students");
-    expect(academy?.items).toHaveLength(2);
+    expect(titles).toContain(en.navDash.createCourse);
   });
 
-  it("3. Keeps My Courses unlocked for Basic users via neverLock", () => {
-    const academy = getDashboardNavigation(getDictionary("pt")).find(
-      (section) => section.pillar === "agriAcademy"
-    );
-    const myCourses = academy?.items.find((item) => item.href === "/dashboard/academy/my-courses");
-    expect(myCourses?.neverLock).toBe(true);
-    expect(myCourses?.requiredPermission).toBeUndefined();
+  it("3. Keeps the student course page available outside the seller sidebar", () => {
+    const hrefs = getDashboardNavigation(getDictionary("pt"))
+      .flatMap((section) => section.items)
+      .map((item) => item.href);
+    expect(hrefs).not.toContain("/dashboard/academy/my-courses");
+    expect(existsSync("src/app/(academy-student)/dashboard/academy/my-courses/page.tsx")).toBe(true);
   });
 
-  it("4. Requires instructor permission for Course Creator nav item", () => {
-    const academy = getDashboardNavigation(getDictionary("pt")).find(
-      (section) => section.pillar === "agriAcademy"
-    );
-    const creator = academy?.items.find((item) => item.href === "/dashboard/academy");
+  it("4. Requires instructor permission for the course creation nav item", () => {
+    const creator = getDashboardNavigation(getDictionary("pt"))
+      .flatMap((section) => section.items)
+      .find((item) => item.href === "/dashboard/academy");
     expect(creator?.requiredPermission).toBe("academy.course.create");
   });
 

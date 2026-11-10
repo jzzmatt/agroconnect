@@ -1,4 +1,5 @@
 import { describe, it, expect } from "vitest";
+import { existsSync, readFileSync } from "node:fs";
 import { getDashboardNavigation } from "@/config/navigation";
 import { getDictionary } from "@/i18n";
 import {
@@ -165,30 +166,17 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
     ).toBe("other");
   });
 
-  it("adds receiving and sending request routes to the dashboard sidebar", () => {
+  it("keeps transport request pages reachable without sidebar links", () => {
     const pt = getDictionary("pt");
     const en = getDictionary("en");
     const fr = getDictionary("fr");
-    const nav = getDashboardNavigation(pt);
-    const agriService = nav.find((item) => item.title === "AgriService");
-    expect(agriService).toBeDefined();
-    expect(agriService?.items.map((item) => item.title)).toEqual([
-      pt.navDash.myServices,
-      pt.navDash.serviceRequests,
-      pt.navDash.myTransport,
-      pt.navDash.transportMessages,
-      pt.navDash.reviews,
-    ]);
-    const messages = agriService?.items.find((item) => item.title === pt.navDash.transportMessages);
-    expect(messages?.href).toBeUndefined();
-    expect(messages?.children?.map((item) => item.href)).toEqual([
-      "/dashboard/transport/requests/receiving",
-      "/dashboard/transport/requests/sending",
-    ]);
-    const receiving = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/receiving");
-    const sending = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/sending");
-    expect(receiving?.icon).toBeDefined();
-    expect(sending?.icon).toBeDefined();
+    const hrefs = getDashboardNavigation(pt)
+      .flatMap((section) => section.items)
+      .map((item) => item.href);
+    expect(hrefs).not.toContain("/dashboard/transport/requests/receiving");
+    expect(hrefs).not.toContain("/dashboard/transport/requests/sending");
+    expect(existsSync("src/app/(dashboard)/dashboard/transport/requests/receiving/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/transport/requests/sending/page.tsx")).toBe(true);
     expect(en.navDash.myTransport).toBe("My Transport");
     expect(en.navDash.transportMessages).toBe("Transport Messages");
     expect(pt.navDash.myTransport).toBe("Meus Transportes");
@@ -205,10 +193,11 @@ describe("Fix-Phase-10 — Transport Service Requests", () => {
     expect(en.transportRequests.sendingTitle).toBe("Transport Sending Requests");
     expect(en.transportRequests.receivingEmpty).toBe("No transport requests received yet.");
     expect(en.transportRequests.sendingEmpty).toBe("You have not sent any transport requests yet.");
-    expect(receiving?.requiredPermission).toBe("service.manage");
-    expect(receiving?.neverLock).toBeUndefined();
-    expect(sending?.neverLock).toBe(true);
-    expect(nav.find((item) => item.title === pt.navDash.transportServiceRequests)).toBeUndefined();
+    expect(pt.navDash.transportServiceRequests).toBe("Pedidos de transporte");
+    const transportActions = readFileSync("src/lib/transport/transport-actions.ts", "utf8");
+    expect(transportActions).toContain('type: "transport.request"');
+    expect(transportActions).toContain("{ persist: true }");
+    expect(transportActions).toContain('linkUrl: "/dashboard/transport/requests/receiving"');
   });
 
   it("locks receiving requests behind service.manage and keeps sending requests available", () => {

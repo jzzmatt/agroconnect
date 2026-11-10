@@ -10,6 +10,8 @@ import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
 import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import { ProfileSwitcher } from "./ProfileSwitcher";
+import { useUnreadNotifications } from "@/components/notifications/unread-notifications";
+import { cn } from "@/lib/utils";
 import type { ProfileType } from "@/types/database";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 
@@ -34,6 +36,7 @@ export function DashboardHeader({
 }: DashboardHeaderProps) {
   const { handleSignOut, pending: signingOut } = useSignOut();
   const { dict } = useI18n();
+  const { count: unreadCount, increased: unreadIncreased } = useUnreadNotifications();
   const [accountMenuOpen, setAccountMenuOpen] = useState(false);
   const activeConfig = PROFILE_TYPE_CONFIG[activeProfile] || PROFILE_TYPE_CONFIG.personal;
 
@@ -72,6 +75,25 @@ export function DashboardHeader({
         <div className="hidden lg:block">
           <InstallAppButton className="px-3 text-xs" />
         </div>
+
+        <Link
+          href="/dashboard/notifications"
+          className="relative inline-flex items-center justify-center w-9 h-9 rounded-xl border border-border text-foreground hover:bg-muted"
+          aria-label={dict.navDash.notificationCenter}
+        >
+          <Bell className={cn("w-4 h-4", unreadIncreased && "motion-safe:animate-pulse")} />
+          {unreadCount > 0 ? (
+            <span
+              className={cn(
+                "absolute -top-1 -right-1 min-w-4 h-4 px-1 rounded-full bg-primary text-primary-foreground text-[9px] font-black flex items-center justify-center",
+                unreadIncreased && "motion-safe:animate-pulse"
+              )}
+              aria-live="polite"
+            >
+              {unreadCount > 99 ? "99+" : unreadCount}
+            </span>
+          ) : null}
+        </Link>
 
         <ThemeSwitcher />
 

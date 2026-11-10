@@ -1,87 +1,122 @@
 import { describe, it, expect } from "vitest";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { getDashboardNavigation, flattenNavItems } from "@/config/navigation";
 import { getDictionary } from "@/i18n";
+import { can, subjectFromProfile } from "@/lib/authorization";
+
+const REMOVED_SIDEBAR_ROUTES = [
+  "/dashboard/services",
+  "/dashboard/requests",
+  "/dashboard/transport",
+  "/dashboard/transport/requests/receiving",
+  "/dashboard/transport/requests/sending",
+  "/dashboard/expert/reviews",
+  "/dashboard/academy/my-courses",
+  "/dashboard/products",
+  "/dashboard/orders",
+  "/dashboard/earnings",
+  "/dashboard/product-requests",
+  "/agrishopping",
+  "/agrilocalizacao",
+  "/dashboard/enterprise",
+];
 
 describe("Dashboard Navigation & Role Adaptation", () => {
-  it("structures all primary navigation sections matching Figma design", () => {
-    const nav = getDashboardNavigation(getDictionary("pt"));
-    const sectionTitles = nav.map((s) => s.title);
-    expect(sectionTitles).toContain("Principal");
-    expect(sectionTitles).toContain("AgriService");
-    expect(sectionTitles).toContain("AgriAcademy");
-    expect(sectionTitles).toContain(getDictionary("pt").navDash.shoppingSales);
-  });
-
-  it("contains all Figma sidebar items with locale-aware titles", () => {
+  it("shows exactly the seven seller destinations", () => {
     const pt = getDictionary("pt");
-    const expertSection = getDashboardNavigation(pt).find((s) => s.pillar === "agriExpert");
-    expect(expertSection).toBeDefined();
-    expect(expertSection?.title).toBe("AgriService");
-    expect(expertSection?.items.map((i) => i.title)).toEqual([
-      pt.navDash.myServices,
-      pt.navDash.serviceRequests,
-      pt.navDash.myTransport,
-      pt.navDash.transportMessages,
-      pt.navDash.reviews,
-    ]);
-    const expertHrefs = flattenNavItems(expertSection?.items || [])
-      .map((i) => i.href)
-      .filter(Boolean);
-    expect(expertHrefs).toEqual([
-      "/dashboard/services",
-      "/dashboard/requests",
-      "/dashboard/transport",
-      "/dashboard/transport/requests/receiving",
-      "/dashboard/transport/requests/sending",
-      "/dashboard/expert/reviews",
-    ]);
-
-    const messages = expertSection?.items.find((item) => item.title === pt.navDash.transportMessages);
-    expect(messages?.href).toBeUndefined();
-    expect(messages?.children?.map((item) => item.href)).toEqual([
-      "/dashboard/transport/requests/receiving",
-      "/dashboard/transport/requests/sending",
-    ]);
-    const receiving = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/receiving");
-    const sending = messages?.children?.find((item) => item.href === "/dashboard/transport/requests/sending");
-    expect(receiving?.requiredPermission).toBe("service.manage");
-    expect(receiving?.neverLock).toBeUndefined();
-    expect(sending?.neverLock).toBe(true);
-
-    const sectionTitles = getDashboardNavigation(pt).map((s) => s.title);
-    expect(sectionTitles).not.toContain(pt.navDash.transportServiceRequests);
-    expect(getDashboardNavigation(pt).filter((s) => s.pillar === "agriExpert")).toHaveLength(1);
-
-    const academySection = getDashboardNavigation(pt).find((s) => s.pillar === "agriAcademy");
-    expect(academySection?.items.map((i) => i.href)).toEqual([
-      "/dashboard/academy",
-      "/dashboard/academy/my-courses",
-    ]);
-
     const en = getDictionary("en");
-    const enNav = getDashboardNavigation(en);
-    expect(enNav.find((s) => s.pillar === "agriShopping")?.title).toBe(en.navDash.shoppingSales);
+    const fr = getDictionary("fr");
+    const nav = getDashboardNavigation(pt);
+    const items = flattenNavItems(nav.flatMap((section) => section.items));
+
+    expect(nav).toHaveLength(1);
+    expect(items.map((item) => item.href)).toEqual([
+      "/dashboard",
+      "/profile",
+      "/dashboard/services/new",
+      "/dashboard/academy",
+      "/dashboard/products/new",
+      "/dashboard/whatsapp",
+      "/dashboard/notifications",
+    ]);
+    expect(items.map((item) => item.title)).toEqual([
+      pt.navDash.dashboard,
+      pt.navDash.myProfile,
+      pt.navDash.createService,
+      pt.navDash.createCourse,
+      pt.navDash.createProduct,
+      pt.navDash.whatsappSetup,
+      pt.navDash.notificationCenter,
+    ]);
+    expect(pt.navDash.createService).toBe("+ Criar Serviço");
+    expect(pt.navDash.createCourse).toBe("+ Criar Curso");
+    expect(pt.navDash.createProduct).toBe("+ Criar Produto");
+    expect(pt.navDash.notificationCenter).toBe("Centro de Notificações");
+    expect(en.navDash.whatsappSetup).toBe("WhatsApp Setup");
+    expect(en.navDash.notificationCenter).toBe("Notification Center");
+    expect(fr.navDash.notificationCenter).toBe("Centre de notifications");
+    expect(items.some((item) => item.children?.length)).toBe(false);
   });
 
-  it("activates the longer AgriService request route instead of Transport", () => {
+  it("keeps create and WhatsApp links locked by their existing permissions", () => {
+    const items = flattenNavItems(
+      getDashboardNavigation(getDictionary("pt")).flatMap((section) => section.items)
+    );
+    expect(items.find((item) => item.href === "/dashboard/services/new")?.requiredPermission).toBe(
+      "service.manage"
+    );
+    expect(items.find((item) => item.href === "/dashboard/academy")?.requiredPermission).toBe(
+      "academy.course.create"
+    );
+    expect(items.find((item) => item.href === "/dashboard/products/new")?.requiredPermission).toBe(
+      "product.create"
+    );
+    expect(items.find((item) => item.href === "/dashboard/whatsapp")?.requiredPermission).toBe(
+      "whatsapp.connect"
+    );
+
+    const basic = subjectFromProfile({
+      id: "p-basic",
+      clerk_user_id: "clerk-basic",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "basic",
+      subscription_status: "active",
+    });
+    expect(can(basic, "service.manage")).toBe(false);
+    expect(can(basic, "academy.course.create")).toBe(false);
+    expect(can(basic, "product.create")).toBe(false);
+    expect(can(basic, "whatsapp.connect")).toBe(true);
+
     const sidebar = readFileSync("src/components/dashboard/Sidebar.tsx", "utf8");
-    expect(sidebar).toContain("function pathMatchesHref");
-    expect(sidebar).toContain("longestMatchingHref");
-    expect(sidebar).toContain("href.length > best.length");
-    expect(sidebar).toContain("item.children");
-    expect(sidebar).toContain("groupOpen");
+    expect(sidebar).toContain('itemLocked ? "/planos"');
+    expect(sidebar).toContain("function longestMatchingHref");
+    expect(sidebar).toContain("unreadCount");
+    expect(sidebar).toContain("motion-safe:animate-pulse");
+    expect(sidebar).toContain("useUnreadNotifications");
+    expect(readFileSync("src/components/notifications/unread-notifications.tsx", "utf8")).toContain(
+      "useReducedMotion"
+    );
   });
 
-  it("keeps product creation on the Produtos page instead of a sidebar duplicate", () => {
-    const pt = getDictionary("pt");
-    const shopping = getDashboardNavigation(pt).find((s) => s.pillar === "agriShopping");
-    const hrefs = shopping?.items.map((item) => item.href) ?? [];
-    const titles = shopping?.items.map((item) => item.title) ?? [];
-
-    expect(hrefs).toContain("/dashboard/products");
-    expect(titles).toContain(pt.navDash.myProducts);
-    expect(hrefs).not.toContain("/dashboard/products/new");
-    expect(titles).not.toContain(pt.navDash.addProduct);
+  it("removes management links from the sidebar without deleting their pages", () => {
+    const hrefs = flattenNavItems(
+      getDashboardNavigation(getDictionary("pt")).flatMap((section) => section.items)
+    )
+      .map((item) => item.href)
+      .filter(Boolean);
+    for (const href of REMOVED_SIDEBAR_ROUTES) {
+      expect(hrefs).not.toContain(href);
+    }
+    expect(existsSync("src/app/(dashboard)/dashboard/orders/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/requests/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/transport/requests/receiving/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/transport/requests/sending/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/product-requests/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/earnings/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/services/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/products/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(academy-student)/dashboard/academy/my-courses/page.tsx")).toBe(true);
+    expect(existsSync("src/app/(dashboard)/dashboard/enterprise/page.tsx")).toBe(true);
   });
 });

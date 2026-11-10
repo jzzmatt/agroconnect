@@ -688,7 +688,7 @@ export async function createServiceRequestAction(params: {
 
     const supabase = await getMarketplaceWritableClient();
     const { data: service, error: serviceError } = await (supabase.from("services") as any)
-      .select("id, provider_id")
+      .select("id, provider_id, title")
       .eq("id", params.serviceId)
       .maybeSingle();
 
@@ -742,6 +742,17 @@ export async function createServiceRequestAction(params: {
     }
 
     revalidateServiceRequestPaths();
+    const { notifyProviderOwners } = await import("@/lib/notifications/seller-events");
+    const serviceTitle = typeof service.title === "string" ? service.title : "";
+    await notifyProviderOwners({
+      providerIds: [providerId],
+      type: "service.request",
+      title: serviceTitle ? `Novo pedido de serviço: ${serviceTitle}` : "Novo pedido de serviço",
+      message,
+      linkUrl: "/dashboard/requests",
+      status: "pending",
+      data: { requestId: String(data.id) },
+    });
     return {
       success: true,
       message: "Pedido de serviço enviado com sucesso ao prestador!",
