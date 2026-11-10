@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect, useRef } from "react";
-import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { useAuth } from "@clerk/nextjs";
 import Link from "next/link";
 import {
@@ -34,7 +34,6 @@ import type { ServiceListItem } from "@/types/domain";
 
 export default function ServiceDetailPage() {
   const params = useParams();
-  const router = useRouter();
   const searchParams = useSearchParams();
   const { isLoaded, isSignedIn } = useAuth();
   const slug = params?.slug as string;
@@ -66,14 +65,10 @@ export default function ServiceDetailPage() {
   }, [slug]);
 
   useEffect(() => {
-    if (!bookingRequested || !service || !isLoaded || openedBooking.current) return;
-    if (!isSignedIn) {
-      router.replace(serviceSignInPath(service.slug));
-      return;
-    }
+    if (!bookingRequested || !service || openedBooking.current) return;
     openedBooking.current = true;
     setIsRequestModalOpen(true);
-  }, [bookingRequested, service, isLoaded, isSignedIn, router]);
+  }, [bookingRequested, service]);
 
   useEffect(() => {
     if (!service?.id) return;
@@ -96,10 +91,6 @@ export default function ServiceDetailPage() {
 
   const startBooking = () => {
     if (!service) return;
-    if (isLoaded && !isSignedIn) {
-      router.push(serviceSignInPath(service.slug));
-      return;
-    }
     setIsRequestModalOpen(true);
   };
 
@@ -366,6 +357,9 @@ export default function ServiceDetailPage() {
         providerId={service.provider_id}
         providerName={service.provider_name}
         priceFormatted={formatPrice(service.price, service.pricing_type, service.currency)}
+        authLoaded={isLoaded}
+        isSignedIn={Boolean(isSignedIn)}
+        signInPath={serviceSignInPath(service.slug)}
       />
 
       <Footer />
