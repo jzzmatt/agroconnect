@@ -60,12 +60,12 @@ export default function RootLayout({
         },
       }}
     >
-      <html lang="pt" className={inter.variable} suppressHydrationWarning>
+      <html lang="pt" className={`${inter.variable} dark`} suppressHydrationWarning>
         <head>
           <ThemeScript />
         </head>
         <body className={`${inter.className} min-h-screen antialiased bg-background text-foreground transition-colors duration-200 overflow-x-hidden`}>
-          <ThemeProvider defaultTheme="light">
+          <ThemeProvider defaultTheme="dark">
             <I18nProvider initialLocale="pt">
               <LocaleHydrator />
               <CartProvider>
