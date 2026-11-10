@@ -242,6 +242,32 @@ describe("service WhatsApp publishing", () => {
     expect(calls.filter((id) => id === GROUP_B)).toHaveLength(2);
   });
 
+  it("sends the saved thumbnail with the service message and skips it when none is saved", async () => {
+    const withImage = memoryStore(item({ thumbnailUrl: "/api/services/33333333-3333-4333-8333-333333333333/thumbnail" }));
+    const sendText = vi.fn(async () => ({ messageId: "text" }));
+    const sendMedia = vi.fn(async () => ({ messageId: "media" }));
+    const sent = await api(withImage.store, { sendText, sendMedia }).publish(USER, {
+      serviceId: SERVICE,
+      groupIds: [GROUP_A],
+      clientRequestId: "request-service-thumb1",
+    });
+    expect(sent.status).toBe("sent");
+    expect(sendText).not.toHaveBeenCalled();
+    expect(sendMedia).toHaveBeenCalledWith(
+      "42",
+      GROUP_A,
+      "https://www.agroconnect.ao/api/services/33333333-3333-4333-8333-333333333333/thumbnail",
+      expect.stringContaining("Análise de solo")
+    );
+    const plain = vi.fn(async () => ({ messageId: "text" }));
+    await api(memoryStore().store, { sendText: plain, sendMedia: vi.fn() }).publish(USER, {
+      serviceId: SERVICE,
+      groupIds: [GROUP_A],
+      clientRequestId: "request-service-thumb2",
+    });
+    expect(plain).toHaveBeenCalled();
+  });
+
   it("offers WhatsApp publishing after creation and from the service dashboard", () => {
     const created = readFileSync("src/app/(dashboard)/dashboard/services/new/page.tsx", "utf8");
     const dashboard = readFileSync("src/app/(dashboard)/dashboard/services/page.tsx", "utf8");
