@@ -11,6 +11,7 @@ import { useProfileChangeListener, notifyProfileChanged } from "@/lib/auth/profi
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import { useUser } from "@clerk/nextjs";
 import { useI18n } from "@/i18n/provider";
+import { UnreadNotificationsProvider } from "@/components/notifications/unread-notifications";
 
 export function DashboardShell({
   children,
@@ -104,6 +105,7 @@ export function DashboardShell({
   const activeRoles: UserRoleType[] = userRoles.length > 0 ? userRoles : ["student"];
 
   return (
+    <UnreadNotificationsProvider>
     <div className="min-h-screen bg-background text-foreground flex transition-colors overflow-x-hidden">
       <DashboardSidebar
         userRoles={activeRoles}
@@ -133,5 +135,6 @@ export function DashboardShell({
         <MobileBottomNav variant="dashboard" />
       </div>
     </div>
+    </UnreadNotificationsProvider>
   );
 }

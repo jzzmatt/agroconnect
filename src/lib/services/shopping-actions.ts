@@ -240,6 +240,19 @@ export async function createProductRequestAction(params: {
     console.warn("[createProductRequestAction] DB error:", error);
   }
 
+  if (data?.id) {
+    const { notifyProviderOwners } = await import("@/lib/notifications/seller-events");
+    await notifyProviderOwners({
+      providerIds: [params.sellerId],
+      type: "quote.request",
+      title: "Novo pedido de cotação",
+      message: params.message.trim(),
+      linkUrl: "/dashboard/product-requests",
+      status: "pending",
+      data: { requestId: String(data.id), productId: params.productId },
+    });
+  }
+
   return {
     success: true,
     message: "Pedido de produto enviado com sucesso ao vendedor!",

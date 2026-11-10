@@ -220,7 +220,13 @@ async function notifyTransportRequest(params: {
   data?: Record<string, unknown>;
 }) {
   try {
-    await NotificationService.createNotification(params);
+    await NotificationService.createNotification(
+      {
+        ...params,
+        data: { status: "pending", ...(params.data || {}) },
+      },
+      { persist: true }
+    );
   } catch (error) {
     console.warn("[notifyTransportRequest] notification failed:", error);
   }

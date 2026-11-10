@@ -8,54 +8,23 @@ import {
   Calendar,
   ShoppingBag,
   Users,
-  Clock,
-  MapPin,
-  CheckCircle2,
-  TrendingUp,
-  Star,
-  Plus,
-  Package,
-  Store,
-  ArrowRight,
-  ShieldCheck,
   Lock,
   Sparkles,
 } from "lucide-react";
-import { MetricCard, Button, UpgradePlanModal, ProductLimitModal } from "@/components/ui";
+import { MetricCard, Button, UpgradePlanModal } from "@/components/ui";
+import { DashboardInboxPreview } from "@/components/notifications/NotificationCenter";
 import { useI18n } from "@/i18n/provider";
 import { getLocalizedPlanCopy } from "@/i18n/plan-copy";
 import { useUser } from "@clerk/nextjs";
-import { getUserGreeting, calculateEntitlements, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
+import { getUserGreeting, PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { SUBSCRIPTION_PLANS } from "@/lib/services/pricing-service";
 import { fetchClientProfileDetails } from "@/lib/auth/user-client-cache";
 import { useProfileChangeListener } from "@/lib/auth/profile-events";
-import { getMyProductStatsAction } from "@/lib/services/shopping-actions";
 import { getAgriprofileOverviewAction } from "@/lib/agriprofile/overview-actions";
 import { emptyAgriprofileOverview, formatDashboardAmount } from "@/lib/agriprofile/overview";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { AgriprofileOverview } from "@/types/agriprofile";
 import type { ProfileType, ProfessionalTitle } from "@/types/database";
-
-function formatAppointmentWhen(value: string, locale: string): string {
-  const dateLocale = locale === "en" ? "en-GB" : locale === "fr" ? "fr-FR" : "pt-AO";
-  const dateOnly = /^\d{4}-\d{2}-\d{2}$/.test(value.trim());
-  let date: Date;
-  if (dateOnly) {
-    const [year, month, day] = value.trim().split("-").map(Number);
-    date = new Date(year, month - 1, day);
-  } else {
-    date = new Date(value);
-  }
-  if (Number.isNaN(date.getTime())) return value;
-  return new Intl.DateTimeFormat(dateLocale, {
-    weekday: "short",
-    day: "numeric",
-    month: "short",
-    ...(dateOnly || (date.getHours() === 0 && date.getMinutes() === 0)
-      ? {}
-      : { hour: "2-digit", minute: "2-digit" }),
-  }).format(date);
-}
 
 export default function DashboardPage() {
   const { user } = useUser();
@@ -69,13 +38,9 @@ export default function DashboardPage() {
     professionalTitle: "none" as ProfessionalTitle,
     email: "",
     activeProfile: "personal" as ProfileType,
-    subscriptionPlan: "" as string,
-    roles: ["student"] as const,
-    activeProductsCount: 0,
   });
 
   const [upgradeModalOpen, setUpgradeModalOpen] = useState(false);
-  const [limitModalOpen, setLimitModalOpen] = useState(false);
   const [modalFeatureTitle, setModalFeatureTitle] = useState("Criar Produto no AgriShopping");
   const [modalRequiredPlan, setModalRequiredPlan] = useState<"professional" | "business">("professional");
   const [overview, setOverview] = useState<AgriprofileOverview>(emptyAgriprofileOverview);
@@ -93,7 +58,6 @@ export default function DashboardPage() {
       email: serverProfile.email || prev.email,
       professionalTitle: serverProfile.professional_title || prev.professionalTitle,
       activeProfile: serverProfile.active_profile_type || prev.activeProfile,
-      subscriptionPlan: serverProfile.subscription_plan ?? "",
     }));
   }, []);
 
@@ -101,10 +65,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     loadServerProfile();
-    // Non-blocking fetch of active products count
-    getMyProductStatsAction().then((stats) => {
-      setProfile((prev) => ({ ...prev, activeProductsCount: stats.activeCount }));
-    }).catch(() => undefined);
 
     const loadOverview = () => {
       getAgriprofileOverviewAction()
@@ -173,46 +133,16 @@ export default function DashboardPage() {
     activeProfile: profile.activeProfile,
   });
 
-  const entitlements = calculateEntitlements({
-    subscriptionPlan: plan,
-    roles: [...profile.roles],
-    activeProductCount: profile.activeProductsCount,
-  });
-
   const activeProfileConfig = PROFILE_TYPE_CONFIG[profile.activeProfile] || PROFILE_TYPE_CONFIG.personal;
   const currentPlanDef = plan ? SUBSCRIPTION_PLANS[plan] : null;
   const planCopy = plan ? getLocalizedPlanCopy(dict, plan) : null;
 
   const isBasic = plan === "basic";
 
-  const isLimitReached = entitlements.product_limit_reached || (
-    entitlements.product_limit !== null &&
-    profile.activeProductsCount >= entitlements.product_limit
-  );
-
   const triggerLockedModule = (title: string, plan: "professional" | "business" = "professional") => {
     setModalFeatureTitle(title);
     setModalRequiredPlan(plan);
     setUpgradeModalOpen(true);
-  };
-
-  const handleAddProductClick = (e: React.MouseEvent) => {
-    if (!entitlements.can_access_agriproduct) {
-      e.preventDefault();
-      triggerLockedModule("Criar Produtos no AgriProduct", "professional");
-      return;
-    }
-    if (isLimitReached) {
-      e.preventDefault();
-      setLimitModalOpen(true);
-    }
-  };
-
-  const handleCreateCourseClick = (e: React.MouseEvent) => {
-    if (!entitlements.can_create_courses) {
-      e.preventDefault();
-      triggerLockedModule("Criar e Publicar Cursos no AgriAcademy", "professional");
-    }
   };
 
   if (loading || !fromDatabase) {
@@ -305,133 +235,19 @@ export default function DashboardPage() {
           </p>
         </div>
 
-        {/* Dynamic Context Actions */}
-        <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
-          {isBasic ? (
+        {isBasic ? (
+          <div className="flex items-center gap-2.5 flex-wrap self-start sm:self-auto">
             <Link href="/planos">
               <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-5 shadow-md">
                 <Sparkles className="w-4 h-4" />
                 <span>{dict.dash.upgradePlan}</span>
               </Button>
             </Link>
-          ) : entitlements.can_access_agriproduct ? (
-            <Link
-              href={isLimitReached ? "/dashboard/products" : "/dashboard/products/new"}
-              onClick={handleAddProductClick}
-            >
-              <Button
-                variant="primary"
-                size="sm"
-                className={`gap-1.5 font-bold text-xs h-10 px-4 ${
-                  isLimitReached ? "bg-amber-600 hover:bg-amber-700 text-white" : ""
-                }`}
-              >
-                {isLimitReached ? <Lock className="w-4 h-4" /> : <Plus className="w-4 h-4" />}
-                <span>{isLimitReached ? dict.dash.limitReached : dict.dash.addProduct}</span>
-              </Button>
-            </Link>
-          ) : profile.activeProfile === "instructor" ? (
-            <Link
-              href={entitlements.can_create_courses ? "/dashboard/academy" : "#"}
-              onClick={handleCreateCourseClick}
-            >
-              <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
-                {!entitlements.can_create_courses ? <Lock className="w-4 h-4" /> : <BookOpen className="w-4 h-4" />}
-                <span>{!entitlements.can_create_courses ? dict.dash.createCourse : dict.dash.manageCourses}</span>
-              </Button>
-            </Link>
-          ) : (
-            <Link href="/dashboard/services/new">
-              <Button variant="primary" size="sm" className="gap-1.5 font-bold text-xs h-10 px-4">
-                <Plus className="w-4 h-4" />
-                <span>{dict.dash.newService}</span>
-              </Button>
-            </Link>
-          )}
-
-          <Link href="/agrilocalizacao">
-            <Button variant="outline" size="sm" className="text-xs font-bold gap-1.5 h-10">
-              <MapPin className="w-3.5 h-3.5 text-primary" />
-              <span>AgriLocalização</span>
-            </Button>
-          </Link>
-        </div>
+          </div>
+        ) : null}
       </div>
 
-      {/* 2. Capability-Driven AgriShopping Seller Card OR Locked Card for Basic */}
-      {entitlements.can_access_agriproduct ? (
-        <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/40 dark:to-orange-950/30 rounded-3xl border border-amber-200 dark:border-amber-900/60 p-6 sm:p-7 shadow-xs">
-          <div className="flex flex-col md:flex-row md:items-center justify-between gap-5">
-            <div className="flex items-start gap-4">
-              <div className="w-14 h-14 rounded-2xl bg-amber-500 text-white flex items-center justify-center font-black text-2xl shrink-0 shadow-md">
-                <Store className="w-7 h-7" />
-              </div>
-              <div className="space-y-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-amber-900 dark:text-amber-200 bg-amber-200/60 dark:bg-amber-900/60 px-2 py-0.5 rounded-md">
-                    {dict.dash.sellerActive}
-                  </span>
-                  <span className="text-xs font-bold text-amber-800 dark:text-amber-300">
-                    AgriProduct
-                  </span>
-                  {entitlements.product_limit !== null ? (
-                    <span className="text-xs font-black text-foreground bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
-                      {dict.dash.productsCount}: {profile.activeProductsCount} / {entitlements.product_limit}
-                    </span>
-                  ) : (
-                    <span className="text-xs font-black text-amber-600 bg-white dark:bg-slate-900 px-2 py-0.5 rounded-md border border-amber-300 dark:border-amber-800">
-                      {dict.dash.productsCount}: {dict.dash.unlimitedProducts}
-                    </span>
-                  )}
-                </div>
-                <h3 className="text-lg font-black text-amber-950 dark:text-amber-100">
-                  {dict.dash.sellerTitle}
-                </h3>
-                <p className="text-xs text-amber-900/80 dark:text-amber-200/80 max-w-xl">
-                  {entitlements.product_limit !== null
-                    ? (isLimitReached
-                        ? dict.dash.limitTenReached
-                        : dict.dash.activeProductsOf
-                            .replace("{count}", String(profile.activeProductsCount))
-                            .replace("{limit}", String(entitlements.product_limit)))
-                    : `${dict.products.unlimitedActive}: ${dict.dash.unlimitedProducts}`}
-                </p>
-              </div>
-            </div>
-
-            <div className="flex flex-wrap items-center gap-2 shrink-0">
-              <Link href="/dashboard/products">
-                <Button variant="outline" size="sm" className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800 text-amber-900 dark:text-amber-100">
-                  <Package className="w-3.5 h-3.5 mr-1" />
-                  <span>{dict.dash.myProducts} ({profile.activeProductsCount})</span>
-                </Button>
-              </Link>
-              <Link
-                href={isLimitReached ? "#" : "/dashboard/products/new"}
-                onClick={handleAddProductClick}
-              >
-                <Button
-                  variant="primary"
-                  size="sm"
-                  className={`text-xs font-bold ${
-                    isLimitReached ? "bg-amber-600 hover:bg-amber-700 text-white shadow-md" : "bg-amber-600 hover:bg-amber-700 text-white"
-                  }`}
-                >
-                  {isLimitReached ? <Lock className="w-4 h-4 mr-1" /> : <Plus className="w-4 h-4 mr-1" />}
-                  <span>{isLimitReached ? dict.dash.limitReached : dict.dash.addProduct}</span>
-                </Button>
-              </Link>
-              <Link href="/dashboard/orders">
-                <Button variant="outline" size="sm" className="text-xs font-bold bg-white dark:bg-slate-900 border-amber-300 dark:border-amber-800">
-                  <span>{dict.dash.orders}</span>
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* 3. Locked Modules Section for Basic Plan Users */}
+      {/* Locked modules stay available for subscribers who cannot create yet. */}
       {isBasic && (
         <div className="space-y-4">
           <div className="flex items-center justify-between">
@@ -564,96 +380,14 @@ export default function DashboardPage() {
         ))}
       </div>
 
-      {/* 5. Split Activity & Appointments Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
-        <div className="lg:col-span-7 bg-surface-card rounded-3xl p-6 sm:p-7 border border-border shadow-xs space-y-5">
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center">
-                <Calendar className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.dash.upcoming}</h3>
-            </div>
-            <Link href="/dashboard/requests" className="text-xs font-bold text-primary hover:underline">
-              {dict.dash.seeRequests}
-            </Link>
-          </div>
+      <DashboardInboxPreview />
 
-          <div className="space-y-3">
-            {!overviewLoaded ? (
-              <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
-                <p className="text-xs text-muted-foreground">…</p>
-              </div>
-            ) : overview.upcoming.length === 0 ? (
-              <div className="p-8 text-center bg-surface rounded-2xl border border-border space-y-2">
-                <p className="text-xs text-muted-foreground">{dict.dash.noAppointments}</p>
-              </div>
-            ) : (
-              overview.upcoming.map((appointment) => (
-                <div
-                  key={appointment.id}
-                  className="p-4 rounded-2xl bg-surface border border-border space-y-1"
-                >
-                  <div className="flex items-center gap-2">
-                    <Clock className="w-3.5 h-3.5 text-primary" />
-                    <span className="text-xs font-bold text-foreground">
-                      {formatAppointmentWhen(appointment.requestedAt, locale)}
-                    </span>
-                  </div>
-                  <h4 className="text-sm font-bold text-foreground">{appointment.title}</h4>
-                  {appointment.location ? (
-                    <p className="text-xs text-muted-foreground flex items-center gap-1">
-                      <MapPin className="w-3 h-3 text-primary" />
-                      <span>{appointment.location}</span>
-                    </p>
-                  ) : null}
-                </div>
-              ))
-            )}
-          </div>
-        </div>
-
-        <div className="lg:col-span-5 bg-surface-card rounded-3xl p-6 sm:p-7 border border-border shadow-xs space-y-5">
-          <div className="flex items-center justify-between border-b border-border pb-4">
-            <div className="flex items-center gap-2.5">
-              <div className="w-8 h-8 rounded-xl bg-secondary text-secondary-foreground flex items-center justify-center">
-                <TrendingUp className="w-4 h-4" />
-              </div>
-              <h3 className="font-bold text-base text-foreground">{dict.dash.recentActivity}</h3>
-            </div>
-          </div>
-
-          <div className="space-y-3.5">
-            <div className="flex items-start gap-3 text-xs">
-              <div className="w-8 h-8 rounded-xl bg-surface border border-border text-primary flex items-center justify-center shrink-0 mt-0.5">
-                <Package className="w-4 h-4" />
-              </div>
-              <div className="flex-1 space-y-0.5">
-                <p className="font-semibold text-foreground leading-snug">
-                  {dict.dash.accountCreated.replace("{plan}", planCopy.name)}
-                </p>
-                <span className="text-[11px] text-muted-foreground block">{dict.dash.today}</span>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Upgrade Modal */}
       <UpgradePlanModal
         isOpen={upgradeModalOpen}
         onClose={() => setUpgradeModalOpen(false)}
         featureTitle={modalFeatureTitle}
         requiredPlan={modalRequiredPlan}
         currentPlanName={currentPlanDef.name}
-      />
-
-      {/* Product Limit Modal */}
-      <ProductLimitModal
-        isOpen={limitModalOpen}
-        onClose={() => setLimitModalOpen(false)}
-        currentCount={profile.activeProductsCount}
-        limit={entitlements.product_limit || 10}
       />
     </div>
   );

@@ -87,16 +87,17 @@ describe("AGROCONNECT Phase 1 Foundation — End-to-End Acceptance Tests", () =>
     expect(categories.has("shopping")).toBe(true);
   });
 
-  it("6. Verifies role-adaptive dashboard navigation structure", () => {
-    const allSections = DASHBOARD_NAVIGATION;
-    expect(allSections.length).toBeGreaterThanOrEqual(4);
-
-    const expertSection = allSections.find((s) => s.pillar === "agriExpert");
-    expect(expertSection?.roles).toContain("veterinarian");
-    expect(expertSection?.roles).toContain("agronomist");
-    expect(expertSection?.roles).toContain("expert");
-
-    const academySection = allSections.find((s) => s.pillar === "agriAcademy");
-    expect(academySection?.roles).toContain("instructor");
+  it("6. Verifies the simplified seller dashboard navigation", () => {
+    const hrefs = DASHBOARD_NAVIGATION.flatMap((section) => section.items).map((item) => item.href);
+    expect(hrefs).toEqual([
+      "/dashboard",
+      "/profile",
+      "/dashboard/services/new",
+      "/dashboard/academy",
+      "/dashboard/products/new",
+      "/dashboard/whatsapp",
+      "/dashboard/notifications",
+    ]);
+    expect(DASHBOARD_NAVIGATION).toHaveLength(1);
   });
 });

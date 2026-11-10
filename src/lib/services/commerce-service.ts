@@ -3,6 +3,7 @@ import { INITIAL_PRODUCTS, ShoppingService } from "@/lib/services/shopping-servi
 import { calculateDeliveryFee } from "@/lib/logistics/delivery-fee";
 import { LogisticsService } from "@/lib/services/logistics-service";
 import { NotificationService } from "@/lib/services/notification-service";
+import { notifyReceivedProductOrders } from "@/lib/notifications/seller-events";
 import { isUuid } from "@/lib/commerce/ids";
 import { settlePaidCourseOrder } from "@/lib/commerce/academy-purchase";
 import { courseCartItem, publishedCourseLine } from "@/lib/commerce/course-cart";
@@ -427,6 +428,7 @@ export class CommerceService {
           },
           { persist: true }
         ).catch(() => null);
+        await notifyReceivedProductOrders(persisted.order).catch(() => undefined);
         return persisted;
       }
     }
@@ -629,6 +631,7 @@ export class CommerceService {
       message: `O seu pedido #${orderNumber} foi registado.`,
       linkUrl: `/orders/${orderNumber}`,
     });
+    await notifyReceivedProductOrders(newOrder).catch(() => undefined);
 
     return {
       success: true,

@@ -1,24 +1,10 @@
 import {
   LayoutDashboard,
   User,
-  Users,
   GraduationCap,
   ShoppingBag,
-  MapPin,
-  Calendar,
-  BookOpenCheck,
-  Award,
-  Star,
   ClipboardList,
-  Store,
-  Package,
-  Truck,
-  Inbox,
-  Send,
   Bell,
-  Building2,
-  DollarSign,
-  MessageSquare,
   MessageCircle,
   type LucideIcon,
 } from "lucide-react";
@@ -49,162 +35,58 @@ export interface NavSection {
   items: NavItem[];
 }
 
-/**
- * Dashboard Sidebar Structure matching Figma specification:
- * - Dashboard
- * - Meu Perfil
- * - AgriExpert
- *   - Meus Serviços
- *   - Agendamentos
- *   - Avaliações
- *   - Ganhos
- * - AgriAcademy
- *   - Course Creator
- *   - My Courses
- */
 export function flattenNavItems(items: NavItem[]): NavItem[] {
   return items.flatMap((item) => [item, ...(item.children ? flattenNavItems(item.children) : [])]);
 }
 
 export function getDashboardNavigation(dict: Dictionary): NavSection[] {
   return [
-  {
-    title: dict.navDash.main,
-    pillar: "general",
-    items: [
-      {
-        title: dict.navDash.dashboard,
-        href: "/dashboard",
-        icon: LayoutDashboard,
-      },
-      {
-        title: dict.navDash.myProfile,
-        href: "/profile",
-        icon: User,
-      },
-      {
-        title: dict.navDash.whatsapp,
-        href: "/dashboard/whatsapp",
-        icon: MessageCircle,
-        requiredPermission: "whatsapp.connect",
-      },
-    ],
-  },
-  {
-    title: "AgriService",
-    pillar: "agriExpert",
-    requiredModule: "agriExpert",
-    roles: ["expert", "veterinarian", "agronomist", "agricultural_consultant"],
-    items: [
-      {
-        title: dict.navDash.myServices,
-        href: "/dashboard/services",
-        icon: ClipboardList,
-      },
-      {
-        title: dict.navDash.serviceRequests,
-        href: "/dashboard/requests",
-        icon: Calendar,
-      },
-      {
-        title: dict.navDash.myTransport,
-        href: "/dashboard/transport",
-        icon: Truck,
-      },
-      {
-        title: dict.navDash.transportMessages,
-        icon: MessageSquare,
-        children: [
-          {
-            title: dict.navDash.receivingRequests,
-            href: "/dashboard/transport/requests/receiving",
-            icon: Inbox,
-            requiredPermission: "service.manage",
-          },
-          {
-            title: dict.navDash.sendingRequests,
-            href: "/dashboard/transport/requests/sending",
-            icon: Send,
-            neverLock: true,
-          },
-        ],
-      },
-      {
-        title: dict.navDash.reviews,
-        href: "/dashboard/expert/reviews",
-        icon: Star,
-      },
-    ],
-  },
-  {
-    title: "AgriAcademy",
-    pillar: "agriAcademy",
-    requiredModule: "agriAcademy",
-    roles: ["instructor", "student"],
-    items: [
-      {
-        title: dict.navDash.courseCreator,
-        href: "/dashboard/academy",
-        icon: GraduationCap,
-        requiredPermission: "academy.course.create",
-      },
-      {
-        title: dict.navDash.myEnrolledCourses,
-        href: "/dashboard/academy/my-courses",
-        icon: BookOpenCheck,
-        neverLock: true,
-      },
-    ],
-  },
-  {
-    title: dict.navDash.agriProduct,
-    pillar: "agriShopping",
-    requiredModule: "agriShopping",
-    items: [
-      {
-        title: dict.navDash.myProducts,
-        href: "/dashboard/products",
-        icon: ShoppingBag,
-      },
-      {
-        title: dict.navDash.receivedOrders,
-        href: "/dashboard/orders",
-        icon: Package,
-      },
-      {
-        title: dict.navDash.earnings,
-        href: "/dashboard/earnings",
-        icon: DollarSign,
-      },
-      {
-        title: dict.navDash.notifications,
-        href: "/dashboard/notifications",
-        icon: Bell,
-      },
-      {
-        title: dict.navDash.quotes,
-        href: "/dashboard/product-requests",
-        icon: Calendar,
-      },
-      {
-        title: dict.navDash.exploreStore,
-        href: "/agrishopping",
-        icon: Store,
-      },
-      {
-        title: "AgriLocalização",
-        href: "/agrilocalizacao",
-        icon: MapPin,
-        badge: dict.navDash.map,
-      },
-      {
-        title: dict.navDash.enterprise,
-        href: "/dashboard/enterprise",
-        icon: Building2,
-      },
-    ],
-  },
-];
+    {
+      title: "",
+      pillar: "general",
+      items: [
+        {
+          title: dict.navDash.dashboard,
+          href: "/dashboard",
+          icon: LayoutDashboard,
+        },
+        {
+          title: dict.navDash.myProfile,
+          href: "/profile",
+          icon: User,
+        },
+        {
+          title: dict.navDash.createService,
+          href: "/dashboard/services/new",
+          icon: ClipboardList,
+          requiredPermission: "service.manage",
+        },
+        {
+          title: dict.navDash.createCourse,
+          href: "/dashboard/academy",
+          icon: GraduationCap,
+          requiredPermission: "academy.course.create",
+        },
+        {
+          title: dict.navDash.createProduct,
+          href: "/dashboard/products/new",
+          icon: ShoppingBag,
+          requiredPermission: "product.create",
+        },
+        {
+          title: dict.navDash.whatsappSetup,
+          href: "/dashboard/whatsapp",
+          icon: MessageCircle,
+          requiredPermission: "whatsapp.connect",
+        },
+        {
+          title: dict.navDash.notificationCenter,
+          href: "/dashboard/notifications",
+          icon: Bell,
+        },
+      ],
+    },
+  ];
 }
 
 export const DASHBOARD_NAVIGATION = getDashboardNavigation(pt);

@@ -13,6 +13,7 @@ import { parseStoredPlan } from "@/lib/services/pricing-service";
 import { PROFILE_TYPE_CONFIG } from "@/lib/auth/identity-resolvers";
 import { resolveAgriprofileNavHref } from "@/lib/agriprofile/paths";
 import { ProfileSwitcher } from "./ProfileSwitcher";
+import { useUnreadNotifications } from "@/components/notifications/unread-notifications";
 import { cn } from "@/lib/utils";
 
 function pathMatchesHref(pathname: string | null | undefined, href: string): boolean {
@@ -59,6 +60,7 @@ export function DashboardSidebar({
   const pathname = usePathname();
   const { dict } = useI18n();
   const { handleSignOut, pending: signingOut } = useSignOut();
+  const { count: unreadCount, increased: unreadIncreased } = useUnreadNotifications();
   const navigation = getDashboardNavigation(dict);
 
   // Presentation-only capability subject. Every module a user may view stays
@@ -136,9 +138,11 @@ export function DashboardSidebar({
       <div className="flex-1 overflow-y-auto px-3 py-4 space-y-6">
         {visibleSections.map((section, idx) => (
           <div key={idx} className="space-y-1">
-            <h4 className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
-              {section.title}
-            </h4>
+            {section.title ? (
+              <h4 className="px-3 text-[10px] font-extrabold uppercase tracking-wider text-muted-foreground">
+                {section.title}
+              </h4>
+            ) : null}
             <div className="space-y-0.5 pt-1">
               {(() => {
                 const sectionHrefs = collectLeafHrefs(section.items, clerkUserId);
@@ -161,6 +165,8 @@ export function DashboardSidebar({
                   const itemLocked = isItemLocked(entry);
                   const href = itemLocked ? "/planos" : resolvedHref;
                   const Icon = entry.icon;
+                  const isInbox = entry.href === "/dashboard/notifications";
+                  const inboxPulse = isInbox && unreadIncreased;
                   return (
                     <Link
                       key={`${entry.href}-${entry.title}`}
@@ -179,13 +185,27 @@ export function DashboardSidebar({
                         <Icon
                           className={cn(
                             "w-4 h-4 shrink-0",
-                            isActive && !itemLocked ? "text-primary-foreground" : "text-primary"
+                            isActive && !itemLocked ? "text-primary-foreground" : "text-primary",
+                            inboxPulse && "motion-safe:animate-pulse"
                           )}
                         />
                         <span className="truncate">{entry.title}</span>
                       </div>
                       {itemLocked ? (
                         <Lock className="w-3.5 h-3.5 text-amber-600" />
+                      ) : isInbox && unreadCount > 0 ? (
+                        <span
+                          className={cn(
+                            "min-w-5 h-5 px-1 rounded-full text-[9px] font-black flex items-center justify-center",
+                            inboxPulse && "motion-safe:animate-pulse",
+                            isActive
+                              ? "bg-white/20 text-white"
+                              : "bg-primary text-primary-foreground"
+                          )}
+                          aria-live="polite"
+                        >
+                          {unreadCount > 99 ? "99+" : unreadCount}
+                        </span>
                       ) : entry.badge ? (
                         <span
                           className={cn(
