@@ -520,7 +520,7 @@ export async function listMyEnrollmentsAction() {
 }
 
 export async function listCourseEnrollmentsAction(courseId: string) {
-  await authorize("academy.students.view");
+  await authorize("academy.course.update");
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
 
@@ -534,7 +534,7 @@ export async function listCourseEnrollmentsAction(courseId: string) {
 }
 
 export async function listOwnedCourseStudentsAction(courseId: string) {
-  await authorize("academy.students.view");
+  await authorize("academy.course.update");
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) return [];
 

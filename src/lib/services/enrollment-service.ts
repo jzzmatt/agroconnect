@@ -16,6 +16,19 @@ function hasLiveSupabase(): boolean {
 /** In-memory enrollment store for tests/dev when Supabase is unavailable. */
 const memoryEnrollments: CourseEnrollmentRecord[] = [];
 
+function mapEnrollmentStudentRow(row: Record<string, unknown>): CourseEnrollmentStudentRow {
+  const profile = row.profiles as { email?: string | null; display_name?: string | null } | null;
+  return {
+    enrollmentId: String(row.id),
+    courseId: String(row.course_id),
+    studentId: String(row.student_id),
+    studentEmail: profile?.email ?? null,
+    studentDisplayName: profile?.display_name ?? null,
+    enrolledAt: String(row.enrolled_at),
+    status: row.status as CourseEnrollmentStatus,
+  };
+}
+
 async function getEnrollmentClient() {
   return tryCreateAdminServerSupabaseClient() || (await createServerSupabaseClient());
 }
@@ -215,7 +228,7 @@ export class EnrollmentService {
   ): Promise<CourseEnrollmentStudentRow[]> {
     if (hasLiveSupabase()) {
       const supabase = await getEnrollmentClient();
-      const { data, error } = await (supabase.from("course_enrollments") as any)
+      const embedded = await (supabase.from("course_enrollments") as any)
         .select(
           `
           id,
@@ -230,19 +243,41 @@ export class EnrollmentService {
         .eq("status", status)
         .order("enrolled_at", { ascending: false });
 
-      if (!error && data) {
-        return (data as Array<Record<string, unknown>>).map((row) => {
-          const profile = row.profiles as { email?: string | null; display_name?: string | null } | null;
-          return {
-            enrollmentId: String(row.id),
-            courseId: String(row.course_id),
-            studentId: String(row.student_id),
-            studentEmail: profile?.email ?? null,
-            studentDisplayName: profile?.display_name ?? null,
-            enrolledAt: String(row.enrolled_at),
-            status: row.status as CourseEnrollmentStatus,
-          };
-        });
+      if (!embedded.error && embedded.data) {
+        return (embedded.data as Array<Record<string, unknown>>).map((row) =>
+          mapEnrollmentStudentRow(row)
+        );
+      }
+
+      const plain = await (supabase.from("course_enrollments") as any)
+        .select("id, course_id, student_id, status, enrolled_at")
+        .eq("course_id", courseId)
+        .eq("status", status)
+        .order("enrolled_at", { ascending: false });
+
+      if (!plain.error && plain.data) {
+        const rows = plain.data as Array<Record<string, unknown>>;
+        const studentIds = [...new Set(rows.map((row) => String(row.student_id || "")).filter(Boolean))];
+        const profilesById = new Map<string, { email?: string | null; display_name?: string | null }>();
+        if (studentIds.length > 0) {
+          const profiles = await (supabase.from("profiles") as any)
+            .select("id, email, display_name")
+            .in("id", studentIds);
+          if (!profiles.error && profiles.data) {
+            for (const profile of profiles.data as Array<Record<string, unknown>>) {
+              profilesById.set(String(profile.id), {
+                email: (profile.email as string | null | undefined) ?? null,
+                display_name: (profile.display_name as string | null | undefined) ?? null,
+              });
+            }
+          }
+        }
+        return rows.map((row) =>
+          mapEnrollmentStudentRow({
+            ...row,
+            profiles: profilesById.get(String(row.student_id)) ?? null,
+          })
+        );
       }
     }
 
