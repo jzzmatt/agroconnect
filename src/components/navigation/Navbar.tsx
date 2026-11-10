@@ -1,52 +1,42 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useUser } from "@clerk/nextjs";
-import {
-  Sprout,
-  Users,
-  GraduationCap,
-  ShoppingBag,
-  MapPin,
-  Menu,
-  X,
-  ChevronRight,
-  LogOut,
-} from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { ChevronDown, GraduationCap, Menu, ShoppingBag, Sprout, Users, X } from "lucide-react";
+import { useReducedMotion } from "motion/react";
 import { ThemeSwitcher } from "@/components/ui/ThemeSwitcher";
 import { LanguageSelector } from "@/components/i18n/LanguageSelector";
 import { useI18n } from "@/i18n/provider";
-import { useSignOut } from "@/lib/auth/use-sign-out";
-import { ControlPanelLink } from "./ControlPanelLink";
 import { NavbarCartLink } from "@/components/commerce/NavbarCartLink";
-import { InstallAppButton } from "@/components/pwa/InstallAppButton";
 import { cn } from "@/lib/utils";
+
+const linkClass =
+  "px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary";
 
 export function Navbar() {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();
   const { dict } = useI18n();
-  const { isSignedIn } = useUser();
-  const { handleSignOut, pending: signingOut } = useSignOut();
+  const reduceMotion = useReducedMotion();
 
-  const navLinks = [
-    { href: "/", label: dict.navigation.home },
-    { href: "/agriservice", label: dict.navigation.agriService || dict.navigation.agriExpert, icon: Users, badge: dict.navigation.expertsBadge },
-    { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap, badge: dict.navigation.coursesBadge },
-    { href: "/agrishopping", label: dict.navigation.agriShopping, icon: ShoppingBag, badge: dict.navigation.productsBadge },
-    { href: "/agrilocalizacao", label: dict.navigation.agriLocalizacao, icon: MapPin },
-    { href: "/about", label: dict.navigation.aboutUs },
-    { href: "/planos", label: dict.navigation.pricing },
+  const marketLinks = [
+    { href: "/agriservice", label: dict.navigation.agriService, icon: Users },
+    { href: "/agriacademy", label: dict.navigation.agriAcademy, icon: GraduationCap },
+    { href: "/agrishopping", label: dict.navigation.agriProduct, icon: ShoppingBag },
   ];
+  const vendorActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const marketActive = marketLinks.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`));
+
+  useEffect(() => {
+    setMobileMenuOpen(false);
+  }, [pathname]);
 
   return (
     <header className="sticky top-0 z-50 w-full bg-surface-elevated/90 backdrop-blur-md border-b border-border pt-[env(safe-area-inset-top)] transition-colors">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between gap-3 h-16 sm:h-18 min-w-0">
-          <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group min-w-0 flex-1 lg:flex-none">
+          <Link href="/" className="flex items-center gap-2 sm:gap-2.5 group min-w-0 flex-1 lg:flex-none rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary">
             <div className="w-9 h-9 sm:w-10 sm:h-10 rounded-xl bg-primary flex items-center justify-center text-primary-foreground shadow-md group-hover:bg-primary-hover transition-colors shrink-0">
               <Sprout className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-200" />
             </div>
@@ -60,73 +50,34 @@ export function Navbar() {
             </div>
           </Link>
 
-          <nav className="hidden lg:flex items-center gap-1 xl:gap-2">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  className={cn(
-                    "px-3 py-2 rounded-xl text-xs xl:text-sm font-semibold transition-colors flex items-center gap-1.5",
-                    isActive
-                      ? "bg-secondary text-secondary-foreground font-bold"
-                      : "text-muted-foreground hover:text-foreground hover:bg-muted"
-                  )}
-                >
-                  {link.icon && <link.icon className="w-3.5 h-3.5 text-primary" />}
-                  <span>{link.label}</span>
-                </Link>
-              );
-            })}
+          <nav className="hidden lg:flex items-center gap-1 xl:gap-2" aria-label={dict.navigation.menu}>
+            <Link
+              href="/"
+              className={cn(linkClass, pathname === "/" ? "bg-secondary text-secondary-foreground font-bold" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.home}
+            </Link>
+            <Link
+              href="/dashboard"
+              className={cn(linkClass, vendorActive ? "bg-secondary text-secondary-foreground font-bold" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.vendor}
+            </Link>
+            <MercadoMenu links={marketLinks} active={marketActive} reduceMotion={Boolean(reduceMotion)} />
           </nav>
 
           <div className="hidden lg:flex items-center gap-3">
-            <InstallAppButton className="px-3 text-xs" />
             <LanguageSelector compact />
-            <ThemeSwitcher />
-
             <NavbarCartLink />
-
-            {isSignedIn ? (
-              <>
-                <ControlPanelLink />
-
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={() => void handleSignOut()}
-                  disabled={signingOut}
-                  className="gap-1.5 font-bold text-destructive hover:bg-destructive/10"
-                >
-                  <LogOut className="w-3.5 h-3.5" />
-                  <span>{dict.navigation.signOut}</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/sign-in">
-                  <Button variant="outline" size="sm" className="font-bold">
-                    {dict.navigation.signIn}
-                  </Button>
-                </Link>
-
-                <Link href="/sign-up">
-                  <Button variant="primary" size="sm" className="font-bold">
-                    {dict.navigation.signUp}
-                  </Button>
-                </Link>
-              </>
-            )}
+            <ThemeSwitcher />
           </div>
 
           <div className="flex items-center gap-1.5 sm:gap-2 lg:hidden shrink-0">
             <NavbarCartLink />
-
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="p-2 rounded-xl text-foreground hover:bg-muted focus:outline-none"
+              type="button"
+              onClick={() => setMobileMenuOpen((open) => !open)}
+              className="p-2 rounded-xl text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
               aria-label={dict.navigation.openMenu}
               aria-expanded={mobileMenuOpen}
             >
@@ -134,78 +85,168 @@ export function Navbar() {
             </button>
           </div>
         </div>
-        <div className="lg:hidden">
-          <InstallAppButton variant="menu" className="mb-3 w-full" />
-        </div>
       </div>
 
       {mobileMenuOpen && (
-        <div className="lg:hidden border-b border-border bg-surface-elevated px-4 pt-3 pb-6 space-y-3 animate-in slide-in-from-top-2">
+        <div className={cn("lg:hidden border-t border-border bg-surface-elevated px-4 pt-3 pb-6 space-y-3", !reduceMotion && "animate-in slide-in-from-top-2")}>
           <div className="flex flex-col items-center gap-3 pb-3 border-b border-border">
             <LanguageSelector compact className="w-full justify-center" />
             <ThemeSwitcher />
           </div>
-
-          <div className="flex flex-col space-y-1">
-            {navLinks.map((link) => {
-              const isActive = pathname === link.href;
-              return (
-                <Link
-                  key={link.href}
-                  href={link.href}
-                  onClick={() => setMobileMenuOpen(false)}
-                  className={cn(
-                    "px-4 py-3 rounded-2xl text-sm font-semibold flex items-center justify-between",
-                    isActive
-                      ? "bg-secondary text-secondary-foreground font-bold"
-                      : "text-foreground hover:bg-muted"
-                  )}
-                >
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    {link.icon && <link.icon className="w-4 h-4 text-primary shrink-0" />}
-                    <span className="truncate">{link.label}</span>
-                  </div>
-                  <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
-                </Link>
-              );
-            })}
-          </div>
-
-          <div className="pt-3 border-t border-border flex flex-col gap-2">
-            {isSignedIn ? (
-              <>
-                <ControlPanelLink fullWidth onNavigate={() => setMobileMenuOpen(false)} />
-                <Button
-                  type="button"
-                  variant="outline"
-                  onClick={() => {
-                    setMobileMenuOpen(false);
-                    void handleSignOut();
-                  }}
-                  disabled={signingOut}
-                  className="w-full justify-center text-destructive font-bold"
-                >
-                  <LogOut className="w-4 h-4 mr-1.5" />
-                  <span>{dict.navigation.signOut}</span>
-                </Button>
-              </>
-            ) : (
-              <>
-                <Link href="/sign-in" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="outline" className="w-full justify-center">
-                    {dict.navigation.signIn}
-                  </Button>
-                </Link>
-                <Link href="/sign-up" onClick={() => setMobileMenuOpen(false)}>
-                  <Button variant="primary" className="w-full justify-center">
-                    {dict.navigation.signUp}
-                  </Button>
-                </Link>
-              </>
-            )}
-          </div>
+          <nav className="flex flex-col space-y-1" aria-label={dict.navigation.menu}>
+            <Link
+              href="/"
+              className={cn(linkClass, "px-4 py-3 text-sm", pathname === "/" ? "bg-secondary text-secondary-foreground font-bold" : "text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.home}
+            </Link>
+            <Link
+              href="/dashboard"
+              className={cn(linkClass, "px-4 py-3 text-sm", vendorActive ? "bg-secondary text-secondary-foreground font-bold" : "text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.vendor}
+            </Link>
+            <MercadoMenu links={marketLinks} active={marketActive} reduceMotion={Boolean(reduceMotion)} />
+          </nav>
         </div>
       )}
     </header>
+  );
+}
+
+function MercadoMenu({
+  links,
+  active,
+  reduceMotion,
+}: {
+  links: Array<{ href: string; label: string; icon: React.ComponentType<{ className?: string }> }>;
+  active: boolean;
+  reduceMotion: boolean;
+}) {
+  const { dict } = useI18n();
+  const pathname = usePathname();
+  const [open, setOpen] = useState(false);
+  const rootRef = useRef<HTMLDivElement>(null);
+  const buttonRef = useRef<HTMLButtonElement>(null);
+  const itemRefs = useRef<Array<HTMLAnchorElement | null>>([]);
+  const pendingFocus = useRef<number | null>(null);
+  const menuId = useId();
+
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  useEffect(() => {
+    if (!open || pendingFocus.current === null) return;
+    const index = pendingFocus.current;
+    pendingFocus.current = null;
+    itemRefs.current[index]?.focus();
+  }, [open, links.length]);
+
+  useEffect(() => {
+    if (!open) return;
+    const onPointer = (event: MouseEvent) => {
+      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
+    };
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setOpen(false);
+        buttonRef.current?.focus();
+      }
+    };
+    document.addEventListener("mousedown", onPointer);
+    document.addEventListener("keydown", onKey);
+    return () => {
+      document.removeEventListener("mousedown", onPointer);
+      document.removeEventListener("keydown", onKey);
+    };
+  }, [open]);
+
+  const focusItem = (index: number) => {
+    const next = (index + links.length) % links.length;
+    itemRefs.current[next]?.focus();
+  };
+
+  return (
+    <div ref={rootRef} className="relative">
+      <button
+        ref={buttonRef}
+        type="button"
+        className={cn(
+          linkClass,
+          "inline-flex items-center gap-1.5",
+          active || open ? "bg-secondary text-secondary-foreground font-bold" : "text-muted-foreground hover:text-foreground hover:bg-muted"
+        )}
+        aria-expanded={open}
+        aria-haspopup="menu"
+        aria-controls={menuId}
+        aria-label={dict.navigation.mercadoMenu}
+        onClick={() => setOpen((current) => !current)}
+        onKeyDown={(event) => {
+          if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+            event.preventDefault();
+            const index = event.key === "ArrowUp" ? links.length - 1 : 0;
+            if (open) {
+              itemRefs.current[index]?.focus();
+              return;
+            }
+            pendingFocus.current = index;
+            setOpen(true);
+          }
+        }}
+      >
+        <span>{dict.navigation.mercado}</span>
+        <ChevronDown className={cn("w-3.5 h-3.5 transition-transform", open && "rotate-180", reduceMotion && "transition-none")} />
+      </button>
+      {open && (
+        <div
+          id={menuId}
+          role="menu"
+          aria-label={dict.navigation.mercado}
+          className={cn(
+            "z-50 mt-2 w-full min-w-56 rounded-2xl border border-border bg-surface-elevated p-2 shadow-lg lg:absolute lg:left-0 lg:top-full",
+            !reduceMotion && "animate-in fade-in slide-in-from-top-1"
+          )}
+        >
+          {links.map((link, index) => {
+            const Icon = link.icon;
+            const current = pathname === link.href || pathname.startsWith(`${link.href}/`);
+            return (
+              <Link
+                key={link.href}
+                href={link.href}
+                role="menuitem"
+                ref={(node) => {
+                  itemRefs.current[index] = node;
+                }}
+                className={cn(
+                  "flex items-center gap-2 rounded-xl px-3 py-2.5 text-sm font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+                  current ? "bg-secondary text-secondary-foreground" : "text-foreground hover:bg-muted"
+                )}
+                onClick={() => setOpen(false)}
+                onKeyDown={(event) => {
+                  if (event.key === "ArrowDown") {
+                    event.preventDefault();
+                    focusItem(index + 1);
+                  } else if (event.key === "ArrowUp") {
+                    event.preventDefault();
+                    focusItem(index - 1);
+                  } else if (event.key === "Home") {
+                    event.preventDefault();
+                    focusItem(0);
+                  } else if (event.key === "End") {
+                    event.preventDefault();
+                    focusItem(links.length - 1);
+                  }
+                }}
+              >
+                <Icon className="w-4 h-4 text-primary" />
+                <span>{link.label}</span>
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </div>
   );
 }

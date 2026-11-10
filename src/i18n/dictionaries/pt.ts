@@ -42,6 +42,10 @@ export const pt = {
   },
   navigation: {
     home: "Início",
+    vendor: "Vendedor",
+    mercado: "Mercado",
+    mercadoMenu: "Mercado: AgriService, AgriAcademy e AgriProduct",
+    agriProduct: "AgriProduct",
     agriExpert: "AgriExpert",
     agriService: "AgriService",
     agriAcademy: "AgriAcademy",

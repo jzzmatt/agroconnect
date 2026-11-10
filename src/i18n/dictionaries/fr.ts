@@ -44,6 +44,10 @@ export const fr: Dictionary = {
   },
   navigation: {
     home: "Accueil",
+    vendor: "Vendeur",
+    mercado: "Mercado",
+    mercadoMenu: "Mercado : AgriService, AgriAcademy et AgriProduct",
+    agriProduct: "AgriProduct",
     agriExpert: "AgriExpert",
     agriService: "AgriService",
     agriAcademy: "AgriAcademy",
