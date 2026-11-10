@@ -21,6 +21,7 @@ import {
 import { useI18n } from "@/i18n/provider";
 import { deleteDialogForServiceStatus } from "@/lib/services/service-delete-flow";
 import { ServiceDeleteDialog } from "@/components/marketplace/ServiceDeleteDialog";
+import { ServiceThumbnailControls } from "@/components/marketplace/ServiceThumbnailControls";
 import { ServiceWhatsAppPublishModal } from "@/components/marketplace/ServiceWhatsAppPublishModal";
 import { isPublicServiceStatus } from "@/lib/whatsapp/service-booking";
 import type { ServiceListItem } from "@/types/domain";
@@ -360,6 +361,8 @@ export function ServiceEditor({ service }: { service: ServiceListItem }) {
           </div>
         </div>
       </div>
+
+      <ServiceThumbnailControls serviceId={current.id} />
 
       <div className="flex flex-wrap items-center justify-end gap-2 pt-2">
         <Button variant="primary" disabled={saving} onClick={() => void handleSave()} className="gap-2">

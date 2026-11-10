@@ -1,4 +1,5 @@
 import { isWhatsappGroupId } from "@/lib/integrations/waapi/groups";
+import { durableWhatsappLink } from "@/lib/whatsapp/product-message";
 import { PUBLICATION_WINDOW_MS, rollupPublicationStatus } from "@/lib/whatsapp/publish-service";
 import { serviceBookingUrl, servicePageUrl, buildServiceWhatsappMessage } from "@/lib/whatsapp/service-message";
 import { WhatsappServiceError, type PublicGroup } from "@/lib/whatsapp/types";
@@ -42,6 +43,7 @@ export interface ShareableService {
   provinceName: string | null;
   municipalityName: string | null;
   status: string;
+  thumbnailUrl?: string | null;
 }
 
 export interface ServiceShareConnection {
@@ -79,6 +81,12 @@ export interface ServiceShareStore {
 
 export interface ServiceTextSender {
   sendText(instanceId: string, chatId: string, message: string): Promise<{ messageId: string | null }>;
+  sendMedia?(
+    instanceId: string,
+    chatId: string,
+    mediaUrl: string,
+    caption: string
+  ): Promise<{ messageId: string | null }>;
 }
 
 function assertOwnedGroups(saved: PublicGroup[], requested: string[]) {
@@ -132,6 +140,13 @@ export function createServicePublishService(deps: {
     connection: ServiceShareConnection
   ) {
     const message = serviceShareMessage(deps.origin, service);
+    const thumbnailUrl = durableWhatsappLink(
+      service.thumbnailUrl?.startsWith("http")
+        ? service.thumbnailUrl
+        : service.thumbnailUrl
+          ? `${deps.origin}${service.thumbnailUrl}`
+          : null
+    );
     const next: ServiceShareTarget[] = [];
     for (const target of publication.targets) {
       if (target.status === "sent") {
@@ -141,7 +156,9 @@ export function createServicePublishService(deps: {
       const processing = { ...target, status: "processing" as const };
       await deps.store.saveTarget(publication.id, processing);
       try {
-        const sent = await deps.sender.sendText(connection.instanceId, target.groupId, message);
+        const sent = thumbnailUrl && deps.sender.sendMedia
+          ? await deps.sender.sendMedia(connection.instanceId, target.groupId, thumbnailUrl, message.slice(0, 1000))
+          : await deps.sender.sendText(connection.instanceId, target.groupId, message);
         const done: ServiceShareTarget = {
           ...processing,
           status: "sent",

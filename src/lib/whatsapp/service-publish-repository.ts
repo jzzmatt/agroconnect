@@ -9,6 +9,7 @@ import type {
   ServiceShareTargetStatus,
   ShareableService,
 } from "@/lib/whatsapp/service-publish-service";
+import { serviceThumbnailPublicPath } from "@/lib/services/service-thumbnail";
 import { WhatsappServiceError, type PublicGroup } from "@/lib/whatsapp/types";
 
 function client() {
@@ -114,6 +115,13 @@ export function createSupabaseServicePublishStore(): ServiceShareStore {
         .eq("id", data.provider_id)
         .maybeSingle();
       if (!provider?.profile_id) return null;
+      const { data: thumbnail } = await db
+        .from("media_assets")
+        .select("id")
+        .eq("entity_type", "service_image")
+        .eq("entity_id", data.id)
+        .limit(1)
+        .maybeSingle();
       return {
         id: String(data.id),
         ownerUserId: String(provider.profile_id),
@@ -131,6 +139,7 @@ export function createSupabaseServicePublishStore(): ServiceShareStore {
         provinceName: await placeName(db, "provinces", data.province_id),
         municipalityName: await placeName(db, "municipalities", data.municipality_id),
         status: String(data.status),
+        thumbnailUrl: thumbnail?.id ? serviceThumbnailPublicPath(String(data.id)) : null,
       } satisfies ShareableService;
     },
 

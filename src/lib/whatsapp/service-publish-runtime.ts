@@ -1,4 +1,4 @@
-import { sendWaapiText } from "@/lib/integrations/waapi/messages";
+import { sendWaapiMedia, sendWaapiText } from "@/lib/integrations/waapi/messages";
 import { createSupabaseServicePublishStore } from "@/lib/whatsapp/service-publish-repository";
 import { createServicePublishService } from "@/lib/whatsapp/service-publish-service";
 import { WhatsappServiceError } from "@/lib/whatsapp/types";
@@ -11,6 +11,7 @@ export function createServicePublishRuntime() {
     origin,
     sender: {
       sendText: (instanceId, chatId, message) => sendWaapiText(instanceId, chatId, message),
+      sendMedia: (instanceId, chatId, mediaUrl, caption) => sendWaapiMedia(instanceId, chatId, mediaUrl, undefined, caption),
     },
   });
 }
