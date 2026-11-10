@@ -3,7 +3,7 @@
 import React, { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { GraduationCap, LayoutDashboard, ShoppingBag, Store, Users } from "lucide-react";
+import { GraduationCap, LayoutDashboard, Receipt, ShoppingBag, Store, Users } from "lucide-react";
 import { useReducedMotion } from "motion/react";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/provider";
@@ -30,6 +30,7 @@ export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBotto
     { href: "/agrishopping", label: dict.navigation.agriProduct, icon: ShoppingBag },
   ];
   const dashboardActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const purchasesActive = pathname === "/orders" || pathname.startsWith("/orders/");
   const marketActive = links.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`));
 
   useEffect(() => {
@@ -135,6 +136,19 @@ export function MobileBottomNav({ variant: _variant = "marketing" }: MobileBotto
             <LayoutDashboard className="w-4 h-4" />
           </span>
           <span className="truncate">{dict.navigation.bottomNavDashboard}</span>
+        </Link>
+        <Link
+          href="/orders"
+          prefetch={false}
+          className={cn(
+            "flex flex-1 flex-col items-center justify-center gap-0.5 rounded-xl py-1 text-[11px] font-semibold focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary",
+            purchasesActive ? "text-primary font-bold" : "text-muted-foreground hover:text-foreground"
+          )}
+        >
+          <span className={cn("rounded-lg p-1", purchasesActive ? "bg-secondary text-secondary-foreground" : "text-muted-foreground")}>
+            <Receipt className="w-4 h-4" />
+          </span>
+          <span className="truncate">{dict.navigation.myPurchases}</span>
         </Link>
         <button
           ref={buttonRef}

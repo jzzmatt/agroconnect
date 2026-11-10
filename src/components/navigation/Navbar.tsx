@@ -26,6 +26,7 @@ export function Navbar() {
     { href: "/agrishopping", label: dict.navigation.agriProduct, icon: ShoppingBag },
   ];
   const vendorActive = pathname === "/dashboard" || pathname.startsWith("/dashboard/");
+  const purchasesActive = pathname === "/orders" || pathname.startsWith("/orders/");
   const marketActive = marketLinks.some((link) => pathname === link.href || pathname.startsWith(`${link.href}/`));
 
   useEffect(() => {
@@ -64,6 +65,12 @@ export function Navbar() {
               {dict.navigation.vendor}
             </Link>
             <MercadoMenu links={marketLinks} active={marketActive} reduceMotion={Boolean(reduceMotion)} />
+            <Link
+              href="/orders"
+              className={cn(linkClass, purchasesActive ? "bg-secondary text-secondary-foreground font-bold" : "text-muted-foreground hover:text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.myPurchases}
+            </Link>
           </nav>
 
           <div className="hidden lg:flex items-center gap-3">
@@ -107,6 +114,12 @@ export function Navbar() {
               {dict.navigation.vendor}
             </Link>
             <MercadoMenu links={marketLinks} active={marketActive} reduceMotion={Boolean(reduceMotion)} />
+            <Link
+              href="/orders"
+              className={cn(linkClass, "px-4 py-3 text-sm", purchasesActive ? "bg-secondary text-secondary-foreground font-bold" : "text-foreground hover:bg-muted")}
+            >
+              {dict.navigation.myPurchases}
+            </Link>
           </nav>
         </div>
       )}
