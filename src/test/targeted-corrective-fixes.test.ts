@@ -244,10 +244,12 @@ describe("no implicit Basic subscription", () => {
     expect(src).toMatch("canAccessControlPanel");
   });
 
-  it("filters the current plan on the homepage catalog as well as /planos", () => {
+  it("keeps plan filtering on /planos after the homepage catalog is removed", () => {
     const home = read("src/app/page.tsx");
-    expect(home).toMatch("PlanCatalog");
-    expect(home).not.toMatch("SUBSCRIPTION_PLANS.basic");
+    expect(home).not.toMatch("PlanCatalog");
+    expect(home).not.toMatch('id="planos"');
+    const planos = read("src/app/planos/page.tsx");
+    expect(planos).toMatch("PlanCatalog");
     expect(getSelectablePlans(null).map((p) => p.id)).toContain("basic");
     expect(getSelectablePlans("basic").map((p) => p.id)).not.toContain("basic");
   });

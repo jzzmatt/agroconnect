@@ -8,7 +8,6 @@ import { Footer } from "@/components/layout";
 import { Button, SectionHeader } from "@/components/ui";
 import { AgroConnectHeroBanner } from "@/components/landing/AgroConnectHeroBanner";
 import { LandingEcosystemCapabilities } from "@/components/landing/LandingEcosystemCapabilities";
-import { PlanCatalog } from "@/components/subscription/PlanCatalog";
 import { useI18n } from "@/i18n/provider";
 
 export default function LandingPage() {
@@ -22,89 +21,8 @@ export default function LandingPage() {
         {/* 1. Hero */}
         <AgroConnectHeroBanner />
 
-        {/* 2. Jornada do utilizador */}
-        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 border-b border-border">
-          <SectionHeader
-            badgeText={dict.landing.journeyBadge}
-            title={dict.landing.journeyTitle}
-            subtitle={dict.landing.journeySubtitle}
-            align="center"
-          />
-
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-14 relative">
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all text-center md:text-left">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs mx-auto md:mx-0">
-                  01
-                </div>
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                    {dict.landing.step1Label}
-                  </span>
-                  <h3 className="text-xl font-black text-foreground">{dict.landing.step1Title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {dict.landing.step1Desc}
-                  </p>
-                </div>
-              </div>
-
-              <Link href="/sign-up" className="block pt-2">
-                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
-                  <span>{dict.landing.step1Cta}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-primary/40 bg-gradient-to-b from-secondary/40 to-surface-card p-8 shadow-sm relative flex flex-col justify-between space-y-6 group text-center md:text-left">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-xl shadow-xs mx-auto md:mx-0">
-                  02
-                </div>
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                    {dict.landing.step2Label}
-                  </span>
-                  <h3 className="text-xl font-black text-foreground">{dict.landing.step2Title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {dict.landing.step2Desc}
-                  </p>
-                </div>
-              </div>
-
-              <Link href="#planos" className="block pt-2">
-                <Button variant="primary" size="sm" className="w-full justify-between font-bold text-xs h-10">
-                  <span>{dict.landing.step2Cta}</span>
-                  <ArrowRight className="w-3.5 h-3.5" />
-                </Button>
-              </Link>
-            </div>
-
-            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all text-center md:text-left">
-              <div className="space-y-4">
-                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs mx-auto md:mx-0">
-                  03
-                </div>
-                <div className="space-y-1.5">
-                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
-                    {dict.landing.step3Label}
-                  </span>
-                  <h3 className="text-xl font-black text-foreground">{dict.landing.step3Title}</h3>
-                  <p className="text-xs text-muted-foreground leading-relaxed">
-                    {dict.landing.step3Desc}
-                  </p>
-                </div>
-              </div>
-
-              <Link href="/dashboard" className="block pt-2">
-                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
-                  <span>{dict.landing.step3Cta}</span>
-                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
-                </Button>
-              </Link>
-            </div>
-          </div>
-        </section>
+        {/* 2. Capacidades do ecossistema */}
+        <LandingEcosystemCapabilities />
 
         {/* 3. O seu painel de controlo personalizado */}
         <section className="py-16 sm:py-24 bg-surface border-b border-border">
@@ -180,20 +98,87 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* 4. Capacidades do ecossistema */}
-        <LandingEcosystemCapabilities />
-
-        {/* 5. Planos e subscrições */}
-        <section id="planos" className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 scroll-mt-20">
+        {/* 4. Jornada do utilizador */}
+        <section className="py-16 sm:py-24 max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <SectionHeader
-            badgeText={dict.landing.plansBadge}
-            title={dict.landing.plansTitle}
-            subtitle={dict.landing.plansSubtitle}
+            badgeText={dict.landing.journeyBadge}
+            title={dict.landing.journeyTitle}
+            subtitle={dict.landing.journeySubtitle}
             align="center"
           />
 
-          <div className="mt-14">
-            <PlanCatalog embedded />
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8 mt-14 relative">
+            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all text-center md:text-left">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs mx-auto md:mx-0">
+                  01
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    {dict.landing.step1Label}
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">{dict.landing.step1Title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {dict.landing.step1Desc}
+                  </p>
+                </div>
+              </div>
+
+              <Link href="/sign-up" className="block pt-2">
+                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>{dict.landing.step1Cta}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-primary/40 bg-gradient-to-b from-secondary/40 to-surface-card p-8 shadow-sm relative flex flex-col justify-between space-y-6 group text-center md:text-left">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-primary text-primary-foreground flex items-center justify-center font-black text-xl shadow-xs mx-auto md:mx-0">
+                  02
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    {dict.landing.step2Label}
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">{dict.landing.step2Title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {dict.landing.step2Desc}
+                  </p>
+                </div>
+              </div>
+
+              <Link href="/planos" className="block pt-2">
+                <Button variant="primary" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>{dict.landing.step2Cta}</span>
+                  <ArrowRight className="w-3.5 h-3.5" />
+                </Button>
+              </Link>
+            </div>
+
+            <div className="w-full max-w-sm mx-auto md:max-w-none bg-surface-card rounded-3xl border border-border p-8 shadow-xs relative flex flex-col justify-between space-y-6 group hover:border-primary/40 transition-all text-center md:text-left">
+              <div className="space-y-4">
+                <div className="w-12 h-12 rounded-2xl bg-secondary text-secondary-foreground flex items-center justify-center font-black text-xl text-primary shadow-xs mx-auto md:mx-0">
+                  03
+                </div>
+                <div className="space-y-1.5">
+                  <span className="text-[10px] font-black uppercase tracking-wider text-primary">
+                    {dict.landing.step3Label}
+                  </span>
+                  <h3 className="text-xl font-black text-foreground">{dict.landing.step3Title}</h3>
+                  <p className="text-xs text-muted-foreground leading-relaxed">
+                    {dict.landing.step3Desc}
+                  </p>
+                </div>
+              </div>
+
+              <Link href="/dashboard" className="block pt-2">
+                <Button variant="outline" size="sm" className="w-full justify-between font-bold text-xs h-10">
+                  <span>{dict.landing.step3Cta}</span>
+                  <ArrowRight className="w-3.5 h-3.5 text-primary" />
+                </Button>
+              </Link>
+            </div>
           </div>
         </section>
       </main>

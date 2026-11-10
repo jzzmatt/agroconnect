@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   ArrowRight,
   CheckCircle2,
-  CreditCard,
   GraduationCap,
   MapPin,
   ShieldCheck,
@@ -180,22 +179,6 @@ export function AgroConnectHeroBanner() {
                 >
                   <span>{dict.landing.ctaPrimary}</span>
                   <ArrowRight className="h-4 w-4" />
-                </Button>
-              </motion.div>
-            </Link>
-
-            <Link href="#planos" className="w-full sm:w-auto">
-              <motion.div
-                whileHover={shouldReduceMotion ? undefined : { scale: 1.02 }}
-                whileTap={shouldReduceMotion ? undefined : { scale: 0.98 }}
-              >
-                <Button
-                  variant="outline"
-                  size="lg"
-                  className="h-12 w-full gap-2 border-border/80 bg-surface/80 px-8 text-sm font-bold shadow-2xs backdrop-blur-md sm:w-auto"
-                >
-                  <CreditCard className="h-4 w-4 text-primary" />
-                  <span>{dict.landing.ctaSecondary}</span>
                 </Button>
               </motion.div>
             </Link>
