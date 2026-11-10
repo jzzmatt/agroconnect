@@ -26,6 +26,9 @@ const isPublicRoute = createRouteMatcher([
   "/api/subscription(.*)",
   // JSON product create — handler enforces Clerk auth so fetch is not redirected.
   "/api/products(.*)",
+  // Service pictures, videos, and thumbnails. Handlers allow anonymous reads
+  // only for a published service and still authorize every write.
+  "/api/services(.*)",
   // JSON profile avatar upload — handler enforces Clerk auth so fetch is not redirected.
   "/api/profile(.*)",
   // JSON academy video upload — handler enforces Clerk auth so fetch is not redirected.

@@ -156,9 +156,15 @@ export function createServicePublishService(deps: {
       const processing = { ...target, status: "processing" as const };
       await deps.store.saveTarget(publication.id, processing);
       try {
-        const sent = thumbnailUrl && deps.sender.sendMedia
-          ? await deps.sender.sendMedia(connection.instanceId, target.groupId, thumbnailUrl, message.slice(0, 1000))
-          : await deps.sender.sendText(connection.instanceId, target.groupId, message);
+        let sent: { messageId: string | null } | null = null;
+        if (thumbnailUrl && deps.sender.sendMedia) {
+          try {
+            sent = await deps.sender.sendMedia(connection.instanceId, target.groupId, thumbnailUrl, message.slice(0, 1000));
+          } catch (error) {
+            console.error("[service whatsapp] thumbnail was not delivered", error instanceof Error ? error.message : "MEDIA_FAILED");
+          }
+        }
+        if (!sent) sent = await deps.sender.sendText(connection.instanceId, target.groupId, message);
         const done: ServiceShareTarget = {
           ...processing,
           status: "sent",
@@ -168,7 +174,8 @@ export function createServicePublishService(deps: {
         };
         await deps.store.saveTarget(publication.id, done);
         next.push(done);
-      } catch {
+      } catch (error) {
+        console.error("[service whatsapp] message was not delivered", error instanceof Error ? error.message : "TEXT_FAILED");
         const done: ServiceShareTarget = {
           ...processing,
           status: "failed",
