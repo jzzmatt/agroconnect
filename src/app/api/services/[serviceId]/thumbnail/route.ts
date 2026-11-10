@@ -19,6 +19,7 @@ export async function GET(
       status: 200,
       headers: {
         "Content-Type": "image/jpeg",
+        "Content-Disposition": 'inline; filename="thumbnail.jpg"',
         "Cache-Control": "private, max-age=60",
       },
     });
