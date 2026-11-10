@@ -808,6 +808,9 @@ export const en: Dictionary = {
     thumbnailSaved: "Thumbnail saved.",
     thumbnailFailed: "The thumbnail could not be generated.",
     thumbnailNotConfigured: "Thumbnail creation is not configured.",
+    mediaSection: "Picture and video",
+    servicePhoto: "Service picture",
+    mediaFailed: "The picture could not be saved.",
   },
   agrilocalization: {
     title: "AgriLocalization",

@@ -811,6 +811,9 @@ export const fr: Dictionary = {
     thumbnailSaved: "Miniature enregistrée.",
     thumbnailFailed: "La miniature n'a pas pu être générée.",
     thumbnailNotConfigured: "La création de miniatures n'est pas configurée.",
+    mediaSection: "Image et vidéo",
+    servicePhoto: "Image du service",
+    mediaFailed: "L'image n'a pas pu être enregistrée.",
   },
   agrilocalization: {
     title: "AgriLocalização",

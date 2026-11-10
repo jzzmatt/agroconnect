@@ -14,6 +14,7 @@ interface ProductImageUploaderProps {
   onSetPrimary: (id: string) => void;
   disabled?: boolean;
   error?: string | null;
+  title?: string;
 }
 
 export function ProductImageUploader({
@@ -23,6 +24,7 @@ export function ProductImageUploader({
   onSetPrimary,
   disabled,
   error,
+  title,
 }: ProductImageUploaderProps) {
   const { dict } = useI18n();
   const inputRef = useRef<HTMLInputElement>(null);
@@ -52,7 +54,7 @@ export function ProductImageUploader({
   return (
     <div className="space-y-3">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">Imagem do produto</h3>
+        <h3 className="text-sm font-bold uppercase tracking-wider text-primary">{title || "Imagem do produto"}</h3>
         <div className="flex gap-2">
           <Button
             type="button"
