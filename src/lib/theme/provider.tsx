@@ -1,6 +1,6 @@
 "use client";
 
-import React, { createContext, useContext, useEffect, useState, useTransition } from "react";
+import React, { createContext, useContext, useEffect, useLayoutEffect, useState, useTransition } from "react";
 import type { ThemePreference } from "@/types/database";
 
 export type Theme = "light" | "dark";
@@ -15,6 +15,7 @@ interface ThemeContextType {
 const ThemeContext = createContext<ThemeContextType | null>(null);
 
 const STORAGE_KEY = "agroconnect-theme-preference";
+const useClientLayoutEffect = typeof window === "undefined" ? useEffect : useLayoutEffect;
 
 /**
  * Inline script to prevent theme flashing during SSR/hydration.
@@ -25,10 +26,7 @@ export function ThemeScript() {
     (function() {
       try {
         var stored = localStorage.getItem('${STORAGE_KEY}');
-        var theme = stored;
-        if (!theme || (theme !== 'light' && theme !== 'dark')) {
-          theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
-        }
+        var theme = stored === 'light' || stored === 'dark' ? stored : 'dark';
         document.documentElement.classList.remove('light', 'dark');
         document.documentElement.classList.add(theme);
         document.documentElement.setAttribute('data-theme', theme);
@@ -48,43 +46,20 @@ export interface ThemeProviderProps {
 
 export function ThemeProvider({
   children,
-  defaultTheme = "light",
+  defaultTheme = "dark",
 }: ThemeProviderProps) {
   const [theme, setThemeState] = useState<Theme>(defaultTheme);
   const [mounted, setMounted] = useState(false);
   const [, startTransition] = useTransition();
 
-  useEffect(() => {
-    // 1. Read stored preference or system preference
-    const stored = localStorage.getItem(STORAGE_KEY) as Theme | null;
-    let activeTheme: Theme;
-
-    if (stored === "light" || stored === "dark") {
-      activeTheme = stored;
-    } else if (typeof window !== "undefined" && window.matchMedia("(prefers-color-scheme: dark)").matches) {
-      activeTheme = "dark";
-    } else {
-      activeTheme = "light";
-    }
+  useClientLayoutEffect(() => {
+    const stored = localStorage.getItem(STORAGE_KEY);
+    const activeTheme: Theme = stored === "light" || stored === "dark" ? stored : defaultTheme;
 
     setThemeState(activeTheme);
     applyThemeToDocument(activeTheme);
     setMounted(true);
-
-    // 2. Listen to system preference changes if no explicit stored override
-    const mediaQuery = window.matchMedia("(prefers-color-scheme: dark)");
-    const handleChange = (e: MediaQueryListEvent) => {
-      const currentStored = localStorage.getItem(STORAGE_KEY);
-      if (!currentStored) {
-        const nextSystemTheme: Theme = e.matches ? "dark" : "light";
-        setThemeState(nextSystemTheme);
-        applyThemeToDocument(nextSystemTheme);
-      }
-    };
-
-    mediaQuery.addEventListener("change", handleChange);
-    return () => mediaQuery.removeEventListener("change", handleChange);
-  }, []);
+  }, [defaultTheme]);
 
   const applyThemeToDocument = (nextTheme: Theme) => {
     if (typeof document === "undefined") return;
@@ -128,10 +103,10 @@ export function useTheme() {
   if (!context) {
     // Graceful fallback if called outside provider
     return {
-      theme: "light" as Theme,
+      theme: "dark" as Theme,
       setTheme: () => {},
       toggleTheme: () => {},
-      resolvedTheme: "light" as Theme,
+      resolvedTheme: "dark" as Theme,
     };
   }
   return context;
