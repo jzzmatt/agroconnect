@@ -115,6 +115,23 @@ describe("AGROCONNECT Phase 7.2 — AgriAcademy Dashboard Refactor", () => {
     expect(students[0].enrolledAt).toBeTruthy();
   });
 
+  it("6b. Lets a course owner load students without a separate instructor role", () => {
+    const owner = subjectFromProfile({
+      id: "owner-1",
+      clerk_user_id: "user_owner",
+      roles: ["student"],
+      account_type: "customer",
+      subscription_plan: "professional",
+      subscription_status: "active",
+    });
+    expect(can(owner, "academy.course.update")).toBe(true);
+    expect(can(owner, "academy.students.view")).toBe(false);
+    const actions = readFileSync("src/lib/services/course-actions.ts", "utf8");
+    const listAction = actions.slice(actions.indexOf("export async function listOwnedCourseStudentsAction"));
+    expect(listAction).toContain('authorize("academy.course.update")');
+    expect(listAction).toContain("requireOwnedCourseId");
+  });
+
   it("7. Allows any authenticated plan to conceptually access My Courses capability", () => {
     const entitlements = getUserEntitlements({ subscriptionPlan: "basic", roles: ["student"] });
     const basicStudent = subjectFromProfile({
