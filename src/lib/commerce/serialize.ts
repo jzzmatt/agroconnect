@@ -83,6 +83,7 @@ export function toSerializableOrderItem(item: OrderItemDescriptor): OrderItemDes
     id: String(item.id || ""),
     order_id: String(item.order_id || ""),
     product_id: item.product_id ? String(item.product_id) : null,
+    course_id: item.course_id ? String(item.course_id) : null,
     seller_id: String(item.seller_id || ""),
     product_title: String(item.product_title || "Produto"),
     product_slug: item.product_slug ? String(item.product_slug) : null,

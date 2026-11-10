@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -16,11 +16,13 @@ import { Navbar, MobileBottomNav } from "@/components/navigation";
 import { Footer } from "@/components/layout";
 import { Button } from "@/components/ui/Button";
 import { getOrderByNumberAction } from "@/lib/services/commerce-actions";
+import { paidOrderDestination } from "@/lib/commerce/paid-order-destination";
 import { OrderReceiptActions } from "@/components/commerce/OrderReceiptActions";
 import type { OrderDescriptor } from "@/types/domain";
 
 export default function OrderSuccessPage() {
   const params = useParams();
+  const router = useRouter();
   const orderNumber = params?.orderNumber as string;
 
   const [order, setOrder] = useState<OrderDescriptor | null>(null);
@@ -31,6 +33,11 @@ export default function OrderSuccessPage() {
       setOrder(res);
     });
   }, [orderNumber]);
+
+  useEffect(() => {
+    const next = paidOrderDestination(order);
+    if (next) router.replace(next);
+  }, [order, router]);
 
   return (
     <div className="min-h-screen flex flex-col bg-background text-foreground transition-colors">

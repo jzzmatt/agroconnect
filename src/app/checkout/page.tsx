@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/Button";
 import { OrderSummary } from "@/components/commerce/OrderSummary";
 import { ANGOLA_PROVINCES } from "@/config/locations";
 import { getCartAction, checkoutOrderAction } from "@/lib/services/commerce-actions";
+import { paidOrderDestination } from "@/lib/commerce/paid-order-destination";
 import { PaymentService } from "@/lib/payments";
 import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan";
 import type { ShoppingCart } from "@/types/domain";
@@ -79,7 +80,8 @@ export default function CheckoutPage() {
       });
 
       if (res.success && res.order) {
-        router.push(`/orders/${res.order.order_number}/success`);
+        const next = paidOrderDestination(res.order);
+        router.push(next || `/orders/${res.order.order_number}/success`);
         return;
       }
       setError(res.error || "Não foi possível concluir o checkout. Inicie sessão para continuar.");

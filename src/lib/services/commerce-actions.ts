@@ -158,6 +158,7 @@ export async function checkoutOrderAction(input: CheckoutOrderInput): Promise<{
     revalidatePath("/dashboard");
     revalidatePath("/dashboard/earnings");
     revalidatePath("/dashboard/orders");
+    revalidatePath("/dashboard/academy/my-courses");
     return {
       success: true,
       order: result.order,
