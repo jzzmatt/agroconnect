@@ -4,6 +4,7 @@ import React, { useState } from "react";
 import { X, Send, Calendar, MapPin, AlertCircle, CheckCircle2, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/Button";
 import { createServiceRequestAction } from "@/lib/services/marketplace-actions";
+import { serviceRequestOutcome } from "@/lib/whatsapp/service-booking";
 
 interface ServiceRequestModalProps {
   isOpen: boolean;
@@ -52,7 +53,7 @@ export function ServiceRequestModal({
         locationNotes: locationNotes || undefined,
       });
 
-      if (res.success) {
+      if (serviceRequestOutcome(res) === "saved") {
         setSuccess(true);
         setTimeout(() => {
           onClose();

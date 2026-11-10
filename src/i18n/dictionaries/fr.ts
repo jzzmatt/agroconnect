@@ -1408,6 +1408,8 @@ export const fr: Dictionary = {
     publishTitle: "Publier sur WhatsApp",
     publishGroups: "PUBLIER DANS LES GROUPES",
     publishToGroups: "Publier dans les groupes",
+    serviceShareTitle: "Publier le service sur WhatsApp",
+    serviceShareReady: "Le service est enregistré. Vous pouvez le publier dans vos groupes WhatsApp.",
     publishingGroups: "Publication...",
     selectAll: "Tout sélectionner",
     accountLabel: "Compte WhatsApp",

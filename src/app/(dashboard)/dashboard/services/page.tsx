@@ -29,6 +29,8 @@ import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan"
 import { useI18n } from "@/i18n/provider";
 import { deleteDialogForServiceStatus } from "@/lib/services/service-delete-flow";
 import { ServiceDeleteDialog } from "@/components/marketplace/ServiceDeleteDialog";
+import { ServiceWhatsAppPublishModal } from "@/components/marketplace/ServiceWhatsAppPublishModal";
+import { isPublicServiceStatus } from "@/lib/whatsapp/service-booking";
 import type { ServiceListItem } from "@/types/domain";
 
 export default function MyServicesDashboardPage() {
@@ -38,6 +40,7 @@ export default function MyServicesDashboardPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [isUpdating, setIsUpdating] = useState<string | null>(null);
   const [isLoadingList, setIsLoadingList] = useState(true);
+  const [whatsappServiceId, setWhatsappServiceId] = useState<string | null>(null);
   const [deleteTarget, setDeleteTarget] = useState<ServiceListItem | null>(null);
   const { entitlements, loading } = useAuthoritativePlan();
   const isBasic = !loading && !entitlements.can_manage_services;
@@ -319,6 +322,17 @@ export default function MyServicesDashboardPage() {
                   </Button>
                 </Link>
 
+                {isPublicServiceStatus(service.status) ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    onClick={() => setWhatsappServiceId(service.id)}
+                    className="gap-1.5 text-xs font-semibold"
+                  >
+                    <span>{dict.whatsapp.publishToGroups}</span>
+                  </Button>
+                ) : null}
+
                 {service.status === "published" || service.status === "active" ? (
                   <Button
                     variant="outline"
@@ -393,6 +407,11 @@ export default function MyServicesDashboardPage() {
           setDeleteTarget(null);
         }}
         onConfirm={() => void handleConfirmDelete()}
+      />
+      <ServiceWhatsAppPublishModal
+        serviceId={whatsappServiceId}
+        open={Boolean(whatsappServiceId)}
+        onClose={() => setWhatsappServiceId(null)}
       />
     </div>
   );

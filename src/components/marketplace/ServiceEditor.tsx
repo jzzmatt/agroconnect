@@ -21,6 +21,8 @@ import {
 import { useI18n } from "@/i18n/provider";
 import { deleteDialogForServiceStatus } from "@/lib/services/service-delete-flow";
 import { ServiceDeleteDialog } from "@/components/marketplace/ServiceDeleteDialog";
+import { ServiceWhatsAppPublishModal } from "@/components/marketplace/ServiceWhatsAppPublishModal";
+import { isPublicServiceStatus } from "@/lib/whatsapp/service-booking";
 import type { ServiceListItem } from "@/types/domain";
 import type { PricingType, ServiceLocationType, ServiceStatus } from "@/types/database";
 
@@ -73,6 +75,7 @@ export function ServiceEditor({ service }: { service: ServiceListItem }) {
   const [error, setError] = useState<string | null>(null);
   const [success, setSuccess] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [whatsappOpen, setWhatsappOpen] = useState(false);
 
   const handleSave = async () => {
     if (!title.trim() || title.trim().length < 3) {
@@ -185,6 +188,7 @@ export function ServiceEditor({ service }: { service: ServiceListItem }) {
       {success && (
         <div className="rounded-xl border border-emerald-300/40 bg-emerald-50 dark:bg-emerald-950/40 px-4 py-3 text-sm text-emerald-800 dark:text-emerald-200">
           {success}
+          {isPublicServiceStatus(current.status) ? ` ${dict.whatsapp.serviceShareReady}` : ""}
         </div>
       )}
 
@@ -395,6 +399,17 @@ export function ServiceEditor({ service }: { service: ServiceListItem }) {
           Arquivar
         </Button>
 
+        {isPublicServiceStatus(current.status) ? (
+          <Button
+            variant="outline"
+            disabled={saving}
+            onClick={() => setWhatsappOpen(true)}
+            className="gap-1.5"
+          >
+            {dict.whatsapp.publishToGroups}
+          </Button>
+        ) : null}
+
         <Link href={`/services/${current.slug}`}>
           <Button variant="outline">Ver página pública</Button>
         </Link>
@@ -419,6 +434,11 @@ export function ServiceEditor({ service }: { service: ServiceListItem }) {
           setDeleteOpen(false);
         }}
         onConfirm={() => void handleConfirmDelete()}
+      />
+      <ServiceWhatsAppPublishModal
+        serviceId={current.id}
+        open={whatsappOpen}
+        onClose={() => setWhatsappOpen(false)}
       />
     </div>
   );
