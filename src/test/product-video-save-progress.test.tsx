@@ -6,6 +6,16 @@ import { ProductVideoUploader } from "@/components/shopping/ProductVideoUploader
 import { ProductThumbnailOfferModal } from "@/components/shopping/ProductThumbnailOfferModal";
 import { publishVideoGate } from "@/lib/products/publish-video-gate";
 import { productVideoDurationDecision } from "@/lib/products/video-validation";
+import { trimProductVideoToFirstMinute } from "@/lib/products/trim-product-video";
+
+vi.mock("@/lib/products/trim-product-video", () => ({
+  trimProductVideoToFirstMinute: vi.fn(async () => new File(["trimmed"], "milho.mp4", { type: "video/mp4" })),
+}));
+
+vi.mock("@/lib/products/compress-image", async () => {
+  const actual = await vi.importActual<typeof import("@/lib/products/compress-image")>("@/lib/products/compress-image");
+  return { ...actual, readVideoDuration: vi.fn(async () => 60) };
+});
 import { assertProductThumbnailSource } from "@/lib/products/product-thumbnail-source";
 
 const video = {
@@ -125,8 +135,10 @@ describe("product video duration gate", () => {
     expect(onSave).toHaveBeenCalledWith(exact.file, 60);
   });
 
-  it("rejects a video longer than 60 seconds without saving", () => {
+  it("trims a video longer than 60 seconds to the first minute before saving", async () => {
     const onSave = vi.fn(async () => undefined);
+    const trimmed = new File(["trimmed"], "milho.mp4", { type: "video/mp4" });
+    vi.mocked(trimProductVideoToFirstMinute).mockResolvedValue(trimmed);
     render(
       <I18nProvider>
         <ProductVideoUploader
@@ -139,9 +151,7 @@ describe("product video duration gate", () => {
       </I18nProvider>
     );
     fireEvent.click(screen.getByRole("button", { name: "Guardar vídeo" }));
-    expect(screen.getByText("Este vídeo não pode ser guardado porque ultrapassa o limite de 60 segundos.")).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Continuar" })).toBeNull();
-    expect(onSave).not.toHaveBeenCalled();
+    await waitFor(() => expect(onSave).toHaveBeenCalledWith(trimmed, 60));
     expect(productVideoDurationDecision(61)).toBe("too_long");
   });
 });

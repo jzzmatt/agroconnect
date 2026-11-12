@@ -94,7 +94,7 @@ export function clampTrimWindow(
   return { start, end };
 }
 
-/** Inclusive 60-second limit. Longer videos are rejected and are not trimmed. */
+/** Inclusive 60-second limit. The browser trims a longer clip before this check. */
 export function productVideoDurationDecision(durationSeconds: number): "save" | "too_long" | "invalid" {
   if (!Number.isFinite(durationSeconds) || durationSeconds <= 0) return "invalid";
   if (durationSeconds > PRODUCT_VIDEO_MAX_SECONDS) return "too_long";

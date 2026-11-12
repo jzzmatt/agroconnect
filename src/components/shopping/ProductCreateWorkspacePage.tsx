@@ -112,6 +112,7 @@ export function ProductCreateWorkspacePage() {
   const [tempVideoId, setTempVideoId] = useState<string | null>(null);
   const [videoSaveState, setVideoSaveState] = useState<"idle" | "saving" | "saved" | "error">("idle");
   const [videoUploadPercent, setVideoUploadPercent] = useState<number | null>(null);
+  const [videoTransferPhase, setVideoTransferPhase] = useState<"uploading" | "saving" | null>(null);
   const videoRequestId = useRef<string>(crypto.randomUUID());
   const videoSaveLock = useRef(false);
   const [thumbnailOfferOpen, setThumbnailOfferOpen] = useState(false);
@@ -744,11 +745,13 @@ export function ProductCreateWorkspacePage() {
                   setTempVideoId(null);
                   setVideoSaveState("idle");
                   setVideoUploadPercent(null);
+                  setVideoTransferPhase(null);
                   videoRequestId.current = crypto.randomUUID();
                 }
                 setPendingVideo(next);
               }}
               uploadPercent={videoUploadPercent}
+              transferPhase={videoTransferPhase}
               onSaveStart={() => {
                 videoSaveLock.current = true;
                 setVideoSaveState("saving");
@@ -763,6 +766,7 @@ export function ProductCreateWorkspacePage() {
                     clientRequestId: videoRequestId.current,
                     durationSeconds: duration,
                     onProgress: setVideoUploadPercent,
+                    onPhase: setVideoTransferPhase,
                   });
                   setTempVideoId(saved.id);
                   setVideoSaveState("saved");
@@ -772,6 +776,7 @@ export function ProductCreateWorkspacePage() {
                 } finally {
                   videoSaveLock.current = false;
                   setVideoUploadPercent(null);
+                  setVideoTransferPhase(null);
                 }
               }}
             />

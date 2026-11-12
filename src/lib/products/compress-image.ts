@@ -67,15 +67,25 @@ export function readVideoDuration(file: File): Promise<number> {
     const url = URL.createObjectURL(file);
     const video = document.createElement("video");
     video.preload = "metadata";
+    let settled = false;
+    const finish = (result: number | Error) => {
+      if (settled) return;
+      settled = true;
+      video.onloadedmetadata = null;
+      video.onerror = null;
+      video.pause();
+      video.removeAttribute("src");
+      video.remove();
+      URL.revokeObjectURL(url);
+      if (result instanceof Error) reject(result);
+      else resolve(result);
+    };
     video.onloadedmetadata = () => {
       const duration = video.duration;
-      URL.revokeObjectURL(url);
-      resolve(duration);
+      if (!Number.isFinite(duration) || duration <= 0) finish(new Error("video_metadata_failed"));
+      else finish(duration);
     };
-    video.onerror = () => {
-      URL.revokeObjectURL(url);
-      reject(new Error("video_metadata_failed"));
-    };
+    video.onerror = () => finish(new Error("video_metadata_failed"));
     video.src = url;
   });
 }
