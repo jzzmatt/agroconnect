@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { AccountControls } from "@/components/admin/AccountControls";
 import { CatalogRemoveButton } from "@/components/admin/CatalogRemoveButton";
 import { loadAdminUser, type AdminListing } from "@/lib/admin/data";
 import { writeAdminAudit } from "@/lib/admin/audit";
 import { requireAdmin } from "@/lib/admin/access";
+import { isAllowlistedAdmin } from "@/lib/admin/allowlist";
 import { getAdminDictionary } from "@/lib/admin/locale";
-import type { CatalogKind } from "@/lib/admin/catalog-target";
+import { isClosedAccount, type CatalogKind } from "@/lib/admin/catalog-target";
 
 function ListingGroup({
   title,
@@ -30,7 +32,7 @@ function ListingGroup({
           {listings.map((item) => (
             <li key={item.id} className="flex items-center justify-between gap-3">
               <span className="min-w-0">{item.title}</span>
-              <CatalogRemoveButton kind={kind} id={item.id} title={item.title} />
+              <CatalogRemoveButton kind={kind} id={item.id} title={item.title} status={kind === "transport" ? "published" : undefined} />
             </li>
           ))}
         </ul>
@@ -73,6 +75,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ prof
         {dict.admin.backToUsers}
       </Link>
       <h1 className="text-2xl font-bold">{user.name}</h1>
+      {user.id === actor.profileId || isAllowlistedAdmin(user.clerkUserId) ? null : (
+        <AccountControls profileId={user.id} name={user.name} closed={isClosedAccount(user.status, user.isActive)} />
+      )}
       <dl className="grid gap-3 rounded-2xl border border-border bg-surface-card p-4 sm:grid-cols-2">
         {rows.map(([label, value]) => (
           <div key={label}>
@@ -81,10 +86,11 @@ export default async function AdminUserPage({ params }: { params: Promise<{ prof
           </div>
         ))}
       </dl>
-      <div className="grid gap-3 lg:grid-cols-3">
+      <div className="grid gap-3 lg:grid-cols-2">
         <ListingGroup title={dict.admin.publishedProducts} kind="product" listings={user.products} unavailable={dict.admin.databaseUnavailable} />
         <ListingGroup title={dict.admin.publishedServices} kind="service" listings={user.services} unavailable={dict.admin.databaseUnavailable} />
         <ListingGroup title={dict.admin.publishedCourses} kind="course" listings={user.courses} unavailable={dict.admin.databaseUnavailable} />
+        <ListingGroup title={dict.admin.publishedTransports} kind="transport" listings={user.transports} unavailable={dict.admin.databaseUnavailable} />
       </div>
     </div>
   );

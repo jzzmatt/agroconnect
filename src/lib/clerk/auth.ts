@@ -11,6 +11,7 @@ import {
 } from "@/lib/auth/profile-cache";
 import type { UserProfileWithRoles } from "@/types/domain";
 import type { UserRoleType, Profile } from "@/types/database";
+import { isClosedAccount } from "@/lib/admin/catalog-target";
 
 /**
  * Get current authenticated user's ID from Clerk session
@@ -27,6 +28,10 @@ export async function requireAuth(): Promise<string> {
   const { userId } = await auth();
   if (!userId) {
     throw new Error("Não autorizado: É necessário iniciar sessão.");
+  }
+  const profile = await getCurrentUserProfile();
+  if (profile && isClosedAccount(profile.status, profile.is_active)) {
+    throw new Error("Conta desativada.");
   }
   return userId;
 }
