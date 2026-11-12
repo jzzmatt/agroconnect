@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { isAllowlistedAdmin } from "@/lib/admin/allowlist";
 import { getCurrentUserProfile, requireAuth } from "@/lib/clerk/auth";
 import { generateAndSaveAgroConnectHeroImage } from "@/lib/openai/image-generation";
 import { isOpenAIConfigured } from "@/lib/openai/client";
@@ -14,7 +15,7 @@ export async function POST() {
   try {
     await requireAuth();
     const profile = await getCurrentUserProfile();
-    if (!profile || profile.account_type !== "admin") {
+    if (!profile || profile.account_type !== "admin" || !isAllowlistedAdmin(profile.clerk_user_id)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

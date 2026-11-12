@@ -160,7 +160,10 @@ export class PublicProviderIdentityService {
         }
       }
 
-      if (!rowData) return null;
+      if (!rowData) {
+        const { visibleDemoPublicProvider } = await import("@/demo/catalog");
+        return visibleDemoPublicProvider(normalized);
+      }
 
       const row = rowData;
       const profileId = String(row.profile_id || "");

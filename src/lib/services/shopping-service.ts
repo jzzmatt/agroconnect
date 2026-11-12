@@ -1,6 +1,12 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { isSupabaseConfigured, tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { isPublicProductStatus } from "@/lib/products/publication";
+import {
+  appendDemoPage,
+  visibleDemoProductBySlug,
+  visibleDemoProducts,
+  visibleDemoProductsForSeller,
+} from "@/demo/catalog";
 import { canPermanentlyDeleteProduct } from "@/lib/products/delete-flow";
 import { buildInventoryPatch, type ProductInventoryUpdate } from "@/lib/products/inventory";
 import type { ProductListItem, SellerPublicProfile, ProductRequestItem } from "@/types/domain";
@@ -506,10 +512,14 @@ export class ShoppingService {
               created_at: item.created_at,
             }));
 
-          return {
-            products: await attachProductMedia(supabase, mapped),
+          const page = appendDemoPage(
+            await attachProductMedia(supabase, mapped),
             total,
-          };
+            await visibleDemoProducts(params),
+            params.offset || 0,
+            params.limit || 20
+          );
+          return { products: page.items, total: page.total };
         }
       } catch (err) {
         console.warn("[ShoppingService.searchProducts] Fallback to in-memory:", err);
@@ -593,10 +603,11 @@ export class ShoppingService {
       filtered.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
     }
 
-    const total = filtered.length;
+    const visible = [...filtered, ...(await visibleDemoProducts(params))];
+    const total = visible.length;
     const offset = params.offset || 0;
     const limit = params.limit || 20;
-    const paged = filtered.slice(offset, offset + limit);
+    const paged = visible.slice(offset, offset + limit);
 
     return { products: paged, total };
   }
@@ -695,7 +706,8 @@ export class ShoppingService {
       }
     }
 
-    return seedMatch && isPublicProductStatus(seedMatch.status) ? seedMatch : null;
+    if (seedMatch && isPublicProductStatus(seedMatch.status)) return seedMatch;
+    return visibleDemoProductBySlug(slug);
   }
 
   /**
@@ -783,11 +795,14 @@ export class ShoppingService {
       }
     }
 
-    return INITIAL_PRODUCTS.filter(
-      (p) =>
-        p.seller_id === sellerId &&
-        (onlyPublished ? isPublicProductStatus(p.status) : true)
-    );
+    return [
+      ...INITIAL_PRODUCTS.filter(
+        (p) =>
+          p.seller_id === sellerId &&
+          (onlyPublished ? isPublicProductStatus(p.status) : true)
+      ),
+      ...(await visibleDemoProductsForSeller(sellerId, onlyPublished)),
+    ];
   }
 
   /**

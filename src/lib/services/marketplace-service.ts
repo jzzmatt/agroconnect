@@ -1,6 +1,13 @@
 import { createPublicServerSupabaseClient } from "@/lib/supabase/client";
 import { tryCreateAdminSupabaseClient } from "@/lib/supabase/admin";
 import { canPermanentlyDeleteService } from "@/lib/services/service-delete-flow";
+import {
+  appendDemoPage,
+  visibleDemoProviderBySlug,
+  visibleDemoServiceBySlug,
+  visibleDemoServicesForProvider,
+  visibleDemoServices,
+} from "@/demo/catalog";
 import type { ServiceListItem, ProviderPublicProfile, ServiceRequestItem } from "@/types/domain";
 import type { ServiceStatus, PricingType, ServiceLocationType, ServiceContactPreference } from "@/types/database";
 
@@ -223,7 +230,8 @@ async function queryPublishedServicesFromTable(
     services = services.filter((s: ServiceListItem) => s.pricing_type === params.pricingType);
   }
 
-  return { services, total: services.length };
+  const demo = offset === 0 ? await visibleDemoServices(params) : [];
+  return { services: [...services, ...demo], total: services.length + demo.length };
 }
 
 function isMissingRpcError(error: { message?: string; code?: string } | null | undefined): boolean {
@@ -575,10 +583,17 @@ export class MarketplaceService {
           );
         } else if (Array.isArray(data) && data.length > 0) {
           const total = data[0]?.total_count ? Number(data[0].total_count) : data.length;
-          return {
-            services: data.map((item: Parameters<typeof mapMarketplaceServiceRow>[0]) => mapMarketplaceServiceRow(item)),
+          const mapped = data.map((item: Parameters<typeof mapMarketplaceServiceRow>[0]) =>
+            mapMarketplaceServiceRow(item)
+          );
+          const page = appendDemoPage(
+            mapped,
             total,
-          };
+            await visibleDemoServices(params),
+            params.offset || 0,
+            params.limit || 50
+          );
+          return { services: page.items, total: page.total };
         }
 
         const fromTable = await queryPublishedServicesFromTable(params);
@@ -665,10 +680,11 @@ export class MarketplaceService {
       filtered.sort((a, b) => (b.is_featured ? 1 : 0) - (a.is_featured ? 1 : 0));
     }
 
-    const total = filtered.length;
+    const visible = [...filtered, ...(await visibleDemoServices(params))];
+    const total = visible.length;
     const offset = params.offset || 0;
     const limit = params.limit || 20;
-    const paged = filtered.slice(offset, offset + limit);
+    const paged = visible.slice(offset, offset + limit);
 
     return { services: paged, total };
   }
@@ -696,7 +712,7 @@ export class MarketplaceService {
       }
     }
 
-    return seedMatch || null;
+    return seedMatch || (await visibleDemoServiceBySlug(slug));
   }
 
   /**
@@ -769,9 +785,9 @@ export class MarketplaceService {
       }
     }
 
-    return seedMatch
-      ? { ...seedMatch, phone: null, email: null }
-      : null;
+    if (seedMatch) return { ...seedMatch, phone: null, email: null };
+    const demoProvider = await visibleDemoProviderBySlug(slug);
+    return demoProvider ? { ...demoProvider, phone: null, email: null } : null;
   }
 
   /**
@@ -803,7 +819,7 @@ export class MarketplaceService {
       }
     }
 
-    return looksLikeUuid(providerId) ? [] : seed;
+    return looksLikeUuid(providerId) ? [] : [...seed, ...(await visibleDemoServicesForProvider(providerId))];
   }
 
   /**

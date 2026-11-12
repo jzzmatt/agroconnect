@@ -678,6 +678,10 @@ export async function createServiceRequestAction(params: {
         error: "Descreva o que necessita para este serviço.",
       };
     }
+    const { isDemoRecordId, DEMO_PERSISTENCE_MESSAGE } = await import("@/demo/catalog");
+    if (isDemoRecordId(params.serviceId) || isDemoRecordId(params.providerId)) {
+      return { success: false, message: DEMO_PERSISTENCE_MESSAGE, error: DEMO_PERSISTENCE_MESSAGE };
+    }
     if (!looksLikeUuid(params.serviceId) || !looksLikeUuid(params.providerId)) {
       return {
         success: false,

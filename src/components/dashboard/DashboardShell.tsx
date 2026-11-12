@@ -12,6 +12,7 @@ import { useAuthoritativePlan } from "@/lib/subscription/use-authoritative-plan"
 import { useUser } from "@clerk/nextjs";
 import { useI18n } from "@/i18n/provider";
 import { UnreadNotificationsProvider } from "@/components/notifications/unread-notifications";
+import { DemoBadge } from "@/demo/DemoBadge";
 
 export function DashboardShell({
   children,
@@ -129,6 +130,7 @@ export function DashboardShell({
         />
 
         <main className="flex-1 p-4 sm:p-6 lg:p-8 max-w-7xl w-full mx-auto pb-24 lg:pb-12">
+          <DemoBadge />
           {children}
         </main>
 
