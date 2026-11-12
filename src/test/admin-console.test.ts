@@ -1,6 +1,7 @@
 import { readFileSync } from "node:fs";
 import { describe, expect, it } from "vitest";
 import { adminUserIds, isAllowlistedAdmin, sanitizeUserSearch } from "@/lib/admin/allowlist";
+import { catalogTable, parseCatalogId, parseCatalogKind, sanitizeCatalogSearch } from "@/lib/admin/catalog-target";
 import { buildHealthReport, readHealthInputs } from "@/lib/admin/health";
 import { classifyPublicVisit } from "@/lib/analytics/public-visit";
 import { decideDemoVisibility, selectDemoRecords } from "@/demo/visibility";
@@ -33,6 +34,27 @@ describe("admin console access", () => {
     expect(mobile).not.toContain("/admin");
     expect(sidebar).not.toContain("/admin");
     expect(navigation).not.toContain("/admin");
+  });
+});
+
+describe("admin catalog removal", () => {
+  it("accepts only a product, course, or service and a real record id", () => {
+    expect(parseCatalogKind("course")).toBe("course");
+    expect(parseCatalogKind("service")).toBe("service");
+    expect(parseCatalogKind("provider")).toBe("product");
+    expect(parseCatalogKind(undefined)).toBe("product");
+    expect(catalogTable("course")).toBe("courses");
+    expect(catalogTable("service")).toBe("services");
+    expect(catalogTable("product")).toBe("products");
+    expect(parseCatalogId("11111111-1111-4111-8111-111111111111")).toBe("11111111-1111-4111-8111-111111111111");
+    expect(parseCatalogId("demo-product-milho")).toBeNull();
+    expect(parseCatalogId("not-an-id")).toBeNull();
+    expect(sanitizeCatalogSearch("milho %_();")).toBe("milho");
+    const actions = readFileSync("src/app/admin/actions.ts", "utf8");
+    const page = readFileSync("src/app/admin/catalog/page.tsx", "utf8");
+    expect(actions).toContain("resolveAdminActor()");
+    expect(actions).toContain("removeCatalogItemAction");
+    expect(page).toContain("CatalogRemoveButton");
   });
 });
 

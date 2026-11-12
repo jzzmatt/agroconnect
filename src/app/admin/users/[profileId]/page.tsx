@@ -1,11 +1,23 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
+import { CatalogRemoveButton } from "@/components/admin/CatalogRemoveButton";
 import { loadAdminUser, type AdminListing } from "@/lib/admin/data";
 import { writeAdminAudit } from "@/lib/admin/audit";
 import { requireAdmin } from "@/lib/admin/access";
 import { getAdminDictionary } from "@/lib/admin/locale";
+import type { CatalogKind } from "@/lib/admin/catalog-target";
 
-function ListingGroup({ title, listings, unavailable }: { title: string; listings: AdminListing[] | null; unavailable: string }) {
+function ListingGroup({
+  title,
+  kind,
+  listings,
+  unavailable,
+}: {
+  title: string;
+  kind: CatalogKind;
+  listings: AdminListing[] | null;
+  unavailable: string;
+}) {
   return (
     <section className="rounded-2xl border border-border bg-surface-card p-4">
       <h2 className="font-bold">{title}</h2>
@@ -14,9 +26,12 @@ function ListingGroup({ title, listings, unavailable }: { title: string; listing
       ) : listings.length === 0 ? (
         <p className="mt-2 text-sm text-muted-foreground">0</p>
       ) : (
-        <ul className="mt-2 space-y-1 text-sm">
+        <ul className="mt-3 space-y-3 text-sm">
           {listings.map((item) => (
-            <li key={item.id}>{item.title}</li>
+            <li key={item.id} className="flex items-center justify-between gap-3">
+              <span className="min-w-0">{item.title}</span>
+              <CatalogRemoveButton kind={kind} id={item.id} title={item.title} />
+            </li>
           ))}
         </ul>
       )}
@@ -67,9 +82,9 @@ export default async function AdminUserPage({ params }: { params: Promise<{ prof
         ))}
       </dl>
       <div className="grid gap-3 lg:grid-cols-3">
-        <ListingGroup title={dict.admin.publishedProducts} listings={user.products} unavailable={dict.admin.databaseUnavailable} />
-        <ListingGroup title={dict.admin.publishedServices} listings={user.services} unavailable={dict.admin.databaseUnavailable} />
-        <ListingGroup title={dict.admin.publishedCourses} listings={user.courses} unavailable={dict.admin.databaseUnavailable} />
+        <ListingGroup title={dict.admin.publishedProducts} kind="product" listings={user.products} unavailable={dict.admin.databaseUnavailable} />
+        <ListingGroup title={dict.admin.publishedServices} kind="service" listings={user.services} unavailable={dict.admin.databaseUnavailable} />
+        <ListingGroup title={dict.admin.publishedCourses} kind="course" listings={user.courses} unavailable={dict.admin.databaseUnavailable} />
       </div>
     </div>
   );
