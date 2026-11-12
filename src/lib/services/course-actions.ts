@@ -497,6 +497,8 @@ export async function listMyEnrolledCourseIdsAction(): Promise<string[]> {
 }
 
 export async function enrollInCourseAction(courseId: string) {
+  const { assertDemoNotPersisted } = await import("@/demo/catalog");
+  assertDemoNotPersisted(courseId);
   await requireAuth();
   const userProfile = await getCurrentUserProfile();
   if (!userProfile) throw new Error("Perfil não encontrado.");

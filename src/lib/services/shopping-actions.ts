@@ -219,6 +219,11 @@ export async function createProductRequestAction(params: {
     throw new Error("É necessário ter perfil ativo para solicitar produtos.");
   }
 
+  const { isDemoRecordId, DEMO_PERSISTENCE_MESSAGE } = await import("@/demo/catalog");
+  if (isDemoRecordId(params.productId) || isDemoRecordId(params.sellerId)) {
+    return { success: false, message: DEMO_PERSISTENCE_MESSAGE };
+  }
+
   const supabase = await createServerSupabaseClient();
 
   const { data, error } = await (supabase.from("product_requests") as any)

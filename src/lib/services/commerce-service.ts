@@ -237,6 +237,8 @@ export class CommerceService {
   }
 
   public static async addToCart(input: AddToCartInput, actor?: CommerceActor): Promise<ShoppingCart> {
+    const { assertDemoNotPersisted } = await import("@/demo/catalog");
+    assertDemoNotPersisted(input.productId);
     if (shouldPersist(actor) && actor?.customerId) {
       const persisted = await persistAddToCart(
         actor.customerId,
@@ -304,6 +306,8 @@ export class CommerceService {
   }
 
   public static async addCatalogCourse(courseId: string, actor?: CommerceActor): Promise<ShoppingCart> {
+    const { assertDemoNotPersisted } = await import("@/demo/catalog");
+    assertDemoNotPersisted(courseId);
     if (shouldPersist(actor) && actor?.customerId) {
       const persisted = await persistAddCourseToCart(actor.customerId, courseId);
       if (persisted) return persisted;

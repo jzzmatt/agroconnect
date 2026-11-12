@@ -81,6 +81,28 @@ cp .env.example .env.local
 
 Configure `NEXT_PUBLIC_CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `NEXT_PUBLIC_SUPABASE_URL`, and `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY`.
 
+### Presentation catalog
+
+The public marketplace can show an extra AgriProduct, AgriAcademy and AgriService catalog for a presentation. The presentation records are defined in `src/demo/`. An administrator can create, hide, and remove the Agroconnect Showcase batch from `/admin/demo-catalog`. That batch is tracked in the database and never rewrites real listings.
+
+The database setting `demo_catalog_enabled` takes priority. `NEXT_PUBLIC_AGROCONNECT_DEMO_CATALOG` is only the fallback when that setting has not been saved.
+
+Turn the fallback on in `.env.local`:
+
+```bash
+NEXT_PUBLIC_AGROCONNECT_DEMO_CATALOG=true
+```
+
+Restart the dev server after changing the flag. Real listings stay first. Demo products, courses and services are appended, and they cannot be saved as orders, enrolments or requests.
+
+Turn it off by removing the variable or setting it to anything other than `true`:
+
+```bash
+NEXT_PUBLIC_AGROCONNECT_DEMO_CATALOG=false
+```
+
+No database cleanup is required. The demo records disappear on the next restart.
+
 ### 3. Run Development Server
 
 ```bash

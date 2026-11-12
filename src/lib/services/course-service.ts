@@ -17,6 +17,13 @@ import {
   isPubliclyVisibleCourseStatus,
 } from "@/lib/academy/course-lifecycle";
 import {
+  appendDemoPage,
+  visibleDemoCourseBySlug,
+  visibleDemoCourseDetailBySlug,
+  visibleDemoCourses,
+  isDemoRecordId,
+} from "@/demo/catalog";
+import {
   CoursePersistenceError,
   COURSE_MUTATION_MESSAGES,
   mutationFail,
@@ -286,16 +293,26 @@ export class CourseService {
         const { data, error, count } = await query;
         if (!error && data && Array.isArray(data) && data.length > 0) {
           const courses = await this.attachInstructorNames(supabase, data);
-          return { courses, total: count ?? courses.length };
+          const page = appendDemoPage(
+            courses,
+            count ?? courses.length,
+            await visibleDemoCourses(params),
+            offset,
+            limit
+          );
+          return { courses: page.items, total: page.total };
         }
       } catch (err) {
         console.warn("[CourseService.searchPublishedCourses] Fallback to seed:", err);
       }
     }
 
-    const courses = applyMemoryOverlay(filterSeedCourses(params)).filter((course) =>
-      isPubliclyVisibleCourseStatus(course.status)
-    );
+    const courses = [
+      ...applyMemoryOverlay(filterSeedCourses(params)).filter((course) =>
+        isPubliclyVisibleCourseStatus(course.status)
+      ),
+      ...(await visibleDemoCourses(params)),
+    ];
     return { courses, total: courses.length };
   }
 
@@ -327,7 +344,7 @@ export class CourseService {
     const seed = applyMemoryOverlay(INITIAL_COURSES).find(
       (course) => course.slug === slug && isPubliclyVisibleCourseStatus(course.status)
     );
-    return seed ?? null;
+    return seed ?? (await visibleDemoCourseBySlug(slug));
   }
 
   /** Public /providers/[slug] contract: published Academy courses only. */
@@ -417,7 +434,10 @@ export class CourseService {
         slug,
       })
     );
-    return { courses, total: courses.length };
+    const demo = (await visibleDemoCourses(params)).filter(
+      (course) => course.provider_slug === slug || course.provider_id === id
+    );
+    return { courses: [...courses, ...demo], total: courses.length + demo.length };
   }
 
   public static async listByOwner(ownerId: string, includeDrafts = true): Promise<CourseListItem[]> {
@@ -826,6 +846,7 @@ export class CourseService {
   public static async getPublishedCourseDetailBySlug(slug: string): Promise<CourseWithSections | null> {
     const summary = await this.getPublishedCourseBySlug(slug);
     if (!summary) return null;
+    if (isDemoRecordId(summary.id)) return visibleDemoCourseDetailBySlug(slug);
 
     const detail = await this.getCourseWithSections(summary.id);
     if (detail && detail.status === "published") {
@@ -869,7 +890,7 @@ export class CourseService {
           .select("*")
           .eq("slug", slug)
           .maybeSingle();
-        if (error || !data?.id) return null;
+        if (error || !data?.id) return visibleDemoCourseDetailBySlug(slug);
         const detail = await this.getCourseWithSections(String(data.id));
         return detail ? redactPublicCourseYouTubeIds(detail) : null;
       } catch (err) {
@@ -885,7 +906,7 @@ export class CourseService {
     }
 
     const overlay = applyMemoryOverlay(INITIAL_COURSES).find((course) => course.slug === slug);
-    if (!overlay) return null;
+    if (!overlay) return visibleDemoCourseDetailBySlug(slug);
     return {
       id: overlay.id,
       owner_id: overlay.instructor_id,

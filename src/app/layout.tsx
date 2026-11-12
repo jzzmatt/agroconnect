@@ -8,6 +8,7 @@ import { ThemeProvider, ThemeScript } from "@/lib/theme";
 import { CartProvider } from "@/components/commerce/CartProvider";
 import { OfflineNotice } from "@/components/pwa/OfflineNotice";
 import { ServiceWorkerRegistrar } from "@/components/pwa/ServiceWorkerRegistrar";
+import { PublicVisitTracker } from "@/components/analytics/PublicVisitTracker";
 
 const inter = Inter({
   subsets: ["latin"],
@@ -70,6 +71,7 @@ export default function RootLayout({
               <LocaleHydrator />
               <CartProvider>
                 <ServiceWorkerRegistrar />
+                <PublicVisitTracker />
                 <OfflineNotice />
                 {children}
               </CartProvider>
