@@ -6,8 +6,10 @@ import type { TempVideoRecord } from "@/lib/products/temp-video-lifecycle";
 import {
   attachTempVideoThumbnail,
   cancelTempVideo,
+  commitDirectTempVideo,
   finalizeTempVideo,
   promoteTempVideo,
+  registerDirectTempVideo,
   saveTempVideo,
   type TempVideoObjects,
   type TempVideoStore,
@@ -313,6 +315,32 @@ describe("AgriProduct temporary video lifecycle", () => {
     expect([...box.permanent.keys()].some((path) => path.endsWith(".webm"))).toBe(true);
     expect([...box.permanent.keys()].some((path) => path.endsWith(".jpg"))).toBe(false);
     expect(box.temp.size).toBe(2);
+  });
+
+  it("records a direct upload only after the stored object matches the file size", async () => {
+    const box = memory();
+    const registered = await registerDirectTempVideo({ ...clip(60), store: box.store });
+    expect(registered.alreadySaved).toBe(false);
+    expect(registered.record.status).toBe("processing");
+    expect(registered.record.tempPath).toBe(`user-1/${registered.record.id}.webm`);
+    await expect(commitDirectTempVideo({
+      userId: "user-1",
+      clientRequestId: REQUEST,
+      fileSize: 1200,
+      store: box.store,
+      sizeOf: async () => 100,
+    })).rejects.toMatchObject({ code: "TEMP_VIDEO_FAILED" });
+    const saved = await commitDirectTempVideo({
+      userId: "user-1",
+      clientRequestId: REQUEST,
+      fileSize: 1200,
+      store: box.store,
+      sizeOf: async () => 1200,
+    });
+    expect(saved.status).toBe("saved");
+    await expect(registerDirectTempVideo({ ...clip(61), store: box.store })).rejects.toMatchObject({
+      code: "PRODUCT_VIDEO_TOO_LONG",
+    });
   });
 
   it("chooses a frame after the start of a longer clip", () => {

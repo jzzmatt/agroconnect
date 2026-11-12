@@ -106,6 +106,19 @@ export async function removeStorageObject(bucket: string, storagePath: string | 
   await supabase.storage.from(bucket).remove([storagePath]);
 }
 
+export async function storageObjectSize(bucket: string, storagePath: string): Promise<number | null> {
+  const supabase = getStorageAdminClient();
+  if (!supabase || !storagePath || storagePath.includes("..")) return null;
+  const slash = storagePath.lastIndexOf("/");
+  const folder = slash >= 0 ? storagePath.slice(0, slash) : "";
+  const name = slash >= 0 ? storagePath.slice(slash + 1) : storagePath;
+  const listed = await supabase.storage.from(bucket).list(folder, { search: name, limit: 20 });
+  if (listed.error || !listed.data) return null;
+  const match = listed.data.find((entry) => entry.name === name);
+  const size = match?.metadata && typeof match.metadata === "object" ? Number((match.metadata as { size?: unknown }).size) : NaN;
+  return Number.isFinite(size) && size > 0 ? size : null;
+}
+
 export async function storageObjectExists(bucket: string, storagePath: string): Promise<boolean> {
   const supabase = getStorageAdminClient();
   if (!supabase || !storagePath) return false;

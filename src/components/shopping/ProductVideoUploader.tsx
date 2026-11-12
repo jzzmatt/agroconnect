@@ -7,6 +7,7 @@ import { useI18n } from "@/i18n/provider";
 import { localizeError } from "@/i18n/errors";
 import { PRODUCT_VIDEO_MAX_SECONDS } from "@/config/product-catalog";
 import { readVideoDuration } from "@/lib/products/compress-image";
+import { trimProductVideoToFirstMinute } from "@/lib/products/trim-product-video";
 import { productVideoDurationDecision, validateProductVideoSource } from "@/lib/products/video-validation";
 import { formatBytes, formatClock } from "@/lib/products/video-optimizer";
 import { ProductVideoDurationModal } from "@/components/shopping/ProductVideoDurationModal";
@@ -27,6 +28,7 @@ export function ProductVideoUploader({
   onSave,
   saveState,
   uploadPercent,
+  transferPhase = null,
 }: {
   video: PendingProductVideo | null;
   onChange: (video: PendingProductVideo | null) => void;
@@ -34,6 +36,7 @@ export function ProductVideoUploader({
   onSave: (file: File, duration: number) => Promise<void>;
   saveState: "idle" | "saving" | "saved" | "error";
   uploadPercent: number | null;
+  transferPhase?: "uploading" | "saving" | null;
 }) {
   const { dict } = useI18n();
   const fileRef = useRef<HTMLInputElement>(null);
@@ -41,11 +44,11 @@ export function ProductVideoUploader({
   const working = useRef(false);
   const [source, setSource] = useState<File | null>(video?.file || null);
   const [duration, setDuration] = useState(video?.duration || 0);
-  const [phase, setPhase] = useState<"idle" | "processing" | "error">("idle");
+  const [phase, setPhase] = useState<"idle" | "checking" | "trimming" | "processing" | "error">("idle");
   const [error, setError] = useState<string | null>(null);
   const [durationCheck, setDurationCheck] = useState<"save" | "too_long" | null>(null);
 
-  const busy = phase === "processing" || saveState === "saving";
+  const busy = phase === "checking" || phase === "trimming" || phase === "processing" || saveState === "saving";
 
   useEffect(() => {
     if (saveState === "saved") {
@@ -70,7 +73,7 @@ export function ProductVideoUploader({
       return;
     }
     setError(null);
-    setPhase("processing");
+    setPhase("checking");
     try {
       const seconds = await readVideoDuration(file);
       if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
@@ -98,10 +101,46 @@ export function ProductVideoUploader({
     const decision = productVideoDurationDecision(seconds);
     setError(null);
     if (decision !== "save") {
-      setDurationCheck("too_long");
+      void trimAndSave();
       return;
     }
     setDurationCheck("save");
+  }
+
+  async function trimAndSave() {
+    if (!source || busy || working.current || saveState === "saved") return;
+    working.current = true;
+    setError(null);
+    setPhase("trimming");
+    try {
+      const trimmed = await trimProductVideoToFirstMinute(source);
+      const measured = await readVideoDuration(trimmed);
+      const seconds = Math.min(PRODUCT_VIDEO_MAX_SECONDS, Math.round(measured * 100) / 100);
+      if (productVideoDurationDecision(seconds) !== "save") {
+        throw Object.assign(new Error("PRODUCT_VIDEO_TOO_LONG"), { code: "PRODUCT_VIDEO_TOO_LONG" });
+      }
+      if (video?.previewUrl) URL.revokeObjectURL(video.previewUrl);
+      const previewUrl = URL.createObjectURL(trimmed);
+      setSource(trimmed);
+      setDuration(seconds);
+      onChange({
+        file: trimmed,
+        previewUrl,
+        duration: seconds,
+        fileSize: trimmed.size,
+        originalSize: source.size,
+        optimized: true,
+      });
+      setPhase("processing");
+      onSaveStart?.();
+      await onSave(trimmed, seconds);
+      setPhase("idle");
+    } catch (err) {
+      setPhase("error");
+      setError(localizeError(dict, err instanceof Error ? err.message : "PRODUCT_VIDEO_INVALID"));
+    } finally {
+      working.current = false;
+    }
   }
 
   async function confirmSave() {
@@ -182,6 +221,17 @@ export function ProductVideoUploader({
               </span>
             ) : null}
           </div>
+          {phase === "checking" || phase === "trimming" || transferPhase ? (
+            <p className="text-xs font-semibold text-primary" role="status">
+              {phase === "checking"
+                ? dict.products.videoChecking
+                : phase === "trimming"
+                  ? dict.products.videoTrimming
+                  : transferPhase === "saving"
+                    ? dict.products.videoSavingDatabase
+                    : dict.products.videoUploading}
+            </p>
+          ) : null}
           {saveState === "saving" && uploadPercent !== null ? (
             <div className="space-y-1" role="status" aria-live="polite">
               <div className="flex items-center justify-between text-xs font-semibold">

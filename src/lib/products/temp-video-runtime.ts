@@ -7,8 +7,10 @@ import {
 } from "@/lib/media/supabase-buckets";
 import {
   copyStorageObject,
+  createSignedUploadUrl,
   removeStorageObject,
   storageObjectExists,
+  storageObjectSize,
   uploadBufferToStorage,
 } from "@/lib/media/supabase-storage-core";
 import { SUPABASE_STORAGE_PROVIDER } from "@/lib/media/supabase-buckets";
@@ -17,6 +19,8 @@ import {
   finalizeTempVideo,
   promoteTempVideo,
   attachTempVideoThumbnail,
+  commitDirectTempVideo,
+  registerDirectTempVideo,
   saveTempVideo,
   type TempVideoObjects,
   type TempVideoStore,
@@ -188,6 +192,39 @@ export function findOwnedTempVideo(userId: string, clientRequestId: string) {
 
 export function findOwnedTempVideoById(userId: string, tempId: string) {
   return store.findById(tempId).then((record) => (record && record.userId === userId ? record : null));
+}
+
+export async function prepareOwnedDirectTempVideo(params: {
+  userId: string;
+  clientRequestId: string;
+  mimeType: string;
+  fileSize: number;
+  durationSeconds: number;
+}) {
+  const registered = await registerDirectTempVideo({ ...params, store });
+  if (registered.alreadySaved || !registered.record.tempPath) {
+    return { alreadySaved: true as const, videoId: registered.record.id };
+  }
+  const signed = await createSignedUploadUrl(AGROPRODUCT_TEMP_VIDEO_BUCKET, registered.record.tempPath);
+  return {
+    alreadySaved: false as const,
+    videoId: registered.record.id,
+    path: registered.record.tempPath,
+    signedUrl: signed.signedUrl,
+    token: signed.token,
+  };
+}
+
+export function commitOwnedDirectTempVideo(params: {
+  userId: string;
+  clientRequestId: string;
+  fileSize: number;
+}) {
+  return commitDirectTempVideo({
+    ...params,
+    store,
+    sizeOf: (path) => storageObjectSize(AGROPRODUCT_TEMP_VIDEO_BUCKET, path),
+  });
 }
 
 export function saveOwnedTempVideo(params: {

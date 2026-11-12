@@ -107,6 +107,83 @@ export async function saveTempVideo(params: {
   return saved || created;
 }
 
+export function directTempVideoPath(userId: string, id: string, mimeType: string): string {
+  if (!userId || userId.includes("/") || userId.includes("..")) fail("INVALID_REQUEST");
+  return `${userId}/${id}.${extensionFor(mimeType === "video/mp4" ? "video/mp4" : "video/webm")}`;
+}
+
+export async function registerDirectTempVideo(params: {
+  userId: string;
+  clientRequestId: string;
+  mimeType: string;
+  fileSize: number;
+  durationSeconds: number;
+  store: TempVideoStore;
+}): Promise<{ record: TempVideoRecord; alreadySaved: boolean }> {
+  assertTempVideoRequestId(params.clientRequestId);
+  const mime = params.mimeType === "video/mp4" ? "video/mp4" : "video/webm";
+  const valid = validateProductVideo({
+    mimeType: mime,
+    fileSize: params.fileSize,
+    durationSeconds: params.durationSeconds,
+    fileName: `clip.${extensionFor(mime)}`,
+  });
+  if (!valid.ok) fail(valid.code);
+
+  const existing = await params.store.findByRequest(params.userId, params.clientRequestId);
+  if (
+    existing &&
+    (existing.status === "saved" || existing.status === "permanent_ready" || existing.status === "transferred")
+  ) {
+    return { record: existing, alreadySaved: true };
+  }
+
+  const id = existing?.id || randomUUID();
+  const tempPath = directTempVideoPath(params.userId, id, mime);
+  const draft: TempVideoRecord = {
+    id,
+    userId: params.userId,
+    productId: existing?.productId || null,
+    clientRequestId: params.clientRequestId,
+    status: "processing",
+    tempPath,
+    permanentPath: null,
+    thumbnailTempPath: existing?.thumbnailTempPath || null,
+    thumbnailPermanentPath: null,
+    mimeType: mime,
+    fileSize: params.fileSize,
+    durationSeconds: params.durationSeconds,
+    errorCode: null,
+  };
+  const record = existing
+    ? (await params.store.update(existing.id, params.userId, draft)) || { ...existing, ...draft }
+    : await params.store.insert(draft);
+  return { record, alreadySaved: false };
+}
+
+export async function commitDirectTempVideo(params: {
+  userId: string;
+  clientRequestId: string;
+  fileSize: number;
+  store: TempVideoStore;
+  sizeOf: (path: string) => Promise<number | null>;
+}): Promise<TempVideoRecord> {
+  assertTempVideoRequestId(params.clientRequestId);
+  const existing = await params.store.findByRequest(params.userId, params.clientRequestId);
+  if (!existing || !existing.tempPath) fail("TEMP_VIDEO_NOT_FOUND");
+  if (existing.status === "saved" || existing.status === "permanent_ready" || existing.status === "transferred") {
+    return existing;
+  }
+  const size = await params.sizeOf(existing.tempPath);
+  if (size !== params.fileSize) fail("TEMP_VIDEO_FAILED");
+  const saved = await params.store.update(existing.id, params.userId, {
+    status: "saved",
+    fileSize: params.fileSize,
+    errorCode: null,
+  });
+  return saved || existing;
+}
+
 export async function attachTempVideoThumbnail(params: {
   userId: string;
   tempId: string;
