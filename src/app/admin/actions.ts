@@ -3,6 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { resolveAdminActor } from "@/lib/admin/access";
 import { writeAdminAudit } from "@/lib/admin/audit";
+import { removeCatalogRecord } from "@/lib/admin/catalog";
+import { parseCatalogKind, type CatalogKind } from "@/lib/admin/catalog-target";
 import {
   createShowcaseBatch,
   removeAllDemoBatches,
@@ -81,6 +83,32 @@ export async function removeAllDemoBatchesAction(expectedCount: number): Promise
     metadata: { count: result.count },
   });
   revalidatePath("/admin/demo-catalog");
+  return { ok: true };
+}
+
+export type CatalogRemoveResult =
+  | { ok: true }
+  | { ok: false; error: "forbidden" | "unavailable" | "not_found" | "dependency" | "failed" };
+
+export async function removeCatalogItemAction(kind: CatalogKind, id: string): Promise<CatalogRemoveResult> {
+  const actor = await actorOrForbidden();
+  if (!actor) return { ok: false, error: "forbidden" };
+  const catalogKind = parseCatalogKind(kind);
+  if (catalogKind !== kind) return { ok: false, error: "failed" };
+  const result = await removeCatalogRecord(catalogKind, id);
+  if (!result.ok) return result;
+  await writeAdminAudit({
+    actorProfileId: actor.profileId,
+    action: `admin.${catalogKind}.delete`,
+    entityType: catalogKind,
+    entityId: result.id,
+    metadata: { title: result.title, slug: result.slug },
+  });
+  revalidatePath("/admin", "layout");
+  revalidatePath("/agrishopping", "layout");
+  revalidatePath("/agriacademy", "layout");
+  revalidatePath("/agriservice", "layout");
+  revalidatePath("/services", "layout");
   return { ok: true };
 }
 
