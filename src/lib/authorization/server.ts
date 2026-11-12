@@ -1,4 +1,5 @@
 import { getCurrentUserContext } from "@/lib/auth/user-context";
+import { isClosedAccount } from "@/lib/admin/catalog-target";
 import { getUserEntitlements } from "@/lib/services/pricing-service";
 import { redirect } from "next/navigation";
 import { AuthorizationError, can, requirePermission, type CapabilitySubject } from "./policy";
@@ -69,6 +70,10 @@ export async function authorize(permission: Permission): Promise<CapabilitySubje
  * Unauthenticated visitors sign in first; unsubscribed users go to /planos.
  */
 export async function requireControlPanelAccess(): Promise<CapabilitySubject> {
+  const context = await getCurrentUserContext();
+  if (context && isClosedAccount(context.profile.status, context.profile.is_active)) {
+    redirect("/");
+  }
   const subject = await getCurrentSubject();
   if (!subject) {
     redirect("/sign-in?redirect_url=/dashboard");
@@ -84,6 +89,10 @@ export async function requireControlPanelAccess(): Promise<CapabilitySubject> {
  * those with no stored subscription (`currentPlan = null`).
  */
 export async function requireAuthenticatedStudentAccess(): Promise<CapabilitySubject> {
+  const context = await getCurrentUserContext();
+  if (context && isClosedAccount(context.profile.status, context.profile.is_active)) {
+    redirect("/");
+  }
   const subject = await getCurrentSubject();
   if (!subject) {
     redirect("/sign-in?redirect_url=/dashboard/academy/my-courses");

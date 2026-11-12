@@ -208,6 +208,7 @@ export interface AdminUserDetail extends AdminUserSummary {
   products: AdminListing[] | null;
   services: AdminListing[] | null;
   courses: AdminListing[] | null;
+  transports: AdminListing[] | null;
 }
 
 export async function loadAdminUser(profileId: string): Promise<AdminUserDetail | null | "unavailable"> {
@@ -221,7 +222,7 @@ export async function loadAdminUser(profileId: string): Promise<AdminUserDetail 
     const roles = await (admin.from("user_roles") as any).select("role").eq("profile_id", profileId);
     const providers = await (admin.from("provider_profiles") as any).select("id").eq("profile_id", profileId);
     const providerIds = (providers.data || []).map((row: { id: string }) => row.id);
-    const [products, services, courses] = await Promise.all([
+    const [products, services, courses, transports] = await Promise.all([
       providerIds.length === 0
         ? Promise.resolve({ data: [] as AdminListing[], error: null })
         : (admin.from("products") as any)
@@ -237,6 +238,13 @@ export async function loadAdminUser(profileId: string): Promise<AdminUserDetail 
             .in("status", ["published", "active"])
             .limit(20),
       (admin.from("courses") as any).select("id, title, slug").eq("owner_id", profileId).eq("status", "published").limit(20),
+      providerIds.length === 0
+        ? Promise.resolve({ data: [] as AdminListing[], error: null })
+        : (admin.from("transport_services") as any)
+            .select("id, title, slug")
+            .in("provider_id", providerIds)
+            .eq("status", "published")
+            .limit(20),
     ]);
     return {
       id: data.id,
@@ -254,6 +262,7 @@ export async function loadAdminUser(profileId: string): Promise<AdminUserDetail 
       products: products.error ? null : (products.data || []).map((row: AdminListing) => ({ id: row.id, title: row.title, slug: row.slug })),
       services: services.error ? null : (services.data || []).map((row: AdminListing) => ({ id: row.id, title: row.title, slug: row.slug })),
       courses: courses.error ? null : (courses.data || []).map((row: AdminListing) => ({ id: row.id, title: row.title, slug: row.slug })),
+      transports: transports.error ? null : (transports.data || []).map((row: AdminListing) => ({ id: row.id, title: row.title, slug: row.slug })),
     };
   } catch {
     return "unavailable";

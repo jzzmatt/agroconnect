@@ -3,7 +3,8 @@
 import { revalidatePath } from "next/cache";
 import { resolveAdminActor } from "@/lib/admin/access";
 import { writeAdminAudit } from "@/lib/admin/audit";
-import { removeCatalogRecord } from "@/lib/admin/catalog";
+import { removeAccount, setAccountOpen } from "@/lib/admin/accounts";
+import { removeCatalogRecord, setTransportPublished } from "@/lib/admin/catalog";
 import { parseCatalogKind, type CatalogKind } from "@/lib/admin/catalog-target";
 import {
   createShowcaseBatch,
@@ -109,6 +110,72 @@ export async function removeCatalogItemAction(kind: CatalogKind, id: string): Pr
   revalidatePath("/agriacademy", "layout");
   revalidatePath("/agriservice", "layout");
   revalidatePath("/services", "layout");
+  revalidatePath("/transport", "layout");
+  return { ok: true };
+}
+
+function revalidateAccountSurfaces() {
+  revalidatePath("/admin", "layout");
+  revalidatePath("/dashboard", "layout");
+  revalidatePath("/agrishopping", "layout");
+  revalidatePath("/agriacademy", "layout");
+  revalidatePath("/agriservice", "layout");
+  revalidatePath("/services", "layout");
+  revalidatePath("/transport", "layout");
+}
+
+export async function setTransportActiveAction(
+  id: string,
+  active: boolean
+): Promise<CatalogRemoveResult> {
+  const actor = await actorOrForbidden();
+  if (!actor) return { ok: false, error: "forbidden" };
+  const result = await setTransportPublished(id, active);
+  if (!result.ok) return result;
+  await writeAdminAudit({
+    actorProfileId: actor.profileId,
+    action: active ? "admin.transport.activate" : "admin.transport.deactivate",
+    entityType: "transport",
+    entityId: result.id,
+    metadata: { title: result.title, slug: result.slug, status: result.status },
+  });
+  revalidateAccountSurfaces();
+  return { ok: true };
+}
+
+export type AccountManageResult =
+  | { ok: true }
+  | { ok: false; error: "forbidden" | "unavailable" | "not_found" | "protected" | "dependency" | "failed" };
+
+export async function setAccountActiveAction(profileId: string, active: boolean): Promise<AccountManageResult> {
+  const actor = await actorOrForbidden();
+  if (!actor) return { ok: false, error: "forbidden" };
+  const result = await setAccountOpen(actor, profileId, active);
+  if (!result.ok) return result;
+  await writeAdminAudit({
+    actorProfileId: actor.profileId,
+    action: active ? "admin.account.activate" : "admin.account.deactivate",
+    entityType: "profile",
+    entityId: result.id,
+    metadata: { name: result.name },
+  });
+  revalidateAccountSurfaces();
+  return { ok: true };
+}
+
+export async function removeAccountAction(profileId: string): Promise<AccountManageResult> {
+  const actor = await actorOrForbidden();
+  if (!actor) return { ok: false, error: "forbidden" };
+  const result = await removeAccount(actor, profileId);
+  if (!result.ok) return result;
+  await writeAdminAudit({
+    actorProfileId: actor.profileId,
+    action: "admin.account.delete",
+    entityType: "profile",
+    entityId: result.id,
+    metadata: { name: result.name },
+  });
+  revalidateAccountSurfaces();
   return { ok: true };
 }
 

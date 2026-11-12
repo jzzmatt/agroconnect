@@ -85,3 +85,43 @@ export async function removeCatalogRecord(
     return { ok: false, error: "failed" };
   }
 }
+
+export async function setTransportPublished(
+  id: string,
+  published: boolean
+): Promise<
+  | { ok: true; id: string; title: string; slug: string; status: string }
+  | { ok: false; error: "unavailable" | "not_found" | "failed" }
+> {
+  const parsed = parseCatalogId(id);
+  if (!parsed) return { ok: false, error: "not_found" };
+  const admin = tryCreateAdminSupabaseClient();
+  if (!admin) return { ok: false, error: "unavailable" };
+  const nextStatus = published ? "published" : "paused";
+  try {
+    const existing = await (admin.from("transport_services") as any)
+      .select("id, title, slug, status")
+      .eq("id", parsed)
+      .maybeSingle();
+    if (existing.error) return { ok: false, error: "unavailable" };
+    if (!existing.data?.id) return { ok: false, error: "not_found" };
+    if (existing.data.status === "archived") return { ok: false, error: "failed" };
+    if (existing.data.status !== nextStatus) {
+      const updated = await (admin.from("transport_services") as any)
+        .update({ status: nextStatus })
+        .eq("id", parsed)
+        .select("id");
+      if (updated.error) return { ok: false, error: "failed" };
+      if (!Array.isArray(updated.data) || updated.data.length !== 1) return { ok: false, error: "not_found" };
+    }
+    return {
+      ok: true,
+      id: parsed,
+      title: String(existing.data.title || ""),
+      slug: String(existing.data.slug || ""),
+      status: nextStatus,
+    };
+  } catch {
+    return { ok: false, error: "failed" };
+  }
+}

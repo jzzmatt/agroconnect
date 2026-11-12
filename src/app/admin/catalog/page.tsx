@@ -3,11 +3,15 @@ import { parseCatalogKind, sanitizeCatalogSearch, type CatalogKind } from "@/lib
 import { getAdminDictionary } from "@/lib/admin/locale";
 import { CatalogRemoveButton } from "@/components/admin/CatalogRemoveButton";
 
-const KINDS: CatalogKind[] = ["product", "course", "service"];
+const KINDS: CatalogKind[] = ["product", "course", "service", "transport"];
 
-function kindLabel(kind: CatalogKind, labels: { products: string; courses: string; services: string }) {
+function kindLabel(
+  kind: CatalogKind,
+  labels: { products: string; courses: string; services: string; transports: string }
+) {
   if (kind === "course") return labels.courses;
   if (kind === "service") return labels.services;
+  if (kind === "transport") return labels.transports;
   return labels.products;
 }
 
@@ -66,7 +70,7 @@ export default async function AdminCatalogPage({
                   {item.slug} · {item.status}
                 </p>
               </div>
-              <CatalogRemoveButton kind={kind} id={item.id} title={item.title} />
+              <CatalogRemoveButton kind={kind} id={item.id} title={item.title} status={item.status} />
             </li>
           ))}
         </ul>
